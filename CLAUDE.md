@@ -972,33 +972,24 @@ Several utilities use Python 3.x:
 
 ## Hibernation Mode
 
-**Status**: Active (since March 2026) — open-ended, until further notice.
+**Status**: Inactive (exited 2026-03-07). Was active March 2026 - March 7, 2026.
 
-When `HIBERNATION_MODE` is enabled (`load/config.php` + Azure App Setting):
-
-- **Core ADL ingest continues**: VATSIM Data API fetched every 15s, flights upserted, trajectories captured, deferred ETAs processed
-- **ATIS parsing disabled**: Controlled by `atis_enabled` config in ADL daemon, auto-disabled when `HIBERNATION_MODE=true`
-- **Archival & monitoring continue**: Trajectory tiering, blob archival, system metrics
-- **Downstream daemons paused**: GIS processors (parse/boundary/crossing/waypoint ETA), SWIM sync/WebSocket, SimTraffic, scheduler, event sync
-- **Discord queue processor runs** even during hibernation (TMI publishing stays active)
-- **Hibernated pages redirect to `/hibernation`**: demand, nod, review, swim, swim-doc, swim-docs, swim-keys, simulator, gdt, sua, event-aar
-- **Active pages during hibernation**: plans, airport config, route, playbook, splits, navdata, schedule, tmi-publish, jatoc, status
-- **SWIM API returns HTTP 503** JSON for all `/api/swim/` endpoints
-- **Nav items** for paused pages show muted styling (`.nav-hibernated` class — italic, reduced opacity, snowflake icon)
-- **Azure resources downscaled**: VATSIM_ADL min 1/max 4 vCores (from min 3/max 16), MySQL B1ms (from D2ds_v4), PostGIS B1ms (from B2s). App Service P1v2 unchanged (has 4 deployment slots). SWIM_API Basic 5 DTU unchanged.
+The hibernation system allows pausing downstream processing to reduce costs. When `HIBERNATION_MODE` is enabled (`load/config.php` + Azure App Setting), only core ADL ingest runs, pages redirect to `/hibernation`, SWIM API returns 503, and Azure resources are downscaled.
 
 ### Key Files
 
 | File | Role |
 |------|------|
-| `load/config.php` | Defines `HIBERNATION_MODE` constant |
+| `load/config.php` | Defines `HIBERNATION_MODE` constant (default: `false`) |
 | `load/hibernation.php` | Centralized page redirect + SWIM API 503 |
 | `hibernation.php` | Public info page |
 | `load/nav.php` / `load/nav_public.php` | Nav items with `hibernated` flag |
-| `assets/css/perti_theme.css` | `.nav-hibernated` CSS class |
 | `scripts/startup.sh` | Conditional daemon startup + FPM tuning |
-| `scripts/vatsim_adl_daemon.php` | ATIS disabled via `HIBERNATION_MODE` |
 
-### To Exit Hibernation
+### Gotcha: Azure App Setting Values
 
-See `docs/HIBERNATION_RUNBOOK.md` for full step-by-step procedure (upscale resources, flip config, restart).
+The PHP `env()` function returns string values. The string `"false"` is **truthy** in PHP. Use `HIBERNATION_MODE=0` (not `false`) as the Azure App Setting, or delete it entirely and rely on the config.php default.
+
+### To Enter/Exit Hibernation
+
+See `docs/HIBERNATION_RUNBOOK.md` for full step-by-step procedures.
