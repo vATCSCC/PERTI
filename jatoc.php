@@ -85,8 +85,41 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     /* Filter bar */
     .filter-bar { background-color: #1e293b; padding: 10px; border-radius: 4px; margin-bottom: 10px; margin-top: 15px; }
     .filter-bar label { color: #94a3b8; }
-    .filter-status-multi { min-height: 92px; padding: 4px; }
-    .filter-status-multi option { padding: 2px 6px; }
+    .filter-lifecycle-btn {
+        width: 100%;
+        height: 31px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #1e293b;
+        border: 1px solid #475569;
+        color: #e2e8f0;
+        font-size: 0.9rem;
+    }
+    .filter-lifecycle-btn:hover,
+    .filter-lifecycle-btn:focus {
+        background-color: #334155;
+        color: #f1f5f9;
+        border-color: #3b82f6;
+    }
+    .filter-lifecycle-menu {
+        min-width: 220px;
+        background: #0f172a;
+        border: 1px solid #475569;
+        padding: 6px 8px;
+    }
+    .filter-lifecycle-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #e2e8f0;
+        font-size: 0.85rem;
+        padding: 3px 0;
+        margin: 0;
+        cursor: pointer;
+    }
+    .filter-lifecycle-item input { accent-color: #3b82f6; }
+    .filter-lifecycle-summary { display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .btn-jatoc { background-color: #1e40af; border-color: #1e40af; color: white; font-size: 0.8rem; }
     .btn-jatoc:hover { background-color: #1e3a8a; color: white; }
     .btn-jatoc-success { background-color: #166534; border-color: #166534; color: white; font-size: 0.8rem; }
@@ -402,7 +435,21 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     <!-- Full Width Filter & Events Table -->
     <div class="filter-bar">
         <div class="row align-items-end">
-            <div class="col"><label class="small mb-0"><?= __('jatoc.page.lifecycle') ?></label><select id="filterStatus" class="form-control form-control-sm form-control-dark filter-status-multi" multiple><option value="ACTIVE" selected><?= __('jatoc.page.active') ?></option><option value="PENDING"><?= __('jatoc.page.pending') ?></option><option value="MONITORING"><?= __('jatoc.page.monitoring') ?></option><option value="ESCALATED"><?= __('jatoc.page.escalated') ?></option><option value="CLOSED"><?= __('jatoc.page.closed') ?></option></select></div>
+            <div class="col">
+                <label class="small mb-0"><?= __('jatoc.page.lifecycle') ?></label>
+                <div class="dropdown">
+                    <button class="btn btn-sm filter-lifecycle-btn dropdown-toggle" type="button" id="filterStatusBtn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <span id="filterStatusSummary" class="filter-lifecycle-summary"><?= __('jatoc.page.active') ?></span>
+                    </button>
+                    <div class="dropdown-menu filter-lifecycle-menu" aria-labelledby="filterStatusBtn">
+                        <label class="filter-lifecycle-item"><input type="checkbox" class="filter-status-opt" value="ACTIVE" data-label="<?= __('jatoc.page.active') ?>" checked> <?= __('jatoc.page.active') ?></label>
+                        <label class="filter-lifecycle-item"><input type="checkbox" class="filter-status-opt" value="PENDING" data-label="<?= __('jatoc.page.pending') ?>"> <?= __('jatoc.page.pending') ?></label>
+                        <label class="filter-lifecycle-item"><input type="checkbox" class="filter-status-opt" value="MONITORING" data-label="<?= __('jatoc.page.monitoring') ?>"> <?= __('jatoc.page.monitoring') ?></label>
+                        <label class="filter-lifecycle-item"><input type="checkbox" class="filter-status-opt" value="ESCALATED" data-label="<?= __('jatoc.page.escalated') ?>"> <?= __('jatoc.page.escalated') ?></label>
+                        <label class="filter-lifecycle-item"><input type="checkbox" class="filter-status-opt" value="CLOSED" data-label="<?= __('jatoc.page.closed') ?>"> <?= __('jatoc.page.closed') ?></label>
+                    </div>
+                </div>
+            </div>
             <div class="col"><label class="small mb-0"><?= __('jatoc.page.incType') ?></label><select id="filterIncidentType" class="form-control form-control-sm form-control-dark"><option value=""><?= __('jatoc.page.all') ?></option><option value="ATC_ZERO"><?= __('jatoc.page.atcZero') ?></option><option value="ATC_ALERT"><?= __('jatoc.page.atcAlert') ?></option><option value="ATC_LIMITED"><?= __('jatoc.page.atcLimited') ?></option><option value="NON_RESPONSIVE"><?= __('jatoc.page.nonResponsive') ?></option></select></div>
             <div class="col"><label class="small mb-0"><?= __('jatoc.page.colName') ?></label><input type="text" id="filterFacility" class="form-control form-control-sm form-control-dark" placeholder="<?= __('jatoc.page.nameFilterPlaceholder') ?>"></div>
             <div class="col-auto"><button class="btn btn-sm btn-jatoc" onclick="JATOC.applyFilters()" style="height:31px"><i class="fas fa-filter"></i> <?= __('jatoc.page.filter') ?></button></div>

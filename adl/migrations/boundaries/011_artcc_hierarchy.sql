@@ -5,13 +5,25 @@
 -- Date: 2026-03-06
 --
 -- PURPOSE:
---   Reclassify sub-FIR/sub-ARTCC boundaries (e.g., EDGG-BAD, EGTT-D)
---   from boundary_type='ARTCC' to 'ARTCC_SUB' so detection queries
---   (which filter WHERE boundary_type='ARTCC') naturally exclude them.
+--   Reclassify sub-FIR/sub-ARTCC boundaries from boundary_type='ARTCC'
+--   to 'ARTCC_SUB' so detection queries (which filter WHERE
+--   boundary_type='ARTCC') naturally exclude them.
 --
--- IMPACT:
---   - 522 boundaries reclassified ARTCC -> ARTCC_SUB
---   - 424 remain as true ARTCC
+-- TWO-PHASE CLASSIFICATION:
+--   Phase A: Dash-based (boundary_code LIKE '%-%')
+--     e.g., EDGG-BAD, EGTT-D, KZMA-OCN → always sub-areas
+--   Phase B: Spatial containment with coverage ratio heuristic
+--     Finds non-dashed FIRs nested within larger FIRs.
+--     Coverage ratio = sum(children_area) / parent_area
+--       > 50%: children tile the parent → operational divisions (keep ARTCC)
+--       < 50%: children are sparse sub-areas → mark ARTCC_SUB
+--     Large parent exception: parents > 5M km² excluded (oceanic/
+--     continental FIRs where children are real operational FIRs)
+--
+-- RESULTS:
+--   - 522 dash-based boundaries → ARTCC_SUB
+--   - 39 spatial-nested boundaries → ARTCC_SUB
+--   - 385 remain as operational ARTCC
 --   - Detection SP/grid queries unchanged (auto-excluded)
 --   - New parent_fir column links sub-areas to parent FIR
 --
@@ -72,7 +84,71 @@ WHERE boundary_type = 'ARTCC'
   AND boundary_code LIKE '%-%';
 
 SET @reclassified = @@ROWCOUNT;
-PRINT 'Reclassified ' + CAST(@reclassified AS VARCHAR) + ' boundaries from ARTCC to ARTCC_SUB';
+PRINT 'Phase A: Reclassified ' + CAST(@reclassified AS VARCHAR) + ' dash-based boundaries to ARTCC_SUB';
+GO
+
+-- Step 4b: Phase B - Spatial containment reclassification
+-- Finds non-dashed FIRs nested within larger FIRs using label point containment.
+-- Uses coverage ratio heuristic: if children collectively cover < 50% of parent,
+-- they are sub-areas. Exception: parents > 5M km² are oceanic/continental FIRs
+-- whose children are real operational FIRs (e.g., NZAA within NZZO).
+DECLARE @spatial_reclassified INT;
+
+WITH artcc_only AS (
+    SELECT boundary_id, boundary_code,
+           boundary_geography.STArea() as geo_area,
+           label_lat, label_lon, boundary_geography
+    FROM adl_boundary
+    WHERE boundary_type = 'ARTCC'
+      AND is_active = 1
+      AND boundary_geography IS NOT NULL
+      AND label_lat IS NOT NULL
+      AND label_lon IS NOT NULL
+),
+immediate_parent AS (
+    SELECT
+        child.boundary_code AS nested_code,
+        child.geo_area AS child_area,
+        parent.boundary_code AS parent_code,
+        parent.geo_area AS parent_area,
+        ROW_NUMBER() OVER (PARTITION BY child.boundary_code ORDER BY parent.geo_area ASC) as rn
+    FROM artcc_only child
+    JOIN artcc_only parent
+        ON child.boundary_id != parent.boundary_id
+        AND child.geo_area < parent.geo_area
+        AND parent.boundary_geography.STIntersects(
+            GEOGRAPHY::Point(child.label_lat, child.label_lon, 4326)
+        ) = 1
+    WHERE child.boundary_code NOT LIKE '%-%'
+),
+nesting AS (
+    SELECT nested_code, child_area, parent_code, parent_area
+    FROM immediate_parent
+    WHERE rn = 1
+),
+parent_coverage AS (
+    SELECT parent_code, parent_area,
+           SUM(child_area) / parent_area AS coverage_ratio
+    FROM nesting
+    GROUP BY parent_code, parent_area
+),
+sub_areas AS (
+    SELECT n.nested_code, n.parent_code
+    FROM nesting n
+    JOIN parent_coverage pc ON n.parent_code = pc.parent_code
+    WHERE pc.coverage_ratio < 0.50
+      AND pc.parent_area < 5e12  -- Large parent exception (~5M km²)
+)
+UPDATE b
+SET boundary_type = 'ARTCC_SUB',
+    parent_fir = sa.parent_code
+FROM adl_boundary b
+JOIN sub_areas sa ON b.boundary_code = sa.nested_code
+WHERE b.boundary_type = 'ARTCC'
+  AND b.is_active = 1;
+
+SET @spatial_reclassified = @@ROWCOUNT;
+PRINT 'Phase B: Reclassified ' + CAST(@spatial_reclassified AS VARCHAR) + ' spatial-nested FIRs to ARTCC_SUB';
 GO
 
 -- Step 5: Update sp_ImportBoundary to accept parent_fir parameter
