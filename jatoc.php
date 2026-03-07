@@ -104,7 +104,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
     }
     .filter-lifecycle-menu {
         min-width: 220px;
-        background: #0f172a;
+        background-color: #0f172a !important;
         border: 1px solid #475569;
         padding: 6px 8px;
     }
@@ -112,11 +112,15 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
         display: flex;
         align-items: center;
         gap: 8px;
-        color: #e2e8f0;
+        color: #e2e8f0 !important;
         font-size: 0.85rem;
         padding: 3px 0;
         margin: 0;
         cursor: pointer;
+        background: transparent !important;
+    }
+    .filter-lifecycle-item:hover {
+        background-color: #1e293b !important;
     }
     .filter-lifecycle-item input { accent-color: #3b82f6; }
     .filter-lifecycle-summary { display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
