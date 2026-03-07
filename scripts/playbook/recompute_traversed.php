@@ -67,6 +67,39 @@ $updated = 0;
 $errors = 0;
 
 /**
+ * Normalize Canadian ARTCC codes from FAA 3-letter to ICAO 4-letter format.
+ * Maps: CZE->CZEG, CZU->CZUL, CZV->CZVR, CZW->CZWG, CZY->CZYZ,
+ *       CZM->CZQM, CZQ->CZQX, CZO->CZQO
+ */
+function normalizeCanadianArtcc($code) {
+    static $map = [
+        'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
+        'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
+        'CZQ' => 'CZQX', 'CZO' => 'CZQO',
+    ];
+    return $map[strtoupper(trim($code))] ?? $code;
+}
+
+function normalizeCanadianArtccCsv($csv) {
+    if (trim($csv) === '') return $csv;
+    return implode(',', array_map('normalizeCanadianArtcc', explode(',', $csv)));
+}
+
+function normalizeRouteCanadian($rs) {
+    static $codes = ['CZE','CZU','CZV','CZW','CZY','CZM','CZQ','CZO'];
+    $parts = preg_split('/\s+/', trim($rs));
+    $changed = false;
+    foreach ($parts as &$p) {
+        if (in_array(strtoupper($p), $codes)) {
+            $old = $p;
+            $p = normalizeCanadianArtcc($p);
+            if ($p !== $old) $changed = true;
+        }
+    }
+    return $changed ? implode(' ', $parts) : $rs;
+}
+
+/**
  * Extract a route endpoint from origin/dest fields.
  * Airports > label > ARTCCs. PostGIS resolve_waypoint() handles all types.
  */
@@ -87,9 +120,9 @@ function extractEndpoint($label, $airportsCsv, $artccsCsv) {
 while ($row = $result->fetch_assoc()) {
     $processed++;
     $route_id = (int)$row['route_id'];
-    $rs = strtoupper(trim($row['route_string']));
-    $oar = $row['origin_artccs'] ?? '';
-    $dar = $row['dest_artccs'] ?? '';
+    $rs = normalizeRouteCanadian(strtoupper(trim($row['route_string'])));
+    $oar = normalizeCanadianArtccCsv($row['origin_artccs'] ?? '');
+    $dar = normalizeCanadianArtccCsv($row['dest_artccs'] ?? '');
 
     // Build full route string with origin/dest endpoints
     $fullRoute = $rs;

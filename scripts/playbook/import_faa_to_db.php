@@ -54,13 +54,16 @@ while (($row = fgetcsv($handle)) !== false) {
     if (!isset($plays[$pn])) $plays[$pn] = ['routes' => [], 'artccs' => [], 'dest_artccs' => []];
 
     $plays[$pn]['routes'][] = [
-        trim($rs), trim($row[2]), trim($row[5]),
-        trim($row[2]), trim($row[3]), trim($row[4]),
-        trim($row[5]), trim($row[6]), trim($row[7]),
+        normalizeRouteCanadian(trim($rs)),
+        trim($row[2]), trim($row[5]),
+        trim($row[2]), trim($row[3]),
+        normalizeCanadianArtccCsv(trim($row[4])),
+        trim($row[5]), trim($row[6]),
+        normalizeCanadianArtccCsv(trim($row[7])),
     ];
 
-    foreach (explode(',', trim($row[4])) as $a) { $a = trim($a); if ($a) $plays[$pn]['artccs'][$a] = 1; }
-    foreach (explode(',', trim($row[7])) as $a) { $a = trim($a); if ($a) { $plays[$pn]['artccs'][$a] = 1; $plays[$pn]['dest_artccs'][$a] = 1; } }
+    foreach (explode(',', trim($row[4])) as $a) { $a = normalizeCanadianArtcc(trim($a)); if ($a) $plays[$pn]['artccs'][$a] = 1; }
+    foreach (explode(',', trim($row[7])) as $a) { $a = normalizeCanadianArtcc(trim($a)); if ($a) { $plays[$pn]['artccs'][$a] = 1; $plays[$pn]['dest_artccs'][$a] = 1; } }
     $total_routes++;
 }
 fclose($handle);
@@ -70,6 +73,39 @@ echo "Parsed: $total_routes routes, $play_count plays\n";
 flush();
 
 function normPlay($n) { return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $n)); }
+
+/**
+ * Normalize Canadian ARTCC codes from FAA 3-letter to ICAO 4-letter format.
+ * Maps: CZE->CZEG, CZU->CZUL, CZV->CZVR, CZW->CZWG, CZY->CZYZ,
+ *       CZM->CZQM, CZQ->CZQX, CZO->CZQO
+ */
+function normalizeCanadianArtcc($code) {
+    static $map = [
+        'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
+        'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
+        'CZQ' => 'CZQX', 'CZO' => 'CZQO',
+    ];
+    return $map[strtoupper(trim($code))] ?? $code;
+}
+
+function normalizeCanadianArtccCsv($csv) {
+    if (trim($csv) === '') return $csv;
+    return implode(',', array_map('normalizeCanadianArtcc', explode(',', $csv)));
+}
+
+function normalizeRouteCanadian($rs) {
+    static $codes = ['CZE','CZU','CZV','CZW','CZY','CZM','CZQ','CZO'];
+    $parts = preg_split('/\s+/', trim($rs));
+    $changed = false;
+    foreach ($parts as &$p) {
+        if (in_array(strtoupper($p), $codes)) {
+            $old = $p;
+            $p = normalizeCanadianArtcc($p);
+            if ($p !== $old) $changed = true;
+        }
+    }
+    return $changed ? implode(' ', $parts) : $rs;
+}
 
 /**
  * FAA National Playbook category lookup table.
