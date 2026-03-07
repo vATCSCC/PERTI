@@ -276,6 +276,7 @@ function transformSimawareToTracon($sourceData) {
             'artcc' => $artcc,
             'sector' => $sector,
             'label' => $label,
+            'prefix' => $props['prefix'] ?? null,
             'Shape_Length' => round($shapeLength, 10),
             'Shape_Area' => round($shapeArea, 10),
             // Preserve label coordinates if available

@@ -1320,6 +1320,7 @@ $(document).ready(function() {
         graphic_map.addSource('artcc', { type: 'geojson', data: emptyGeoJSON });
         graphic_map.addLayer({
             id: 'artcc-lines', type: 'line', source: 'artcc',
+            filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
             paint: { 'line-color': artccLine, 'line-width': 1.5 },
         });
 

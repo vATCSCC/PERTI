@@ -65,7 +65,8 @@ $debugBoundaries = ['GMAC-O', 'GMAC-OS', 'GMAC-W', 'GMAC-WS', 'GMMM-NE'];
 $stats = [
     'artcc' => ['imported' => 0, 'failed' => 0, 'failures' => [], 'normalized' => 0],
     'sectors' => ['imported' => 0, 'failed' => 0, 'failures' => [], 'normalized' => 0],
-    'tracon' => ['imported' => 0, 'failed' => 0, 'failures' => [], 'normalized' => 0]
+    'tracon' => ['imported' => 0, 'failed' => 0, 'failures' => [], 'normalized' => 0],
+    'hierarchy' => ['imported' => 0, 'failed' => 0, 'failures' => [], 'normalized' => 0]
 ];
 
 $logTableExists = false;
@@ -414,7 +415,9 @@ function importBoundary($conn, $data, $runId, $category) {
                 @source_object_id = ?,
                 @source_fid = ?,
                 @source_file = ?,
-                @parent_fir = ?;";
+                @parent_fir = ?,
+                @hierarchy_level = ?,
+                @hierarchy_type = ?;";
 
         $params = [
             $data['boundary_type'], $data['boundary_code'], $data['boundary_name'] ?? null,
@@ -424,7 +427,8 @@ function importBoundary($conn, $data, $runId, $category) {
             $data['label_lat'] ?? null, $data['label_lon'] ?? null, $wkt,
             $data['shape_length'] ?? null, $data['shape_area'] ?? null,
             $data['source_object_id'] ?? null, $data['source_fid'] ?? null, $data['source_file'] ?? null,
-            $data['parent_fir'] ?? null
+            $data['parent_fir'] ?? null,
+            $data['hierarchy_level'] ?? null, $data['hierarchy_type'] ?? null
         ];
         
         $stmt = sqlsrv_query($conn, $sql, $params);
@@ -490,14 +494,37 @@ function importArtcc($conn, $geojsonDir, &$stats, $runId) {
         $props = $feature['properties'];
         $boundaryCode = $props['ICAOCODE'] ?? $props['FIRname'];
 
-        // Classify sub-areas: codes with dash (e.g., EDGG-BAD, EGTT-D)
-        $isSubArea = !empty($props['is_sub_area']) || (strpos($boundaryCode, '-') !== false);
-        $parentFir = $isSubArea
-            ? ($props['parent_fir'] ?? substr($boundaryCode, 0, strpos($boundaryCode, '-')))
-            : null;
+        // Determine boundary_type from enriched hierarchy properties
+        if (isset($props['hierarchy_type'])) {
+            // Enriched GeoJSON from classification script
+            $hierarchyType = $props['hierarchy_type'];
+            $hierarchyLevel = $props['hierarchy_level'] ?? null;
+
+            if ($hierarchyType === 'SUPER_CENTER') {
+                $boundaryType = 'ARTCC_SUPER';
+            } elseif ($hierarchyLevel == 1) {
+                $boundaryType = 'ARTCC';
+            } elseif ($hierarchyLevel == 2) {
+                $boundaryType = 'ARTCC_SUB';
+            } elseif ($hierarchyLevel >= 3) {
+                $boundaryType = 'ARTCC_SUB_' . $hierarchyLevel;
+            } else {
+                $boundaryType = 'ARTCC_SUB';
+            }
+            $parentFir = $props['parent_fir'] ?? null;
+        } else {
+            // Raw GeoJSON (pre-classification, backward compat)
+            $isSubArea = !empty($props['is_sub_area']) || (strpos($boundaryCode, '-') !== false);
+            $boundaryType = $isSubArea ? 'ARTCC_SUB' : 'ARTCC';
+            $hierarchyLevel = null;
+            $hierarchyType = null;
+            $parentFir = $isSubArea
+                ? ($props['parent_fir'] ?? substr($boundaryCode, 0, strpos($boundaryCode, '-')))
+                : null;
+        }
 
         $result = importBoundary($conn, [
-            'boundary_type' => $isSubArea ? 'ARTCC_SUB' : 'ARTCC',
+            'boundary_type' => $boundaryType,
             'boundary_code' => $boundaryCode,
             'boundary_name' => $props['FIRname'],
             'icao_code' => $props['ICAOCODE'] ?? null,
@@ -513,6 +540,8 @@ function importArtcc($conn, $geojsonDir, &$stats, $runId) {
             'source_fid' => $props['fid'] ?? null,
             'source_file' => 'artcc.json',
             'parent_fir' => $parentFir,
+            'hierarchy_level' => $hierarchyLevel,
+            'hierarchy_type' => $hierarchyType,
         ], $runId, 'artcc');
         
         if ($result) $stats['artcc']['imported']++;
@@ -582,11 +611,29 @@ function importTracon($conn, $geojsonDir, &$stats, $runId) {
     
     foreach ($geojson['features'] as $i => $feature) {
         $props = $feature['properties'];
+
+        // Use enriched fields from classification script if available
+        if (isset($props['tracon'])) {
+            // Enriched GeoJSON (post-classification)
+            $boundaryCode = $props['sector'];  // Unique per feature (subdivision identifier)
+            $parentArtcc = $props['tracon'];    // TRACON facility code (e.g., "A80")
+            $parentFir = $props['parent_fir'] ?? null;  // Parent ARTCC (e.g., "ZTL")
+            $hierarchyLevel = $props['hierarchy_level'] ?? null;
+            $hierarchyType = $props['hierarchy_type'] ?? null;
+        } else {
+            // Raw GeoJSON (pre-classification, backward compat)
+            $boundaryCode = $props['sector'] ?? $props['label'];
+            $parentArtcc = strtoupper($props['artcc'] ?? '');
+            $parentFir = null;
+            $hierarchyLevel = null;
+            $hierarchyType = null;
+        }
+
         $result = importBoundary($conn, [
             'boundary_type' => 'TRACON',
-            'boundary_code' => $props['sector'] ?? $props['label'],
+            'boundary_code' => $boundaryCode,
             'boundary_name' => $props['label'] ?? null,
-            'parent_artcc' => strtoupper($props['artcc'] ?? ''),
+            'parent_artcc' => $parentArtcc,
             'sector_number' => $props['sector'] ?? null,
             'label_lat' => $props['label_lat'] ?? null,
             'label_lon' => $props['label_lon'] ?? null,
@@ -594,7 +641,10 @@ function importTracon($conn, $geojsonDir, &$stats, $runId) {
             'shape_length' => $props['Shape_Length'] ?? null,
             'shape_area' => $props['Shape_Area'] ?? null,
             'source_object_id' => $props['OBJECTID'] ?? null,
-            'source_file' => 'tracon.json'
+            'source_file' => 'tracon.json',
+            'parent_fir' => $parentFir,
+            'hierarchy_level' => $hierarchyLevel,
+            'hierarchy_type' => $hierarchyType,
         ], $runId, 'tracon');
         
         if ($result) $stats['tracon']['imported']++;
@@ -606,6 +656,89 @@ function importTracon($conn, $geojsonDir, &$stats, $runId) {
     echo "  TRACON complete: {$stats['tracon']['imported']} imported, {$stats['tracon']['failed']} failed";
     if ($stats['tracon']['normalized'] > 0) echo " ({$stats['tracon']['normalized']} normalized)";
     echo "\n\n";
+    flush();
+}
+
+function importHierarchy($conn, $geojsonDir, &$stats, $runId) {
+    $file = $geojsonDir . 'boundary_hierarchy.json';
+    echo "Importing boundary hierarchy from: $file\n";
+
+    if (!file_exists($file)) { echo "  Skipping (file not found)\n\n"; return; }
+
+    $data = json_decode(file_get_contents($file), true);
+    if (!$data || !isset($data['edges'])) { echo "  ERROR: Invalid hierarchy JSON\n"; return; }
+
+    $edges = $data['edges'];
+    $count = count($edges);
+    echo "  Found $count edges\n";
+    flush();
+
+    // Clear existing edges
+    sqlsrv_query($conn, "DELETE FROM boundary_hierarchy");
+
+    // Build lookup: boundary_code -> boundary_id
+    $codeMap = [];
+    $stmt = sqlsrv_query($conn, "SELECT boundary_id, boundary_code, boundary_type FROM adl_boundary WHERE is_active = 1");
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $key = $row['boundary_type'] . ':' . $row['boundary_code'];
+        $codeMap[$key] = $row['boundary_id'];
+        if (strpos($row['boundary_type'], 'ARTCC') === 0) {
+            if (!isset($codeMap['ARTCC_ANY:' . $row['boundary_code']])) {
+                $codeMap['ARTCC_ANY:' . $row['boundary_code']] = $row['boundary_id'];
+            }
+        }
+    }
+    sqlsrv_free_stmt($stmt);
+
+    $insertSql = "INSERT INTO boundary_hierarchy (parent_boundary_id, child_boundary_id, parent_code, child_code, relationship_type, coverage_ratio)
+                  VALUES (?, ?, ?, ?, ?, ?)";
+
+    foreach ($edges as $i => $edge) {
+        $parentCode = $edge['parent'] ?? '';
+        $childCode = $edge['child'] ?? '';
+        $relType = $edge['type'] ?? 'CONTAINS';
+        $coverage = $edge['coverage'] ?? null;
+
+        $parentId = null;
+        $childId = null;
+
+        if ($relType === 'CONTAINS' || $relType === 'TILES') {
+            $parentId = $codeMap['ARTCC_ANY:' . $parentCode] ?? null;
+            $childId = $codeMap['ARTCC_ANY:' . $childCode] ?? null;
+        } elseif ($relType === 'SECTOR_OF') {
+            $parentId = $codeMap['SECTOR_HIGH:' . $parentCode]
+                ?? $codeMap['SECTOR_LOW:' . $parentCode]
+                ?? $codeMap['SECTOR_SUPERHIGH:' . $parentCode]
+                ?? $codeMap['TRACON:' . $parentCode]
+                ?? null;
+            $childId = $codeMap['ARTCC_ANY:' . $childCode] ?? null;
+        } elseif ($relType === 'TRACON_OF') {
+            $parentId = $codeMap['TRACON:' . $parentCode] ?? null;
+            $childId = $codeMap['TRACON:' . $childCode] ?? null;
+        }
+
+        if ($parentId === null || $childId === null) {
+            $stats['hierarchy']['failed']++;
+            continue;
+        }
+
+        $stmt = sqlsrv_query($conn, $insertSql, [
+            $parentId, $childId,
+            substr($parentCode, 0, 50), substr($childCode, 0, 50),
+            substr($relType, 0, 20), $coverage
+        ]);
+
+        if ($stmt !== false) {
+            $stats['hierarchy']['imported']++;
+            sqlsrv_free_stmt($stmt);
+        } else {
+            $stats['hierarchy']['failed']++;
+        }
+
+        if (($i + 1) % 200 == 0) { echo "  Processed " . ($i + 1) . "/$count\n"; flush(); }
+    }
+
+    echo "  Hierarchy complete: {$stats['hierarchy']['imported']} imported, {$stats['hierarchy']['failed']} failed\n\n";
     flush();
 }
 
@@ -623,12 +756,14 @@ switch ($type) {
     case 'artcc': importArtcc($conn, $geojsonDir, $stats, $runId); break;
     case 'high': case 'low': case 'superhigh': importSectors($conn, $geojsonDir, $type, $stats, $runId); break;
     case 'tracon': importTracon($conn, $geojsonDir, $stats, $runId); break;
+    case 'hierarchy': importHierarchy($conn, $geojsonDir, $stats, $runId); break;
     case 'all': default:
         importArtcc($conn, $geojsonDir, $stats, $runId);
         importSectors($conn, $geojsonDir, 'high', $stats, $runId);
         importSectors($conn, $geojsonDir, 'low', $stats, $runId);
         importSectors($conn, $geojsonDir, 'superhigh', $stats, $runId);
         importTracon($conn, $geojsonDir, $stats, $runId);
+        importHierarchy($conn, $geojsonDir, $stats, $runId);
         break;
 }
 
@@ -638,10 +773,11 @@ $totalImported = $stats['artcc']['imported'] + $stats['sectors']['imported'] + $
 $totalFailed = $stats['artcc']['failed'] + $stats['sectors']['failed'] + $stats['tracon']['failed'];
 $totalNormalized = $stats['artcc']['normalized'] + $stats['sectors']['normalized'] + $stats['tracon']['normalized'];
 
-echo "ARTCC:   {$stats['artcc']['imported']} imported, {$stats['artcc']['failed']} failed\n";
-echo "Sectors: {$stats['sectors']['imported']} imported, {$stats['sectors']['failed']} failed\n";
-echo "TRACON:  {$stats['tracon']['imported']} imported, {$stats['tracon']['failed']} failed\n";
-echo "Total:   $totalImported imported, $totalFailed failed";
+echo "ARTCC:     {$stats['artcc']['imported']} imported, {$stats['artcc']['failed']} failed\n";
+echo "Sectors:   {$stats['sectors']['imported']} imported, {$stats['sectors']['failed']} failed\n";
+echo "TRACON:    {$stats['tracon']['imported']} imported, {$stats['tracon']['failed']} failed\n";
+echo "Hierarchy: {$stats['hierarchy']['imported']} imported, {$stats['hierarchy']['failed']} failed\n";
+echo "Total:     $totalImported imported, $totalFailed failed";
 if ($totalNormalized > 0) echo " ($totalNormalized normalized)";
 echo "\n\n";
 

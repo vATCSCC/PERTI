@@ -56,6 +56,8 @@ switch ($action) {
         $artcc = has_get('artcc') ? get_upper('artcc') : null;
         $includeSub = has_get('include_sub') ? (int)get_input('include_sub') : 0;
 
+        $level = has_get('level') ? get_int('level') : null;
+
         $sql = "SELECT
             boundary_id,
             boundary_type,
@@ -73,13 +75,15 @@ switch ($action) {
             label_lat,
             label_lon,
             shape_area,
-            CASE WHEN boundary_type = 'ARTCC_SUB' THEN 1 ELSE 0 END as is_sub_area
+            hierarchy_level,
+            hierarchy_type,
+            CASE WHEN boundary_type LIKE 'ARTCC_SUB%' THEN 1 ELSE 0 END as is_sub_area
         FROM adl_boundary WHERE is_active = 1";
 
         $params = [];
         if ($type) {
             if ($type === 'ARTCC' && $includeSub) {
-                $sql .= " AND boundary_type IN ('ARTCC', 'ARTCC_SUB')";
+                $sql .= " AND boundary_type LIKE 'ARTCC%'";
             } else {
                 $sql .= " AND boundary_type = ?";
                 $params[] = $type;
@@ -90,6 +94,10 @@ switch ($action) {
             $params[] = strtoupper($artcc);
             $params[] = strtoupper($artcc);
             $params[] = strtoupper($artcc);
+        }
+        if ($level !== null) {
+            $sql .= " AND hierarchy_level = ?";
+            $params[] = $level;
         }
 
         $sql .= " ORDER BY boundary_type, boundary_code";
@@ -116,6 +124,7 @@ switch ($action) {
         $type = has_get('type') ? get_upper('type') : null;
         $artcc = has_get('artcc') ? get_upper('artcc') : null;
         $includeSub = has_get('include_sub') ? (int)get_input('include_sub') : 0;
+        $level = has_get('level') ? get_int('level') : null;
 
         $sql = "SELECT
             boundary_id,
@@ -133,6 +142,8 @@ switch ($action) {
             ceiling_altitude,
             label_lat,
             label_lon,
+            hierarchy_level,
+            hierarchy_type,
             boundary_geography.STAsText() as geometry_wkt
         FROM adl_boundary
         WHERE is_active = 1";
@@ -140,7 +151,7 @@ switch ($action) {
         $params = [];
         if ($type) {
             if ($type === 'ARTCC' && $includeSub) {
-                $sql .= " AND boundary_type IN ('ARTCC', 'ARTCC_SUB')";
+                $sql .= " AND boundary_type LIKE 'ARTCC%'";
             } else {
                 $sql .= " AND boundary_type = ?";
                 $params[] = $type;
@@ -151,6 +162,10 @@ switch ($action) {
             $params[] = strtoupper($artcc);
             $params[] = strtoupper($artcc);
             $params[] = strtoupper($artcc);
+        }
+        if ($level !== null) {
+            $sql .= " AND hierarchy_level = ?";
+            $params[] = $level;
         }
         
         $stmt = sqlsrv_query($conn, $sql, $params);
@@ -169,7 +184,7 @@ switch ($action) {
                     'boundary_name' => $row['boundary_name'],
                     'parent_artcc' => $row['parent_artcc'],
                     'parent_fir' => $row['parent_fir'],
-                    'is_sub_area' => ($row['boundary_type'] === 'ARTCC_SUB'),
+                    'is_sub_area' => (strpos($row['boundary_type'], 'ARTCC_SUB') === 0),
                     'sector_number' => $row['sector_number'],
                     'icao_code' => $row['icao_code'],
                     'vatsim_region' => $row['vatsim_region'],
@@ -178,7 +193,9 @@ switch ($action) {
                     'floor_altitude' => $row['floor_altitude'] ? (int)$row['floor_altitude'] : null,
                     'ceiling_altitude' => $row['ceiling_altitude'] ? (int)$row['ceiling_altitude'] : null,
                     'label_lat' => $row['label_lat'] ? (float)$row['label_lat'] : null,
-                    'label_lon' => $row['label_lon'] ? (float)$row['label_lon'] : null
+                    'label_lon' => $row['label_lon'] ? (float)$row['label_lon'] : null,
+                    'hierarchy_level' => $row['hierarchy_level'] !== null ? (int)$row['hierarchy_level'] : null,
+                    'hierarchy_type' => $row['hierarchy_type']
                 ],
                 'geometry' => $geometry
             ];
@@ -409,6 +426,86 @@ switch ($action) {
         }
         break;
     
+    /**
+     * Get boundary hierarchy subtree
+     * GET /api/adl/boundaries.php?action=hierarchy&code=EDGG&depth=5
+     * Returns all descendants of the given boundary code
+     */
+    case 'hierarchy':
+        $code = has_get('code') ? get_upper('code') : null;
+        $depth = has_get('depth') ? get_int('depth') : 5;
+
+        if (!$code) {
+            echo json_encode(['error' => 'Boundary code required']);
+            break;
+        }
+
+        // Find the root boundary
+        $sql = "SELECT boundary_id, boundary_type, boundary_code, boundary_name,
+                       hierarchy_level, hierarchy_type, parent_artcc, parent_fir
+                FROM adl_boundary
+                WHERE boundary_code = ? AND is_active = 1";
+        $stmt = sqlsrv_query($conn, $sql, [$code]);
+        $root = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+
+        if (!$root) {
+            echo json_encode(['success' => true, 'root' => null, 'children' => []]);
+            break;
+        }
+
+        // Recursive CTE to find all descendants
+        $sql = "WITH hierarchy_cte AS (
+                    SELECT bh.child_boundary_id, bh.parent_boundary_id,
+                           bh.child_code, bh.parent_code, bh.relationship_type, bh.coverage_ratio,
+                           1 as depth
+                    FROM boundary_hierarchy bh
+                    WHERE bh.parent_code = ?
+                    UNION ALL
+                    SELECT bh2.child_boundary_id, bh2.parent_boundary_id,
+                           bh2.child_code, bh2.parent_code, bh2.relationship_type, bh2.coverage_ratio,
+                           h.depth + 1
+                    FROM boundary_hierarchy bh2
+                    INNER JOIN hierarchy_cte h ON bh2.parent_boundary_id = h.child_boundary_id
+                    WHERE h.depth < ?
+                )
+                SELECT h.child_code, h.parent_code, h.relationship_type, h.coverage_ratio, h.depth,
+                       b.boundary_type, b.boundary_name, b.hierarchy_level, b.hierarchy_type
+                FROM hierarchy_cte h
+                INNER JOIN adl_boundary b ON h.child_boundary_id = b.boundary_id
+                ORDER BY h.depth, h.child_code";
+
+        $stmt = sqlsrv_query($conn, $sql, [$code, $depth]);
+        $children = [];
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $children[] = [
+                'code' => $row['child_code'],
+                'parent_code' => $row['parent_code'],
+                'name' => $row['boundary_name'],
+                'boundary_type' => $row['boundary_type'],
+                'hierarchy_level' => $row['hierarchy_level'] !== null ? (int)$row['hierarchy_level'] : null,
+                'hierarchy_type' => $row['hierarchy_type'],
+                'relationship' => $row['relationship_type'],
+                'coverage' => $row['coverage_ratio'] !== null ? (float)$row['coverage_ratio'] : null,
+                'depth' => (int)$row['depth']
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+
+        echo json_encode([
+            'success' => true,
+            'root' => [
+                'code' => $root['boundary_code'],
+                'name' => $root['boundary_name'],
+                'boundary_type' => $root['boundary_type'],
+                'hierarchy_level' => $root['hierarchy_level'] !== null ? (int)$root['hierarchy_level'] : null,
+                'hierarchy_type' => $root['hierarchy_type']
+            ],
+            'children' => $children,
+            'count' => count($children)
+        ]);
+        break;
+
     default:
         echo json_encode(['error' => 'Unknown action']);
 }
