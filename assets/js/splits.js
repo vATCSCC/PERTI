@@ -1804,7 +1804,7 @@ const SplitsController = {
             case 'superhigh':
                 return `${layerType}-${props.label || props.name || props.id}`;
             case 'artcc':
-                return `artcc-${props.id || props.name || props.ID}`;
+                return `artcc-${props.ICAOCODE || props.FIRname || props.id || props.name || props.ID}-L${props.hierarchy_level || 1}`;
             case 'tracon':
                 return `tracon-${props.sector || props.id || props.name}`;
             case 'areas':
@@ -2185,8 +2185,12 @@ const SplitsController = {
             case 'low':
             case 'superhigh':
                 return props.label || props.name || props.id || PERTII18n.t('splits.feature.sector');
-            case 'artcc':
-                return props.id || props.name || props.ID || PERTII18n.t('splits.feature.artcc');
+            case 'artcc': {
+                const code = props.ICAOCODE || props.FIRname || props.id || props.name || props.ID || 'ARTCC';
+                const level = parseInt(props.hierarchy_level) || 1;
+                const levelTag = { 0: 'SC', 1: 'FIR', 2: 'Sub', 3: 'Deep' }[level] || ('L' + level);
+                return `${code} (${levelTag})`;
+            }
             case 'tracon':
                 return props.sector || props.label || props.id || props.name || PERTII18n.t('splits.feature.tracon');
             case 'areas':
@@ -2229,15 +2233,25 @@ const SplitsController = {
                 'presets': PERTII18n.t('splits.layerType.preset'),
             }[item.layerType] || item.layerType;
 
-            const typeColor = typeColors[item.layerType] || '#888';
+            let typeColor = typeColors[item.layerType] || '#888';
+            // Per-level color for ARTCC hierarchy
+            if (item.layerType === 'artcc') {
+                const lvl = parseInt(props.hierarchy_level) || 1;
+                typeColor = { 0: AIRSPACE_COLORS.artccSuper, 1: AIRSPACE_COLORS.artccFir, 2: AIRSPACE_COLORS.artccSub }[lvl] || AIRSPACE_COLORS.artccDeep;
+            }
             const featureName = this.getFeatureName(item);
 
-            // For sector types, show ARTCC info
+            // For sector types, show ARTCC info; for ARTCC, show region
             let extraInfo = '';
             if (['high', 'low', 'superhigh'].includes(item.layerType)) {
                 const artcc = (props.artcc || '').toUpperCase();
                 if (artcc) {
                     extraInfo = `<span class="layer-artcc">${artcc}</span>`;
+                }
+            } else if (item.layerType === 'artcc') {
+                const region = props['VATSIM Div'] || props['VATSIM Reg'] || '';
+                if (region) {
+                    extraInfo = `<span class="layer-artcc">${region}</span>`;
                 }
             }
 
@@ -2535,20 +2549,76 @@ const SplitsController = {
         var displayCode = props.ICAOCODE || props.FIRname || props.id || props.name || props.ID || 'ARTCC';
         var displayName = props.FIRname || props.name || '';
         var parentFir = props.parent_fir || '';
+        var parentArea = props.parent_area || '';
+        var hierarchyType = props.hierarchy_type || '';
+        var region = props['VATSIM Reg'] || '';
+        var division = props['VATSIM Div'] || '';
+        var isOceanic = parseInt(props.oceanic) === 1;
+        var isDetection = props.is_detection_level === true || props.is_detection_level === 'True';
+        var childFirs = props.child_firs || '';
+        var childCount = parseInt(props.child_count) || 0;
+
+        // Strip K-prefix for US display
+        var shortCode = displayCode;
+        if (shortCode.length === 4 && shortCode.charAt(0) === 'K') {
+            shortCode = shortCode.substring(1);
+        }
+
+        // Readable hierarchy type
+        var typeLabel = {
+            'SUPER_CENTER': 'Super Center',
+            'FIR': 'FIR',
+            'OPERATIONAL_FIR': 'Operational FIR',
+            'NAMED_SUB_AREA': 'Named Sub-Area',
+            'SECTOR_REGION': 'Sector Region',
+            'AREA_SECTOR': 'Area Sector',
+            'GEOGRAPHIC_SECTOR': 'Geographic Sector',
+        }[hierarchyType] || hierarchyType || PERTII18n.t(typeKey);
 
         var html = `
             <div class="sector-popup">
                 <div class="popup-header" style="background: ${headerColor}">
-                    <strong>${displayCode}</strong>
-                    ${displayName && displayName !== displayCode ? `<span style="font-weight: normal; font-size: 10px; opacity: 0.8; display: block;">${displayName}</span>` : ''}
+                    <strong>${shortCode}</strong>
+                    ${displayName && displayName !== displayCode && displayName !== shortCode
+                        ? `<span style="font-weight: normal; font-size: 10px; opacity: 0.8; display: block;">${displayName}</span>` : ''}
                 </div>
                 <div class="popup-body">
-                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.type')}:</span> ${PERTII18n.t(typeKey)}</div>
-                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.hierarchyLevel')}:</span> ${levelNum}</div>`;
+                    <div class="popup-row"><span>Type:</span> ${typeLabel}</div>
+                    <div class="popup-row"><span>ICAO:</span> <strong>${displayCode}</strong></div>
+                    <div class="popup-row"><span>Level:</span> ${PERTII18n.t(typeKey)} (L${levelNum})</div>`;
+
+        if (region || division) {
+            html += `<div class="popup-row"><span>Region:</span> ${[division, region].filter(Boolean).join(' / ')}</div>`;
+        }
+
+        if (isOceanic) {
+            html += `<div class="popup-row"><span>Oceanic:</span> <span style="color: #4fc3f7;">Yes</span></div>`;
+        }
 
         if (parentFir) {
-            html += `
-                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.parentFir')}:</span> ${parentFir}</div>`;
+            html += `<div class="popup-row"><span>Parent FIR:</span> <strong>${parentFir}</strong></div>`;
+        }
+
+        if (parentArea) {
+            html += `<div class="popup-row"><span>Parent Area:</span> ${parentArea}</div>`;
+        }
+
+        if (childFirs && childCount > 0) {
+            var childList = childFirs.split(',').map(function(c) { return c.trim(); });
+            html += `<div class="popup-row" style="flex-direction: column; align-items: flex-start;">
+                <span>Child FIRs (${childCount}):</span>
+                <div style="font-family: monospace; font-size: 10px; color: #aaa; margin-top: 2px;">${childList.join(', ')}</div>
+            </div>`;
+        }
+
+        if (isDetection) {
+            html += `<div class="popup-row"><span>Detection:</span> <span style="color: #66bb6a;">Active boundary</span></div>`;
+        }
+
+        if (props.label_lat && props.label_lon) {
+            var lat = parseFloat(props.label_lat).toFixed(2);
+            var lon = parseFloat(props.label_lon).toFixed(2);
+            html += `<div class="popup-row"><span>Center:</span> ${lat}, ${lon}</div>`;
         }
 
         html += `
