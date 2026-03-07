@@ -400,7 +400,7 @@ const SplitsController = {
                 ['slice', ['get', 'ICAOCODE'], 1],
                 ['get', 'ICAOCODE']
             ];
-            var labelFont = ['Open Sans Bold', 'Arial Unicode MS Bold'];
+            var labelFont = ['Noto Sans Bold'];
 
             // [prefix, cacheKey, sourceId, color, visible, textSize]
             var hierLevels = [
@@ -442,7 +442,7 @@ const SplitsController = {
                 };
                 var lineLayer = {
                     id: prefix + '-lines', type: 'line', source: sourceId,
-                    paint: { 'line-color': color, 'line-width': 2, 'line-opacity': 0.5 },
+                    paint: { 'line-color': color, 'line-width': 2.5, 'line-opacity': 0.8 },
                     layout: { visibility: vis },
                 };
                 var labelLayer = {
@@ -454,8 +454,8 @@ const SplitsController = {
                         'visibility': vis,
                     },
                     paint: {
-                        'text-color': color, 'text-halo-color': 'rgba(0, 0, 0, 0.8)',
-                        'text-halo-width': 1.5, 'text-opacity': 0.7,
+                        'text-color': '#d0d0d0', 'text-halo-color': color,
+                        'text-halo-width': 2, 'text-opacity': 1.0,
                     },
                 };
 
