@@ -1086,20 +1086,34 @@
     function renderPotusEvents(events) {
         if (!events?.length) {return `<div class="text-muted small p-2">${PERTII18n.t('jatoc.calendar.noScheduledEvents')}</div>`;}
         const now = new Date();
+        // Determine US Eastern offset: EDT (Mar-Nov) = UTC-4, EST = UTC-5
+        const isEDT = (() => {
+            const y = now.getFullYear();
+            // Second Sunday in March
+            const mar = new Date(y, 2, 1); mar.setDate(14 - mar.getDay());
+            // First Sunday in November
+            const nov = new Date(y, 10, 1); nov.setDate(7 - nov.getDay());
+            return now >= mar && now < nov;
+        })();
+        const etOffset = isEDT ? 4 : 5; // hours to add to ET to get UTC
         return events.map(e => {
             const eventDate = new Date(e.date);
             const day = String(eventDate.getUTCDate()).padStart(2, '0');
             const time = e.time || 'TBD';
-            // Format: dd/hhmm (no seconds)
-            const timeStr = day + '/' + (time !== 'TBD' ? time.replace(':', '').slice(0, 4) : 'TBD');
+            const etStr = day + '/' + (time !== 'TBD' ? time.replace(':', '').slice(0, 4) : 'TBD');
+            let utcStr = '';
             let status = 'future';
-            if (e.time && e.date) {
+            if (e.time && e.time !== 'TBD') {
                 const [h, m] = e.time.split(':').map(Number);
-                const eventTime = new Date(eventDate); eventTime.setUTCHours(h, m, 0, 0);
+                const utcH = (h + etOffset) % 24;
+                const utcDay = (h + etOffset) >= 24 ? eventDate.getUTCDate() + 1 : eventDate.getUTCDate();
+                utcStr = ` (${String(utcDay).padStart(2,'0')}/${String(utcH).padStart(2,'0')}${String(m).padStart(2,'0')}Z)`;
+                const eventTime = new Date(eventDate);
+                eventTime.setUTCHours(h + etOffset, m, 0, 0);
                 if (eventTime < now) {status = 'past';}
                 else if (eventTime < new Date(now.getTime() + 3600000)) {status = 'active';}
             }
-            return `<div class="ops-calendar-row ${status}"><span class="ops-calendar-time">${timeStr}</span><span class="ops-calendar-event">${esc(e.details || e.location || PERTII18n.t('jatoc.events.event'))}</span></div>`;
+            return `<div class="ops-calendar-row ${status}"><span class="ops-calendar-time">${etStr}${utcStr}</span><span class="ops-calendar-event">${esc(e.details || e.location || PERTII18n.t('jatoc.events.event'))}</span></div>`;
         }).join('');
     }
 
