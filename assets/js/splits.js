@@ -402,22 +402,23 @@ const SplitsController = {
             ];
             var labelFont = ['Noto Sans Bold'];
 
-            // [prefix, cacheKey, sourceId, color, visible, textSize, dashed]
+            // [prefix, cacheKey, sourceId, color, visible, textSize, dashed, lineWidth]
+            // Order: bottom → top (deep first, super last) so higher levels draw on top
             var hierLevels = [
-                ['artcc-super', 'supercenter', 'supercenter-source',
-                    AIRSPACE_COLORS.artccSuper, false, 16, false],
+                ['artcc-deep', 'artccArea', 'artcc-area-source',
+                    AIRSPACE_COLORS.artccDeep, false, 9, true, 1.5],
+                ['artcc-sub', 'artccArea', 'artcc-area-source',
+                    AIRSPACE_COLORS.artccSub, false, 10, true, 2],
                 ['artcc-fir', 'artcc', 'artcc-source',
                     AIRSPACE_COLORS.artccFir, true,
-                    ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18], false],
-                ['artcc-sub', 'artccArea', 'artcc-area-source',
-                    AIRSPACE_COLORS.artccSub, false, 10, true],
-                ['artcc-deep', 'artccArea', 'artcc-area-source',
-                    AIRSPACE_COLORS.artccDeep, false, 9, true],
+                    ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18], false, 2.5],
+                ['artcc-super', 'supercenter', 'supercenter-source',
+                    AIRSPACE_COLORS.artccSuper, false, 16, false, 3.5],
             ];
 
             hierLevels.forEach(function(def) {
                 var prefix = def[0], cacheKey = def[1], sourceId = def[2],
-                    color = def[3], visible = def[4], textSize = def[5], dashed = def[6];
+                    color = def[3], visible = def[4], textSize = def[5], dashed = def[6], lineWidth = def[7];
                 var data = this.geoJsonCache[cacheKey];
                 if (!data) return;
 
@@ -440,8 +441,8 @@ const SplitsController = {
                     paint: { 'fill-color': color, 'fill-opacity': 0 },
                     layout: { visibility: vis },
                 };
-                var linePaint = { 'line-color': color, 'line-width': 2.5, 'line-opacity': 0.8 };
-                if (dashed) { linePaint['line-dasharray'] = [4, 3]; linePaint['line-width'] = 2; }
+                var linePaint = { 'line-color': color, 'line-width': lineWidth, 'line-opacity': 0.8 };
+                if (dashed) { linePaint['line-dasharray'] = [4, 3]; }
                 var lineLayer = {
                     id: prefix + '-lines', type: 'line', source: sourceId,
                     paint: linePaint,
