@@ -60,6 +60,7 @@ class PDFPlayGroup:
     tables: List[ParsedTable]
     metadata: dict = field(default_factory=dict)
     page_numbers: List[int] = field(default_factory=list)
+    category: str = ''
 
     def to_parsed_play(self) -> ParsedPlay:
         """Convert to ParsedPlay for pipeline compatibility."""
@@ -81,6 +82,32 @@ class PDFPlaybookParser:
     - Paired-column destination tables (2001)
     - Multi-page play continuations
     """
+
+    # Mapping from PDF section titles to normalized category names
+    CATEGORY_MAP = {
+        'AIRPORTS': 'Airports',
+        'AIRPORT': 'Airports',
+        'EAST-TO-WEST TRANSCON ROUTES': 'East to West Transcon',
+        'EAST TO WEST TRANSCON ROUTES': 'East to West Transcon',
+        'EAST-TO-WEST TRANSCON': 'East to West Transcon',
+        'EAST TO WEST TRANSCON': 'East to West Transcon',
+        'WEST-TO-EAST TRANSCON ROUTES': 'West to East Transcon',
+        'WEST TO EAST TRANSCON ROUTES': 'West to East Transcon',
+        'WEST-TO-EAST TRANSCON': 'West to East Transcon',
+        'WEST TO EAST TRANSCON': 'West to East Transcon',
+        'REGIONAL ROUTES': 'Regional Routes',
+        'REGIONAL': 'Regional Routes',
+        'AIRWAY CLOSURES': 'Airway Closures',
+        'EQUIPMENT': 'Equipment',
+        'SNOWBIRD': 'Snowbird',
+        'SNOWBIRD ROUTES': 'Snowbird',
+        'SPACE OPS': 'Space Ops',
+        'SPACE OPERATIONS': 'Space Ops',
+        'SPECIAL OPS': 'Special Ops',
+        'SPECIAL OPERATIONS': 'Special Ops',
+        'SUA ACTIVITY': 'SUA Activity',
+        'SUA': 'SUA Activity',
+    }
 
     # Headers that indicate a changelog table
     CHANGELOG_HEADERS = {'#', 'PLAY NAME', 'MODIFICATION DESCRIPTION'}
@@ -114,6 +141,77 @@ class PDFPlaybookParser:
             'facility_cells_normalized': 0,
         }
 
+    def _normalize_category(self, text: str) -> str:
+        """
+        Normalize a section title to a standard category name.
+
+        Returns empty string if the text doesn't match any known category.
+        """
+        clean = re.sub(r'\s+', ' ', text).strip()
+        # Strip trailing page numbers
+        clean = re.sub(r'\s+\d+\s*$', '', clean).strip()
+        upper = clean.upper()
+
+        if upper in self.CATEGORY_MAP:
+            return self.CATEGORY_MAP[upper]
+
+        return ''
+
+    def _extract_bookmark_categories(self, pdf) -> Dict[str, str]:
+        """
+        Extract play_name -> category mapping from PDF bookmarks.
+
+        Handles two bookmark structures:
+          2004+: L1 root -> L2 categories -> L3 play names
+          2001:  L1 categories -> L2 play names
+
+        Dynamically detects the pattern by tracking the level at which
+        categories appear.
+        """
+        mapping: Dict[str, str] = {}
+        try:
+            outlines = list(pdf.doc.get_outlines())
+        except Exception:
+            logger.debug("  No bookmarks found in PDF")
+            return mapping
+
+        current_category = ''
+        category_level = 0
+
+        # Skip patterns for non-play bookmark entries
+        skip_prefixes = (
+            'CHANGE', 'GRAPHIC', 'ROUTE', 'DESTINATION ROUTE',
+            'PLAY BOOK', 'NATIONAL',
+        )
+
+        for level, title, dest, a, se in outlines:
+            title_clean = (title or '').strip()
+            if not title_clean:
+                continue
+
+            # Try to match as a category
+            cat = self._normalize_category(title_clean)
+            if cat:
+                current_category = cat
+                category_level = level
+                continue
+
+            # Skip non-play entries (changelog, graphics, route sub-items)
+            title_upper = title_clean.upper()
+            if any(title_upper.startswith(p) for p in skip_prefixes):
+                continue
+
+            # Play name: deeper than category level
+            if current_category and level > category_level:
+                # Normalize whitespace for consistent lookup
+                key = re.sub(r'\s+', ' ', title_upper).strip()
+                mapping[key] = current_category
+
+        if mapping:
+            logger.info(f"  Bookmarks: {len(mapping)} plays mapped to "
+                        f"{len(set(mapping.values()))} categories")
+        return mapping
+
     def parse_pdf(self, pdf_path: Path) -> List[PDFPlayGroup]:
         """
         Parse a FAA Playbook PDF and extract all plays.
@@ -136,6 +234,9 @@ class PDFPlaybookParser:
             effective_date = self._extract_effective_date(pdf.pages[0])
             logger.info(f"  Effective date: {effective_date}")
 
+            # Extract bookmark-based category mapping
+            bookmark_categories = self._extract_bookmark_categories(pdf)
+
             # Classify all pages
             classified = []
             for i, page in enumerate(pdf.pages):
@@ -155,7 +256,9 @@ class PDFPlaybookParser:
             )
 
             # Group pages into plays
-            play_groups = self._group_pages_into_plays(classified, effective_date)
+            play_groups = self._group_pages_into_plays(
+                classified, effective_date, bookmark_categories
+            )
             self.stats['plays_extracted'] = len(play_groups)
 
             logger.info(f"  Extracted {len(play_groups)} plays")
@@ -308,11 +411,13 @@ class PDFPlaybookParser:
             if line.isdigit():
                 continue
 
-            # Skip known section divider text
-            if line.upper() in (
-                'AIRPORTS', 'AIRPORT',
+            # Skip known section divider text and category names
+            line_upper = line.upper()
+            if line_upper in (
                 'NATIONAL SEVERE WEATHER PLAYBOOK',
             ):
+                continue
+            if line_upper in self.CATEGORY_MAP:
                 continue
 
             # Skip lines that are just column headers
@@ -329,19 +434,49 @@ class PDFPlaybookParser:
     def _group_pages_into_plays(
         self,
         classified: List[Tuple],
-        effective_date: str
+        effective_date: str,
+        bookmark_categories: Optional[Dict[str, str]] = None,
     ) -> List[PDFPlayGroup]:
         """
         Group classified pages into play groups.
 
         Handles multi-page plays by merging continuation pages
         with the preceding play start.
+
+        Category assignment priority:
+        1. PDF bookmarks (most reliable)
+        2. Section divider/graphic page text (tracks current_category)
         """
+        bookmark_categories = bookmark_categories or {}
         groups: List[PDFPlayGroup] = []
         current_group: Optional[PDFPlayGroup] = None
+        current_category = ''
 
         for page_index, page_type, text, raw_tables in classified:
-            if page_type == PageType.PLAY_START:
+
+            if page_type in (PageType.GRAPHIC, PageType.DIVIDER):
+                # Check if this page's text matches a category name
+                text_clean = re.sub(r'\s+', ' ', text).strip()
+                # Skip known non-category pages
+                text_upper = text_clean.upper()
+                if any(skip in text_upper for skip in (
+                    'NATIONAL SEVERE WEATHER PLAYBOOK',
+                    'GRAPHIC:',
+                )):
+                    continue
+                # Strip page numbers at start/end
+                text_clean = re.sub(r'^\d+\s*', '', text_clean)
+                text_clean = re.sub(r'\s*\d+$', '', text_clean).strip()
+                if text_clean:
+                    cat = self._normalize_category(text_clean)
+                    if cat:
+                        current_category = cat
+                        logger.debug(
+                            f"  Page {page_index + 1}: category divider "
+                            f"-> {current_category}"
+                        )
+
+            elif page_type == PageType.PLAY_START:
                 # Finalize previous group
                 if current_group:
                     groups.append(current_group)
@@ -357,12 +492,19 @@ class PDFPlaybookParser:
 
                 metadata = self._extract_metadata(text)
 
+                # Category: bookmarks first, then divider-tracked
+                bm_key = re.sub(r'\s+', ' ', play_name.upper()).strip()
+                category = bookmark_categories.get(
+                    bm_key, current_category
+                )
+
                 current_group = PDFPlayGroup(
                     play_name=play_name,
                     effective_date=effective_date,
                     tables=tables,
                     metadata=metadata,
                     page_numbers=[page_index + 1],
+                    category=category,
                 )
 
             elif page_type == PageType.PLAY_CONTINUATION:
@@ -381,14 +523,19 @@ class PDFPlaybookParser:
                         or f"UNKNOWN_PAGE_{page_index + 1}"
                     )
                     tables = self._convert_tables(raw_tables)
+                    bm_key = re.sub(r'\s+', ' ', play_name.upper()).strip()
+                    category = bookmark_categories.get(
+                        bm_key, current_category
+                    )
                     current_group = PDFPlayGroup(
                         play_name=play_name,
                         effective_date=effective_date,
                         tables=tables,
                         page_numbers=[page_index + 1],
+                        category=category,
                     )
 
-            # COVER, CHANGELOG, GRAPHIC, DIVIDER — skip silently
+            # COVER, CHANGELOG — skip silently
 
         # Don't forget the last group
         if current_group:

@@ -49,7 +49,7 @@ if ($result) {
 
 // Count legacy plays (containing _old_)
 $legacy_count = 0;
-$result = $conn_sqli->query("SELECT COUNT(*) as cnt FROM playbook_plays WHERE play_name LIKE '%\\_old\\_%' AND status != 'archived'");
+$result = $conn_sqli->query("SELECT COUNT(*) as cnt FROM playbook_plays WHERE (play_name LIKE '%\\_old\\_%' OR source = 'FAA_HISTORICAL') AND status != 'archived'");
 if ($result) {
     $legacy_count = (int)$result->fetch_assoc()['cnt'];
 }

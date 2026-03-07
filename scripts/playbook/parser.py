@@ -421,33 +421,72 @@ class PlaybookParser:
             dest_artccs=dest_artcc,
         )
 
+    def _resolve_airport_code(self, raw: str) -> str:
+        """Resolve a possibly multi-token airport string to a single ICAO code.
+
+        Handles cases where PDF tables contain both FAA and ICAO codes
+        (e.g., "PIT KPIT") — splits tokens and prefers the ICAO match.
+        """
+        raw = raw.strip()
+        if not raw:
+            return ''
+
+        # Try direct resolution first
+        info = self.airport_lookup.resolve(raw)
+        if info.icao and ' ' not in raw:
+            return info.icao
+
+        # Multi-token: split and resolve each, prefer 4-letter ICAO
+        if ' ' in raw:
+            for token in raw.split():
+                t_info = self.airport_lookup.resolve(token)
+                if t_info.icao and len(t_info.icao) == 4:
+                    return t_info.icao
+            # No ICAO found — try first resolvable token
+            for token in raw.split():
+                t_info = self.airport_lookup.resolve(token)
+                if t_info.icao:
+                    return t_info.icao
+
+        return raw
+
     def _build_full_route(self, origin: str, route: str, dest: str) -> str:
         """Build complete route string with origin and destination."""
         parts = []
 
-        # Add origin (convert to ICAO if possible)
         if origin:
-            info = self.airport_lookup.resolve(origin)
-            if info.icao:
-                parts.append(info.icao)
-            elif not info.is_artcc and not info.is_tracon:
-                parts.append(origin)
-            else:
-                parts.append(origin)
+            parts.append(self._resolve_airport_code(origin))
 
-        # Add route
         if route:
             parts.append(route)
 
-        # Add destination (convert to ICAO if possible)
         if dest:
-            info = self.airport_lookup.resolve(dest)
-            if info.icao:
-                parts.append(info.icao)
-            elif not info.is_artcc and not info.is_tracon:
-                parts.append(dest)
-            else:
-                parts.append(dest)
+            resolved_dest = self._resolve_airport_code(dest)
+            if resolved_dest and route:
+                route_tokens = route.split()
+                last_token = route_tokens[-1].upper() if route_tokens else ''
+                second_last = route_tokens[-2].upper() if len(route_tokens) >= 2 else ''
+                # Check if route ends with FAA code matching the ICAO dest
+                is_faa_icao_pair = (len(last_token) == 3
+                                    and len(resolved_dest) == 4
+                                    and resolved_dest == 'K' + last_token)
+                if is_faa_icao_pair:
+                    # Keep both only if the FAA code is an airway exit fix
+                    # (preceded by an airway designator: 1-2 letters + digits,
+                    # e.g., V100, J32, Q438, T295, A123, UL601, G219)
+                    import re
+                    is_airway_exit = bool(re.match(r'^[A-Z]{1,2}\d+$', second_last))
+                    if is_airway_exit:
+                        # Airway exit fix — keep FAA code, append ICAO dest
+                        parts.append(resolved_dest)
+                    else:
+                        # Redundant — replace FAA code with ICAO
+                        route_tokens[-1] = resolved_dest
+                        parts[-1] = ' '.join(route_tokens)
+                else:
+                    parts.append(resolved_dest)
+            elif resolved_dest:
+                parts.append(resolved_dest)
 
         return ' '.join(parts)
 

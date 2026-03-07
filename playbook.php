@@ -115,6 +115,7 @@ include("load/nav.php");
                         <button class="btn btn-outline-secondary pb-src-btn" data-source="DCC">DCC</button>
                         <button class="btn btn-outline-secondary pb-src-btn" data-source="ECFMP">ECFMP</button>
                         <button class="btn btn-outline-secondary pb-src-btn" data-source="CANOC">CANOC</button>
+                        <button class="btn btn-outline-secondary pb-src-btn" data-source="FAA_HISTORICAL">Legacy</button>
                     </div>
                     <label class="pb-legacy-toggle mb-0" title="<?= __('playbook.showLegacy') ?>">
                         <input type="checkbox" id="pb_legacy_toggle">

@@ -37,6 +37,8 @@
     var activePlayId = null;
     var activePlayData = null;
     var selectedRouteIds = new Set();
+    var currentPage = 1;
+    var playsPerPage = 200;
     var regionColorEnabled = false;
     var currentSearchClauses = [];  // Set by applyFilters(), read by route emphasis
 
@@ -102,6 +104,8 @@
      * Returns false for manual cherry-picks (arbitrary subsets).
      */
     function canUsePBDirective(selected, allRoutes) {
+        // FAA_HISTORICAL plays aren't in the PB CSV — must use individual route strings
+        if (activePlayData && activePlayData.source === 'FAA_HISTORICAL') return false;
         if (selected.length === allRoutes.length) return true;
         if (getCheckedValues('pb_select_origin').length || getCheckedValues('pb_select_dest').length || getCheckedValues('pb_select_region').length) return true;
         return false;
@@ -139,7 +143,8 @@
     // =========================================================================
     // SEARCH PARSER — Multi-token boolean search
     // Operators: AND (space/&), OR (,/|), NOT (- prefix)
-    // Qualifiers: orig: dest: thru: (or via:)
+    // Qualifiers: orig: dest: thru: (or via:) avoid:
+    // avoid: is equivalent to -thru: (always negated, AND semantics)
     // =========================================================================
 
     function parseSearch(raw) {
@@ -154,16 +159,18 @@
             return alts.map(function(alt, idx) {
                 var negated = alt.charAt(0) === '-';
                 var term = negated ? alt.substring(1) : alt;
-                // Parse qualifier prefix (orig:, dest:, thru:, via:)
+                // Parse qualifier prefix (orig:, dest:, thru:, via:, avoid:)
                 var qualifier = '';
                 var colonIdx = term.indexOf(':');
                 if (colonIdx > 0) {
                     var prefix = term.substring(0, colonIdx).toLowerCase();
-                    if (prefix === 'orig' || prefix === 'dest' || prefix === 'thru' || prefix === 'via') {
+                    if (prefix === 'orig' || prefix === 'dest' || prefix === 'thru' || prefix === 'via' || prefix === 'avoid') {
                         qualifier = prefix === 'via' ? 'thru' : prefix;
                         term = term.substring(colonIdx + 1);
                     }
                 }
+                // avoid: is always negated (equivalent to -thru:)
+                if (qualifier === 'avoid') negated = true;
                 // Propagate qualifier from first alt: orig:ZNY,ZDC → both get orig
                 if (qualifier) { inheritedQualifier = qualifier; }
                 else if (inheritedQualifier) { qualifier = inheritedQualifier; }
@@ -230,9 +237,9 @@
         for (var i = 0; i < clauses.length; i++) {
             var alts = clauses[i];
 
-            // Partition: negated thru alts vs everything else
-            var negatedThruAlts = alts.filter(function(a) { return a.negated && a.qualifier === 'thru'; });
-            var otherAlts = alts.filter(function(a) { return !(a.negated && a.qualifier === 'thru'); });
+            // Partition: negated thru/avoid alts vs everything else
+            var negatedThruAlts = alts.filter(function(a) { return a.negated && (a.qualifier === 'thru' || a.qualifier === 'avoid'); });
+            var otherAlts = alts.filter(function(a) { return !(a.negated && (a.qualifier === 'thru' || a.qualifier === 'avoid')); });
 
             // Negated thru: exclude only if ALL are found (AND semantics)
             if (negatedThruAlts.length > 0) {
@@ -249,7 +256,7 @@
                     found = p._originCodes.has(alt.term);
                 } else if (alt.qualifier === 'dest') {
                     found = p._destCodes.has(alt.term);
-                } else if (alt.qualifier === 'thru') {
+                } else if (alt.qualifier === 'thru' || alt.qualifier === 'avoid') {
                     found = p._traversedCodes.has(alt.term);
                 } else {
                     found = p._facilityCodes.has(alt.term) || p._searchText.indexOf(alt.term) !== -1;
@@ -300,11 +307,11 @@
         for (var i = 0; i < clauses.length; i++) {
             var alts = clauses[i];
 
-            // Partition: negated thru alts vs everything else
-            var negatedThruAlts = alts.filter(function(a) { return a.negated && a.qualifier === 'thru'; });
-            var otherAlts = alts.filter(function(a) { return !(a.negated && a.qualifier === 'thru'); });
+            // Partition: negated thru/avoid alts vs everything else
+            var negatedThruAlts = alts.filter(function(a) { return a.negated && (a.qualifier === 'thru' || a.qualifier === 'avoid'); });
+            var otherAlts = alts.filter(function(a) { return !(a.negated && (a.qualifier === 'thru' || a.qualifier === 'avoid')); });
 
-            // Negated thru: exclude only if ALL are found (AND semantics)
+            // Negated thru/avoid: exclude only if ALL are found (AND semantics)
             if (negatedThruAlts.length > 0) {
                 var allThruFound = negatedThruAlts.every(function(a) { return thruCodes.has(a.term); });
                 if (allThruFound) return false;
@@ -317,7 +324,7 @@
                 var found = false;
                 if (alt.qualifier === 'orig') found = origCodes.has(alt.term);
                 else if (alt.qualifier === 'dest') found = destCodes.has(alt.term);
-                else if (alt.qualifier === 'thru') found = thruCodes.has(alt.term);
+                else if (alt.qualifier === 'thru' || alt.qualifier === 'avoid') found = thruCodes.has(alt.term);
                 else found = allCodes.has(alt.term) || textBlob.indexOf(alt.term) !== -1;
                 if (alt.negated) { if (found) return false; }
                 else { if (found) clausePassed = true; }
@@ -549,6 +556,7 @@
                 var prefix = '';
                 if (alt.qualifier === 'orig') prefix = 'ORIG: ';
                 else if (alt.qualifier === 'dest') prefix = 'DEST: ';
+                else if (alt.qualifier === 'avoid') prefix = 'AVOID: ';
                 else if (alt.qualifier === 'thru') prefix = 'THRU: ';
 
                 var label = (alt.negated ? '-' : '') + prefix + alt.term;
@@ -739,9 +747,17 @@
 
     function loadPlays() {
         var params = {
-            per_page: 1000,
+            per_page: 10000,
             hide_legacy: showLegacy ? 0 : 1
         };
+
+        // When Legacy source is active, pass source filter and disable hide_legacy
+        if (activeSource === 'FAA_HISTORICAL') {
+            params.source = 'FAA_HISTORICAL';
+            params.hide_legacy = 0;
+        }
+
+        currentPage = 1;
 
         var qstr = Object.keys(params).map(function(k) {
             return params[k] !== '' ? k + '=' + encodeURIComponent(params[k]) : '';
@@ -795,6 +811,7 @@
     }
 
     function applyFilters() {
+        currentPage = 1;
         currentSearchClauses = parseSearch(searchText);
 
         filteredPlays = allPlays.filter(function(p) {
@@ -835,20 +852,41 @@
             return;
         }
 
+        var totalPages = Math.ceil(filteredPlays.length / playsPerPage);
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+        var startIdx = (currentPage - 1) * playsPerPage;
+        var pageSlice = filteredPlays.slice(startIdx, startIdx + playsPerPage);
+
         var html = '<ul class="pb-play-list">';
-        filteredPlays.forEach(function(p) {
+        pageSlice.forEach(function(p) {
             var isActive = p.play_id == activePlayId;
             html += '<li class="pb-play-row' + (isActive ? ' active' : '') + '" data-play-id="' + p.play_id + '">';
             html += '<span class="pb-play-row-name">' + escHtml(p.play_name) + '</span>';
             html += '<span class="pb-play-row-meta">';
             if (p.category) html += '<span class="pb-badge pb-badge-category">' + escHtml(p.category) + '</span>';
             html += '<span class="pb-badge pb-badge-routes">' + (p.route_count || 0) + '</span>';
-            html += '<span class="pb-badge pb-badge-' + (p.source || 'dcc').toLowerCase() + '">' + escHtml(p.source || 'DCC') + '</span>';
+            var srcLabel = p.source === 'FAA_HISTORICAL' ? 'Legacy' : (p.source || 'DCC');
+            html += '<span class="pb-badge pb-badge-' + (p.source || 'dcc').toLowerCase() + '">' + escHtml(srcLabel) + '</span>';
             if (p.status === 'draft') html += '<span class="pb-badge pb-badge-draft">' + t('playbook.statusDraft') + '</span>';
             html += '</span>';
             html += '</li>';
         });
         html += '</ul>';
+
+        // Pagination controls
+        if (totalPages > 1) {
+            html += '<div class="pb-pagination">';
+            html += '<button class="btn btn-xs btn-outline-secondary pb-page-btn" data-page="prev"' + (currentPage <= 1 ? ' disabled' : '') + '><i class="fas fa-chevron-left"></i></button>';
+            var startPage = Math.max(1, currentPage - 2);
+            var endPage = Math.min(totalPages, startPage + 4);
+            if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
+            for (var pg = startPage; pg <= endPage; pg++) {
+                html += '<button class="btn btn-xs pb-page-btn' + (pg === currentPage ? ' btn-primary' : ' btn-outline-secondary') + '" data-page="' + pg + '">' + pg + '</button>';
+            }
+            html += '<button class="btn btn-xs btn-outline-secondary pb-page-btn" data-page="next"' + (currentPage >= totalPages ? ' disabled' : '') + '><i class="fas fa-chevron-right"></i></button>';
+            html += '</div>';
+        }
 
         $('#pb_play_list_container').html(html);
     }
@@ -997,7 +1035,7 @@
         if (hasPerm) {
             html += '<button class="btn btn-outline-primary btn-sm" id="pb_duplicate_btn"><i class="fas fa-copy mr-1"></i>Duplicate</button>';
         }
-        if (hasPerm && play.source !== 'FAA') {
+        if (hasPerm && play.source !== 'FAA' && play.source !== 'FAA_HISTORICAL') {
             html += '<button class="btn btn-outline-secondary btn-sm" id="pb_edit_btn"><i class="fas fa-edit mr-1"></i>' + t('common.edit') + '</button>';
         }
         if (hasPerm) {
@@ -1013,7 +1051,10 @@
         var metaParts = [];
         if (play.category) metaParts.push('<span class="pb-badge pb-badge-category">' + escHtml(play.category) + '</span>');
         if (play.scenario_type) metaParts.push('<span class="badge badge-secondary" style="font-size:0.65rem;">' + escHtml(play.scenario_type) + '</span>');
-        if (play.source) metaParts.push('<span class="pb-badge pb-badge-' + (play.source || 'dcc').toLowerCase() + '">' + escHtml(play.source) + '</span>');
+        if (play.source) {
+            var detailSrcLabel = play.source === 'FAA_HISTORICAL' ? 'Legacy' : play.source;
+            metaParts.push('<span class="pb-badge pb-badge-' + (play.source || 'dcc').toLowerCase() + '">' + escHtml(detailSrcLabel) + '</span>');
+        }
         if (play.airac_cycle) metaParts.push('<span style="font-size:0.65rem;color:#888;">AIRAC ' + escHtml(play.airac_cycle) + '</span>');
         if (metaParts.length) {
             html += '<div class="pb-detail-meta">' + metaParts.join('') + '</div>';
@@ -1034,7 +1075,7 @@
         html += '<div class="pb-play-facilities">';
         html += '<strong>' + t('playbook.legendTitle') + ':</strong> ';
         html += '<span class="pb-fac-display" id="pb_fac_display">' + (facStr ? renderFacilityCodes(facStr, '/') : '<span class="text-muted">' + t('common.none') + '</span>') + '</span>';
-        if (hasPerm && play.source !== 'FAA') {
+        if (hasPerm && play.source !== 'FAA' && play.source !== 'FAA_HISTORICAL') {
             html += ' <button class="btn btn-xs pb-inline-edit-btn" id="pb_fac_edit_btn" title="' + t('playbook.editFacilities') + '"><i class="fas fa-pencil-alt"></i></button>';
             html += '<div class="pb-fac-edit-wrap" id="pb_fac_edit_wrap" style="display:none;">';
             html += '<input type="text" class="form-control form-control-sm pb-fac-input" id="pb_fac_input" value="' + escHtml(facStr) + '" placeholder="ZNY/ZOB/ZAU...">';
@@ -1938,16 +1979,32 @@
 
         // Source toggle buttons
         $(document).on('click', '.pb-src-btn', function() {
-            activeSource = $(this).data('source') || '';
+            var newSource = $(this).data('source') || '';
+            var needsReload = (newSource === 'FAA_HISTORICAL') !== (activeSource === 'FAA_HISTORICAL');
+            activeSource = newSource;
             $('.pb-src-btn').removeClass('active');
             $(this).addClass('active');
-            applyFilters();
+            if (needsReload) {
+                loadPlays();
+            } else {
+                applyFilters();
+            }
         });
 
         // Legacy toggle
         $('#pb_legacy_toggle').on('change', function() {
             showLegacy = this.checked;
             loadPlays(); // Re-fetch from API since hide_legacy is server-side
+        });
+
+        // Pagination
+        $(document).on('click', '.pb-page-btn', function() {
+            var pg = $(this).data('page');
+            if (pg === 'prev') { currentPage = Math.max(1, currentPage - 1); }
+            else if (pg === 'next') { currentPage++; }
+            else { currentPage = parseInt(pg); }
+            renderPlayList();
+            $('#pb_play_list_wrap').scrollTop(0);
         });
 
         // Play row click

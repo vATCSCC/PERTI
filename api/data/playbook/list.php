@@ -31,7 +31,7 @@ $search      = get_input('search');
 $artcc       = get_upper('artcc');
 $hide_legacy = get_int('hide_legacy', 0);
 $page        = max(1, get_int('page', 1));
-$per_page    = min(1000, max(1, get_int('per_page', 200)));
+$per_page    = max(1, get_int('per_page', 200));
 $offset      = ($page - 1) * $per_page;
 
 $where = [];
@@ -74,7 +74,7 @@ if ($artcc !== '') {
 }
 
 if ($hide_legacy) {
-    $where[] = "p.play_name NOT LIKE '%\\_old\\_%'";
+    $where[] = "(p.play_name NOT LIKE '%\\_old\\_%' AND p.source != 'FAA_HISTORICAL')";
 }
 
 $where_sql = count($where) > 0 ? 'WHERE ' . implode(' AND ', $where) : '';
