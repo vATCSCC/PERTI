@@ -350,6 +350,21 @@
 .pb-badge-draft { background: #fff8e1; color: #f57f17; }
 .pb-badge-ecfmp { background: #e0f7fa; color: #00838f; }
 .pb-badge-canoc { background: #fce4ec; color: #c62828; }
+.pb-badge-faa_historical { background: #efebe9; color: #5d4037; }
+
+/* ── Pagination ──────────────────────────────────────────────────── */
+.pb-pagination {
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 4px;
+    border-top: 1px solid #e9ecef;
+}
+.pb-pagination .pb-page-btn {
+    min-width: 26px;
+    padding: 1px 5px;
+    font-size: 0.7rem;
+}
 
 /* ── Detail Panel (full-width below map) ─────────────────────────── */
 .pb-detail-panel {
