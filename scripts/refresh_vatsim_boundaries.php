@@ -7,9 +7,13 @@
  * - vatspy-data-project: FIR/ARTCC boundaries (worldwide)
  * - simaware-tracon-project: TRACON/APP boundaries (worldwide)
  * 
- * Usage: 
+ * Usage:
  *   php refresh_vatsim_boundaries.php [--dry-run] [--verbose]
- * 
+ *
+ * After running this script, run the classification script to split artcc.json
+ * into hierarchy-level files (supercenter.json, artcc.json, artcc_area.json):
+ *   python scripts/classify_boundary_hierarchy.py
+ *
  * Schedule with cron for periodic updates (e.g., daily or weekly):
  *   0 4 * * 0 /usr/bin/php /scripts/refresh_vatsim_boundaries.php >> /scripts/boundary_refresh.log 2>&1
  * 

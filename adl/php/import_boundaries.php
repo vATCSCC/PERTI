@@ -42,29 +42,70 @@ class BoundaryImporter {
     }
     
     /**
-     * Import ARTCC/FIR boundaries from artcc.json
+     * Import ARTCC/FIR boundaries from artcc.json, supercenter.json, artcc_area.json
      */
     public function importArtcc($filePath = null) {
-        $file = $filePath ?? $this->geojsonDir . 'artcc.json';
-        echo "Importing ARTCC boundaries from: $file\n";
-        
-        if (!file_exists($file)) {
-            echo "  ERROR: File not found\n";
+        // Merge features from all 3 ARTCC hierarchy files
+        $artccFiles = [
+            'artcc.json',        // L1 FIRs/ARTCCs
+            'supercenter.json',  // L0 super-centers
+            'artcc_area.json',   // L2+ sub-areas
+        ];
+
+        $allFeatures = [];
+        $fileSources = [];
+
+        if ($filePath) {
+            // Single file specified via CLI --file flag
+            if (!file_exists($filePath)) {
+                echo "  ERROR: File not found: $filePath\n";
+                return false;
+            }
+            $geojson = json_decode(file_get_contents($filePath), true);
+            if (!$geojson || !isset($geojson['features'])) {
+                echo "  ERROR: Invalid GeoJSON\n";
+                return false;
+            }
+            $basename = basename($filePath);
+            echo "  Loaded " . count($geojson['features']) . " features from $basename\n";
+            foreach ($geojson['features'] as $f) {
+                $fileSources[] = $basename;
+                $allFeatures[] = $f;
+            }
+        } else {
+            // Load all 3 hierarchy files
+            foreach ($artccFiles as $filename) {
+                $file = $this->geojsonDir . $filename;
+                if (!file_exists($file)) {
+                    echo "  Skipping $filename (not found)\n";
+                    continue;
+                }
+                $geojson = json_decode(file_get_contents($file), true);
+                if (!$geojson || !isset($geojson['features'])) {
+                    echo "  Skipping $filename (invalid GeoJSON)\n";
+                    continue;
+                }
+                $fileCount = count($geojson['features']);
+                echo "  Loaded $fileCount features from $filename\n";
+                foreach ($geojson['features'] as $f) {
+                    $fileSources[] = $filename;
+                    $allFeatures[] = $f;
+                }
+            }
+        }
+
+        if (empty($allFeatures)) {
+            echo "  ERROR: No ARTCC features found\n";
             return false;
         }
-        
-        $geojson = json_decode(file_get_contents($file), true);
-        if (!$geojson || !isset($geojson['features'])) {
-            echo "  ERROR: Invalid GeoJSON\n";
-            return false;
-        }
-        
-        $count = count($geojson['features']);
-        echo "  Found $count ARTCC features\n";
-        
-        foreach ($geojson['features'] as $i => $feature) {
+
+        $count = count($allFeatures);
+        echo "  Total: $count ARTCC features\n";
+
+        foreach ($allFeatures as $i => $feature) {
             $props = $feature['properties'];
             $boundaryCode = $props['ICAOCODE'] ?? $props['FIRname'];
+            $sourceFile = $fileSources[$i];
 
             // Determine boundary_type from enriched hierarchy properties
             if (isset($props['hierarchy_type'])) {
@@ -110,24 +151,24 @@ class BoundaryImporter {
                 'label_lon' => $props['label_lon'] ?? null,
                 'geometry' => $feature['geometry'],
                 'source_fid' => $props['fid'] ?? null,
-                'source_file' => 'artcc.json',
+                'source_file' => $sourceFile,
                 'parent_fir' => $parentFir,
                 'hierarchy_level' => $hierarchyLevel,
                 'hierarchy_type' => $hierarchyType,
             ]);
-            
+
             if ($result) {
                 $this->stats['artcc']['imported']++;
             } else {
                 $this->stats['artcc']['failed']++;
             }
-            
+
             // Progress indicator
             if (($i + 1) % 50 == 0) {
                 echo "  Processed " . ($i + 1) . "/$count\n";
             }
         }
-        
+
         echo "  ARTCC import complete: {$this->stats['artcc']['imported']} imported, {$this->stats['artcc']['failed']} failed\n\n";
         return true;
     }

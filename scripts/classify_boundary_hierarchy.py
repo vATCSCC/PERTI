@@ -681,12 +681,29 @@ class BoundaryClassifier:
             self.log("DRY RUN - skipping file writes")
             return
 
-        # Enriched artcc.json (compact, matches original format)
+        # Split ARTCC features into 3 files by hierarchy level
+        all_features = artcc_geojson.get("features", [])
+        l0_features = [f for f in all_features if f["properties"].get("hierarchy_level") == 0]
+        l1_features = [f for f in all_features if f["properties"].get("hierarchy_level", 1) == 1]
+        l2plus_features = [f for f in all_features if f["properties"].get("hierarchy_level", 1) >= 2]
+
+        # artcc.json — L1 only (FIRs/ARTCCs/ACCs)
         artcc_path = GEOJSON_DIR / "artcc.json"
         with open(artcc_path, "w", encoding="utf-8") as f:
-            json.dump(artcc_geojson, f, separators=(",", ":"))
-        size_mb = artcc_path.stat().st_size / (1024 * 1024)
-        self.log(f"Wrote {artcc_path.name} ({size_mb:.1f} MB)")
+            json.dump({"type": "FeatureCollection", "features": l1_features}, f, separators=(",", ":"))
+        self.log(f"Wrote {artcc_path.name}: {len(l1_features)} L1 features")
+
+        # supercenter.json — L0 only (super-centers)
+        sc_path = GEOJSON_DIR / "supercenter.json"
+        with open(sc_path, "w", encoding="utf-8") as f:
+            json.dump({"type": "FeatureCollection", "features": l0_features}, f, separators=(",", ":"))
+        self.log(f"Wrote {sc_path.name}: {len(l0_features)} L0 features")
+
+        # artcc_area.json — L2+ only (sub-areas, deep sub-areas)
+        area_path = GEOJSON_DIR / "artcc_area.json"
+        with open(area_path, "w", encoding="utf-8") as f:
+            json.dump({"type": "FeatureCollection", "features": l2plus_features}, f, separators=(",", ":"))
+        self.log(f"Wrote {area_path.name}: {len(l2plus_features)} L2+ features")
 
         # Enriched tracon.json (compact)
         tracon_path = GEOJSON_DIR / "tracon.json"

@@ -41,6 +41,8 @@ GEOJSON_DIR = PROJECT_ROOT / "assets" / "geojson"
 # GeoJSON file mappings
 GEOJSON_FILES = {
     "artcc": GEOJSON_DIR / "artcc.json",
+    "supercenter": GEOJSON_DIR / "supercenter.json",
+    "artcc_area": GEOJSON_DIR / "artcc_area.json",
     "high": GEOJSON_DIR / "high.json",
     "low": GEOJSON_DIR / "low.json",
     "superhigh": GEOJSON_DIR / "superhigh.json",
@@ -626,10 +628,17 @@ def main():
     # Import each file
     total = 0
 
-    # ARTCC boundaries
-    if GEOJSON_FILES["artcc"].exists():
-        geojson = load_geojson(GEOJSON_FILES["artcc"])
-        total += import_artcc_boundaries(conn, geojson, args.dry_run)
+    # ARTCC boundaries — merge all 3 hierarchy-level files into one import
+    artcc_features = []
+    for artcc_key in ("artcc", "supercenter", "artcc_area"):
+        path = GEOJSON_FILES[artcc_key]
+        if path.exists():
+            geojson = load_geojson(path)
+            artcc_features.extend(geojson.get("features", []))
+    if artcc_features:
+        merged_artcc = {"type": "FeatureCollection", "features": artcc_features}
+        print(f"  Merged {len(artcc_features)} ARTCC features from 3 files")
+        total += import_artcc_boundaries(conn, merged_artcc, args.dry_run)
 
     # Sector boundaries
     for sector_type in ["high", "low", "superhigh"]:

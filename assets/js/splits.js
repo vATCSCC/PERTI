@@ -42,7 +42,7 @@ const SplitsController = {
     visiblePresets: null,  // Set of visible preset IDs
 
     // GeoJSON cache
-    geoJsonCache: { high: null, low: null, superhigh: null, artcc: null, tracon: null },
+    geoJsonCache: { high: null, low: null, superhigh: null, artcc: null, supercenter: null, artccArea: null, tracon: null },
 
     // Layer visibility state
     layerVisibility: {
@@ -185,6 +185,8 @@ const SplitsController = {
             low: 'assets/geojson/low.json',
             superhigh: 'assets/geojson/superhigh.json',
             artcc: 'assets/geojson/artcc.json',
+            supercenter: 'assets/geojson/supercenter.json',
+            artccArea: 'assets/geojson/artcc_area.json',
             tracon: 'assets/geojson/tracon.json',
         };
         const foundArtccs = new Set();
@@ -386,99 +388,89 @@ const SplitsController = {
 
         console.log('[SPLITS] Adding base layers now...');
 
-        // Add ARTCC boundaries — per hierarchy level
-        if (this.geoJsonCache.artcc && !this.map.getSource('artcc-source')) {
-            console.log('[SPLITS] Adding ARTCC hierarchy layers with', this.geoJsonCache.artcc.features?.length, 'features');
+        // Add ARTCC boundaries — separate source per hierarchy level file
+        {
+            // MapLibre expression: strip K-prefix for US ARTCCs (KZLA→ZLA)
+            var displayCodeExpr = [
+                'case',
+                ['all',
+                    ['==', ['length', ['get', 'ICAOCODE']], 4],
+                    ['==', ['slice', ['get', 'ICAOCODE'], 0, 1], 'K']
+                ],
+                ['slice', ['get', 'ICAOCODE'], 1],
+                ['get', 'ICAOCODE']
+            ];
+            var labelFont = ['Open Sans Bold', 'Arial Unicode MS Bold'];
 
-            try {
-                this.map.addSource('artcc-source', {
-                    type: 'geojson',
-                    data: this.geoJsonCache.artcc,
-                });
+            // [prefix, cacheKey, sourceId, color, visible, textSize]
+            var hierLevels = [
+                ['artcc-super', 'supercenter', 'supercenter-source',
+                    AIRSPACE_COLORS.artccSuper, false, 16],
+                ['artcc-fir', 'artcc', 'artcc-source',
+                    AIRSPACE_COLORS.artccFir, true,
+                    ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18]],
+                ['artcc-sub', 'artccArea', 'artcc-area-source',
+                    AIRSPACE_COLORS.artccSub, false, 10],
+                ['artcc-deep', 'artccArea', 'artcc-area-source',
+                    AIRSPACE_COLORS.artccDeep, false, 9],
+            ];
 
-                // MapLibre expression: strip K-prefix for US ARTCCs (KZLA→ZLA)
-                var displayCodeExpr = [
-                    'case',
-                    ['all',
-                        ['==', ['length', ['get', 'ICAOCODE']], 4],
-                        ['==', ['slice', ['get', 'ICAOCODE'], 0, 1], 'K']
-                    ],
-                    ['slice', ['get', 'ICAOCODE'], 1],
-                    ['get', 'ICAOCODE']
-                ];
+            hierLevels.forEach(function(def) {
+                var prefix = def[0], cacheKey = def[1], sourceId = def[2],
+                    color = def[3], visible = def[4], textSize = def[5];
+                var data = this.geoJsonCache[cacheKey];
+                if (!data) return;
 
-                var labelFont = ['Open Sans Bold', 'Arial Unicode MS Bold'];
+                // Add source if not already added (artcc-sub and artcc-deep share artcc-area-source)
+                if (!this.map.getSource(sourceId)) {
+                    this.map.addSource(sourceId, { type: 'geojson', data: data });
+                }
 
-                // Hierarchy level definitions: [prefix, filter, color, visible, textSize]
-                var hierLevels = [
-                    ['artcc-super', ['==', ['get', 'hierarchy_level'], 0],
-                        AIRSPACE_COLORS.artccSuper, false, 16],
-                    ['artcc-fir', ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
-                        AIRSPACE_COLORS.artccFir, true,
-                        ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18]],
-                    ['artcc-sub', ['==', ['get', 'hierarchy_level'], 2],
-                        AIRSPACE_COLORS.artccSub, false, 10],
-                    ['artcc-deep', ['>=', ['get', 'hierarchy_level'], 3],
-                        AIRSPACE_COLORS.artccDeep, false, 9],
-                ];
+                var vis = visible ? 'visible' : 'none';
 
-                hierLevels.forEach(function(def) {
-                    var prefix = def[0], filter = def[1], color = def[2],
-                        visible = def[3], textSize = def[4];
-                    var vis = visible ? 'visible' : 'none';
+                // For artcc-deep: filter to L3+ from the shared artcc-area-source
+                var filter = (prefix === 'artcc-deep')
+                    ? ['>=', ['get', 'hierarchy_level'], 3]
+                    : (prefix === 'artcc-sub')
+                        ? ['==', ['get', 'hierarchy_level'], 2]
+                        : undefined;
 
-                    this.map.addLayer({
-                        id: prefix + '-fill',
-                        type: 'fill',
-                        source: 'artcc-source',
-                        filter: filter,
-                        paint: {
-                            'fill-color': color,
-                            'fill-opacity': 0,
-                        },
-                        layout: { visibility: vis },
-                    }, 'sectors-fill');
+                var fillLayer = {
+                    id: prefix + '-fill', type: 'fill', source: sourceId,
+                    paint: { 'fill-color': color, 'fill-opacity': 0 },
+                    layout: { visibility: vis },
+                };
+                var lineLayer = {
+                    id: prefix + '-lines', type: 'line', source: sourceId,
+                    paint: { 'line-color': color, 'line-width': 2, 'line-opacity': 0.5 },
+                    layout: { visibility: vis },
+                };
+                var labelLayer = {
+                    id: prefix + '-labels', type: 'symbol', source: sourceId,
+                    layout: {
+                        'text-field': displayCodeExpr, 'text-font': labelFont,
+                        'text-size': textSize, 'text-allow-overlap': false,
+                        'text-ignore-placement': false, 'text-padding': 5,
+                        'visibility': vis,
+                    },
+                    paint: {
+                        'text-color': color, 'text-halo-color': 'rgba(0, 0, 0, 0.8)',
+                        'text-halo-width': 1.5, 'text-opacity': 0.7,
+                    },
+                };
 
-                    this.map.addLayer({
-                        id: prefix + '-lines',
-                        type: 'line',
-                        source: 'artcc-source',
-                        filter: filter,
-                        paint: {
-                            'line-color': color,
-                            'line-width': 2,
-                            'line-opacity': 0.5,
-                        },
-                        layout: { visibility: vis },
-                    }, 'sectors-fill');
+                if (filter) {
+                    fillLayer.filter = filter;
+                    lineLayer.filter = filter;
+                    labelLayer.filter = filter;
+                }
 
-                    this.map.addLayer({
-                        id: prefix + '-labels',
-                        type: 'symbol',
-                        source: 'artcc-source',
-                        filter: filter,
-                        layout: {
-                            'text-field': displayCodeExpr,
-                            'text-font': labelFont,
-                            'text-size': textSize,
-                            'text-allow-overlap': false,
-                            'text-ignore-placement': false,
-                            'text-padding': 5,
-                            'visibility': vis,
-                        },
-                        paint: {
-                            'text-color': color,
-                            'text-halo-color': 'rgba(0, 0, 0, 0.8)',
-                            'text-halo-width': 1.5,
-                            'text-opacity': 0.7,
-                        },
-                    });
-                }.bind(this));
+                this.map.addLayer(fillLayer, 'sectors-fill');
+                this.map.addLayer(lineLayer, 'sectors-fill');
+                this.map.addLayer(labelLayer);
+            }.bind(this));
 
-                console.log('[SPLITS] ARTCC hierarchy layers added successfully');
-            } catch (err) {
-                console.error('[SPLITS] Failed to add ARTCC layers:', err);
-            }
+            console.log('[SPLITS] ARTCC hierarchy layers added successfully');
         }
 
         // Add High sectors (hidden by default)

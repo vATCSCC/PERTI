@@ -478,21 +478,48 @@ function importBoundary($conn, $data, $runId, $category) {
 }
 
 function importArtcc($conn, $geojsonDir, &$stats, $runId) {
-    $file = $geojsonDir . 'artcc.json';
-    echo "Importing ARTCC boundaries from: $file\n";
-    
-    if (!file_exists($file)) { echo "  ERROR: File not found\n"; return; }
-    
-    $geojson = json_decode(file_get_contents($file), true);
-    if (!$geojson || !isset($geojson['features'])) { echo "  ERROR: Invalid GeoJSON\n"; return; }
-    
-    $count = count($geojson['features']);
-    echo "  Found $count ARTCC features\n";
+    // Merge features from all 3 ARTCC hierarchy files
+    $artccFiles = [
+        'artcc.json',        // L1 FIRs/ARTCCs
+        'supercenter.json',  // L0 super-centers
+        'artcc_area.json',   // L2+ sub-areas
+    ];
+
+    $allFeatures = [];
+    $fileSources = []; // track source file per feature index
+
+    foreach ($artccFiles as $filename) {
+        $file = $geojsonDir . $filename;
+        if (!file_exists($file)) {
+            echo "  Skipping $filename (not found)\n";
+            continue;
+        }
+        $geojson = json_decode(file_get_contents($file), true);
+        if (!$geojson || !isset($geojson['features'])) {
+            echo "  Skipping $filename (invalid GeoJSON)\n";
+            continue;
+        }
+        $fileCount = count($geojson['features']);
+        echo "  Loaded $fileCount features from $filename\n";
+        foreach ($geojson['features'] as $f) {
+            $fileSources[] = $filename;
+            $allFeatures[] = $f;
+        }
+    }
+
+    if (empty($allFeatures)) {
+        echo "  ERROR: No ARTCC features found in any file\n";
+        return;
+    }
+
+    $count = count($allFeatures);
+    echo "  Total: $count ARTCC features across " . count($artccFiles) . " files\n";
     flush();
     
-    foreach ($geojson['features'] as $i => $feature) {
+    foreach ($allFeatures as $i => $feature) {
         $props = $feature['properties'];
         $boundaryCode = $props['ICAOCODE'] ?? $props['FIRname'];
+        $sourceFile = $fileSources[$i];
 
         // Determine boundary_type from enriched hierarchy properties
         if (isset($props['hierarchy_type'])) {
@@ -538,7 +565,7 @@ function importArtcc($conn, $geojsonDir, &$stats, $runId) {
             'label_lon' => $props['label_lon'] ?? null,
             'geometry' => $feature['geometry'],
             'source_fid' => $props['fid'] ?? null,
-            'source_file' => 'artcc.json',
+            'source_file' => $sourceFile,
             'parent_fir' => $parentFir,
             'hierarchy_level' => $hierarchyLevel,
             'hierarchy_type' => $hierarchyType,
