@@ -387,6 +387,8 @@
       "artccRequired": "ACC *",
       "color": "Colour",
       "destinationHint": "Airports, TCAs, or ACCs",
+      "hierarchyFirs": "FIRs/ACCs",
+      "hierarchySuperCenters": "Super Centres",
       "loadArtccSectors": "Load ACC Sectors",
       "originHint": "Airports, TCAs, or ACCs",
       "sectorInputHint": "Enter sector numbers separated by commas. Use just numbers (50,51) to auto-prefix with ACC.",
@@ -396,6 +398,8 @@
       "artcc": "ACC",
       "artccBoundary": "ACC Boundary",
       "dccRegion": "FAB",
+      "firBoundary": "FIR/ACC Boundary",
+      "superCenterBoundary": "Super Centre Boundary",
       "traconBoundary": "TCA Boundary"
     },
     "presets": {

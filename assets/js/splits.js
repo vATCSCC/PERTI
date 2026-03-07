@@ -2521,16 +2521,36 @@ const SplitsController = {
     },
 
     buildArtccPopup(props) {
-        return `
+        var level = props.hierarchy_level;
+        var levelNum = (level !== undefined && level !== null) ? parseInt(level) : 1;
+        var colorMap = { 0: AIRSPACE_COLORS.artccSuper, 1: AIRSPACE_COLORS.artccFir, 2: AIRSPACE_COLORS.artccSub };
+        var headerColor = colorMap[levelNum] || AIRSPACE_COLORS.artccDeep;
+        var typeKeyMap = { 0: 'splits.popup.superCenterBoundary', 1: 'splits.popup.firBoundary', 2: 'splits.popup.subAreaBoundary' };
+        var typeKey = typeKeyMap[levelNum] || 'splits.popup.deepSubAreaBoundary';
+        var displayCode = props.ICAOCODE || props.FIRname || props.id || props.name || props.ID || 'ARTCC';
+        var displayName = props.FIRname || props.name || '';
+        var parentFir = props.parent_fir || '';
+
+        var html = `
             <div class="sector-popup">
-                <div class="popup-header" style="background: #FF00FF">
-                    <strong>${props.id || props.name || props.ID || 'ARTCC'}</strong>
+                <div class="popup-header" style="background: ${headerColor}">
+                    <strong>${displayCode}</strong>
+                    ${displayName && displayName !== displayCode ? `<span style="font-weight: normal; font-size: 10px; opacity: 0.8; display: block;">${displayName}</span>` : ''}
                 </div>
                 <div class="popup-body">
-                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.type')}:</span> ${PERTII18n.t('splits.popup.artccBoundary')}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.type')}:</span> ${PERTII18n.t(typeKey)}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.hierarchyLevel')}:</span> ${levelNum}</div>`;
+
+        if (parentFir) {
+            html += `
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.parentFir')}:</span> ${parentFir}</div>`;
+        }
+
+        html += `
                 </div>
             </div>
         `;
+        return html;
     },
 
     buildTraconPopup(props) {
