@@ -67,6 +67,39 @@ function normalizePlayName($name) {
 }
 
 /**
+ * Normalize Canadian ARTCC codes from FAA 3-letter to ICAO 4-letter format.
+ * Maps: CZE->CZEG, CZU->CZUL, CZV->CZVR, CZW->CZWG, CZY->CZYZ,
+ *       CZM->CZQM, CZQ->CZQX, CZO->CZQO
+ */
+function normalizeCanadianArtcc($code) {
+    static $map = [
+        'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
+        'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
+        'CZQ' => 'CZQX', 'CZO' => 'CZQO',
+    ];
+    return $map[strtoupper(trim($code))] ?? $code;
+}
+
+function normalizeCanadianArtccCsv($csv) {
+    if (trim($csv) === '') return $csv;
+    return implode(',', array_map('normalizeCanadianArtcc', explode(',', $csv)));
+}
+
+function normalizeRouteCanadian($rs) {
+    static $codes = ['CZE','CZU','CZV','CZW','CZY','CZM','CZQ','CZO'];
+    $parts = preg_split('/\s+/', trim($rs));
+    $changed = false;
+    foreach ($parts as &$p) {
+        if (in_array(strtoupper($p), $codes)) {
+            $old = $p;
+            $p = normalizeCanadianArtcc($p);
+            if ($p !== $old) $changed = true;
+        }
+    }
+    return $changed ? implode(' ', $parts) : $rs;
+}
+
+/**
  * Extract a route endpoint identifier for LINESTRING bookending.
  * PostGIS resolve_waypoint() handles airports (KJFK), TRACONs (A90, PCT),
  * ARTCCs (ZNY, ZBW), and FAA codes (JFK) via nav_fixes + airports + area_centers.
@@ -348,17 +381,17 @@ if (!empty($routes)) {
 
     $sort = 0;
     foreach ($routes as $r) {
-        $rs = trim($r['route_string'] ?? '');
+        $rs = normalizeRouteCanadian(trim($r['route_string'] ?? ''));
         $orig = trim($r['origin'] ?? '');
         $orig_filter = trim($r['origin_filter'] ?? '');
         $dst = trim($r['dest'] ?? '');
         $dst_filter = trim($r['dest_filter'] ?? '');
         $oa = trim($r['origin_airports'] ?? '');
         $ot = trim($r['origin_tracons'] ?? '');
-        $oar = trim($r['origin_artccs'] ?? '');
+        $oar = normalizeCanadianArtccCsv(trim($r['origin_artccs'] ?? ''));
         $da = trim($r['dest_airports'] ?? '');
         $dt = trim($r['dest_tracons'] ?? '');
-        $dar = trim($r['dest_artccs'] ?? '');
+        $dar = normalizeCanadianArtccCsv(trim($r['dest_artccs'] ?? ''));
         $remarks_r = trim($r['remarks'] ?? '');
 
         if ($rs === '') continue;
