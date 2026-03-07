@@ -2362,7 +2362,7 @@ input[type="datetime-local"] {
             <div class="layer-controls-body">
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="artcc" id="layer-artcc" checked>
-                    <span class="layer-color" style="background: #FF00FF;"></span>
+                    <span class="layer-color" style="background: #4A90D9;"></span>
                     <label for="layer-artcc"><?= __('splits.feature.artcc') ?></label>
                     <div class="layer-sub-controls">
                         <button class="btn btn-xs layer-fill-btn" data-layer="artcc" title="<?= __('splits.page.fill') ?>"><i class="fas fa-square"></i></button>
@@ -2372,27 +2372,27 @@ input[type="datetime-local"] {
                 </div>
                 <!-- ARTCC Hierarchy Level Filter -->
                 <div class="ml-4 mb-1" id="artcc-hierarchy-filters">
-                    <div class="text-muted small mb-1"><?= __('splits.page.hierarchyLabel') ?></div>
+                    <div class="small mb-1" style="color: #999;"><?= __('splits.page.hierarchyLabel') ?></div>
                     <div class="d-flex flex-column" style="gap: 2px;">
                         <div class="d-flex align-items-center">
                             <input type="checkbox" id="hier-super" onchange="SplitsController.toggleArtccHierarchy('super', this.checked)">
-                            <span class="layer-color ml-1" style="background: #E6A817; width: 10px; height: 10px;"></span>
-                            <label for="hier-super" class="small mb-0 ml-1"><?= __('splits.page.hierarchySuperCenters') ?></label>
+                            <span class="layer-color ml-1" style="background: #F0C946; width: 10px; height: 10px;"></span>
+                            <label for="hier-super" class="small mb-0 ml-1" style="color: #ddd; cursor: pointer;"><?= __('splits.page.hierarchySuperCenters') ?></label>
                         </div>
                         <div class="d-flex align-items-center">
                             <input type="checkbox" id="hier-fir" checked onchange="SplitsController.toggleArtccHierarchy('fir', this.checked)">
-                            <span class="layer-color ml-1" style="background: #FF00FF; width: 10px; height: 10px;"></span>
-                            <label for="hier-fir" class="small mb-0 ml-1"><?= __('splits.page.hierarchyFirs') ?></label>
+                            <span class="layer-color ml-1" style="background: #4A90D9; width: 10px; height: 10px;"></span>
+                            <label for="hier-fir" class="small mb-0 ml-1" style="color: #ddd; cursor: pointer;"><?= __('splits.page.hierarchyFirs') ?></label>
                         </div>
                         <div class="d-flex align-items-center">
                             <input type="checkbox" id="hier-sub" onchange="SplitsController.toggleArtccHierarchy('sub', this.checked)">
-                            <span class="layer-color ml-1" style="background: #CC66FF; width: 10px; height: 10px;"></span>
-                            <label for="hier-sub" class="small mb-0 ml-1"><?= __('splits.page.hierarchySubAreas') ?></label>
+                            <span class="layer-color ml-1" style="background: #2E6AAD; width: 10px; height: 10px; border: 1px dashed #5a9ad5;"></span>
+                            <label for="hier-sub" class="small mb-0 ml-1" style="color: #ddd; cursor: pointer;"><?= __('splits.page.hierarchySubAreas') ?></label>
                         </div>
                         <div class="d-flex align-items-center">
                             <input type="checkbox" id="hier-deep" onchange="SplitsController.toggleArtccHierarchy('deep', this.checked)">
-                            <span class="layer-color ml-1" style="background: #9966CC; width: 10px; height: 10px;"></span>
-                            <label for="hier-deep" class="small mb-0 ml-1"><?= __('splits.page.hierarchyDeepSubAreas') ?></label>
+                            <span class="layer-color ml-1" style="background: #1E4A7A; width: 10px; height: 10px; border: 1px dashed #4a7ab0;"></span>
+                            <label for="hier-deep" class="small mb-0 ml-1" style="color: #ddd; cursor: pointer;"><?= __('splits.page.hierarchyDeepSubAreas') ?></label>
                         </div>
                     </div>
                 </div>

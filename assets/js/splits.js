@@ -11,11 +11,11 @@ const AIRSPACE_COLORS = {
     low: _airspaceColors.low || '#228B22',
     high: _airspaceColors.high || '#FF6347',
     superhigh: _airspaceColors.superhigh || '#9932CC',
-    artcc: _airspaceColors.artcc || '#4682B4',
-    artccSuper: _airspaceColors.artccSuper || '#E6A817',
-    artccFir: _airspaceColors.artccFir || '#FF00FF',
-    artccSub: _airspaceColors.artccSub || '#CC66FF',
-    artccDeep: _airspaceColors.artccDeep || '#9966CC',
+    artcc: _airspaceColors.artcc || '#4A90D9',
+    artccSuper: _airspaceColors.artccSuper || '#F0C946',
+    artccFir: _airspaceColors.artccFir || '#4A90D9',
+    artccSub: _airspaceColors.artccSub || '#2E6AAD',
+    artccDeep: _airspaceColors.artccDeep || '#1E4A7A',
     tracon: _airspaceColors.tracon || '#20B2AA',
     sectorLine: _airspaceColors.sectorLine || '#505050',
     sectorLineDark: _airspaceColors.sectorLineDark || '#303030',
@@ -402,22 +402,22 @@ const SplitsController = {
             ];
             var labelFont = ['Noto Sans Bold'];
 
-            // [prefix, cacheKey, sourceId, color, visible, textSize]
+            // [prefix, cacheKey, sourceId, color, visible, textSize, dashed]
             var hierLevels = [
                 ['artcc-super', 'supercenter', 'supercenter-source',
-                    AIRSPACE_COLORS.artccSuper, false, 16],
+                    AIRSPACE_COLORS.artccSuper, false, 16, false],
                 ['artcc-fir', 'artcc', 'artcc-source',
                     AIRSPACE_COLORS.artccFir, true,
-                    ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18]],
+                    ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18], false],
                 ['artcc-sub', 'artccArea', 'artcc-area-source',
-                    AIRSPACE_COLORS.artccSub, false, 10],
+                    AIRSPACE_COLORS.artccSub, false, 10, true],
                 ['artcc-deep', 'artccArea', 'artcc-area-source',
-                    AIRSPACE_COLORS.artccDeep, false, 9],
+                    AIRSPACE_COLORS.artccDeep, false, 9, true],
             ];
 
             hierLevels.forEach(function(def) {
                 var prefix = def[0], cacheKey = def[1], sourceId = def[2],
-                    color = def[3], visible = def[4], textSize = def[5];
+                    color = def[3], visible = def[4], textSize = def[5], dashed = def[6];
                 var data = this.geoJsonCache[cacheKey];
                 if (!data) return;
 
@@ -440,9 +440,11 @@ const SplitsController = {
                     paint: { 'fill-color': color, 'fill-opacity': 0 },
                     layout: { visibility: vis },
                 };
+                var linePaint = { 'line-color': color, 'line-width': 2.5, 'line-opacity': 0.8 };
+                if (dashed) { linePaint['line-dasharray'] = [4, 3]; linePaint['line-width'] = 2; }
                 var lineLayer = {
                     id: prefix + '-lines', type: 'line', source: sourceId,
-                    paint: { 'line-color': color, 'line-width': 2.5, 'line-opacity': 0.8 },
+                    paint: linePaint,
                     layout: { visibility: vis },
                 };
                 var labelLayer = {
@@ -454,8 +456,10 @@ const SplitsController = {
                         'visibility': vis,
                     },
                     paint: {
-                        'text-color': '#d0d0d0', 'text-halo-color': color,
-                        'text-halo-width': 2, 'text-opacity': 1.0,
+                        'text-color': color,
+                        'text-halo-color': 'rgba(0, 0, 0, 0.7)',
+                        'text-halo-width': 1.5,
+                        'text-opacity': 0.9,
                     },
                 };
 
