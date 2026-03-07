@@ -2371,20 +2371,30 @@ input[type="datetime-local"] {
                     </div>
                 </div>
                 <!-- ARTCC Hierarchy Level Filter -->
-                <div class="layer-toggle-item ml-3" id="artcc-hierarchy-filters">
-                    <span class="text-muted small mr-2"><?= __('splits.page.hierarchyLabel') ?></span>
-                    <input type="checkbox" id="hier-super" onchange="SplitsController.toggleArtccHierarchy('super', this.checked)">
-                    <span class="layer-color" style="background: #E6A817; width: 10px; height: 10px;"></span>
-                    <label for="hier-super" class="small mr-2"><?= __('splits.page.hierarchySuperCenters') ?></label>
-                    <input type="checkbox" id="hier-fir" checked onchange="SplitsController.toggleArtccHierarchy('fir', this.checked)">
-                    <span class="layer-color" style="background: #FF00FF; width: 10px; height: 10px;"></span>
-                    <label for="hier-fir" class="small mr-2"><?= __('splits.page.hierarchyFirs') ?></label>
-                    <input type="checkbox" id="hier-sub" onchange="SplitsController.toggleArtccHierarchy('sub', this.checked)">
-                    <span class="layer-color" style="background: #CC66FF; width: 10px; height: 10px;"></span>
-                    <label for="hier-sub" class="small mr-2"><?= __('splits.page.hierarchySubAreas') ?></label>
-                    <input type="checkbox" id="hier-deep" onchange="SplitsController.toggleArtccHierarchy('deep', this.checked)">
-                    <span class="layer-color" style="background: #9966CC; width: 10px; height: 10px;"></span>
-                    <label for="hier-deep" class="small"><?= __('splits.page.hierarchyDeepSubAreas') ?></label>
+                <div class="ml-4 mb-1" id="artcc-hierarchy-filters">
+                    <div class="text-muted small mb-1"><?= __('splits.page.hierarchyLabel') ?></div>
+                    <div class="d-flex flex-column" style="gap: 2px;">
+                        <div class="d-flex align-items-center">
+                            <input type="checkbox" id="hier-super" onchange="SplitsController.toggleArtccHierarchy('super', this.checked)">
+                            <span class="layer-color ml-1" style="background: #E6A817; width: 10px; height: 10px;"></span>
+                            <label for="hier-super" class="small mb-0 ml-1"><?= __('splits.page.hierarchySuperCenters') ?></label>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <input type="checkbox" id="hier-fir" checked onchange="SplitsController.toggleArtccHierarchy('fir', this.checked)">
+                            <span class="layer-color ml-1" style="background: #FF00FF; width: 10px; height: 10px;"></span>
+                            <label for="hier-fir" class="small mb-0 ml-1"><?= __('splits.page.hierarchyFirs') ?></label>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <input type="checkbox" id="hier-sub" onchange="SplitsController.toggleArtccHierarchy('sub', this.checked)">
+                            <span class="layer-color ml-1" style="background: #CC66FF; width: 10px; height: 10px;"></span>
+                            <label for="hier-sub" class="small mb-0 ml-1"><?= __('splits.page.hierarchySubAreas') ?></label>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <input type="checkbox" id="hier-deep" onchange="SplitsController.toggleArtccHierarchy('deep', this.checked)">
+                            <span class="layer-color ml-1" style="background: #9966CC; width: 10px; height: 10px;"></span>
+                            <label for="hier-deep" class="small mb-0 ml-1"><?= __('splits.page.hierarchyDeepSubAreas') ?></label>
+                        </div>
+                    </div>
                 </div>
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="superhigh" id="layer-superhigh">
