@@ -12,6 +12,10 @@ const AIRSPACE_COLORS = {
     high: _airspaceColors.high || '#FF6347',
     superhigh: _airspaceColors.superhigh || '#9932CC',
     artcc: _airspaceColors.artcc || '#4682B4',
+    artccSuper: _airspaceColors.artccSuper || '#E6A817',
+    artccFir: _airspaceColors.artccFir || '#FF00FF',
+    artccSub: _airspaceColors.artccSub || '#CC66FF',
+    artccDeep: _airspaceColors.artccDeep || '#9966CC',
     tracon: _airspaceColors.tracon || '#20B2AA',
     sectorLine: _airspaceColors.sectorLine || '#505050',
     sectorLineDark: _airspaceColors.sectorLineDark || '#303030',
@@ -38,7 +42,7 @@ const SplitsController = {
     visiblePresets: null,  // Set of visible preset IDs
 
     // GeoJSON cache
-    geoJsonCache: { high: null, low: null, superhigh: null, artcc: null, tracon: null },
+    geoJsonCache: { high: null, low: null, superhigh: null, artcc: null, supercenter: null, artccArea: null, tracon: null },
 
     // Layer visibility state
     layerVisibility: {
@@ -51,6 +55,14 @@ const SplitsController = {
         presets: false,
         activeConfigs: true,
         scheduledConfigs: false,
+    },
+
+    // ARTCC hierarchy level visibility
+    artccHierarchy: {
+        super: false,
+        fir: true,
+        sub: false,
+        deep: false,
     },
 
     // Active splits strata visibility
@@ -173,6 +185,8 @@ const SplitsController = {
             low: 'assets/geojson/low.json',
             superhigh: 'assets/geojson/superhigh.json',
             artcc: 'assets/geojson/artcc.json',
+            supercenter: 'assets/geojson/supercenter.json',
+            artccArea: 'assets/geojson/artcc_area.json',
             tracon: 'assets/geojson/tracon.json',
         };
         const foundArtccs = new Set();
@@ -374,46 +388,89 @@ const SplitsController = {
 
         console.log('[SPLITS] Adding base layers now...');
 
-        // Add ARTCC boundaries
-        if (this.geoJsonCache.artcc && !this.map.getSource('artcc-source')) {
-            console.log('[SPLITS] Adding ARTCC layer with', this.geoJsonCache.artcc.features?.length, 'features');
+        // Add ARTCC boundaries — separate source per hierarchy level file
+        {
+            // MapLibre expression: strip K-prefix for US ARTCCs (KZLA→ZLA)
+            var displayCodeExpr = [
+                'case',
+                ['all',
+                    ['==', ['length', ['get', 'ICAOCODE']], 4],
+                    ['==', ['slice', ['get', 'ICAOCODE'], 0, 1], 'K']
+                ],
+                ['slice', ['get', 'ICAOCODE'], 1],
+                ['get', 'ICAOCODE']
+            ];
+            var labelFont = ['Open Sans Bold', 'Arial Unicode MS Bold'];
 
-            try {
-                this.map.addSource('artcc-source', {
-                    type: 'geojson',
-                    data: this.geoJsonCache.artcc,
-                });
+            // [prefix, cacheKey, sourceId, color, visible, textSize]
+            var hierLevels = [
+                ['artcc-super', 'supercenter', 'supercenter-source',
+                    AIRSPACE_COLORS.artccSuper, false, 16],
+                ['artcc-fir', 'artcc', 'artcc-source',
+                    AIRSPACE_COLORS.artccFir, true,
+                    ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18]],
+                ['artcc-sub', 'artccArea', 'artcc-area-source',
+                    AIRSPACE_COLORS.artccSub, false, 10],
+                ['artcc-deep', 'artccArea', 'artcc-area-source',
+                    AIRSPACE_COLORS.artccDeep, false, 9],
+            ];
 
-                this.map.addLayer({
-                    id: 'artcc-fill',
-                    type: 'fill',
-                    source: 'artcc-source',
-                    paint: {
-                        'fill-color': '#FF00FF',
-                        'fill-opacity': 0,
-                    },
-                }, 'sectors-fill');
+            hierLevels.forEach(function(def) {
+                var prefix = def[0], cacheKey = def[1], sourceId = def[2],
+                    color = def[3], visible = def[4], textSize = def[5];
+                var data = this.geoJsonCache[cacheKey];
+                if (!data) return;
 
-                this.map.addLayer({
-                    id: 'artcc-lines',
-                    type: 'line',
-                    source: 'artcc-source',
-                    paint: {
-                        'line-color': '#FF00FF',
-                        'line-width': 2,
-                        'line-opacity': 0.5,
-                    },
-                }, 'sectors-fill');
-
-                // Add ARTCC/FIR labels via shared utility on existing polygon source
-                if (typeof PERTIArtccLabels !== 'undefined') {
-                    PERTIArtccLabels.addToMap(this.map, { source: 'artcc-source', visible: true });
+                // Add source if not already added (artcc-sub and artcc-deep share artcc-area-source)
+                if (!this.map.getSource(sourceId)) {
+                    this.map.addSource(sourceId, { type: 'geojson', data: data });
                 }
 
-                console.log('[SPLITS] ARTCC layers added successfully');
-            } catch (err) {
-                console.error('[SPLITS] Failed to add ARTCC layers:', err);
-            }
+                var vis = visible ? 'visible' : 'none';
+
+                // For artcc-deep: filter to L3+ from the shared artcc-area-source
+                var filter = (prefix === 'artcc-deep')
+                    ? ['>=', ['get', 'hierarchy_level'], 3]
+                    : (prefix === 'artcc-sub')
+                        ? ['==', ['get', 'hierarchy_level'], 2]
+                        : undefined;
+
+                var fillLayer = {
+                    id: prefix + '-fill', type: 'fill', source: sourceId,
+                    paint: { 'fill-color': color, 'fill-opacity': 0 },
+                    layout: { visibility: vis },
+                };
+                var lineLayer = {
+                    id: prefix + '-lines', type: 'line', source: sourceId,
+                    paint: { 'line-color': color, 'line-width': 2, 'line-opacity': 0.5 },
+                    layout: { visibility: vis },
+                };
+                var labelLayer = {
+                    id: prefix + '-labels', type: 'symbol', source: sourceId,
+                    layout: {
+                        'text-field': displayCodeExpr, 'text-font': labelFont,
+                        'text-size': textSize, 'text-allow-overlap': false,
+                        'text-ignore-placement': false, 'text-padding': 5,
+                        'visibility': vis,
+                    },
+                    paint: {
+                        'text-color': color, 'text-halo-color': 'rgba(0, 0, 0, 0.8)',
+                        'text-halo-width': 1.5, 'text-opacity': 0.7,
+                    },
+                };
+
+                if (filter) {
+                    fillLayer.filter = filter;
+                    lineLayer.filter = filter;
+                    labelLayer.filter = filter;
+                }
+
+                this.map.addLayer(fillLayer, 'sectors-fill');
+                this.map.addLayer(lineLayer, 'sectors-fill');
+                this.map.addLayer(labelLayer);
+            }.bind(this));
+
+            console.log('[SPLITS] ARTCC hierarchy layers added successfully');
         }
 
         // Add High sectors (hidden by default)
@@ -1148,32 +1205,14 @@ const SplitsController = {
 
     toggleLayer(layerName) {
         this.layerVisibility[layerName] = !this.layerVisibility[layerName];
-        const visibility = this.layerVisibility[layerName] ? 'visible' : 'none';
+        const visible = this.layerVisibility[layerName];
 
-        const layerGroups = {
-            artcc: ['artcc-fill', 'artcc-lines', 'artcc-labels'],
-            high: ['high-fill', 'high-lines', 'high-labels'],
-            low: ['low-fill', 'low-lines', 'low-labels'],
-            superhigh: ['superhigh-fill', 'superhigh-lines', 'superhigh-labels'],
-            tracon: ['tracon-fill', 'tracon-lines', 'tracon-labels'],
-            areas: ['areas-fill', 'areas-lines', 'areas-labels'],
-            presets: ['presets-fill', 'presets-lines', 'presets-labels'],
-            activeConfigs: ['sectors-fill', 'sectors-lines', 'sectors-labels'],
-            scheduledConfigs: ['scheduled-sectors-fill', 'scheduled-sectors-lines', 'scheduled-sectors-labels'],
-        };
-
-        const layers = layerGroups[layerName] || [];
-        layers.forEach(layerId => {
-            if (this.map.getLayer(layerId)) {
-                this.map.setLayoutProperty(layerId, 'visibility', visibility);
-            }
-        });
+        // Delegate to toggleLayerVisibility which handles artcc hierarchy
+        this.toggleLayerVisibility(layerName, visible);
 
         // Update checkbox state
         const checkbox = document.querySelector(`.layer-toggle[data-layer="${layerName}"]`);
-        if (checkbox) {checkbox.checked = this.layerVisibility[layerName];}
-
-        console.log(`[SPLITS] Layer ${layerName} visibility: ${visibility}`);
+        if (checkbox) {checkbox.checked = visible;}
     },
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1448,7 +1487,6 @@ const SplitsController = {
 
     toggleLayerFill(layerName, visible) {
         const layerMap = {
-            artcc: { layer: 'artcc-fill', baseOpacity: 0.1 },
             high: { layer: 'high-fill', baseOpacity: 0.25 },
             low: { layer: 'low-fill', baseOpacity: 0.25 },
             superhigh: { layer: 'superhigh-fill', baseOpacity: 0.25 },
@@ -1458,6 +1496,20 @@ const SplitsController = {
             activeConfigs: { layer: 'sectors-fill', baseOpacity: 0.6 },
             scheduledConfigs: { layer: 'scheduled-sectors-fill', baseOpacity: 0.2 },
         };
+
+        // ARTCC: apply to all hierarchy-level fill layers
+        if (layerName === 'artcc' && this.map) {
+            var slider = document.querySelector('.layer-opacity[data-layer="artcc"]');
+            var opacity = slider ? parseInt(slider.value) / 100 : 0.5;
+            ['artcc-super-fill', 'artcc-fir-fill', 'artcc-sub-fill', 'artcc-deep-fill'].forEach(id => {
+                if (this.map.getLayer(id)) {
+                    this.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+                    if (visible) this.map.setPaintProperty(id, 'fill-opacity', 0.1 * opacity);
+                }
+            });
+            return;
+        }
+
         const config = layerMap[layerName];
         if (config && this.map && this.map.getLayer(config.layer)) {
             this.map.setLayoutProperty(config.layer, 'visibility', visible ? 'visible' : 'none');
@@ -1473,7 +1525,6 @@ const SplitsController = {
 
     toggleLayerLine(layerName, visible) {
         const layerMap = {
-            artcc: { layer: 'artcc-lines', baseOpacity: 1 },
             high: { layer: 'high-lines', baseOpacity: 1 },
             low: { layer: 'low-lines', baseOpacity: 1 },
             superhigh: { layer: 'superhigh-lines', baseOpacity: 1 },
@@ -1483,6 +1534,20 @@ const SplitsController = {
             activeConfigs: { layer: 'sectors-lines', baseOpacity: 1 },
             scheduledConfigs: { layer: 'scheduled-sectors-lines', baseOpacity: 0.7 },
         };
+
+        // ARTCC: apply to all hierarchy-level line layers
+        if (layerName === 'artcc' && this.map) {
+            var slider = document.querySelector('.layer-opacity[data-layer="artcc"]');
+            var opacity = slider ? parseInt(slider.value) / 100 : 0.5;
+            ['artcc-super-lines', 'artcc-fir-lines', 'artcc-sub-lines', 'artcc-deep-lines'].forEach(id => {
+                if (this.map.getLayer(id)) {
+                    this.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+                    if (visible) this.map.setPaintProperty(id, 'line-opacity', 1 * opacity);
+                }
+            });
+            return;
+        }
+
         const config = layerMap[layerName];
         if (config && this.map && this.map.getLayer(config.layer)) {
             this.map.setLayoutProperty(config.layer, 'visibility', visible ? 'visible' : 'none');
@@ -1563,8 +1628,10 @@ const SplitsController = {
         });
 
         // Clickable layers - include both fill and line layers for better hit detection
-        const clickableFillLayers = ['sectors-fill', 'scheduled-sectors-fill', 'high-fill', 'low-fill', 'artcc-fill', 'tracon-fill', 'areas-fill'];
-        const clickableLineLayers = ['sectors-lines', 'scheduled-sectors-lines', 'high-lines', 'low-lines', 'artcc-lines', 'tracon-lines', 'areas-lines'];
+        const clickableFillLayers = ['sectors-fill', 'scheduled-sectors-fill', 'high-fill', 'low-fill',
+            'artcc-super-fill', 'artcc-fir-fill', 'artcc-sub-fill', 'artcc-deep-fill', 'tracon-fill', 'areas-fill'];
+        const clickableLineLayers = ['sectors-lines', 'scheduled-sectors-lines', 'high-lines', 'low-lines',
+            'artcc-super-lines', 'artcc-fir-lines', 'artcc-sub-lines', 'artcc-deep-lines', 'tracon-lines', 'areas-lines'];
         const allClickableLayers = [...clickableFillLayers, ...clickableLineLayers];
 
         // Single unified click handler
@@ -1660,7 +1727,10 @@ const SplitsController = {
             { fill: 'high-fill', line: 'high-lines', type: 'high' },
             { fill: 'low-fill', line: 'low-lines', type: 'low' },
             { fill: 'superhigh-fill', line: 'superhigh-lines', type: 'superhigh' },
-            { fill: 'artcc-fill', line: 'artcc-lines', type: 'artcc' },
+            { fill: 'artcc-super-fill', line: 'artcc-super-lines', type: 'artcc' },
+            { fill: 'artcc-fir-fill', line: 'artcc-fir-lines', type: 'artcc' },
+            { fill: 'artcc-sub-fill', line: 'artcc-sub-lines', type: 'artcc' },
+            { fill: 'artcc-deep-fill', line: 'artcc-deep-lines', type: 'artcc' },
             { fill: 'tracon-fill', line: 'tracon-lines', type: 'tracon' },
             { fill: 'areas-fill', line: 'areas-lines', type: 'areas' },
             { fill: 'presets-fill', line: 'presets-lines', type: 'presets' },
@@ -2451,16 +2521,36 @@ const SplitsController = {
     },
 
     buildArtccPopup(props) {
-        return `
+        var level = props.hierarchy_level;
+        var levelNum = (level !== undefined && level !== null) ? parseInt(level) : 1;
+        var colorMap = { 0: AIRSPACE_COLORS.artccSuper, 1: AIRSPACE_COLORS.artccFir, 2: AIRSPACE_COLORS.artccSub };
+        var headerColor = colorMap[levelNum] || AIRSPACE_COLORS.artccDeep;
+        var typeKeyMap = { 0: 'splits.popup.superCenterBoundary', 1: 'splits.popup.firBoundary', 2: 'splits.popup.subAreaBoundary' };
+        var typeKey = typeKeyMap[levelNum] || 'splits.popup.deepSubAreaBoundary';
+        var displayCode = props.ICAOCODE || props.FIRname || props.id || props.name || props.ID || 'ARTCC';
+        var displayName = props.FIRname || props.name || '';
+        var parentFir = props.parent_fir || '';
+
+        var html = `
             <div class="sector-popup">
-                <div class="popup-header" style="background: #FF00FF">
-                    <strong>${props.id || props.name || props.ID || 'ARTCC'}</strong>
+                <div class="popup-header" style="background: ${headerColor}">
+                    <strong>${displayCode}</strong>
+                    ${displayName && displayName !== displayCode ? `<span style="font-weight: normal; font-size: 10px; opacity: 0.8; display: block;">${displayName}</span>` : ''}
                 </div>
                 <div class="popup-body">
-                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.type')}:</span> ${PERTII18n.t('splits.popup.artccBoundary')}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.type')}:</span> ${PERTII18n.t(typeKey)}</div>
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.hierarchyLevel')}:</span> ${levelNum}</div>`;
+
+        if (parentFir) {
+            html += `
+                    <div class="popup-row"><span>${PERTII18n.t('splits.popup.parentFir')}:</span> ${parentFir}</div>`;
+        }
+
+        html += `
                 </div>
             </div>
         `;
+        return html;
     },
 
     buildTraconPopup(props) {
@@ -2664,8 +2754,12 @@ const SplitsController = {
     setLayerOpacity(layerName, opacity) {
         const layerConfigs = {
             artcc: {
-                fill: { layer: 'artcc-fill', prop: 'fill-opacity', base: 0.1 },
-                line: { layer: 'artcc-lines', prop: 'line-opacity', base: 1 },
+                multi: [
+                    { fill: { layer: 'artcc-super-fill', prop: 'fill-opacity', base: 0.1 }, line: { layer: 'artcc-super-lines', prop: 'line-opacity', base: 1 } },
+                    { fill: { layer: 'artcc-fir-fill', prop: 'fill-opacity', base: 0.1 }, line: { layer: 'artcc-fir-lines', prop: 'line-opacity', base: 1 } },
+                    { fill: { layer: 'artcc-sub-fill', prop: 'fill-opacity', base: 0.1 }, line: { layer: 'artcc-sub-lines', prop: 'line-opacity', base: 1 } },
+                    { fill: { layer: 'artcc-deep-fill', prop: 'fill-opacity', base: 0.1 }, line: { layer: 'artcc-deep-lines', prop: 'line-opacity', base: 1 } },
+                ],
             },
             high: {
                 fill: { layer: 'high-fill', prop: 'fill-opacity', base: 0.25 },
@@ -2710,6 +2804,19 @@ const SplitsController = {
         const fillActive = fillBtn ? fillBtn.classList.contains('active') : true;
         const lineActive = lineBtn ? lineBtn.classList.contains('active') : true;
 
+        // Multi-layer configs (e.g., artcc with per-hierarchy-level layers)
+        if (config.multi) {
+            config.multi.forEach(sub => {
+                if (fillActive && sub.fill && this.map.getLayer(sub.fill.layer)) {
+                    this.map.setPaintProperty(sub.fill.layer, sub.fill.prop, sub.fill.base * opacity);
+                }
+                if (lineActive && sub.line && this.map.getLayer(sub.line.layer)) {
+                    this.map.setPaintProperty(sub.line.layer, sub.line.prop, sub.line.base * opacity);
+                }
+            });
+            return;
+        }
+
         // Only set opacity for layers whose button is active
         if (fillActive && config.fill && this.map.getLayer(config.fill.layer)) {
             this.map.setPaintProperty(config.fill.layer, config.fill.prop, config.fill.base * opacity);
@@ -2720,10 +2827,7 @@ const SplitsController = {
     },
 
     toggleLayerVisibility(layerName, visible) {
-        const visibility = visible ? 'visible' : 'none';
-
         const layerGroups = {
-            artcc: ['artcc-fill', 'artcc-lines', 'artcc-labels'],
             high: ['high-fill', 'high-lines', 'high-labels'],
             low: ['low-fill', 'low-lines', 'low-labels'],
             superhigh: ['superhigh-fill', 'superhigh-lines', 'superhigh-labels'],
@@ -2734,6 +2838,27 @@ const SplitsController = {
             scheduledConfigs: ['scheduled-sectors-fill', 'scheduled-sectors-lines', 'scheduled-sectors-labels'],
         };
 
+        // ARTCC master toggle — respects individual hierarchy checkbox states
+        if (layerName === 'artcc') {
+            const hierMap = {
+                super: ['artcc-super-fill', 'artcc-super-lines', 'artcc-super-labels'],
+                fir: ['artcc-fir-fill', 'artcc-fir-lines', 'artcc-fir-labels'],
+                sub: ['artcc-sub-fill', 'artcc-sub-lines', 'artcc-sub-labels'],
+                deep: ['artcc-deep-fill', 'artcc-deep-lines', 'artcc-deep-labels'],
+            };
+            Object.entries(hierMap).forEach(([level, layerIds]) => {
+                var vis = (visible && this.artccHierarchy[level]) ? 'visible' : 'none';
+                layerIds.forEach(id => {
+                    if (this.map && this.map.getLayer(id)) {
+                        this.map.setLayoutProperty(id, 'visibility', vis);
+                    }
+                });
+            });
+            console.log(`[SPLITS] Layer artcc visibility: ${visible ? 'visible' : 'none'}`);
+            return;
+        }
+
+        const visibility = visible ? 'visible' : 'none';
         const layers = layerGroups[layerName] || [];
         layers.forEach(layerId => {
             if (this.map && this.map.getLayer(layerId)) {
@@ -2742,6 +2867,28 @@ const SplitsController = {
         });
 
         console.log(`[SPLITS] Layer ${layerName} visibility: ${visibility}`);
+    },
+
+    /**
+     * Toggle ARTCC hierarchy level visibility (super, fir, sub, deep)
+     */
+    toggleArtccHierarchy(level, visible) {
+        this.artccHierarchy[level] = visible;
+        if (!this.layerVisibility.artcc) return;
+
+        const layerMap = {
+            super: ['artcc-super-fill', 'artcc-super-lines', 'artcc-super-labels'],
+            fir: ['artcc-fir-fill', 'artcc-fir-lines', 'artcc-fir-labels'],
+            sub: ['artcc-sub-fill', 'artcc-sub-lines', 'artcc-sub-labels'],
+            deep: ['artcc-deep-fill', 'artcc-deep-lines', 'artcc-deep-labels'],
+        };
+        const vis = visible ? 'visible' : 'none';
+        (layerMap[level] || []).forEach(id => {
+            if (this.map && this.map.getLayer(id)) {
+                this.map.setLayoutProperty(id, 'visibility', vis);
+            }
+        });
+        console.log(`[SPLITS] ARTCC hierarchy ${level}: ${vis}`);
     },
 
     /**

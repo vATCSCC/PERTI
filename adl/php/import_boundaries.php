@@ -15,7 +15,8 @@ class BoundaryImporter {
     private $stats = [
         'artcc' => ['imported' => 0, 'failed' => 0],
         'sectors' => ['imported' => 0, 'failed' => 0],
-        'tracon' => ['imported' => 0, 'failed' => 0]
+        'tracon' => ['imported' => 0, 'failed' => 0],
+        'hierarchy' => ['imported' => 0, 'failed' => 0]
     ];
     
     public function __construct() {
@@ -29,78 +30,145 @@ class BoundaryImporter {
      */
     public function importAll() {
         echo "Starting full boundary import...\n\n";
-        
+
         $this->importArtcc();
         $this->importSectors('high');
         $this->importSectors('low');
         $this->importSectors('superhigh');
         $this->importTracon();
-        
+        $this->importHierarchy();
+
         $this->printSummary();
     }
     
     /**
-     * Import ARTCC/FIR boundaries from artcc.json
+     * Import ARTCC/FIR boundaries from artcc.json, supercenter.json, artcc_area.json
      */
     public function importArtcc($filePath = null) {
-        $file = $filePath ?? $this->geojsonDir . 'artcc.json';
-        echo "Importing ARTCC boundaries from: $file\n";
-        
-        if (!file_exists($file)) {
-            echo "  ERROR: File not found\n";
+        // Merge features from all 3 ARTCC hierarchy files
+        $artccFiles = [
+            'artcc.json',        // L1 FIRs/ARTCCs
+            'supercenter.json',  // L0 super-centers
+            'artcc_area.json',   // L2+ sub-areas
+        ];
+
+        $allFeatures = [];
+        $fileSources = [];
+
+        if ($filePath) {
+            // Single file specified via CLI --file flag
+            if (!file_exists($filePath)) {
+                echo "  ERROR: File not found: $filePath\n";
+                return false;
+            }
+            $geojson = json_decode(file_get_contents($filePath), true);
+            if (!$geojson || !isset($geojson['features'])) {
+                echo "  ERROR: Invalid GeoJSON\n";
+                return false;
+            }
+            $basename = basename($filePath);
+            echo "  Loaded " . count($geojson['features']) . " features from $basename\n";
+            foreach ($geojson['features'] as $f) {
+                $fileSources[] = $basename;
+                $allFeatures[] = $f;
+            }
+        } else {
+            // Load all 3 hierarchy files
+            foreach ($artccFiles as $filename) {
+                $file = $this->geojsonDir . $filename;
+                if (!file_exists($file)) {
+                    echo "  Skipping $filename (not found)\n";
+                    continue;
+                }
+                $geojson = json_decode(file_get_contents($file), true);
+                if (!$geojson || !isset($geojson['features'])) {
+                    echo "  Skipping $filename (invalid GeoJSON)\n";
+                    continue;
+                }
+                $fileCount = count($geojson['features']);
+                echo "  Loaded $fileCount features from $filename\n";
+                foreach ($geojson['features'] as $f) {
+                    $fileSources[] = $filename;
+                    $allFeatures[] = $f;
+                }
+            }
+        }
+
+        if (empty($allFeatures)) {
+            echo "  ERROR: No ARTCC features found\n";
             return false;
         }
-        
-        $geojson = json_decode(file_get_contents($file), true);
-        if (!$geojson || !isset($geojson['features'])) {
-            echo "  ERROR: Invalid GeoJSON\n";
-            return false;
-        }
-        
-        $count = count($geojson['features']);
-        echo "  Found $count ARTCC features\n";
-        
-        foreach ($geojson['features'] as $i => $feature) {
+
+        $count = count($allFeatures);
+        echo "  Total: $count ARTCC features\n";
+
+        foreach ($allFeatures as $i => $feature) {
             $props = $feature['properties'];
             $boundaryCode = $props['ICAOCODE'] ?? $props['FIRname'];
+            $sourceFile = $fileSources[$i];
 
-            // Classify sub-areas: codes with dash (e.g., EDGG-BAD, EGTT-D)
-            $isSubArea = !empty($props['is_sub_area']) || (strpos($boundaryCode, '-') !== false);
-            $parentFir = $isSubArea
-                ? ($props['parent_fir'] ?? substr($boundaryCode, 0, strpos($boundaryCode, '-')))
-                : null;
+            // Determine boundary_type from enriched hierarchy properties
+            if (isset($props['hierarchy_type'])) {
+                // Enriched GeoJSON from classification script
+                $hierarchyType = $props['hierarchy_type'];
+                $hierarchyLevel = $props['hierarchy_level'] ?? null;
+
+                if ($hierarchyType === 'SUPER_CENTER') {
+                    $boundaryType = 'ARTCC_SUPER';
+                } elseif ($hierarchyLevel == 1) {
+                    $boundaryType = 'ARTCC';
+                } elseif ($hierarchyLevel == 2) {
+                    $boundaryType = 'ARTCC_SUB';
+                } elseif ($hierarchyLevel >= 3) {
+                    $boundaryType = 'ARTCC_SUB_' . $hierarchyLevel;
+                } else {
+                    $boundaryType = 'ARTCC_SUB';
+                }
+                $parentFir = $props['parent_fir'] ?? null;
+            } else {
+                // Raw GeoJSON (pre-classification, backward compat)
+                $isSubArea = !empty($props['is_sub_area']) || (strpos($boundaryCode, '-') !== false);
+                $boundaryType = $isSubArea ? 'ARTCC_SUB' : 'ARTCC';
+                $hierarchyLevel = null;
+                $hierarchyType = null;
+                $parentFir = $isSubArea
+                    ? ($props['parent_fir'] ?? substr($boundaryCode, 0, strpos($boundaryCode, '-')))
+                    : null;
+            }
 
             $result = $this->importBoundary([
-                'boundary_type' => $isSubArea ? 'ARTCC_SUB' : 'ARTCC',
+                'boundary_type' => $boundaryType,
                 'boundary_code' => $boundaryCode,
                 'boundary_name' => $props['FIRname'],
-                'icao_code' => $props['ICAOCODE'],
+                'icao_code' => $props['ICAOCODE'] ?? null,
                 'vatsim_region' => $props['VATSIM Reg'] ?? null,
                 'vatsim_division' => $props['VATSIM Div'] ?? null,
                 'vatsim_subdivision' => $props['VATSIM Sub'] ?? null,
                 'is_oceanic' => ($props['oceanic'] ?? 0) ? 1 : 0,
-                'floor_altitude' => $props['FLOOR'],
-                'ceiling_altitude' => $props['CEILING'],
-                'label_lat' => $props['label_lat'],
-                'label_lon' => $props['label_lon'],
+                'floor_altitude' => $props['FLOOR'] ?? null,
+                'ceiling_altitude' => $props['CEILING'] ?? null,
+                'label_lat' => $props['label_lat'] ?? null,
+                'label_lon' => $props['label_lon'] ?? null,
                 'geometry' => $feature['geometry'],
-                'source_fid' => $props['fid'],
-                'source_file' => 'artcc.json',
+                'source_fid' => $props['fid'] ?? null,
+                'source_file' => $sourceFile,
                 'parent_fir' => $parentFir,
+                'hierarchy_level' => $hierarchyLevel,
+                'hierarchy_type' => $hierarchyType,
             ]);
-            
+
             if ($result) {
                 $this->stats['artcc']['imported']++;
             } else {
                 $this->stats['artcc']['failed']++;
             }
-            
+
             // Progress indicator
             if (($i + 1) % 50 == 0) {
                 echo "  Processed " . ($i + 1) . "/$count\n";
             }
         }
-        
+
         echo "  ARTCC import complete: {$this->stats['artcc']['imported']} imported, {$this->stats['artcc']['failed']} failed\n\n";
         return true;
     }
@@ -182,19 +250,42 @@ class BoundaryImporter {
         
         foreach ($geojson['features'] as $i => $feature) {
             $props = $feature['properties'];
+
+            // Use enriched fields from classification script if available
+            // After enrichment: tracon = facility code, sector = subdivision identifier
+            // Before enrichment: sector = facility code, artcc = airport-derived code
+            if (isset($props['tracon'])) {
+                // Enriched GeoJSON (post-classification)
+                $boundaryCode = $props['sector'];  // Unique per feature (subdivision identifier)
+                $parentArtcc = $props['tracon'];    // TRACON facility code (e.g., "A80")
+                $parentFir = $props['parent_fir'] ?? null;  // Parent ARTCC (e.g., "ZTL")
+                $hierarchyLevel = $props['hierarchy_level'] ?? null;
+                $hierarchyType = $props['hierarchy_type'] ?? null;
+            } else {
+                // Raw GeoJSON (pre-classification, backward compat)
+                $boundaryCode = $props['sector'] ?? $props['label'];
+                $parentArtcc = strtoupper($props['artcc'] ?? '');
+                $parentFir = null;
+                $hierarchyLevel = null;
+                $hierarchyType = null;
+            }
+
             $result = $this->importBoundary([
                 'boundary_type' => 'TRACON',
-                'boundary_code' => $props['sector'] ?? $props['label'],
-                'boundary_name' => $props['label'],
-                'parent_artcc' => strtoupper($props['artcc']),
-                'sector_number' => $props['sector'],
-                'label_lat' => $props['label_lat'],
-                'label_lon' => $props['label_lon'],
+                'boundary_code' => $boundaryCode,
+                'boundary_name' => $props['label'] ?? null,
+                'parent_artcc' => $parentArtcc,
+                'sector_number' => $props['sector'] ?? null,
+                'label_lat' => $props['label_lat'] ?? null,
+                'label_lon' => $props['label_lon'] ?? null,
                 'geometry' => $feature['geometry'],
-                'shape_length' => $props['Shape_Length'],
-                'shape_area' => $props['Shape_Area'],
-                'source_object_id' => $props['OBJECTID'],
-                'source_file' => 'tracon.json'
+                'shape_length' => $props['Shape_Length'] ?? null,
+                'shape_area' => $props['Shape_Area'] ?? null,
+                'source_object_id' => $props['OBJECTID'] ?? null,
+                'source_file' => 'tracon.json',
+                'parent_fir' => $parentFir,
+                'hierarchy_level' => $hierarchyLevel,
+                'hierarchy_type' => $hierarchyType,
             ]);
             
             if ($result) {
@@ -296,6 +387,8 @@ class BoundaryImporter {
                     @source_fid = :source_fid,
                     @source_file = :source_file,
                     @parent_fir = :parent_fir,
+                    @hierarchy_level = :hierarchy_level,
+                    @hierarchy_type = :hierarchy_type,
                     @boundary_id = @boundary_id OUTPUT;
                 SELECT @boundary_id as boundary_id;";
 
@@ -322,6 +415,8 @@ class BoundaryImporter {
             $stmt->bindValue(':source_fid', $data['source_fid'] ?? null);
             $stmt->bindValue(':source_file', $data['source_file'] ?? null);
             $stmt->bindValue(':parent_fir', $data['parent_fir'] ?? null);
+            $stmt->bindValue(':hierarchy_level', $data['hierarchy_level'] ?? null);
+            $stmt->bindValue(':hierarchy_type', $data['hierarchy_type'] ?? null);
 
             $stmt->execute();
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -339,16 +434,115 @@ class BoundaryImporter {
     }
     
     /**
+     * Import boundary hierarchy edges from boundary_hierarchy.json
+     */
+    public function importHierarchy($filePath = null) {
+        $file = $filePath ?? $this->geojsonDir . 'boundary_hierarchy.json';
+        echo "Importing boundary hierarchy from: $file\n";
+
+        if (!file_exists($file)) {
+            echo "  Skipping (file not found)\n\n";
+            return false;
+        }
+
+        $data = json_decode(file_get_contents($file), true);
+        if (!$data || !isset($data['edges'])) {
+            echo "  ERROR: Invalid hierarchy JSON\n";
+            return false;
+        }
+
+        $edges = $data['edges'];
+        $count = count($edges);
+        echo "  Found $count edges\n";
+
+        // Clear existing edges
+        $this->pdo->exec("DELETE FROM boundary_hierarchy");
+
+        // Build lookup: boundary_code -> boundary_id
+        $stmt = $this->pdo->query("SELECT boundary_id, boundary_code, boundary_type FROM adl_boundary WHERE is_active = 1");
+        $codeMap = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $key = $row['boundary_type'] . ':' . $row['boundary_code'];
+            $codeMap[$key] = $row['boundary_id'];
+            // Also map by code only for ARTCC-family
+            if (strpos($row['boundary_type'], 'ARTCC') === 0) {
+                if (!isset($codeMap['ARTCC_ANY:' . $row['boundary_code']])) {
+                    $codeMap['ARTCC_ANY:' . $row['boundary_code']] = $row['boundary_id'];
+                }
+            }
+        }
+
+        $insertSql = "INSERT INTO boundary_hierarchy (parent_boundary_id, child_boundary_id, parent_code, child_code, relationship_type, coverage_ratio)
+                      VALUES (:parent_id, :child_id, :parent_code, :child_code, :rel_type, :coverage)";
+        $insertStmt = $this->pdo->prepare($insertSql);
+
+        foreach ($edges as $i => $edge) {
+            $parentCode = $edge['parent'] ?? '';
+            $childCode = $edge['child'] ?? '';
+            $relType = $edge['type'] ?? 'CONTAINS';
+            $coverage = $edge['coverage'] ?? null;
+
+            // Resolve boundary IDs
+            $parentId = null;
+            $childId = null;
+
+            if ($relType === 'CONTAINS' || $relType === 'TILES') {
+                $parentId = $codeMap['ARTCC_ANY:' . $parentCode] ?? null;
+                $childId = $codeMap['ARTCC_ANY:' . $childCode] ?? null;
+            } elseif ($relType === 'SECTOR_OF') {
+                // Parent is sector/TRACON, child is ARTCC
+                $parentId = $codeMap['SECTOR_HIGH:' . $parentCode]
+                    ?? $codeMap['SECTOR_LOW:' . $parentCode]
+                    ?? $codeMap['SECTOR_SUPERHIGH:' . $parentCode]
+                    ?? $codeMap['TRACON:' . $parentCode]
+                    ?? null;
+                $childId = $codeMap['ARTCC_ANY:' . $childCode] ?? null;
+            } elseif ($relType === 'TRACON_OF') {
+                // Both are TRACONs: parent = facility code, child = subdivision code
+                $parentId = $codeMap['TRACON:' . $parentCode] ?? null;
+                $childId = $codeMap['TRACON:' . $childCode] ?? null;
+            }
+
+            if ($parentId === null || $childId === null) {
+                $this->stats['hierarchy']['failed']++;
+                continue;
+            }
+
+            try {
+                $insertStmt->execute([
+                    ':parent_id' => $parentId,
+                    ':child_id' => $childId,
+                    ':parent_code' => substr($parentCode, 0, 50),
+                    ':child_code' => substr($childCode, 0, 50),
+                    ':rel_type' => substr($relType, 0, 20),
+                    ':coverage' => $coverage,
+                ]);
+                $this->stats['hierarchy']['imported']++;
+            } catch (PDOException $e) {
+                $this->stats['hierarchy']['failed']++;
+            }
+
+            if (($i + 1) % 200 == 0) {
+                echo "  Processed " . ($i + 1) . "/$count\n";
+            }
+        }
+
+        echo "  Hierarchy import complete: {$this->stats['hierarchy']['imported']} imported, {$this->stats['hierarchy']['failed']} failed\n\n";
+        return true;
+    }
+
+    /**
      * Print import summary
      */
     private function printSummary() {
         echo "=== Import Summary ===\n";
-        echo "ARTCC:   {$this->stats['artcc']['imported']} imported, {$this->stats['artcc']['failed']} failed\n";
-        echo "Sectors: {$this->stats['sectors']['imported']} imported, {$this->stats['sectors']['failed']} failed\n";
-        echo "TRACON:  {$this->stats['tracon']['imported']} imported, {$this->stats['tracon']['failed']} failed\n";
-        
+        echo "ARTCC:     {$this->stats['artcc']['imported']} imported, {$this->stats['artcc']['failed']} failed\n";
+        echo "Sectors:   {$this->stats['sectors']['imported']} imported, {$this->stats['sectors']['failed']} failed\n";
+        echo "TRACON:    {$this->stats['tracon']['imported']} imported, {$this->stats['tracon']['failed']} failed\n";
+        echo "Hierarchy: {$this->stats['hierarchy']['imported']} imported, {$this->stats['hierarchy']['failed']} failed\n";
+
         $total = $this->stats['artcc']['imported'] + $this->stats['sectors']['imported'] + $this->stats['tracon']['imported'];
-        echo "Total:   $total boundaries imported\n";
+        echo "Total:     $total boundaries imported + {$this->stats['hierarchy']['imported']} hierarchy edges\n";
     }
     
     /**
@@ -378,6 +572,9 @@ if (php_sapi_name() === 'cli') {
             break;
         case 'tracon':
             $importer->importTracon($file);
+            break;
+        case 'hierarchy':
+            $importer->importHierarchy($file);
             break;
         case 'all':
         default:

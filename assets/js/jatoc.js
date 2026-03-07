@@ -199,7 +199,7 @@
         if (!src?.features) return;
         src.features.forEach(feat => {
             const p = feat.properties || {};
-            [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name, p.sector, p.label, p.prefix].forEach(v => {
+            [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name, p.tracon, p.sector, p.label, p.prefix].forEach(v => {
                 if (v == null) return;
                 const upper = String(v).trim().toUpperCase();
                 if (!upper) return;
@@ -248,7 +248,7 @@
         const uc = code.toUpperCase();
         return src.features.some(f => {
             const p = f.properties || {};
-            const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name, p.sector, p.label].filter(Boolean).map(s => String(s).toUpperCase());
+            const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name, p.tracon, p.sector, p.label].filter(Boolean).map(s => String(s).toUpperCase());
             return ids.some(id => id === uc);
         });
     }
@@ -857,7 +857,7 @@
 
             if (state.boundaryData.artcc) {
                 state.map.addSource('artcc', { type: 'geojson', data: state.boundaryData.artcc });
-                state.map.addLayer({ id: 'artcc-line', type: 'line', source: 'artcc', paint: { 'line-color': '#4a5568', 'line-width': 1, 'line-opacity': 0.5 } });
+                state.map.addLayer({ id: 'artcc-line', type: 'line', source: 'artcc', filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]], paint: { 'line-color': '#4a5568', 'line-width': 1, 'line-opacity': 0.5 } });
 
                 // Add ARTCC/FIR labels via shared utility
                 if (typeof PERTIArtccLabels !== 'undefined') {
@@ -953,7 +953,7 @@
         if (state.boundaryData.tracon?.features) {
             const feature = state.boundaryData.tracon.features.find(f => {
                 const p = f.properties || {};
-                const ids = [p.id, p.sector, p.label, p.name, p.prefix].filter(Boolean).map(s => String(s).toUpperCase());
+                const ids = [p.id, p.tracon, p.sector, p.label, p.name, p.prefix].filter(Boolean).map(s => String(s).toUpperCase());
                 return ids.some(id => id === fac || id.includes(fac));
             });
             if (feature) return feature;
@@ -1033,7 +1033,7 @@
             if (!src?.features) continue;
             const f = src.features.find(feat => {
                 const p = feat.properties || {};
-                const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name, p.sector, p.label, p.prefix]
+                const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name, p.tracon, p.sector, p.label, p.prefix]
                     .filter(Boolean).map(s => String(s).toUpperCase());
                 return ids.some(id => id === fac || id.startsWith(fac + ' '));
             });

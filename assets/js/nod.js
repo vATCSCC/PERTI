@@ -604,6 +604,7 @@
                 id: 'artcc-fill',
                 type: 'fill',
                 source: 'artcc-source',
+                filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
                 paint: {
                     'fill-color': '#4a9eff',
                     'fill-opacity': 0.05,
@@ -614,6 +615,7 @@
                 id: 'artcc-lines',
                 type: 'line',
                 source: 'artcc-source',
+                filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
                 paint: {
                     'line-color': '#4a9eff',
                     'line-width': 1.5,
@@ -3164,11 +3166,11 @@
             if (!boundaryFeature && (facType === 'TRACON' || facType === 'RAPCON' || facType === 'APPROACH' || !fac.startsWith('Z'))) {
                 boundaryFeature = state.boundaryCache.tracon?.features?.find(f => {
                     const props = f.properties || {};
-                    const sector = (props.sector || '').toUpperCase().trim();
-                    const artcc = (props.artcc || '').toUpperCase().trim();
+                    const tracon = (props.tracon || props.sector || '').toUpperCase().trim();
+                    const subdiv = (props.sector || props.artcc || '').toUpperCase().trim();
                     const label = (props.label || '').toUpperCase().trim();
 
-                    return sector === fac || artcc === fac || label.includes(fac);
+                    return tracon === fac || subdiv === fac || label.includes(fac);
                 });
 
                 if (boundaryFeature) {
@@ -3190,8 +3192,8 @@
             if (!boundaryFeature) {
                 boundaryFeature = state.boundaryCache.tracon?.features?.find(f => {
                     const props = f.properties || {};
-                    const sector = (props.sector || '').toUpperCase().trim();
-                    return sector === fac;
+                    const tracon = (props.tracon || props.sector || '').toUpperCase().trim();
+                    return tracon === fac;
                 });
             }
 
@@ -5995,7 +5997,7 @@
     }
 
     function showSplitsPopup(props, lngLat) {
-        const sectorId = props.id || props.sector || props.label || PERTII18n.t('common.unknown');
+        const sectorId = props.id || props.tracon || props.sector || props.label || PERTII18n.t('common.unknown');
         const boundaryType = props.boundary_type || '';
         const boundaryLabel = boundaryType ? ` <span style="color:var(--dark-text-subtle);font-size:10px;">(${boundaryType.toUpperCase()})</span>` : '';
 
@@ -6184,8 +6186,8 @@
                     icon = '▣';
                     iconClass = 'split';
                     label = props.position_name || props.id || PERTII18n.t('nod.popup.sector');
-                    const sectorId = props.sector || props.id || props.label || '';
-                    const sectorArtcc = props.artcc || '';
+                    const sectorId = props.tracon || props.sector || props.id || props.label || '';
+                    const sectorArtcc = props.artcc || props.sector || '';
                     sublabel = sectorArtcc && sectorId ? `${sectorArtcc}${sectorId}` : (sectorArtcc || sectorId);
                     break;
                 }
@@ -7899,7 +7901,7 @@
         if (cache && cache.features) {
             const match = cache.features.find(f => {
                 const props = f.properties || {};
-                const matchCode = (props.ICAOCODE || props.artcc_code || props.tracon_code || props.id || '').toUpperCase();
+                const matchCode = (props.ICAOCODE || props.artcc_code || props.tracon || props.tracon_code || props.id || '').toUpperCase();
                 return matchCode === code.toUpperCase();
             });
 

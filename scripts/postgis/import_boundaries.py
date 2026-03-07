@@ -41,6 +41,8 @@ GEOJSON_DIR = PROJECT_ROOT / "assets" / "geojson"
 # GeoJSON file mappings
 GEOJSON_FILES = {
     "artcc": GEOJSON_DIR / "artcc.json",
+    "supercenter": GEOJSON_DIR / "supercenter.json",
+    "artcc_area": GEOJSON_DIR / "artcc_area.json",
     "high": GEOJSON_DIR / "high.json",
     "low": GEOJSON_DIR / "low.json",
     "superhigh": GEOJSON_DIR / "superhigh.json",
@@ -81,7 +83,8 @@ def import_artcc_boundaries(conn, geojson: dict, dry_run: bool = False):
         INSERT INTO artcc_boundaries (
             artcc_code, fir_name, icao_code, vatsim_region, vatsim_division,
             vatsim_subdiv, floor_altitude, ceiling_altitude, is_oceanic,
-            label_lat, label_lon, parent_fir, is_subsector, geom
+            label_lat, label_lon, parent_fir, is_subsector,
+            hierarchy_level, hierarchy_type, geom
         ) VALUES %s
     """
 
@@ -97,12 +100,20 @@ def import_artcc_boundaries(conn, geojson: dict, dry_run: bool = False):
         artcc_code = props.get("ICAOCODE") or props.get("FIRname", "")
         fir_name = props.get("FIRname", "")
 
-        # Classify sub-areas: codes with dash (e.g., EDGG-BAD, EGTT-D)
-        is_sub_area = bool(props.get("is_sub_area")) or ("-" in artcc_code)
+        # Use enriched hierarchy properties if available (from classification script)
+        # is_subsector: True for anything NOT at detection level (sub-areas AND super-centers)
+        if "is_detection_level" in props:
+            is_sub_area = not props["is_detection_level"]
+        else:
+            is_sub_area = bool(props.get("is_sub_area")) or ("-" in artcc_code)
+
         parent_fir = (
             props.get("parent_fir")
-            or (artcc_code.split("-")[0] if is_sub_area else None)
+            or (artcc_code.split("-")[0] if "-" in artcc_code else None)
         )
+        hierarchy_level = props.get("hierarchy_level")
+        hierarchy_type = props.get("hierarchy_type")
+
         if is_sub_area:
             sub_count += 1
 
@@ -124,6 +135,8 @@ def import_artcc_boundaries(conn, geojson: dict, dry_run: bool = False):
             props.get("label_lon"),
             parent_fir,
             is_sub_area,
+            hierarchy_level,
+            (hierarchy_type or "")[:30] or None,
             json.dumps(geom),  # Pass as GeoJSON string
         )
         rows.append(row)
@@ -131,13 +144,13 @@ def import_artcc_boundaries(conn, geojson: dict, dry_run: bool = False):
     if not dry_run and rows:
         # Use execute_values with a template that converts GeoJSON to geometry
         template = """(
-            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)
         )"""
         execute_values(cursor, insert_sql, rows, template=template, page_size=100)
         conn.commit()
 
-    print(f"  Imported {len(rows)} ARTCC boundaries ({sub_count} sub-areas, {len(rows) - sub_count} FIRs)")
+    print(f"  Imported {len(rows)} ARTCC boundaries ({sub_count} non-detection, {len(rows) - sub_count} detection-level)")
     print(f"  US ARTCCs found: {sorted(us_artccs)}")
 
     cursor.close()
@@ -217,7 +230,8 @@ def import_tracon_boundaries(conn, geojson: dict, dry_run: bool = False):
     insert_sql = """
         INSERT INTO tracon_boundaries (
             tracon_code, tracon_name, parent_artcc, sector_code,
-            floor_altitude, ceiling_altitude, label_lat, label_lon, geom
+            floor_altitude, ceiling_altitude, label_lat, label_lon,
+            hierarchy_level, hierarchy_type, parent_fir, geom
         ) VALUES %s
     """
 
@@ -227,33 +241,46 @@ def import_tracon_boundaries(conn, geojson: dict, dry_run: bool = False):
         props = feature.get("properties", {})
         geom = feature.get("geometry", {})
 
-        # Extract ARTCC code
-        artcc = props.get("artcc", props.get("ARTCC", ""))
-        if artcc:
-            artcc = artcc.upper()[:4]
+        # Use enriched fields from classification script if available
+        # After enrichment: tracon = facility code, sector = subdivision identifier
+        # Before enrichment: sector = facility code, artcc = airport-derived code
+        if "tracon" in props:
+            # Enriched GeoJSON (post-classification)
+            tracon_code = props.get("tracon", "")
+            sector_code = props.get("sector", "")
+            parent_artcc = props.get("parent_fir", "")
+        else:
+            # Raw GeoJSON (pre-classification, backward compat)
+            artcc = props.get("artcc", props.get("ARTCC", ""))
+            if artcc:
+                artcc = artcc.upper()[:4]
+            tracon_code = artcc or ""
+            sector_code = props.get("sector", "")
+            parent_artcc = ""
 
-        sector = props.get("sector", "")
         label = props.get("label", props.get("name", ""))
-
-        # Build TRACON code from artcc or label
-        tracon_code = artcc or label[:16] if label else "UNK"
+        hierarchy_level = props.get("hierarchy_level")
+        hierarchy_type = props.get("hierarchy_type")
 
         row = (
-            tracon_code[:16],
+            tracon_code[:16] if tracon_code else "UNK",
             label[:64] if label else None,
-            artcc or None,
-            sector[:16] if sector else None,
+            parent_artcc[:20] if parent_artcc else None,
+            sector_code[:16] if sector_code else None,
             props.get("floor"),
             props.get("ceiling"),
             props.get("label_lat"),
             props.get("label_lon"),
+            hierarchy_level,
+            (hierarchy_type or "")[:30] or None,
+            props.get("parent_fir", "")[:20] or None,
             json.dumps(geom),
         )
         rows.append(row)
 
     if not dry_run and rows:
         template = """(
-            %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
             ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)
         )"""
         execute_values(cursor, insert_sql, rows, template=template, page_size=100)
@@ -263,6 +290,123 @@ def import_tracon_boundaries(conn, geojson: dict, dry_run: bool = False):
 
     cursor.close()
     return len(rows)
+
+
+def import_boundary_hierarchy(conn, dry_run: bool = False):
+    """Import boundary hierarchy edges from boundary_hierarchy.json."""
+    hierarchy_file = GEOJSON_DIR / "boundary_hierarchy.json"
+    if not hierarchy_file.exists():
+        print("\nSkipping hierarchy import (boundary_hierarchy.json not found)")
+        return 0
+
+    print("\nImporting boundary hierarchy edges...")
+
+    with open(hierarchy_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    edges = data.get("edges", [])
+    print(f"  Found {len(edges)} edges")
+
+    if not edges or dry_run:
+        if dry_run:
+            print(f"  [DRY RUN] Would import {len(edges)} edges")
+        return len(edges)
+
+    cursor = conn.cursor()
+
+    # Clear existing edges
+    cursor.execute("TRUNCATE boundary_hierarchy RESTART IDENTITY;")
+
+    # Build lookup maps: artcc_code -> boundary_id, tracon+sector -> tracon_id
+    cursor.execute("SELECT boundary_id, artcc_code FROM artcc_boundaries;")
+    artcc_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+    cursor.execute("SELECT tracon_id, tracon_code, sector_code FROM tracon_boundaries;")
+    tracon_rows = cursor.fetchall()
+    # Map by sector_code (unique per feature) and by tracon_code (facility code)
+    tracon_sector_map = {}  # sector_code -> tracon_id
+    tracon_code_map = {}    # tracon_code -> tracon_id (first match for facility-level)
+    for row in tracon_rows:
+        tid, tcode, scode = row
+        if scode:
+            tracon_sector_map[scode] = tid
+        if tcode and tcode not in tracon_code_map:
+            tracon_code_map[tcode] = tid
+
+    cursor.execute("SELECT sector_id, sector_code FROM sector_boundaries;")
+    sector_map = {row[1]: row[0] for row in cursor.fetchall()}
+
+    insert_sql = """
+        INSERT INTO boundary_hierarchy (
+            parent_boundary_id, child_boundary_id,
+            parent_code, child_code,
+            parent_type, child_type,
+            relationship_type, coverage_ratio
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (parent_boundary_id, child_boundary_id) DO NOTHING
+    """
+
+    imported = 0
+    skipped = 0
+
+    for edge in edges:
+        parent_code = edge.get("parent", "")
+        child_code = edge.get("child", "")
+        rel_type = edge.get("type", "CONTAINS")
+        coverage = edge.get("coverage")
+
+        # Resolve boundary IDs based on relationship type
+        parent_id = None
+        child_id = None
+        parent_type = "ARTCC"
+        child_type = "ARTCC"
+
+        if rel_type in ("CONTAINS", "TILES"):
+            # ARTCC -> ARTCC edges
+            parent_id = artcc_map.get(parent_code)
+            child_id = artcc_map.get(child_code)
+            parent_type = "ARTCC"
+            child_type = "ARTCC"
+        elif rel_type == "SECTOR_OF":
+            # Sector/TRACON -> ARTCC edges
+            child_id = artcc_map.get(child_code)
+            # Parent could be a sector or TRACON
+            parent_id = (sector_map.get(parent_code) or
+                         tracon_sector_map.get(parent_code) or
+                         tracon_code_map.get(parent_code))
+            parent_type = "SECTOR" if parent_code in sector_map else "TRACON"
+            child_type = "ARTCC"
+        elif rel_type == "TRACON_OF":
+            # TRACON sector -> parent TRACON
+            # Parent is the TRACON facility code, child is subdivision sector
+            parent_id = tracon_code_map.get(parent_code)
+            child_id = tracon_sector_map.get(child_code)
+            parent_type = "TRACON"
+            child_type = "TRACON"
+
+        if parent_id is None or child_id is None:
+            skipped += 1
+            continue
+
+        try:
+            cursor.execute(insert_sql, (
+                parent_id, child_id,
+                parent_code[:50], child_code[:50],
+                parent_type[:20], child_type[:20],
+                rel_type[:20],
+                coverage
+            ))
+            imported += 1
+        except Exception as e:
+            skipped += 1
+            if imported < 5:  # Only show first few errors
+                print(f"    Edge {parent_code}->{child_code} failed: {e}")
+
+    conn.commit()
+    cursor.close()
+
+    print(f"  Imported {imported} edges, skipped {skipped} (unresolved IDs)")
+    return imported
 
 
 def import_airports(conn, dry_run: bool = False):
@@ -484,10 +628,17 @@ def main():
     # Import each file
     total = 0
 
-    # ARTCC boundaries
-    if GEOJSON_FILES["artcc"].exists():
-        geojson = load_geojson(GEOJSON_FILES["artcc"])
-        total += import_artcc_boundaries(conn, geojson, args.dry_run)
+    # ARTCC boundaries — merge all 3 hierarchy-level files into one import
+    artcc_features = []
+    for artcc_key in ("artcc", "supercenter", "artcc_area"):
+        path = GEOJSON_FILES[artcc_key]
+        if path.exists():
+            geojson = load_geojson(path)
+            artcc_features.extend(geojson.get("features", []))
+    if artcc_features:
+        merged_artcc = {"type": "FeatureCollection", "features": artcc_features}
+        print(f"  Merged {len(artcc_features)} ARTCC features from 3 files")
+        total += import_artcc_boundaries(conn, merged_artcc, args.dry_run)
 
     # Sector boundaries
     for sector_type in ["high", "low", "superhigh"]:
@@ -500,10 +651,15 @@ def main():
         geojson = load_geojson(GEOJSON_FILES["tracon"])
         total += import_tracon_boundaries(conn, geojson, args.dry_run)
 
+    # Boundary hierarchy edges
+    hierarchy_count = import_boundary_hierarchy(conn, args.dry_run)
+
     # Sample airports (for testing ARTCC assignments)
     total += import_airports(conn, args.dry_run)
 
     print(f"\n{'Would import' if args.dry_run else 'Imported'} {total} total records (boundaries + airports)")
+    if hierarchy_count:
+        print(f"  Plus {hierarchy_count} hierarchy edges")
 
     # Verify
     if not args.dry_run:

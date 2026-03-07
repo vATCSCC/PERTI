@@ -81,6 +81,10 @@
             var id = layerOrder[li];
             var def = BASE_LAYER_DEFS[id];
             var vis = def.defaultVisible ? 'visible' : 'none';
+            // Only show Level 1 ARTCC boundaries (exclude super-centers and sub-areas)
+            var hierFilter = (id === 'artcc')
+                ? ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]]
+                : undefined;
 
             map.addSource('base-' + id, {
                 type: 'geojson',
@@ -91,21 +95,27 @@
                 data: { type: 'FeatureCollection', features: [] }
             });
 
-            map.addLayer({
+            var fillLayer = {
                 id: 'base-' + id + '-fill',
                 type: 'fill',
                 source: 'base-' + id,
                 paint: { 'fill-color': def.color, 'fill-opacity': def.fillOpacity },
                 layout: { visibility: vis }
-            });
-            map.addLayer({
+            };
+            if (hierFilter) fillLayer.filter = hierFilter;
+            map.addLayer(fillLayer);
+
+            var lineLayer = {
                 id: 'base-' + id + '-line',
                 type: 'line',
                 source: 'base-' + id,
                 paint: { 'line-color': def.color, 'line-width': def.lineWidth, 'line-opacity': def.lineOpacity },
                 layout: { visibility: vis }
-            });
-            map.addLayer({
+            };
+            if (hierFilter) lineLayer.filter = hierFilter;
+            map.addLayer(lineLayer);
+
+            var labelLayer = {
                 id: 'base-' + id + '-labels',
                 type: 'symbol',
                 source: 'base-' + id + '-labels',
@@ -122,7 +132,9 @@
                     'text-halo-color': '#000',
                     'text-halo-width': def.haloWidth
                 }
-            });
+            };
+            if (hierFilter) labelLayer.filter = hierFilter;
+            map.addLayer(labelLayer);
         }
 
         // ── Active sectors — solid fill + solid outline + labels ──

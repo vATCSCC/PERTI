@@ -441,17 +441,26 @@
     }
 
     function getNextAdvisoryNumber(type) {
-        // Unified counter for all advisory types
-        // Check if we need to reset (new day)
+        // Peek at the next advisory number WITHOUT incrementing.
+        // The counter is only consumed when an entry is actually added to the queue.
+        const today = getUtcDateString();
+        if (state.advisoryCounters.date !== today) {
+            state.advisoryCounters = { date: today, counter: 1 };
+            saveAdvisoryCounters();
+        }
+
+        const num = state.advisoryCounters.counter || 1;
+        return String(num).padStart(3, '0');
+    }
+
+    function consumeAdvisoryNumber() {
+        // Increment the counter after an advisory is actually queued/published.
         const today = getUtcDateString();
         if (state.advisoryCounters.date !== today) {
             state.advisoryCounters = { date: today, counter: 1 };
         }
-
-        const num = state.advisoryCounters.counter || 1;
-        state.advisoryCounters.counter = num + 1;
+        state.advisoryCounters.counter = (state.advisoryCounters.counter || 1) + 1;
         saveAdvisoryCounters();
-        return String(num).padStart(3, '0');
     }
 
     // ===========================================
@@ -3990,6 +3999,7 @@
         };
 
         state.queue.push(entry);
+        consumeAdvisoryNumber();
         saveState();
         updateUI();
 

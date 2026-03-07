@@ -63,6 +63,10 @@ window.PERTIArtccLabels = (function() {
             id: LAYER_ID,
             type: 'symbol',
             source: sourceId,
+            filter: ['any',
+                ['==', ['get', 'hierarchy_level'], 1],
+                ['!', ['has', 'hierarchy_level']]
+            ],
             layout: {
                 'text-field': displayCodeExpr,
                 'text-font': opts.font || pickFont(map),

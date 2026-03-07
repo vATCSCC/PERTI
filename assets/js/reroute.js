@@ -87,6 +87,10 @@
             if (r.ok) {
                 const data = await r.json();
                 L.geoJSON(data, {
+                    filter: function(feature) {
+                        var level = feature.properties && feature.properties.hierarchy_level;
+                        return level === 1 || level === undefined || level === null;
+                    },
                     style: { color: '#444', weight: 1, fillOpacity: 0.02 },
                     onEachFeature: (f, layer) => f.properties?.id && layer.bindTooltip(f.properties.id, { sticky: true }),
                 }).addTo(state.layers.artcc);

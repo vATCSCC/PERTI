@@ -1970,9 +1970,11 @@
     },
     "timeTo": "à",
     "tooltip": {
-      "centerOnNow": "Centrer sur l'heure actuelle",
-      "nextPeriod": "Période suivante",
-      "previousPeriod": "Période précédente"
+      "affected": "Affecté",
+      "level": "Niveau",
+      "mission": "Mission",
+      "siteArtcc": "Site/ARTCC",
+      "sourcePlan": "Plan source"
     },
     "tmiTypeLabel": {
       "AFP": "AFP",
@@ -1992,13 +1994,6 @@
       "TBFM": "TBFM",
       "TBM": "TBM",
       "TBO": "TBO"
-    },
-    "tooltip": {
-      "affected": "Affecté",
-      "level": "Niveau",
-      "mission": "Mission",
-      "siteArtcc": "Site/ARTCC",
-      "sourcePlan": "Plan source"
     },
     "vipTypeLabel": {
       "TFR": "TFR",
@@ -4967,7 +4962,12 @@
       "turboprops": "TURBOPROPULSEURS",
       "type": "Type",
       "unassigned": "Non attribués",
-      "upcomingSplitConfigs": "Configurations de découpage à venir"
+      "upcomingSplitConfigs": "Configurations de découpage à venir",
+      "hierarchyDeepSubAreas": "Sous-zones profondes",
+      "hierarchyFirs": "FIR/ACC",
+      "hierarchyLabel": "Hiérarchie :",
+      "hierarchySubAreas": "Sous-zones",
+      "hierarchySuperCenters": "Super centres"
     },
     "popup": {
       "airports": "Aéroports",
@@ -4995,7 +4995,13 @@
       "starts": "Début",
       "traconBoundary": "Limite TRACON",
       "type": "Type",
-      "unknownFeatureType": "Inconnu feature type"
+      "unknownFeatureType": "Inconnu feature type",
+      "deepSubAreaBoundary": "Limite de sous-zone profonde",
+      "firBoundary": "Limite FIR/ACC",
+      "hierarchyLevel": "Niveau hiérarchique",
+      "parentFir": "FIR parent",
+      "subAreaBoundary": "Limite de sous-zone",
+      "superCenterBoundary": "Limite de super centre"
     },
     "positions": {
       "addNewPosition": "Ajouter New Position",

@@ -2370,6 +2370,22 @@ input[type="datetime-local"] {
                         <input type="range" class="layer-opacity" data-layer="artcc" min="0" max="100" value="50" title="<?= __('splits.page.opacity') ?>">
                     </div>
                 </div>
+                <!-- ARTCC Hierarchy Level Filter -->
+                <div class="layer-toggle-item ml-3" id="artcc-hierarchy-filters">
+                    <span class="text-muted small mr-2"><?= __('splits.page.hierarchyLabel') ?></span>
+                    <input type="checkbox" id="hier-super" onchange="SplitsController.toggleArtccHierarchy('super', this.checked)">
+                    <span class="layer-color" style="background: #E6A817; width: 10px; height: 10px;"></span>
+                    <label for="hier-super" class="small mr-2"><?= __('splits.page.hierarchySuperCenters') ?></label>
+                    <input type="checkbox" id="hier-fir" checked onchange="SplitsController.toggleArtccHierarchy('fir', this.checked)">
+                    <span class="layer-color" style="background: #FF00FF; width: 10px; height: 10px;"></span>
+                    <label for="hier-fir" class="small mr-2"><?= __('splits.page.hierarchyFirs') ?></label>
+                    <input type="checkbox" id="hier-sub" onchange="SplitsController.toggleArtccHierarchy('sub', this.checked)">
+                    <span class="layer-color" style="background: #CC66FF; width: 10px; height: 10px;"></span>
+                    <label for="hier-sub" class="small mr-2"><?= __('splits.page.hierarchySubAreas') ?></label>
+                    <input type="checkbox" id="hier-deep" onchange="SplitsController.toggleArtccHierarchy('deep', this.checked)">
+                    <span class="layer-color" style="background: #9966CC; width: 10px; height: 10px;"></span>
+                    <label for="hier-deep" class="small"><?= __('splits.page.hierarchyDeepSubAreas') ?></label>
+                </div>
                 <div class="layer-toggle-item">
                     <input type="checkbox" class="layer-toggle" data-layer="superhigh" id="layer-superhigh">
                     <span class="layer-color" style="background: #9932CC;"></span>
