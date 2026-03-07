@@ -402,11 +402,41 @@
         }
     }
 
+    function getSelectedLifecycleStatuses() {
+        return [...document.querySelectorAll('.filter-status-opt:checked')].map(el => el.value).filter(Boolean);
+    }
+
+    function updateLifecycleFilterSummary() {
+        const summaryEl = document.getElementById('filterStatusSummary');
+        if (!summaryEl) return;
+        const selected = [...document.querySelectorAll('.filter-status-opt:checked')];
+        if (selected.length === 0) {
+            summaryEl.textContent = PERTII18n.t('jatoc.page.all');
+            return;
+        }
+        const labels = selected.map(el => el.dataset.label || el.value);
+        if (labels.length <= 2) {
+            summaryEl.textContent = labels.join(', ');
+        } else {
+            summaryEl.textContent = `${labels.length} selected`;
+        }
+    }
+
+    function initLifecycleFilterUI() {
+        const options = [...document.querySelectorAll('.filter-status-opt')];
+        if (!options.length) return;
+        const menu = document.querySelector('.filter-lifecycle-menu');
+        if (menu) menu.addEventListener('click', (e) => e.stopPropagation());
+        options.forEach(opt => opt.addEventListener('change', updateLifecycleFilterSummary));
+        updateLifecycleFilterSummary();
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         console.log('[JATOC] Init v7...');
         loadUserProfile();
         initClocks();
         initAffectedFacilitiesUI();
+        initLifecycleFilterUI();
         loadBoundaries().then(() => initMap());
         loadOpsLevel();
         loadPotusCalendar();
@@ -1146,10 +1176,7 @@
         const previousIncidents = state.incidents ? state.incidents.slice() : [];
 
         try {
-            const statusEl = document.getElementById('filterStatus');
-            const selectedStatuses = statusEl
-                ? [...statusEl.selectedOptions].map(o => o.value).filter(Boolean)
-                : [];
+            const selectedStatuses = getSelectedLifecycleStatuses();
             const filters = {
                 incidentType: document.getElementById('filterIncidentType').value,
                 facility: document.getElementById('filterFacility').value

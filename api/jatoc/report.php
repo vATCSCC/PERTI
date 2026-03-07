@@ -186,6 +186,7 @@ function genReportData($conn, $id) {
         ],
         'incident' => [
             'facility' => $inc['facility'],
+            'affected_facilities' => $inc['affected_facilities'] ?? null,
             'facility_type' => $inc['facility_type'],
             'status' => $incidentTypeName,
             'incident_type' => $incidentType,
@@ -244,7 +245,9 @@ function genMD($r) {
     $md .= "**Generated:** " . ($f['header']['generated'] ?? gmdate('c')) . "\n\n";
 
     $md .= "## Details\n\n| Field | Value |\n|---|---|\n";
-    $md .= "| Facility | " . ($f['incident']['facility'] ?? '-') . " (" . ($f['incident']['facility_type'] ?? '-') . ") |\n";
+    $md .= "| Name | " . ($f['incident']['facility'] ?? '-') . " |\n";
+    $md .= "| Affected Facilities | " . ($f['incident']['affected_facilities'] ?? '-') . " |\n";
+    $md .= "| Facility Type | " . ($f['incident']['facility_type'] ?? '-') . " |\n";
     $md .= "| Incident Type | " . ($f['incident']['status'] ?? '-') . " |\n";
     $md .= "| Trigger | " . ($f['incident']['trigger'] ?? '-') . " |\n";
     $md .= "| Paged | " . ($f['incident']['paged'] ?? '-') . " |\n";
@@ -275,7 +278,9 @@ function genTXT($r) {
     $t .= "Generated: " . ($f['header']['generated'] ?? gmdate('c')) . "\n\n";
 
     $t .= "DETAILS\n";
-    $t .= "Facility: " . ($f['incident']['facility'] ?? '-') . " (" . ($f['incident']['facility_type'] ?? '-') . ")\n";
+    $t .= "Name: " . ($f['incident']['facility'] ?? '-') . "\n";
+    $t .= "Affected Facilities: " . ($f['incident']['affected_facilities'] ?? '-') . "\n";
+    $t .= "Facility Type: " . ($f['incident']['facility_type'] ?? '-') . "\n";
     $t .= "Incident Type: " . ($f['incident']['status'] ?? '-') . "\n";
     $t .= "Trigger: " . ($f['incident']['trigger'] ?? '-') . "\n";
     $t .= "Paged: " . ($f['incident']['paged'] ?? '-') . "\n";

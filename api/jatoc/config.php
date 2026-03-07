@@ -47,11 +47,14 @@ const JATOC_LIFECYCLE_STATUSES = [
     'CLOSED' => 'Closed'
 ];
 
-// Facility types
+// Facility types (auto-derived from affected facilities on frontend)
 const JATOC_FACILITY_TYPES = [
-    'ARTCC' => 'Air Route Traffic Control Center',
+    'FACILITY' => 'Facility',
+    'ARTCC' => 'ARTCC/FIR/ACC',
     'TRACON' => 'Terminal Radar Approach Control',
     'ATCT' => 'Airport Traffic Control Tower',
+    'SECTOR' => 'Sector',
+    'MULTIPLE' => 'Multiple Facility Types',
     'COMBINED' => 'Combined Facility',
     'FIR' => 'Flight Information Region'
 ];
