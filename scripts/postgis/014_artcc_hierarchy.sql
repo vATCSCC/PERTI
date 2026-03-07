@@ -53,8 +53,9 @@ ALTER TABLE artcc_boundaries ALTER COLUMN icao_code TYPE VARCHAR(20);
 ALTER TABLE artcc_boundaries ADD COLUMN IF NOT EXISTS parent_fir VARCHAR(20) NULL;
 ALTER TABLE artcc_boundaries ADD COLUMN IF NOT EXISTS is_subsector BOOLEAN NOT NULL DEFAULT FALSE;
 
--- Step 3: Drop the unique index on artcc_code (will fail with sub-areas after re-import)
+-- Step 3: Drop unique indexes on artcc_code (will fail with sub-areas after re-import)
 DROP INDEX IF EXISTS idx_artcc_boundaries_code;
+DROP INDEX IF EXISTS idx_artcc_boundaries_code_sector;
 
 -- Step 4: Create non-unique index on artcc_code
 CREATE INDEX IF NOT EXISTS idx_artcc_boundaries_code ON artcc_boundaries (artcc_code);
