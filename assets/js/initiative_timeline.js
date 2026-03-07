@@ -831,7 +831,7 @@ class InitiativeTimeline {
         displayData.forEach(i => {
             const key = this.groupBy === 'initiative'
                 ? this.getInitiativeGroupKey(i)
-                : (this.resolveArtcc(i.facility) || PERTII18n.t('common.unknown'));
+                : (i.facility || PERTII18n.t('common.unknown'));
             if (!groups[key]) {groups[key] = [];}
             groups[key].push(i);
         });
@@ -1172,7 +1172,14 @@ class InitiativeTimeline {
 
     geoOrder(f) {
         const order = { 'NAS': 0, 'ZBW': 10, 'N90': 11, 'ZNY': 12, 'ZDC': 14, 'ZJX': 20, 'ZTL': 21, 'ZMA': 23, 'ZAU': 30, 'ZID': 32, 'ZMP': 33, 'ZKC': 34, 'ZME': 35, 'ZFW': 40, 'ZHU': 42, 'ZDV': 50, 'ZLC': 52, 'ZAB': 53, 'ZLA': 60, 'ZOA': 62, 'ZSE': 64, 'ZAN': 70, 'TJZS': 71 };
-        return order[f] ?? 100;
+        if (order[f] !== undefined) return order[f];
+        // For consolidated multi-facility keys (e.g. "A80/ZTL"), use first facility
+        const first = f.includes('/') ? f.split('/')[0] : f;
+        if (order[first] !== undefined) return order[first];
+        // Resolve child facilities (TRACONs, airports) to parent ARTCC for sort position (+0.5 to sort after parent)
+        const parent = this.resolveArtcc(first);
+        if (parent && order[parent] !== undefined) return order[parent] + 0.5;
+        return 100;
     }
 
     /**
