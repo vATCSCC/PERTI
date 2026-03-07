@@ -31,16 +31,6 @@
       "type": "TILES"
     },
     {
-      "parent": "CZQM",
-      "child": "CZQX",
-      "type": "TILES"
-    },
-    {
-      "parent": "CZQM",
-      "child": "CZZV",
-      "type": "TILES"
-    },
-    {
       "parent": "EDXX",
       "child": "EDGG",
       "type": "TILES"
@@ -58,6 +48,16 @@
     {
       "parent": "EGVV",
       "child": "EGPX",
+      "type": "TILES"
+    },
+    {
+      "parent": "EGVV",
+      "child": "EGTL",
+      "type": "TILES"
+    },
+    {
+      "parent": "EGVV",
+      "child": "EGTM",
       "type": "TILES"
     },
     {
@@ -362,7 +362,7 @@
     },
     {
       "parent": "YHYD",
-      "child": "YCRS",
+      "child": "YSCR",
       "type": "TILES"
     },
     {
@@ -512,6 +512,11 @@
     },
     {
       "parent": "YTSN",
+      "child": "YCOL",
+      "type": "TILES"
+    },
+    {
+      "parent": "YTSN",
       "child": "YFLD",
       "type": "TILES"
     },
@@ -521,8 +526,33 @@
       "type": "TILES"
     },
     {
-      "parent": "YTSN",
-      "child": "YCOL",
+      "parent": "ZBAA",
+      "child": "ZBHH",
+      "type": "TILES"
+    },
+    {
+      "parent": "ZBAA",
+      "child": "ZHCC",
+      "type": "TILES"
+    },
+    {
+      "parent": "ZBAA",
+      "child": "ZSJN",
+      "type": "TILES"
+    },
+    {
+      "parent": "ZBPE",
+      "child": "ZBHH",
+      "type": "TILES"
+    },
+    {
+      "parent": "ZBPE",
+      "child": "ZHCC",
+      "type": "TILES"
+    },
+    {
+      "parent": "ZBPE",
+      "child": "ZSJN",
       "type": "TILES"
     },
     {
@@ -542,6 +572,11 @@
     },
     {
       "parent": "ZGZU",
+      "child": "ZGGG",
+      "type": "TILES"
+    },
+    {
+      "parent": "ZGZU",
       "child": "ZGHA",
       "type": "TILES"
     },
@@ -553,11 +588,6 @@
     {
       "parent": "ZGZU",
       "child": "ZHHH",
-      "type": "TILES"
-    },
-    {
-      "parent": "ZGZU",
-      "child": "ZGGG",
       "type": "TILES"
     },
     {
@@ -592,6 +622,11 @@
     },
     {
       "parent": "ZPKM",
+      "child": "ZUGY",
+      "type": "TILES"
+    },
+    {
+      "parent": "ZPKM",
       "child": "ZULS",
       "type": "TILES"
     },
@@ -608,6 +643,11 @@
     {
       "parent": "ZSHA",
       "child": "ZSCN",
+      "type": "TILES"
+    },
+    {
+      "parent": "ZSHA",
+      "child": "ZSJN",
       "type": "TILES"
     },
     {
@@ -652,7 +692,77 @@
     },
     {
       "parent": "BIRD",
+      "child": "BIRD-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "BIRD",
       "child": "BIRD-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "BIRD",
+      "child": "BIRD-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "BIRD",
+      "child": "BIRD-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "CZQO",
+      "child": "CZQO-GOTA",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA-C",
+      "child": "DAAA-NC",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA-E",
+      "child": "DAAA-NE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA-W",
+      "child": "DAAA-NW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA-C",
+      "child": "DAAA-SC",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA",
+      "child": "DAAA-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA",
+      "child": "DAAA-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA",
+      "child": "DAAA-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA-E",
+      "child": "DAAA-SS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA-W",
+      "child": "DAAA-SW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "DAAA-E",
+      "child": "DAAA-SE",
       "type": "CONTAINS"
     },
     {
@@ -661,8 +771,223 @@
       "type": "CONTAINS"
     },
     {
-      "parent": "EDMM",
+      "parent": "EDGG",
+      "child": "EDGG-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG-CS",
+      "child": "EDGG-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG-CS",
+      "child": "EDGG-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG-C",
+      "child": "EDGG-A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG-S",
+      "child": "EDGG-BAD",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG-S",
+      "child": "EDGG-DKB",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG-A",
+      "child": "EDGG-GIN",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG",
+      "child": "EDGG-CS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG-N",
+      "child": "EDGG-PAH",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG-C",
+      "child": "EDGG-RUD",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDGG-N",
+      "child": "EDGG-KL",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDMM-HOF",
       "child": "EDMM-GER",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDMM",
+      "child": "EDMM-HOF",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDMM",
+      "child": "EDMM-RDG",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDMM-RDG",
+      "child": "EDMM-ZUG",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDWW-W",
+      "child": "EDWW-ALR",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDWW",
+      "child": "EDWW-MAR",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDWW-BOR",
+      "child": "EDWW-FLG",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDWW-MAR",
+      "child": "EDWW-MRZ",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDWW-MAR",
+      "child": "EDWW-BOR",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDWW-W",
+      "child": "EDWW-EMS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EDWW",
+      "child": "EDWW-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGPX-W",
+      "child": "EGPX-A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGPX-WD",
+      "child": "EGPX-D",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGPX",
+      "child": "EGPX-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGPX-E",
+      "child": "EGPX-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGPX-E",
+      "child": "EGPX-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGPX-WD",
+      "child": "EGPX-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGPX",
+      "child": "EGPX-WD",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTL",
+      "child": "EGTL-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTL",
+      "child": "EGTL-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTM",
+      "child": "EGTM-NE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTM",
+      "child": "EGTM-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT-SC",
+      "child": "EGTT-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT-S",
+      "child": "EGTT-D",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT-C",
+      "child": "EGTT-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT-S",
+      "child": "EGTT-H",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT-C",
+      "child": "EGTT-M",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT",
+      "child": "EGTT-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT-N",
+      "child": "EGTT-NE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT-N",
+      "child": "EGTT-NW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT-SC",
+      "child": "EGTT-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT",
+      "child": "EGTT-SC",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EGTT",
+      "child": "EGTT-W",
       "type": "CONTAINS"
     },
     {
@@ -671,8 +996,43 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "EKDK",
+      "child": "EKDK-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EKDK",
+      "child": "EKDK-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EKDK-W",
+      "child": "EKDK-L",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ENBD-S",
+      "child": "ENBD-19",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "ENBD",
+      "child": "ENBD-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ENBD",
+      "child": "ENBD-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ENBD-N",
       "child": "ENBD-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ENBD-C",
+      "child": "ENBD-S",
       "type": "CONTAINS"
     },
     {
@@ -687,7 +1047,27 @@
     },
     {
       "parent": "ENOS",
+      "child": "ENOS-1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ENOS",
       "child": "ENOS-4",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ENOS",
+      "child": "ENOS-7",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ENOS",
+      "child": "ENOS-8",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ENSV",
+      "child": "ENSV-E",
       "type": "CONTAINS"
     },
     {
@@ -707,7 +1087,22 @@
     },
     {
       "parent": "EPWW",
+      "child": "EPWW-J",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "EPWW",
       "child": "EPWW-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ESMM-5",
+      "child": "ESMM-4",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ESMM",
+      "child": "ESMM-5",
       "type": "CONTAINS"
     },
     {
@@ -721,13 +1116,23 @@
       "type": "CONTAINS"
     },
     {
-      "parent": "ESMM-8",
+      "parent": "ESMM-5",
       "child": "ESMM-K",
       "type": "CONTAINS"
     },
     {
       "parent": "ESOS",
       "child": "ESOS-1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ESOS-1",
+      "child": "ESOS-9",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ESOS-N",
+      "child": "ESOS-K",
       "type": "CONTAINS"
     },
     {
@@ -738,6 +1143,16 @@
     {
       "parent": "EYVL",
       "child": "EYVL-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "FACA",
+      "child": "FACA-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "FACA",
+      "child": "FACA-W",
       "type": "CONTAINS"
     },
     {
@@ -761,8 +1176,33 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "FAJA-N",
+      "child": "FAJA-NW",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "FAJA",
       "child": "FAJA-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "FAJA-N",
+      "child": "FAJA-SE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "FAJA-N",
+      "child": "FAJA-SW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "FAJA-S",
+      "child": "FAJA-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "GCCC",
+      "child": "GCCC-R6",
       "type": "CONTAINS"
     },
     {
@@ -776,7 +1216,7 @@
       "type": "CONTAINS"
     },
     {
-      "parent": "GCCC",
+      "parent": "GCCC-R6",
       "child": "GCCC-RES",
       "type": "CONTAINS"
     },
@@ -791,7 +1231,7 @@
       "type": "CONTAINS"
     },
     {
-      "parent": "GCCC",
+      "parent": "GCCC-R6",
       "child": "GCCC-RW3",
       "type": "CONTAINS"
     },
@@ -851,6 +1291,66 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "HECC",
+      "child": "HECC-1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "HECC",
+      "child": "HECC-2",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "HECC",
+      "child": "HECC-3",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "HECC-46",
+      "child": "HECC-4",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "HECC",
+      "child": "HECC-46",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "HECC-46",
+      "child": "HECC-5",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "HECC-46",
+      "child": "HECC-6",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "KZJX",
+      "child": "KZJX-A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "KZJX",
+      "child": "KZJX-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "KZJX",
+      "child": "KZJX-P",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "KZKC",
+      "child": "KZKC-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "KZKC",
+      "child": "KZKC-E",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "KZMA",
       "child": "KZMA-N",
       "type": "CONTAINS"
@@ -858,6 +1358,36 @@
     {
       "parent": "KZMA",
       "child": "KZMA-OCN",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "KZNY",
+      "child": "KZNY-BDA",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "KZNY",
+      "child": "KZNY-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LBSR-V",
+      "child": "LBSR-B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LBSR",
+      "child": "LBSR-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LBSR",
+      "child": "LBSR-V",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LCCC",
+      "child": "LCCC-E",
       "type": "CONTAINS"
     },
     {
@@ -941,12 +1471,12 @@
       "type": "CONTAINS"
     },
     {
-      "parent": "LECM-ALL",
+      "parent": "LECM-R2",
       "child": "LECM-CJU",
       "type": "CONTAINS"
     },
     {
-      "parent": "LECM-ALL",
+      "parent": "LECM-R2",
       "child": "LECM-CZI",
       "type": "CONTAINS"
     },
@@ -958,6 +1488,11 @@
     {
       "parent": "LECM-ALL",
       "child": "LECM-R1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LECM-ALL",
+      "child": "LECM-R2",
       "type": "CONTAINS"
     },
     {
@@ -991,7 +1526,7 @@
       "type": "CONTAINS"
     },
     {
-      "parent": "LECM-ALL",
+      "parent": "LECM-R2",
       "child": "LECM-ZMU",
       "type": "CONTAINS"
     },
@@ -1011,8 +1546,18 @@
       "type": "CONTAINS"
     },
     {
-      "parent": "LFBB",
+      "parent": "LFBB-US",
       "child": "LFBB-H",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFBB-UN",
+      "child": "LFBB-L",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFBB-US",
+      "child": "LFBB-N",
       "type": "CONTAINS"
     },
     {
@@ -1021,13 +1566,53 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "LFBB-UN",
+      "child": "LFBB-R",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFBB-UN",
+      "child": "LFBB-T",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "LFBB",
       "child": "LFBB-UN",
       "type": "CONTAINS"
     },
     {
+      "parent": "LFBB",
+      "child": "LFBB-US",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFBB-US",
+      "child": "LFBB-X",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFBB-US",
+      "child": "LFBB-Z",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFEE",
+      "child": "LFEE-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFEE",
+      "child": "LFEE-N",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "LFFF-RPAW",
       "child": "LFFF-AENB",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFFF-RPAE",
+      "child": "LFFF-AOML",
       "type": "CONTAINS"
     },
     {
@@ -1051,13 +1636,293 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "LFMM-MRAE",
+      "child": "LFMM-MME",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFMM-MMW",
+      "child": "LFMM-MEU",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFMM-MWU",
+      "child": "LFMM-MMW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFMM",
+      "child": "LFMM-MWU",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFMM",
+      "child": "LFMM-MRAE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFMM",
+      "child": "LFMM-MRAW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFRR-S",
+      "child": "LFRR-A",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "LFRR",
       "child": "LFRR-E",
       "type": "CONTAINS"
     },
     {
+      "parent": "LFRR-S",
+      "child": "LFRR-G",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFRR-W",
+      "child": "LFRR-J",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFRR-VK",
+      "child": "LFRR-K",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFRR-S",
+      "child": "LFRR-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFRR",
+      "child": "LFRR-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFRR-VK",
+      "child": "LFRR-V",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFRR-W",
+      "child": "LFRR-VK",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LFRR",
+      "child": "LFRR-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGGG-SIT",
+      "child": "LGGG-KAV",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGGG-PLH",
+      "child": "LGGG-KFN",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGGG",
+      "child": "LGGG-KRK",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGGG-RDS",
+      "child": "LGGG-MIL",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGGG-KRK",
+      "child": "LGGG-PLH",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGGG",
+      "child": "LGGG-RDS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGGG-RDS",
+      "child": "LGGG-SIT",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGMD-W",
+      "child": "LGMD-KVL",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGMD-KVL",
+      "child": "LGMD-LMO",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LGMD",
+      "child": "LGMD-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR-SU1",
+      "child": "LIRR-EE3",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR-SU1",
+      "child": "LIRR-ES1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR-SU1",
+      "child": "LIRR-EW1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR",
+      "child": "LIRR-NC1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR",
+      "child": "LIRR-NN1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR",
+      "child": "LIRR-NW1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR",
+      "child": "LIRR-OV1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR",
+      "child": "LIRR-SU1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR",
+      "child": "LIRR-TS1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LIRR",
+      "child": "LIRR-US2",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LOVV-C",
+      "child": "LOVV-B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LOVV",
+      "child": "LOVV-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LOVV-C",
+      "child": "LOVV-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LOVV-E",
+      "child": "LOVV-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LOVV-B",
+      "child": "LOVV-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LPPC-E",
+      "child": "LPPC-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LPPC",
+      "child": "LPPC-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LPPC-O",
+      "child": "LPPC-I",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LPPC-E",
+      "child": "LPPC-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LPPC",
+      "child": "LPPC-O",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LPPC-E",
+      "child": "LPPC-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LPPC-O",
+      "child": "LPPC-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LPPO",
+      "child": "LPPO-TMA",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "LRBB",
       "child": "LRBB-A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LRBB",
+      "child": "LRBB-B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LRBB-A",
+      "child": "LRBB-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-C",
+      "child": "LTAA-10",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-C",
+      "child": "LTAA-11",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-N",
+      "child": "LTAA-12",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-N",
+      "child": "LTAA-13",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-C",
+      "child": "LTAA-14",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-S",
+      "child": "LTAA-15",
       "type": "CONTAINS"
     },
     {
@@ -1068,6 +1933,31 @@
     {
       "parent": "LTAA-ES",
       "child": "LTAA-17",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-EN",
+      "child": "LTAA-18",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-EN",
+      "child": "LTAA-19",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-S",
+      "child": "LTAA-7",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-S",
+      "child": "LTAA-8",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-S",
+      "child": "LTAA-9",
       "type": "CONTAINS"
     },
     {
@@ -1091,6 +1981,16 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "LTAA-C",
+      "child": "LTAA-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTAA-C",
+      "child": "LTAA-S",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "LTBB-WN",
       "child": "LTBB-1",
       "type": "CONTAINS"
@@ -1106,6 +2006,21 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "LTBB-WN",
+      "child": "LTBB-4",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTBB-WS",
+      "child": "LTBB-5",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "LTBB-WS",
+      "child": "LTBB-6",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "LTBB",
       "child": "LTBB-W78",
       "type": "CONTAINS"
@@ -1116,6 +2031,71 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "LTBB-W78",
+      "child": "LTBB-WS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-S",
+      "child": "RPHI-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-C",
+      "child": "RPHI-CE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-C",
+      "child": "RPHI-CN",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-C",
+      "child": "RPHI-CS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-C",
+      "child": "RPHI-CW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI",
+      "child": "RPHI-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-N",
+      "child": "RPHI-NE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-N",
+      "child": "RPHI-NW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-S",
+      "child": "RPHI-SE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-S",
+      "child": "RPHI-SW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI",
+      "child": "RPHI-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RPHI-S",
+      "child": "RPHI-W",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "OBBB",
       "child": "OBBB-C",
       "type": "CONTAINS"
@@ -1123,6 +2103,11 @@
     {
       "parent": "OBBB",
       "child": "OBBB-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "OBBB",
+      "child": "OBBB-N",
       "type": "CONTAINS"
     },
     {
@@ -1141,8 +2126,28 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "OEJD-2",
+      "child": "OEJD-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "OEJD-3",
+      "child": "OEJD-E",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "OEJD-3",
       "child": "OEJD-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "OEJD-3",
+      "child": "OEJD-NE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "OEJD-2",
+      "child": "OEJD-S",
       "type": "CONTAINS"
     },
     {
@@ -1157,7 +2162,42 @@
     },
     {
       "parent": "OERD",
+      "child": "OERD-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "OERD",
       "child": "OERD-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "OERD",
+      "child": "OERD-NE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ORBB",
+      "child": "ORBB-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "OTDF",
+      "child": "OTDF-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "OTDF",
+      "child": "OTDF-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "PAZA",
+      "child": "PAZA-A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "PAZA",
+      "child": "PAZA-D",
       "type": "CONTAINS"
     },
     {
@@ -1166,8 +2206,23 @@
       "type": "CONTAINS"
     },
     {
-      "parent": "RJBG",
+      "parent": "RJBG-N",
       "child": "RJBG-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RJBG",
+      "child": "RJBG-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RJBG",
+      "child": "RJBG-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RJBG-N",
+      "child": "RJBG-W",
       "type": "CONTAINS"
     },
     {
@@ -1196,6 +2251,16 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "RJTG-S",
+      "child": "RJTG-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RJTG",
+      "child": "RJTG-N",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "RJTG",
       "child": "RJTG-S",
       "type": "CONTAINS"
@@ -1203,6 +2268,21 @@
     {
       "parent": "RJTG-S",
       "child": "RJTG-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RKDA",
+      "child": "RKDA-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RKDA",
+      "child": "RKDA-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "RKDA",
+      "child": "RKDA-W",
       "type": "CONTAINS"
     },
     {
@@ -1216,13 +2296,13 @@
       "type": "CONTAINS"
     },
     {
-      "parent": "RPHI",
-      "child": "RPHI-N",
+      "parent": "SAEF",
+      "child": "SAEF-N",
       "type": "CONTAINS"
     },
     {
-      "parent": "RPHI",
-      "child": "RPHI-S",
+      "parent": "SAEF",
+      "child": "SAEF-S",
       "type": "CONTAINS"
     },
     {
@@ -1251,13 +2331,178 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "SBAO-S",
+      "child": "SBAO-SW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBAZ-CW",
+      "child": "SBAZ-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBAZ",
+      "child": "SBAZ-CE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBAZ-CE",
+      "child": "SBAZ-CW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBAZ-CE",
+      "child": "SBAZ-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBAZ-CW",
+      "child": "SBAZ-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBBS-SE",
+      "child": "SBBS-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBBS-NE",
+      "child": "SBBS-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBBS-NS",
+      "child": "SBBS-NE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBBS",
+      "child": "SBBS-NS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBBS-SE",
+      "child": "SBBS-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBBS-NS",
+      "child": "SBBS-SE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBRE-NS",
+      "child": "SBRE-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBRE-NW",
+      "child": "SBRE-NS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBRE",
+      "child": "SBRE-NW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBRE-SW",
+      "child": "SBRE-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBRE-NW",
+      "child": "SBRE-SW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "SBRE-SW",
+      "child": "SBRE-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-1",
+      "child": "TEH-1E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-1",
+      "child": "TEH-1N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-1",
+      "child": "TEH-1W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-2",
+      "child": "TEH-2E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-2",
+      "child": "TEH-2W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-3",
+      "child": "TEH-3N",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "TEH-3",
       "child": "TEH-3S",
       "type": "CONTAINS"
     },
     {
+      "parent": "TEH-4",
+      "child": "TEH-4E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-4",
+      "child": "TEH-4S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-4",
+      "child": "TEH-4W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-5",
+      "child": "TEH-5E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-5",
+      "child": "TEH-5W",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "TEH-6",
       "child": "TEH-6E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-6",
+      "child": "TEH-6W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-E",
+      "child": "TEH-7",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-W",
+      "child": "TEH-1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-W",
+      "child": "TEH-2",
       "type": "CONTAINS"
     },
     {
@@ -1267,17 +2512,32 @@
     },
     {
       "parent": "TEH-S",
+      "child": "TEH-4",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-S",
+      "child": "TEH-5",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH-S",
       "child": "TEH-6",
       "type": "CONTAINS"
     },
     {
-      "parent": "TEH",
+      "parent": "TEH-N",
       "child": "TEH-W",
       "type": "CONTAINS"
     },
     {
-      "parent": "TEH",
+      "parent": "TEH-N",
       "child": "TEH-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "TEH",
+      "child": "TEH-N",
       "type": "CONTAINS"
     },
     {
@@ -1286,8 +2546,253 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "UAAA",
+      "child": "UAAA-A1A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UAAA",
+      "child": "UAAA-A3A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UAAA",
+      "child": "UAAA-A4A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UAAA",
+      "child": "UAAA-A5A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UACN",
+      "child": "UACN-A1C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UACN",
+      "child": "UACN-A2C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UACN",
+      "child": "UACN-A3C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UACN",
+      "child": "UACN-A4C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UAII",
+      "child": "UAII-A1I",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UAII",
+      "child": "UAII-A2I",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UATT",
+      "child": "UATT-A1B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UATT",
+      "child": "UATT-A2B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UATT",
+      "child": "UATT-A3B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UATT",
+      "child": "UATT-A4B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UATT",
+      "child": "UATT-A5B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UATT",
+      "child": "UATT-A6B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UBBA",
+      "child": "UBBA-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHHH",
+      "child": "UHHH-1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHHH",
+      "child": "UHHH-2",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHHH",
+      "child": "UHHH-3",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHHH",
+      "child": "UHHH-HF",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHMM",
+      "child": "UHMM-K1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHMM",
+      "child": "UHMM-K2",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHMM",
+      "child": "UHMM-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHMM",
+      "child": "UHMM-N1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHMM",
+      "child": "UHMM-N2",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHMM",
+      "child": "UHMM-O",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UHMM",
+      "child": "UHMM-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UIII",
+      "child": "UIII-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UIII",
+      "child": "UIII-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UIII",
+      "child": "UIII-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL",
+      "child": "ULLL-AM",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-AM",
+      "child": "ULLL-AR",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-WK",
+      "child": "ULLL-KT",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-AM",
+      "child": "ULLL-MO",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-AM",
+      "child": "ULLL-MR",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-AM",
+      "child": "ULLL-NM",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL",
+      "child": "ULLL-R",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-R",
+      "child": "ULLL-R1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-R",
+      "child": "ULLL-R2",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-SW",
+      "child": "ULLL-R3",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-SW",
+      "child": "ULLL-R4",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-R",
+      "child": "ULLL-R5",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-R",
+      "child": "ULLL-R6",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL",
+      "child": "ULLL-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-R",
+      "child": "ULLL-SW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL-WK",
+      "child": "ULLL-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ULLL",
+      "child": "ULLL-WK",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "UMMV",
       "child": "UMMV-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UMMV",
+      "child": "UMMV-S",
       "type": "CONTAINS"
     },
     {
@@ -1356,13 +2861,63 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "USSV-E",
+      "child": "USSV-C",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "USSV",
       "child": "USSV-E",
       "type": "CONTAINS"
     },
     {
+      "parent": "USSV-E",
+      "child": "USSV-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "USSV-W",
+      "child": "USSV-P",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "USSV-E",
+      "child": "USSV-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "USSV",
+      "child": "USSV-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "USTV",
+      "child": "USTV-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "USTV-C",
+      "child": "USTV-E",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "USTV",
       "child": "USTV-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "USTV",
+      "child": "USTV-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "USTV-C",
+      "child": "USTV-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UUWV-SE",
+      "child": "UUWV-E",
       "type": "CONTAINS"
     },
     {
@@ -1378,6 +2933,21 @@
     {
       "parent": "UUWV-N",
       "child": "UUWV-NW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UUWV",
+      "child": "UUWV-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UUWV-S",
+      "child": "UUWV-SE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "UUWV-S",
+      "child": "UUWV-SW",
       "type": "CONTAINS"
     },
     {
@@ -1401,8 +2971,28 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "UWWW-W",
+      "child": "UWWW-SW",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "UWWW",
       "child": "UWWW-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VABB",
+      "child": "VABB-LC",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VABB",
+      "child": "VABB-U5",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VABF",
+      "child": "VABF-OC",
       "type": "CONTAINS"
     },
     {
@@ -1413,6 +3003,21 @@
     {
       "parent": "VANP",
       "child": "VANP-UAC",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VECC",
+      "child": "VECC-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VECC",
+      "child": "VECC-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VECC",
+      "child": "VECC-W",
       "type": "CONTAINS"
     },
     {
@@ -1437,6 +3042,16 @@
     },
     {
       "parent": "VECF-UAC",
+      "child": "VECF-UGT",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VECF-UAC",
+      "child": "VECF-UKE",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VECF-UAC",
       "child": "VECF-UKN",
       "type": "CONTAINS"
     },
@@ -1451,8 +3066,23 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "VIDF-UD1",
+      "child": "VIDF-LD1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VIDF-UAC",
+      "child": "VIDF-LD2",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "VIDF-UD3",
       "child": "VIDF-LD3",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VIDF-UAC",
+      "child": "VIDF-LD4",
       "type": "CONTAINS"
     },
     {
@@ -1466,8 +3096,23 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "VIDF-LD2",
+      "child": "VIDF-UD2",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "VIDF-UAC",
       "child": "VIDF-UD3",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VIDF-LD4",
+      "child": "VIDF-UD4",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VIDF-UAC",
+      "child": "VIDF-UD5",
       "type": "CONTAINS"
     },
     {
@@ -1492,7 +3137,17 @@
     },
     {
       "parent": "VOMF-UAC",
+      "child": "VOMF-UHS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VOMF-UAC",
       "child": "VOMF-UML",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VOMF-UAC",
+      "child": "VOMF-UMM",
       "type": "CONTAINS"
     },
     {
@@ -1501,13 +3156,33 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "VOMM",
+      "child": "VOMM-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VTBB-NW",
+      "child": "VTBB-1N",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "VTBB-SW",
       "child": "VTBB-1S",
       "type": "CONTAINS"
     },
     {
+      "parent": "VTBB-NE",
+      "child": "VTBB-2N",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "VTBB-SW",
       "child": "VTBB-2S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VTBB-NW",
+      "child": "VTBB-3N",
       "type": "CONTAINS"
     },
     {
@@ -1526,6 +3201,21 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "VTBB-NE",
+      "child": "VTBB-5N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VTBB-SE",
+      "child": "VTBB-5S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VTBB-NE",
+      "child": "VTBB-6N",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "VTBB-SE",
       "child": "VTBB-6S",
       "type": "CONTAINS"
@@ -1533,6 +3223,11 @@
     {
       "parent": "VTBB",
       "child": "VTBB-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VTBB-N",
+      "child": "VTBB-NE",
       "type": "CONTAINS"
     },
     {
@@ -1571,13 +3266,53 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "VVHM-A",
+      "child": "VVHM-2",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "VVHM-B",
       "child": "VVHM-3",
       "type": "CONTAINS"
     },
     {
+      "parent": "VVHM-B",
+      "child": "VVHM-4",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "VVHM-A",
       "child": "VVHM-5",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VVHM-2",
+      "child": "VVHM-6",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VVHM-3",
+      "child": "VVHM-7",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VVHN",
+      "child": "VVHN-1",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VVHN",
+      "child": "VVHN-2",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VVHN",
+      "child": "VVHN-3",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "VVHN",
+      "child": "VVHN-4",
       "type": "CONTAINS"
     },
     {
@@ -1592,12 +3327,37 @@
     },
     {
       "parent": "WAAF",
+      "child": "WAAF-BN",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WAAF",
       "child": "WAAF-MO",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WAAF-BI",
+      "child": "WAAF-MS",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WAAF-BI",
+      "child": "WAAF-NA",
       "type": "CONTAINS"
     },
     {
       "parent": "WAAF",
       "child": "WAAF-PA",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WAAF-BN",
+      "child": "WAAF-PN",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WAAF-BI",
+      "child": "WAAF-SY",
       "type": "CONTAINS"
     },
     {
@@ -1608,6 +3368,11 @@
     {
       "parent": "WIIF-SG",
       "child": "WIIF-BD",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WIIF-MN",
+      "child": "WIIF-IS",
       "type": "CONTAINS"
     },
     {
@@ -1626,6 +3391,26 @@
       "type": "CONTAINS"
     },
     {
+      "parent": "WIIF-PK",
+      "child": "WIIF-NA",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WIIF-JT",
+      "child": "WIIF-PB",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WIIF",
+      "child": "WIIF-PK",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WIIF-JT",
+      "child": "WIIF-PP",
+      "type": "CONTAINS"
+    },
+    {
       "parent": "WIIF-JT",
       "child": "WIIF-PU",
       "type": "CONTAINS"
@@ -1633,6 +3418,81 @@
     {
       "parent": "WIIF",
       "child": "WIIF-SG",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WIIF-PK",
+      "child": "WIIF-TG",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "WIIF-PK",
+      "child": "WIIF-TN",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZBAA",
+      "child": "ZBAA-E",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZBAA",
+      "child": "ZBAA-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZBAA",
+      "child": "ZBAA-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZBAA",
+      "child": "ZBAA-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZBAA-W",
+      "child": "ZBAA-SW",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZJSY",
+      "child": "ZJSY-L",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZJSY",
+      "child": "ZJSY-O",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZMUB",
+      "child": "ZMUB-A",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZMUB",
+      "child": "ZMUB-B",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZMUB",
+      "child": "ZMUB-C",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZMUB",
+      "child": "ZMUB-D",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZMUB",
+      "child": "ZMUB-G",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZMUB",
+      "child": "ZMUB-M",
       "type": "CONTAINS"
     },
     {
@@ -1648,6 +3508,21 @@
     {
       "parent": "ZSSS",
       "child": "ZSSS-S",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZSSS-C",
+      "child": "ZSSS-W",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZWWW",
+      "child": "ZWWW-N",
+      "type": "CONTAINS"
+    },
+    {
+      "parent": "ZWWW",
+      "child": "ZWWW-S",
       "type": "CONTAINS"
     },
     {
@@ -1773,6 +3648,36 @@
     {
       "parent": "ZNY",
       "child": "AVP",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "AYPM",
+      "child": "AYGA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "AYPM",
+      "child": "AYMD",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "AYPM",
+      "child": "AYMH",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "AYNZ",
+      "child": "AYN",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "AYNZ",
+      "child": "AYN",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "AYPM",
+      "child": "AYTK",
       "type": "SECTOR_OF"
     },
     {
@@ -1902,7 +3807,7 @@
     },
     {
       "parent": "CMH",
-      "child": "CMH_C",
+      "child": "CMH",
       "type": "TRACON_OF"
     },
     {
@@ -1928,6 +3833,11 @@
     {
       "parent": "ZDV",
       "child": "CPR",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZFW",
+      "child": "CPTL",
       "type": "SECTOR_OF"
     },
     {
@@ -1961,7 +3871,12 @@
       "type": "SECTOR_OF"
     },
     {
-      "parent": "ZUL",
+      "parent": "ZID",
+      "child": "CYOD",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZID",
       "child": "CYOW",
       "type": "SECTOR_OF"
     },
@@ -1986,8 +3901,13 @@
       "type": "SECTOR_OF"
     },
     {
-      "parent": "ZQM",
+      "parent": "ZDV",
       "child": "CYSJ",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZYZ",
+      "child": "CYTR",
       "type": "SECTOR_OF"
     },
     {
@@ -1996,7 +3916,7 @@
       "type": "SECTOR_OF"
     },
     {
-      "parent": "ZWG",
+      "parent": "ZKC",
       "child": "CYWG",
       "type": "SECTOR_OF"
     },
@@ -2013,11 +3933,6 @@
     {
       "parent": "ZQX",
       "child": "CYYT",
-      "type": "SECTOR_OF"
-    },
-    {
-      "parent": "ZYZ",
-      "child": "CYYZ",
       "type": "SECTOR_OF"
     },
     {
@@ -2056,6 +3971,11 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZDC",
+      "child": "DAAG",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZJX",
       "child": "DAB",
       "type": "SECTOR_OF"
@@ -2091,34 +4011,109 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZFW",
+      "child": "DTNH",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "EBBU",
       "child": "EDDR",
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZAN",
+      "child": "EDFH",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAN",
+      "child": "EDFM",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZDC",
+      "child": "EDGG",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZID",
+      "child": "EDJA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZTL",
+      "child": "EETN",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZTL",
+      "child": "EETT_H",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZBW",
+      "child": "EFKU",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAU",
+      "child": "EFTP",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAU",
+      "child": "EFTU",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "EHAM",
-      "child": "EHAM_A",
+      "child": "EHA",
       "type": "TRACON_OF"
     },
     {
       "parent": "EHAM",
-      "child": "EHAM_B",
+      "child": "EHA",
       "type": "TRACON_OF"
     },
     {
       "parent": "EHAM",
-      "child": "EHAM_E",
+      "child": "EHA",
       "type": "TRACON_OF"
     },
     {
       "parent": "EHAM",
-      "child": "EHAM_S",
+      "child": "EHA",
       "type": "TRACON_OF"
     },
     {
       "parent": "EHAM",
-      "child": "EHAM_W",
+      "child": "EHA",
       "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZKC",
+      "child": "EHAM",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZID",
+      "child": "EHRD",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZSE",
+      "child": "EKAH",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "EKSP",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZTL",
+      "child": "EKYT",
+      "type": "SECTOR_OF"
     },
     {
       "parent": "ZBW",
@@ -2131,8 +4126,63 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZAN",
+      "child": "ENAN",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAN",
+      "child": "ENAT",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZKC",
       "child": "END",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZKC",
+      "child": "ENDU",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAN",
+      "child": "ENNA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "ENVA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "ESTA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "ESTL",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "ETHF",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "ETHN",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZFW",
+      "child": "ETNG",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZFW",
+      "child": "ETNN",
       "type": "SECTOR_OF"
     },
     {
@@ -2216,24 +4266,54 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "FUK",
+      "child": "FUK",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "FUK",
+      "child": "RJF",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "FUK",
+      "child": "RJF",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "FUK",
+      "child": "RJF",
+      "type": "TRACON_OF"
+    },
+    {
       "parent": "ZAU",
       "child": "FWA",
       "type": "SECTOR_OF"
     },
     {
       "parent": "GCCA",
-      "child": "GCCA_AAC",
+      "child": "GCC",
       "type": "TRACON_OF"
     },
     {
       "parent": "GCCA",
-      "child": "GCCA_INB",
+      "child": "GCC",
       "type": "TRACON_OF"
     },
     {
       "parent": "GCCA",
-      "child": "GCCA_NBE",
+      "child": "GCC",
       "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZDV",
+      "child": "GCCA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "GCTS",
+      "type": "SECTOR_OF"
     },
     {
       "parent": "GEG",
@@ -2261,7 +4341,7 @@
       "type": "SECTOR_OF"
     },
     {
-      "parent": "GOOO",
+      "parent": "ZOA",
       "child": "GOOY",
       "type": "SECTOR_OF"
     },
@@ -2431,8 +4511,93 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZFW",
+      "child": "LBBG",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZHU",
       "child": "LCH",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZBW",
+      "child": "LEBB",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZBW",
+      "child": "LEBL",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZBW",
+      "child": "LEBL-23",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZBW",
+      "child": "LEBL-34",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZBW",
+      "child": "LEBL-4",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZBW",
+      "child": "LEBZ",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "LEMD",
+      "child": "LEM",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "LEMD",
+      "child": "LEM",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "LEMD",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "LEMD-ES",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "LEMD-WI",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "LEMD-WS",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "LEMG",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "LEMG-W",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "LEMH",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "LECP-MXX",
       "type": "SECTOR_OF"
     },
     {
@@ -2441,19 +4606,79 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZID",
+      "child": "LEXJ",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZHU",
+      "child": "LFKB",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZHU",
+      "child": "LFKJ",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZHU",
       "child": "LFT",
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZHU",
+      "child": "LFTH",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZNY",
+      "child": "LGAD",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZNY",
+      "child": "LGAL",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZNY",
+      "child": "LGAV",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLA",
+      "child": "LGBL",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZHU",
+      "child": "LHBP",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ES0",
-      "child": "LICA",
+      "child": "LIC",
       "type": "TRACON_OF"
     },
     {
       "parent": "ES0",
-      "child": "LIPX",
+      "child": "LIP",
       "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZDV",
+      "child": "ES0",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZDV",
+      "child": "LICC",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZDV",
+      "child": "LICJ",
+      "type": "SECTOR_OF"
     },
     {
       "parent": "ZMP",
@@ -2483,6 +4708,11 @@
     {
       "parent": "ZSE",
       "child": "LMT",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZJX",
+      "child": "LROP",
       "type": "SECTOR_OF"
     },
     {
@@ -2531,6 +4761,16 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZID",
+      "child": "LUKK",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZSE",
+      "child": "LWSK",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZME",
       "child": "M03",
       "type": "SECTOR_OF"
@@ -2543,6 +4783,11 @@
     {
       "parent": "ZFW",
       "child": "MAF",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "MDSD",
       "type": "SECTOR_OF"
     },
     {
@@ -2571,6 +4816,16 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZTL",
+      "child": "MKJP",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZTL",
+      "child": "MKJS",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZAU",
       "child": "MLI",
       "type": "SECTOR_OF"
@@ -2581,24 +4836,119 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZOA",
+      "child": "MMHO",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZTL",
+      "child": "MMIO",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "MMLM",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "MMLO",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "MMLP",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZME",
+      "child": "MMSD",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZME",
+      "child": "MMSP",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZJX",
+      "child": "MMTC",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZJX",
+      "child": "MMTG",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZJX",
+      "child": "MMTJ",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZJX",
+      "child": "MMTM",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZNY",
+      "child": "MMUN",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZSE",
+      "child": "MMVA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZSE",
+      "child": "MMVR",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZHU",
       "child": "MOB",
       "type": "SECTOR_OF"
     },
     {
-      "parent": "MSK",
+      "parent": "ZAN",
+      "child": "MORE",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "UUWV",
       "child": "MSK",
-      "type": "TRACON_OF"
+      "type": "SECTOR_OF"
     },
     {
-      "parent": "MSK",
-      "child": "MSK_E",
-      "type": "TRACON_OF"
+      "parent": "UUWV",
+      "child": "MSK-A1",
+      "type": "SECTOR_OF"
     },
     {
-      "parent": "MSK",
-      "child": "MSK_W",
-      "type": "TRACON_OF"
+      "parent": "UUWV",
+      "child": "MSK-A3",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "UUWV",
+      "child": "MSK-A5",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "UUWV",
+      "child": "MSK-A7",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "UUWV",
+      "child": "MSK-E",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "UUWV",
+      "child": "MSK-W",
+      "type": "SECTOR_OF"
     },
     {
       "parent": "ZAU",
@@ -2623,6 +4973,11 @@
     {
       "parent": "ZLC",
       "child": "MUO",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAU",
+      "child": "MWCR",
       "type": "SECTOR_OF"
     },
     {
@@ -2657,7 +5012,7 @@
     },
     {
       "parent": "N90",
-      "child": "NY",
+      "child": "N90",
       "type": "TRACON_OF"
     },
     {
@@ -2791,6 +5146,16 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "NVVV",
+      "child": "NVV",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "NVVV",
+      "child": "NVV",
+      "type": "TRACON_OF"
+    },
+    {
       "parent": "ZLA",
       "child": "NYL",
       "type": "SECTOR_OF"
@@ -2801,13 +5166,53 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "OKA",
+      "child": "OKA",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "OKA",
+      "child": "RJK",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "OKA",
+      "child": "ROA",
+      "type": "TRACON_OF"
+    },
+    {
       "parent": "ZFW",
       "child": "OKC",
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZAU",
+      "child": "OKKK",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "OMAA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "OMAL",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "ORBI",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZDC",
       "child": "ORF",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZME",
+      "child": "ORKK",
       "type": "SECTOR_OF"
     },
     {
@@ -2946,6 +5351,21 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZHU",
+      "child": "RKPC",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZHU",
+      "child": "RKPK",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "RKSS",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZDC",
       "child": "ROA",
       "type": "SECTOR_OF"
@@ -2959,6 +5379,36 @@
       "parent": "ZAB",
       "child": "ROW",
       "type": "SECTOR_OF"
+    },
+    {
+      "parent": "RPLL",
+      "child": "RPL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "RPLL",
+      "child": "RPL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "RPLL",
+      "child": "RPL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "RPLL",
+      "child": "RPL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "RPVM",
+      "child": "RPV",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "RPVM",
+      "child": "RPV",
+      "type": "TRACON_OF"
     },
     {
       "parent": "ZMP",
@@ -2998,6 +5448,96 @@
     {
       "parent": "ZAU",
       "child": "SBN",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXB",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXD",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXE",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXF",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXG",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXJ",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXK",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXM",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXN",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXO",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXP",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXQ",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXR",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXS",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXT",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXU",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZLC",
+      "child": "SBXW",
       "type": "SECTOR_OF"
     },
     {
@@ -3051,6 +5591,16 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "SGF",
+      "child": "SGF",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "SGF",
+      "child": "SGF",
+      "type": "TRACON_OF"
+    },
+    {
       "parent": "ZKC",
       "child": "SGF",
       "type": "SECTOR_OF"
@@ -3067,7 +5617,7 @@
     },
     {
       "parent": "SIP",
-      "child": "SIP_R",
+      "child": "SIP",
       "type": "TRACON_OF"
     },
     {
@@ -3081,8 +5631,38 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZMP",
+      "child": "SKIP",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZFW",
+      "child": "SPHI",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZUA",
+      "child": "SPN",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZFW",
       "child": "SPS",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZFW",
+      "child": "SPSO",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZFW",
+      "child": "SPST",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZOA",
+      "child": "SPZO",
       "type": "SECTOR_OF"
     },
     {
@@ -3131,8 +5711,18 @@
       "type": "TRACON_OF"
     },
     {
+      "parent": "T75",
+      "child": "T75",
+      "type": "TRACON_OF"
+    },
+    {
       "parent": "ZKC",
       "child": "T75",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZME",
+      "child": "THAMES",
       "type": "SECTOR_OF"
     },
     {
@@ -3141,7 +5731,17 @@
       "type": "SECTOR_OF"
     },
     {
-      "parent": "ZSU",
+      "parent": "ZAN",
+      "child": "TNCA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAN",
+      "child": "TNCC",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAN",
       "child": "TNCM",
       "type": "SECTOR_OF"
     },
@@ -3149,6 +5749,26 @@
       "parent": "ZOB",
       "child": "TOL",
       "type": "SECTOR_OF"
+    },
+    {
+      "parent": "TOR",
+      "child": "TOR",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "TOR",
+      "child": "TOR",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "TOR",
+      "child": "TOR",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "TOR",
+      "child": "TOR",
+      "type": "TRACON_OF"
     },
     {
       "parent": "ZDV",
@@ -3176,6 +5796,21 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "TYO",
+      "child": "RJA",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "TYO",
+      "child": "RJT",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "TYO",
+      "child": "TYO",
+      "type": "TRACON_OF"
+    },
+    {
       "parent": "ZTL",
       "child": "TYS",
       "type": "SECTOR_OF"
@@ -3187,217 +5822,312 @@
     },
     {
       "parent": "UAAA",
-      "child": "UAAA",
+      "child": "UAA",
       "type": "TRACON_OF"
     },
     {
       "parent": "UAAA",
-      "child": "UAAA_R",
+      "child": "UAA",
       "type": "TRACON_OF"
     },
     {
       "parent": "UACC",
-      "child": "UACC",
+      "child": "UAC",
       "type": "TRACON_OF"
     },
     {
       "parent": "UACC",
-      "child": "UACC_R",
+      "child": "UAC",
       "type": "TRACON_OF"
     },
     {
       "parent": "UCFM",
-      "child": "UCFM",
+      "child": "UCF",
       "type": "TRACON_OF"
     },
     {
       "parent": "UCFM",
-      "child": "UCFM_R",
+      "child": "UCF",
       "type": "TRACON_OF"
     },
     {
       "parent": "UEEE",
-      "child": "UEEE",
+      "child": "UEE",
       "type": "TRACON_OF"
     },
     {
       "parent": "UEEE",
-      "child": "UEEE_R",
+      "child": "UEE",
       "type": "TRACON_OF"
     },
     {
       "parent": "UHHH",
-      "child": "UHHH",
+      "child": "UHH",
       "type": "TRACON_OF"
     },
     {
       "parent": "UHHH",
-      "child": "UHHH_R",
+      "child": "UHH",
       "type": "TRACON_OF"
     },
     {
       "parent": "UHWW",
-      "child": "UHWW",
+      "child": "UHW",
       "type": "TRACON_OF"
     },
     {
       "parent": "UHWW",
-      "child": "UHWW_R",
+      "child": "UHW",
       "type": "TRACON_OF"
     },
     {
       "parent": "UIII",
-      "child": "UIII",
+      "child": "UII",
       "type": "TRACON_OF"
     },
     {
       "parent": "UIII",
-      "child": "UIII_R",
+      "child": "UII",
       "type": "TRACON_OF"
     },
     {
       "parent": "UKBV",
-      "child": "UKBB",
+      "child": "UKB",
       "type": "TRACON_OF"
     },
     {
       "parent": "UKBV",
-      "child": "UKBV",
+      "child": "UKB",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZKC",
+      "child": "UKLL",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ULLI",
+      "child": "ULL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ULLI",
+      "child": "ULL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ULLI",
+      "child": "ULL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ULLI",
+      "child": "ULL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "ULMK",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZMP",
+      "child": "ULMM",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "UMMS",
+      "child": "UMM",
       "type": "TRACON_OF"
     },
     {
       "parent": "UMMS",
+      "child": "UMM",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZAN",
       "child": "UMMS",
-      "type": "TRACON_OF"
+      "type": "SECTOR_OF"
     },
     {
-      "parent": "UMMS",
-      "child": "UMMS_R",
+      "parent": "UNKL",
+      "child": "UNK",
       "type": "TRACON_OF"
     },
     {
       "parent": "UNKL",
+      "child": "UNK",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZAN",
       "child": "UNKL",
-      "type": "TRACON_OF"
+      "type": "SECTOR_OF"
     },
     {
-      "parent": "UNKL",
-      "child": "UNKL_R",
+      "parent": "UNNT",
+      "child": "UNN",
       "type": "TRACON_OF"
     },
     {
       "parent": "UNNT",
-      "child": "UNNT",
-      "type": "TRACON_OF"
-    },
-    {
-      "parent": "UNNT",
-      "child": "UNNT_R",
+      "child": "UNN",
       "type": "TRACON_OF"
     },
     {
       "parent": "UNOO",
+      "child": "UNO",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "UNOO",
+      "child": "UNO",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZME",
       "child": "UNOO",
-      "type": "TRACON_OF"
+      "type": "SECTOR_OF"
     },
     {
-      "parent": "UNOO",
-      "child": "UNOO_R",
+      "parent": "URKK",
+      "child": "URK",
       "type": "TRACON_OF"
     },
     {
       "parent": "URKK",
-      "child": "URKK",
-      "type": "TRACON_OF"
-    },
-    {
-      "parent": "URKK",
-      "child": "URKK_R",
+      "child": "URK",
       "type": "TRACON_OF"
     },
     {
       "parent": "URMM",
-      "child": "URMM",
+      "child": "URM",
       "type": "TRACON_OF"
     },
     {
       "parent": "URMM",
-      "child": "URMM_R",
+      "child": "URM",
       "type": "TRACON_OF"
     },
     {
       "parent": "URRP",
-      "child": "URRP",
+      "child": "URR",
       "type": "TRACON_OF"
     },
     {
       "parent": "URRP",
-      "child": "URRP_R",
+      "child": "URR",
       "type": "TRACON_OF"
     },
     {
       "parent": "URSS",
-      "child": "URSS",
+      "child": "URS",
       "type": "TRACON_OF"
     },
     {
       "parent": "URSS",
-      "child": "URSS_R",
+      "child": "URS",
       "type": "TRACON_OF"
     },
     {
       "parent": "URWA",
-      "child": "URWA",
+      "child": "URW",
       "type": "TRACON_OF"
     },
     {
       "parent": "URWA",
-      "child": "URWA_R",
+      "child": "URW",
       "type": "TRACON_OF"
     },
     {
       "parent": "USCC",
-      "child": "USCC",
+      "child": "USC",
       "type": "TRACON_OF"
     },
     {
       "parent": "USCC",
-      "child": "USCC_R",
+      "child": "USC",
       "type": "TRACON_OF"
     },
     {
       "parent": "USPP",
-      "child": "USPP",
+      "child": "USP",
       "type": "TRACON_OF"
     },
     {
       "parent": "USPP",
-      "child": "USPP_R",
+      "child": "USP",
       "type": "TRACON_OF"
     },
     {
       "parent": "USRR",
-      "child": "USRR",
+      "child": "USR",
       "type": "TRACON_OF"
     },
     {
       "parent": "USRR",
-      "child": "USRR_R",
+      "child": "USR",
       "type": "TRACON_OF"
     },
     {
       "parent": "USSS",
-      "child": "USSS",
+      "child": "USS",
       "type": "TRACON_OF"
     },
     {
       "parent": "USSS",
-      "child": "USSS_R",
+      "child": "USS",
       "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZME",
+      "child": "UTAA",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZME",
+      "child": "UTAK",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZME",
+      "child": "UTAM",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZME",
+      "child": "UTAT",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZME",
+      "child": "UTAV",
+      "type": "SECTOR_OF"
     },
     {
       "parent": "UUWV",
       "child": "UUDD",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAN",
+      "child": "UUOB",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAN",
+      "child": "UUOK",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAN",
+      "child": "UUOL",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZAN",
+      "child": "UUOO",
       "type": "SECTOR_OF"
     },
     {
@@ -3407,82 +6137,97 @@
     },
     {
       "parent": "UUYY",
-      "child": "UUYW",
+      "child": "UUY",
       "type": "TRACON_OF"
     },
     {
       "parent": "UUYY",
-      "child": "UUYY_R",
+      "child": "UUY",
       "type": "TRACON_OF"
     },
     {
       "parent": "UUYY",
-      "child": "UUYY_R",
+      "child": "UUY",
       "type": "TRACON_OF"
     },
     {
       "parent": "UWGG",
-      "child": "UWGG",
+      "child": "UWG",
       "type": "TRACON_OF"
     },
     {
       "parent": "UWGG",
-      "child": "UWGG_R",
+      "child": "UWG",
       "type": "TRACON_OF"
     },
     {
       "parent": "UWKD",
-      "child": "UWKD",
+      "child": "UWK",
       "type": "TRACON_OF"
     },
     {
       "parent": "UWKD",
-      "child": "UWKD_R",
+      "child": "UWK",
       "type": "TRACON_OF"
     },
     {
       "parent": "UWLL",
+      "child": "UWL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "UWLL",
+      "child": "UWL",
+      "type": "TRACON_OF"
+    },
+    {
+      "parent": "ZID",
       "child": "UWLL",
-      "type": "TRACON_OF"
+      "type": "SECTOR_OF"
     },
     {
-      "parent": "UWLL",
-      "child": "UWLL_R",
+      "parent": "UWSG",
+      "child": "UWS",
       "type": "TRACON_OF"
     },
     {
       "parent": "UWSG",
-      "child": "UWSG",
-      "type": "TRACON_OF"
-    },
-    {
-      "parent": "UWSG",
-      "child": "UWSG_R",
+      "child": "UWS",
       "type": "TRACON_OF"
     },
     {
       "parent": "UWWW",
-      "child": "UWWW",
+      "child": "UWW",
       "type": "TRACON_OF"
     },
     {
       "parent": "UWWW",
-      "child": "UWWW_R",
+      "child": "UWW",
       "type": "TRACON_OF"
     },
     {
       "parent": "UZTT",
-      "child": "UZTT",
+      "child": "UZT",
       "type": "TRACON_OF"
     },
     {
       "parent": "UZTT",
-      "child": "UZTT_R",
+      "child": "UZT",
       "type": "TRACON_OF"
     },
     {
       "parent": "ZJX",
       "child": "VAD",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZOA",
+      "child": "VCBI",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZOB",
+      "child": "VLLB",
       "type": "SECTOR_OF"
     },
     {
@@ -3496,13 +6241,33 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZDC",
+      "child": "WALL",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZOB",
+      "child": "WAYY",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZNY",
       "child": "WRI",
       "type": "SECTOR_OF"
     },
     {
+      "parent": "ZNY",
+      "child": "XLLJ",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZBW",
       "child": "Y90",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "YASP",
+      "child": "YBAS",
       "type": "SECTOR_OF"
     },
     {
@@ -3516,32 +6281,42 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "YSWY",
+      "child": "YBHM",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "YASH",
+      "child": "YBRM",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "YNSA",
+      "child": "YBSU",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "ZOB",
+      "child": "YCFS",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "ZMP",
       "child": "YCIN",
       "type": "SECTOR_OF"
     },
     {
-      "parent": "YBLA",
+      "parent": "YELW",
       "child": "YMAV",
       "type": "SECTOR_OF"
     },
     {
-      "parent": "YMML",
-      "child": "ML-S",
-      "type": "TRACON_OF"
-    },
-    {
-      "parent": "YMML",
-      "child": "ML",
-      "type": "TRACON_OF"
-    },
-    {
-      "parent": "YMML",
-      "child": "ML-S",
-      "type": "TRACON_OF"
-    },
-    {
       "parent": "YBLA",
+      "child": "YMAY",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "YELW",
       "child": "YMML",
       "type": "SECTOR_OF"
     },
@@ -3551,18 +6326,8 @@
       "type": "SECTOR_OF"
     },
     {
-      "parent": "YPAD",
-      "child": "AD",
-      "type": "TRACON_OF"
-    },
-    {
-      "parent": "YPAD",
-      "child": "AD",
-      "type": "TRACON_OF"
-    },
-    {
-      "parent": "YTBD",
-      "child": "YPAD",
+      "parent": "ZAN",
+      "child": "YPKA",
       "type": "SECTOR_OF"
     },
     {
@@ -3571,28 +6336,33 @@
       "type": "SECTOR_OF"
     },
     {
+      "parent": "YWRA",
+      "child": "YPWR",
+      "type": "SECTOR_OF"
+    },
+    {
       "parent": "YSCB",
-      "child": "CB-W",
+      "child": "CB-",
       "type": "TRACON_OF"
     },
     {
       "parent": "YSCB",
-      "child": "CB",
+      "child": "YSCB",
       "type": "TRACON_OF"
     },
     {
-      "parent": "YSCB",
-      "child": "CB",
-      "type": "TRACON_OF"
-    },
-    {
-      "parent": "YWOL",
+      "parent": "YGUN",
       "child": "YSCB",
       "type": "SECTOR_OF"
     },
     {
       "parent": "ZAN",
       "child": "YSNW",
+      "type": "SECTOR_OF"
+    },
+    {
+      "parent": "YARL",
+      "child": "YSTW",
       "type": "SECTOR_OF"
     },
     {
@@ -10507,13 +13277,13 @@
     }
   ],
   "metadata": {
-    "computed_at": "2026-03-07T21:21:13Z",
-    "total_edges": 2101,
+    "computed_at": "2026-03-07T22:27:31Z",
+    "total_edges": 2655,
     "edge_types": {
-      "TILES": 128,
-      "CONTAINS": 202,
-      "SECTOR_OF": 1630,
-      "TRACON_OF": 141
+      "TILES": 136,
+      "CONTAINS": 569,
+      "SECTOR_OF": 1785,
+      "TRACON_OF": 165
     }
   }
 }
