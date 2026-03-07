@@ -1078,7 +1078,12 @@
                 if (!e.date) {return false;}
                 const d = new Date(e.date);
                 return d >= yesterdayStart && d <= threeDaysOut;
-            }).sort((a, b) => new Date(b.date) - new Date(a.date));
+            }).sort((a, b) => {
+                const da = new Date(a.date), db = new Date(b.date);
+                if (a.time) { const [h,m] = a.time.split(':').map(Number); da.setUTCHours(h,m); }
+                if (b.time) { const [h,m] = b.time.split(':').map(Number); db.setUTCHours(h,m); }
+                return db - da;
+            });
             el.innerHTML = renderPotusEvents(events);
         } catch (e) { el.innerHTML = `<div class="text-muted small p-2">${PERTII18n.t('jatoc.calendar.unableToLoad')}</div>`; }
     }
