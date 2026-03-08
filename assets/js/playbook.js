@@ -11,6 +11,10 @@
     var API_LOG    = 'api/data/playbook/changelog.php';
     var API_SAVE   = 'api/mgt/playbook/save.php';
     var API_DELETE  = 'api/mgt/playbook/delete.php';
+    var API_GROUPS      = 'api/data/playbook/groups.php';
+    var API_GROUPS_SAVE = 'api/mgt/playbook/groups.php';
+    var API_CONFIGS     = 'api/data/playbook/group-configs.php';
+    var API_CONFIGS_MGT = 'api/mgt/playbook/group-configs.php';
 
     var t = typeof PERTII18n !== 'undefined' ? PERTII18n.t.bind(PERTII18n) : function(k) { return k; };
     var hasPerm = window.PERTI_PLAYBOOK_PERM === true;
@@ -41,6 +45,16 @@
     var playsPerPage = 200;
     var regionColorEnabled = false;
     var currentSearchClauses = [];  // Set by applyFilters(), read by route emphasis
+
+    // Route group state
+    var routeGroups = [];           // Array of { group_name, group_color, route_ids: Set, sort_order, source_config_id }
+    var groupEditingIdx = -1;       // Index of group being edited (-1 = none)
+
+    var GROUP_COLORS = [
+        '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12',
+        '#1abc9c', '#e91e63', '#00bcd4', '#ff5722', '#607d8b',
+        '#8bc34a', '#ff9800', '#673ab7', '#03a9f4', '#cddc39',
+    ];
 
     // =========================================================================
     // HELPERS
@@ -898,6 +912,7 @@
     function loadPlayDetail(playId) {
         activePlayId = playId;
         selectedRouteIds.clear();
+        routeGroups = [];
 
         // Highlight active row
         $('.pb-play-row').removeClass('active');
@@ -923,10 +938,12 @@
             activePlayData = play;
 
             updateUrl(play.play_name);
-            renderDetailPanel(play, routes);
 
-            // Auto-plot routes on map
-            plotOnMap();
+            // Load groups then render
+            loadGroups(playId, function() {
+                renderDetailPanel(play, routes);
+                plotOnMap();
+            });
         });
     }
 
@@ -1181,6 +1198,10 @@
     function renderRouteTable(play, routes) {
         var html = '';
         var hasSearch = currentSearchClauses.length > 0;
+        var hasGroups = routeGroups.length > 0;
+
+        // Group toolbar container
+        html += '<div id="pb_group_toolbar"></div>';
 
         if (routes.length) {
             // Select All row + route count
@@ -1189,9 +1210,23 @@
             html += '<span style="font-size:0.68rem;color:#999;">' + routes.length + ' ' + t('playbook.routes').toLowerCase() + '</span>';
             html += '</div>';
 
+            // Sort routes: grouped first (by group order), ungrouped last
+            var sortedRoutes = routes.slice();
+            if (hasGroups) {
+                sortedRoutes.sort(function(a, b) {
+                    var ga = getRouteGroupIndex(a.route_id);
+                    var gb = getRouteGroupIndex(b.route_id);
+                    if (ga === -1 && gb === -1) return 0;
+                    if (ga === -1) return 1;
+                    if (gb === -1) return -1;
+                    return ga - gb;
+                });
+            }
+
             html += '<div class="pb-route-table-wrap">';
             html += '<table class="pb-route-table"><thead><tr>';
             html += '<th class="pb-route-check"><input type="checkbox" id="pb_check_all"></th>';
+            if (hasGroups) html += '<th style="width:6px;padding:0;"></th>';
             html += '<th>Origin</th>';
             html += '<th>TRACON</th>';
             html += '<th>ARTCC</th>';
@@ -1202,7 +1237,7 @@
             html += '<th>Traversed</th>';
             html += '</tr></thead><tbody>';
 
-            routes.forEach(function(r) {
+            sortedRoutes.forEach(function(r) {
                 var origApt = r.origin_airports || r.origin || '-';
                 var origTracon = r.origin_tracons || '-';
                 var origArtcc = r.origin_artccs || '-';
@@ -1224,10 +1259,20 @@
 
                 // Search emphasis classes
                 var searchMatch = !hasSearch || routeMatchesSearchClauses(r, currentSearchClauses);
-                var rowClass = hasSearch ? (searchMatch ? 'pb-route-emphasized' : 'pb-route-dimmed') : '';
+                var rowClasses = [];
+                if (hasSearch) rowClasses.push(searchMatch ? 'pb-route-emphasized' : 'pb-route-dimmed');
 
-                html += '<tr data-route-id="' + r.route_id + '"' + (rowClass ? ' class="' + rowClass + '"' : '') + '>';
+                // Group indicator
+                var groupColor = getRouteGroupColor(r.route_id);
+                if (groupColor) rowClasses.push('pb-route-grouped');
+
+                var rowClass = rowClasses.join(' ');
+
+                html += '<tr data-route-id="' + r.route_id + '"' + (rowClass ? ' class="' + rowClass + '"' : '') + (groupColor ? ' style="border-left:4px solid ' + groupColor + ';"' : '') + '>';
                 html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb" value="' + r.route_id + '"' + (selectedRouteIds.has(r.route_id) ? ' checked' : '') + '></td>';
+                if (hasGroups) {
+                    html += '<td style="padding:0 2px;">' + (groupColor ? '<span class="pb-group-dot-inline" style="background:' + groupColor + ';"></span>' : '') + '</td>';
+                }
                 html += '<td>' + escHtml(origApt) + (r.origin_filter ? ' <small class="text-muted">' + escHtml(r.origin_filter) + '</small>' : '') + '</td>';
                 html += '<td>' + renderFacilityCodes(origTracon, ',') + '</td>';
                 html += '<td>' + renderFacilityCodes(origArtcc, ',') + '</td>';
@@ -1251,6 +1296,7 @@
         html += '</div>';
 
         $('#pb_detail_content').html(html);
+        renderGroupToolbar();
         updateToolbarVisibility();
     }
 
@@ -1269,6 +1315,7 @@
         activePlayId = null;
         activePlayData = null;
         selectedRouteIds.clear();
+        routeGroups = [];
         updateUrl(null);
         $('.pb-play-row').removeClass('active');
         $('#pb_info_overlay').hide();
@@ -1370,6 +1417,511 @@
     }
 
     // =========================================================================
+    // ROUTE GROUPS — data model, load/save, auto-group, configs
+    // =========================================================================
+
+    function nextGroupColor() {
+        var usedColors = {};
+        routeGroups.forEach(function(g) { usedColors[g.group_color] = true; });
+        for (var i = 0; i < GROUP_COLORS.length; i++) {
+            if (!usedColors[GROUP_COLORS[i]]) return GROUP_COLORS[i];
+        }
+        return GROUP_COLORS[routeGroups.length % GROUP_COLORS.length];
+    }
+
+    function getRouteGroupIndex(routeId) {
+        for (var i = 0; i < routeGroups.length; i++) {
+            if (routeGroups[i].route_ids.has(routeId)) return i;
+        }
+        return -1;
+    }
+
+    function getRouteGroupColor(routeId) {
+        var idx = getRouteGroupIndex(routeId);
+        return idx >= 0 ? routeGroups[idx].group_color : null;
+    }
+
+    function loadGroups(playId, callback) {
+        $.getJSON(API_GROUPS + '?play_id=' + playId, function(data) {
+            routeGroups = [];
+            if (data && data.success && data.groups) {
+                data.groups.forEach(function(g) {
+                    routeGroups.push({
+                        group_name: g.group_name,
+                        group_color: g.group_color,
+                        route_ids: new Set(g.route_ids || []),
+                        sort_order: g.sort_order,
+                        source_config_id: g.source_config_id || null,
+                        _autoField: null
+                    });
+                });
+            }
+            if (callback) callback();
+        }).fail(function() {
+            routeGroups = [];
+            if (callback) callback();
+        });
+    }
+
+    function saveGroups() {
+        if (!activePlayData) return;
+        var payload = {
+            play_id: activePlayData.play_id,
+            groups: routeGroups.map(function(g, idx) {
+                return {
+                    group_name: g.group_name,
+                    group_color: g.group_color,
+                    route_ids: Array.from(g.route_ids),
+                    sort_order: idx,
+                    source_config_id: g.source_config_id || null
+                };
+            })
+        };
+        $.ajax({
+            url: API_GROUPS_SAVE,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(payload),
+            dataType: 'json'
+        });
+    }
+
+    function createGroupFromSelection(name, color) {
+        var ids = new Set();
+        selectedRouteIds.forEach(function(rid) { ids.add(rid); });
+        if (!ids.size) return;
+
+        // Remove these routes from other groups
+        routeGroups.forEach(function(g) {
+            ids.forEach(function(rid) { g.route_ids.delete(rid); });
+        });
+        // Remove empty groups
+        routeGroups = routeGroups.filter(function(g) { return g.route_ids.size > 0; });
+
+        routeGroups.push({
+            group_name: name,
+            group_color: color,
+            route_ids: ids,
+            sort_order: routeGroups.length,
+            source_config_id: null,
+            _autoField: null
+        });
+
+        saveGroups();
+        refreshGroupUI();
+    }
+
+    function deleteGroup(idx) {
+        if (idx < 0 || idx >= routeGroups.length) return;
+        routeGroups.splice(idx, 1);
+        saveGroups();
+        refreshGroupUI();
+    }
+
+    function clearAllGroups() {
+        routeGroups = [];
+        saveGroups();
+        refreshGroupUI();
+    }
+
+    function refreshGroupUI() {
+        if (!activePlayData) return;
+        renderGroupToolbar();
+        renderRouteTable(activePlayData, activePlayData.routes || []);
+        plotOnMap();
+    }
+
+    function suggestGroupName(routeIds) {
+        if (!activePlayData || !activePlayData.routes) return 'Group';
+        var routes = activePlayData.routes.filter(function(r) { return routeIds.has(r.route_id); });
+        if (!routes.length) return 'Group';
+
+        // Find most common origin TRACON
+        var counts = {};
+        routes.forEach(function(r) {
+            csvSplit(r.origin_tracons).forEach(function(c) {
+                if (c) counts[c] = (counts[c] || 0) + 1;
+            });
+        });
+        var best = '', bestCount = 0;
+        Object.keys(counts).forEach(function(k) {
+            if (counts[k] > bestCount) { best = k; bestCount = counts[k]; }
+        });
+        if (best && bestCount >= routes.length * 0.5) return best + ' Routes';
+
+        // Try origin ARTCC
+        counts = {};
+        routes.forEach(function(r) {
+            csvSplit(r.origin_artccs).forEach(function(c) {
+                if (c) counts[c] = (counts[c] || 0) + 1;
+            });
+        });
+        best = ''; bestCount = 0;
+        Object.keys(counts).forEach(function(k) {
+            if (counts[k] > bestCount) { best = k; bestCount = counts[k]; }
+        });
+        if (best) return best + ' Routes';
+
+        return 'Group ' + (routeGroups.length + 1);
+    }
+
+    // ── Auto-grouping ──
+    function autoGroupByField(fieldName, labelSuffix) {
+        if (!activePlayData || !activePlayData.routes) return;
+        var routes = activePlayData.routes;
+        var buckets = {};
+
+        routes.forEach(function(r) {
+            var values = csvSplit(r[fieldName]);
+            var key = values.length ? values[0] : 'Other';
+            if (!buckets[key]) buckets[key] = new Set();
+            buckets[key].add(r.route_id);
+        });
+
+        routeGroups = [];
+        var colorIdx = 0;
+        var keys = Object.keys(buckets).sort();
+        keys.forEach(function(key) {
+            if (!buckets[key].size) return;
+            routeGroups.push({
+                group_name: key + (labelSuffix || ''),
+                group_color: GROUP_COLORS[colorIdx % GROUP_COLORS.length],
+                route_ids: buckets[key],
+                sort_order: colorIdx,
+                source_config_id: null,
+                _autoField: fieldName
+            });
+            colorIdx++;
+        });
+
+        saveGroups();
+        refreshGroupUI();
+    }
+
+    function autoGroupByCommonSegment() {
+        if (!activePlayData || !activePlayData.routes) return;
+        var routes = activePlayData.routes;
+
+        // Find common fix sequences (pivot detection)
+        var fixCounts = {};
+        routes.forEach(function(r) {
+            var tokens = (r.route_string || '').split(/\s+/).filter(Boolean);
+            tokens.forEach(function(tok) {
+                if (/^[A-Z]{2,5}$/.test(tok) && tok !== 'DCT') {
+                    fixCounts[tok] = (fixCounts[tok] || 0) + 1;
+                }
+            });
+        });
+
+        // Find pivot fixes (appear in >40% of routes but not all)
+        var threshold = Math.max(2, Math.floor(routes.length * 0.4));
+        var pivots = Object.keys(fixCounts).filter(function(fix) {
+            return fixCounts[fix] >= threshold && fixCounts[fix] < routes.length;
+        });
+
+        if (!pivots.length) {
+            // Fall back to origin ARTCC grouping
+            autoGroupByField('origin_artccs', '');
+            return;
+        }
+
+        // Group by first matching pivot
+        var bestPivot = pivots.sort(function(a, b) { return fixCounts[b] - fixCounts[a]; })[0];
+        var withPivot = new Set(), withoutPivot = new Set();
+        routes.forEach(function(r) {
+            if ((r.route_string || '').indexOf(bestPivot) !== -1) {
+                withPivot.add(r.route_id);
+            } else {
+                withoutPivot.add(r.route_id);
+            }
+        });
+
+        routeGroups = [];
+        if (withPivot.size) {
+            routeGroups.push({
+                group_name: 'Via ' + bestPivot,
+                group_color: GROUP_COLORS[0],
+                route_ids: withPivot,
+                sort_order: 0,
+                source_config_id: null,
+                _autoField: 'route_contains'
+            });
+        }
+        if (withoutPivot.size) {
+            routeGroups.push({
+                group_name: 'Other',
+                group_color: GROUP_COLORS[1],
+                route_ids: withoutPivot,
+                sort_order: 1,
+                source_config_id: null,
+                _autoField: null
+            });
+        }
+
+        saveGroups();
+        refreshGroupUI();
+    }
+
+    // ── Config management ──
+    function loadConfigList(callback) {
+        $.getJSON(API_CONFIGS, function(data) {
+            if (data && data.success) {
+                callback(data.configs || []);
+            } else {
+                callback([]);
+            }
+        }).fail(function() { callback([]); });
+    }
+
+    function applyConfig(configId) {
+        if (!activePlayData || !activePlayData.routes) return;
+        $.getJSON(API_CONFIGS + '?id=' + configId, function(data) {
+            if (!data || !data.success || !data.config || !data.config.rules) return;
+            var rules = data.config.rules;
+            var routes = activePlayData.routes;
+
+            routeGroups = [];
+            // Each rule defines a group. Match routes against it.
+            rules.forEach(function(rule, idx) {
+                var matchedIds = new Set();
+                var matchValues = (rule.match_value || '').split(',').map(function(v) { return v.trim().toUpperCase(); }).filter(Boolean);
+
+                routes.forEach(function(r) {
+                    var field = rule.match_field;
+                    var routeValues;
+                    if (field === 'route_contains') {
+                        routeValues = [(r.route_string || '').toUpperCase()];
+                    } else {
+                        routeValues = csvSplit(r[field]).map(function(v) { return v.toUpperCase(); });
+                    }
+
+                    var matches = false;
+                    if (field === 'route_contains') {
+                        matches = matchValues.some(function(mv) { return routeValues[0].indexOf(mv) !== -1; });
+                    } else {
+                        matches = matchValues.some(function(mv) { return routeValues.indexOf(mv) !== -1; });
+                    }
+
+                    if (matches) matchedIds.add(r.route_id);
+                });
+
+                if (matchedIds.size) {
+                    routeGroups.push({
+                        group_name: rule.group_name,
+                        group_color: rule.group_color,
+                        route_ids: matchedIds,
+                        sort_order: idx,
+                        source_config_id: configId,
+                        _autoField: rule.match_field
+                    });
+                }
+            });
+
+            // Remove routes assigned to multiple groups (later group wins)
+            var assigned = new Set();
+            for (var i = routeGroups.length - 1; i >= 0; i--) {
+                var newIds = new Set();
+                routeGroups[i].route_ids.forEach(function(rid) {
+                    if (!assigned.has(rid)) {
+                        newIds.add(rid);
+                        assigned.add(rid);
+                    }
+                });
+                routeGroups[i].route_ids = newIds;
+            }
+            routeGroups = routeGroups.filter(function(g) { return g.route_ids.size > 0; });
+
+            saveGroups();
+            refreshGroupUI();
+            PERTIDialog.toast(t('playbook.groups.groupsSaved'), 'success');
+        });
+    }
+
+    function saveCurrentAsConfig() {
+        if (!routeGroups.length) return;
+
+        Swal.fire({
+            title: t('playbook.groups.saveConfig'),
+            html:
+                '<input id="swal_cfg_name" class="swal2-input" placeholder="' + escHtml(t('playbook.groups.configNamePlaceholder')) + '">' +
+                '<input id="swal_cfg_desc" class="swal2-input" placeholder="' + escHtml(t('playbook.groups.configDescriptionPlaceholder')) + '">',
+            showCancelButton: true,
+            confirmButtonText: t('common.save'),
+            cancelButtonText: t('common.cancel'),
+            preConfirm: function() {
+                var name = document.getElementById('swal_cfg_name').value.trim();
+                if (!name) { Swal.showValidationMessage(t('playbook.groups.configName')); return false; }
+                return { name: name, desc: document.getElementById('swal_cfg_desc').value.trim() };
+            }
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+            var rules = [];
+            routeGroups.forEach(function(g, idx) {
+                // Derive match rule from auto-group field or from common origin
+                var matchField = g._autoField || 'origin_artccs';
+                var matchValue = '';
+
+                if (g._autoField && g._autoField !== 'route_contains') {
+                    // Extract common values from grouped routes
+                    var vals = new Set();
+                    if (activePlayData && activePlayData.routes) {
+                        activePlayData.routes.forEach(function(r) {
+                            if (!g.route_ids.has(r.route_id)) return;
+                            csvSplit(r[g._autoField]).forEach(function(v) { if (v) vals.add(v); });
+                        });
+                    }
+                    matchValue = Array.from(vals).join(',');
+                } else if (g._autoField === 'route_contains') {
+                    // Extract from group name: "Via FIX" → "FIX"
+                    matchValue = g.group_name.replace(/^Via\s+/i, '').trim();
+                } else {
+                    // Manual group: derive from most common origin ARTCC
+                    var counts = {};
+                    if (activePlayData && activePlayData.routes) {
+                        activePlayData.routes.forEach(function(r) {
+                            if (!g.route_ids.has(r.route_id)) return;
+                            csvSplit(r.origin_artccs).forEach(function(v) {
+                                if (v) counts[v] = (counts[v] || 0) + 1;
+                            });
+                        });
+                    }
+                    var best = '';
+                    Object.keys(counts).forEach(function(k) {
+                        if (!best || counts[k] > counts[best]) best = k;
+                    });
+                    matchValue = best || 'UNKN';
+                }
+
+                rules.push({
+                    group_name: g.group_name,
+                    group_color: g.group_color,
+                    sort_order: idx,
+                    match_field: matchField,
+                    match_value: matchValue
+                });
+            });
+
+            $.ajax({
+                url: API_CONFIGS_MGT,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    config_id: 0,
+                    config_name: result.value.name,
+                    description: result.value.desc,
+                    rules: rules
+                }),
+                dataType: 'json',
+                success: function(res) {
+                    if (res && res.success) {
+                        PERTIDialog.toast(t('playbook.groups.configSaved'), 'success');
+                    } else {
+                        PERTIDialog.toast(t('playbook.groups.configSaveFailed'), 'error');
+                    }
+                },
+                error: function() {
+                    PERTIDialog.toast(t('playbook.groups.configSaveFailed'), 'error');
+                }
+            });
+        });
+    }
+
+    function deleteConfig(configId) {
+        $.ajax({
+            url: API_CONFIGS_MGT + '?id=' + configId,
+            method: 'DELETE',
+            dataType: 'json',
+            success: function(res) {
+                if (res && res.success) {
+                    PERTIDialog.toast(t('playbook.groups.configDeleted'), 'success');
+                }
+            }
+        });
+    }
+
+    // ── Group Toolbar UI ──
+    function renderGroupToolbar() {
+        var $container = $('#pb_group_toolbar');
+        if (!$container.length) return;
+        if (!activePlayData) { $container.empty(); return; }
+
+        var routes = activePlayData.routes || [];
+        if (!routes.length) { $container.empty(); return; }
+
+        var html = '<div class="pb-group-toolbar">';
+
+        // Toolbar buttons
+        html += '<div class="pb-group-actions">';
+        html += '<button class="btn btn-xs btn-outline-success" id="pb_group_new" title="' + escHtml(t('playbook.groups.noRoutesSelected')) + '"><i class="fas fa-plus mr-1"></i>' + t('playbook.groups.newGroup') + '</button>';
+
+        // Auto-Group dropdown
+        html += '<div class="pb-cb-dropdown" id="pb_auto_group_dd">';
+        html += '<button type="button" class="btn btn-xs btn-outline-info pb-cb-trigger"><i class="fas fa-magic mr-1"></i>' + t('playbook.groups.autoGroup') + ' <i class="fas fa-caret-down ml-1"></i></button>';
+        html += '<div class="pb-cb-menu" style="min-width:180px;">';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="origin_tracons" data-suffix="">' + t('playbook.groups.byOriginTracon') + '</div>';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="origin_artccs" data-suffix="">' + t('playbook.groups.byOriginArtcc') + '</div>';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dest_tracons" data-suffix="">' + t('playbook.groups.byDestTracon') + '</div>';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dest_artccs" data-suffix="">' + t('playbook.groups.byDestArtcc') + '</div>';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="common_segment">' + t('playbook.groups.byCommonSegment') + '</div>';
+        html += '</div></div>';
+
+        // Load Config dropdown
+        html += '<div class="pb-cb-dropdown" id="pb_load_config_dd">';
+        html += '<button type="button" class="btn btn-xs btn-outline-secondary pb-cb-trigger"><i class="fas fa-folder-open mr-1"></i>' + t('playbook.groups.loadConfig') + ' <i class="fas fa-caret-down ml-1"></i></button>';
+        html += '<div class="pb-cb-menu pb-config-menu" style="min-width:200px;">';
+        html += '<div class="pb-loading py-1 text-center"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
+        html += '</div></div>';
+
+        if (routeGroups.length) {
+            html += '<button class="btn btn-xs btn-outline-danger" id="pb_group_clear"><i class="fas fa-trash mr-1"></i>' + t('playbook.groups.clearAll') + '</button>';
+            html += '<button class="btn btn-xs btn-outline-warning" id="pb_group_save_config"><i class="fas fa-save mr-1"></i>' + t('playbook.groups.saveConfig') + '</button>';
+        }
+        html += '</div>';
+
+        // Inline create form (hidden by default)
+        html += '<div class="pb-group-create-form" id="pb_group_create_form" style="display:none;">';
+        html += '<label class="pb-group-form-label">' + t('playbook.groups.groupName') + '</label>';
+        html += '<input type="text" class="form-control form-control-sm pb-group-name-input" id="pb_group_name_input" maxlength="100">';
+        html += '<div class="pb-group-palette" id="pb_group_palette">';
+        GROUP_COLORS.forEach(function(c) {
+            html += '<span class="pb-group-swatch" data-color="' + c + '" style="background:' + c + ';" title="' + c + '"></span>';
+        });
+        html += '</div>';
+        html += '<button class="btn btn-xs btn-success" id="pb_group_create_confirm"><i class="fas fa-check mr-1"></i>' + t('playbook.groups.create') + '</button>';
+        html += '<button class="btn btn-xs btn-secondary" id="pb_group_create_cancel">' + t('playbook.groups.cancel') + '</button>';
+        html += '</div>';
+
+        // Group list
+        if (routeGroups.length) {
+            html += '<div class="pb-group-list">';
+            routeGroups.forEach(function(g, idx) {
+                html += '<div class="pb-group-item" data-group-idx="' + idx + '">';
+                html += '<span class="pb-group-dot" style="background:' + escHtml(g.group_color) + ';"></span>';
+                html += '<span class="pb-group-item-name">' + escHtml(g.group_name) + '</span>';
+                html += '<span class="pb-group-item-count">(' + g.route_ids.size + ' ' + (g.route_ids.size === 1 ? t('playbook.groups.route') : t('playbook.groups.routes')) + ')</span>';
+                html += '<button class="btn btn-xs pb-group-edit-btn" data-idx="' + idx + '" title="' + t('playbook.groups.edit') + '"><i class="fas fa-pencil-alt"></i></button>';
+                html += '<button class="btn btn-xs pb-group-delete-btn" data-idx="' + idx + '" title="' + t('playbook.groups.delete') + '"><i class="fas fa-times"></i></button>';
+                html += '</div>';
+            });
+            // Ungrouped count
+            var allGrouped = new Set();
+            routeGroups.forEach(function(g) { g.route_ids.forEach(function(rid) { allGrouped.add(rid); }); });
+            var ungroupedCount = routes.filter(function(r) { return !allGrouped.has(r.route_id); }).length;
+            if (ungroupedCount > 0) {
+                html += '<div class="pb-group-item pb-group-ungrouped">';
+                html += '<span class="pb-group-dot pb-group-dot-empty"></span>';
+                html += '<span class="pb-group-item-name text-muted">' + t('playbook.groups.ungrouped') + '</span>';
+                html += '<span class="pb-group-item-count text-muted">(' + ungroupedCount + ' ' + (ungroupedCount === 1 ? t('playbook.groups.route') : t('playbook.groups.routes')) + ')</span>';
+                html += '</div>';
+            }
+            html += '</div>';
+        }
+
+        html += '</div>';
+        $container.html(html);
+    }
+
+    // =========================================================================
     // MAP INTEGRATION
     // =========================================================================
 
@@ -1387,6 +1939,7 @@
         if (!selected.length) { return; }
 
         var hasSearch = currentSearchClauses.length > 0;
+        var hasGroups = routeGroups.length > 0;
         var text;
 
         if (hasSearch) {
@@ -1405,8 +1958,20 @@
                 }
             });
             text = nonMatching.concat(matching).join('\n');
+        } else if (hasGroups) {
+            // Groups active: use per-route group colors (skip PB directive path)
+            text = selected.map(function(r) {
+                var parts = [];
+                if (r.origin) parts.push(r.origin);
+                parts.push(r.route_string);
+                if (r.dest) parts.push(r.dest);
+                var routeStr = parts.join(' ');
+                var color = getRouteGroupColor(r.route_id);
+                if (color) routeStr += ';' + color;
+                return routeStr;
+            }).join('\n');
         } else {
-            // No search: use PB directive or manual routes (default colors)
+            // No search, no groups: use PB directive or manual routes (default colors)
             var usePB = canUsePBDirective(selected, allRoutes);
             if (usePB) {
                 text = buildCurrentPBDirective();
@@ -1420,6 +1985,35 @@
                 }).join('\n');
             }
         }
+
+        // Wrap each route line with mandatory markers so playbook routes render as solid lines.
+        // Follows advisory rules: skip airport endpoints (first/last tokens) so only the
+        // enroute portion is marked mandatory. SID/STAR correction is handled downstream
+        // by advCorrectMandatoryProcedures in route-maplibre.js.
+        text = text.split('\n').map(function(line) {
+            var trimmed = line.trim();
+            if (!trimmed) return line;
+            // Skip PB directives — expandPlaybookDirective handles wrapping
+            if (trimmed.toUpperCase().indexOf('PB.') === 0) return '>' + trimmed + '<';
+            // Skip lines already containing mandatory markers
+            if (trimmed.indexOf('>') !== -1) return line;
+            // Separate color suffix (;#COLOR) if present
+            var colorSuffix = '';
+            var semiIdx = trimmed.indexOf(';');
+            if (semiIdx !== -1) {
+                colorSuffix = trimmed.slice(semiIdx);
+                trimmed = trimmed.slice(0, semiIdx).trim();
+            }
+            var tokens = trimmed.split(/\s+/).filter(Boolean);
+            if (tokens.length > 2) {
+                // Wrap from second token to second-to-last (skip airport endpoints)
+                tokens[1] = '>' + tokens[1];
+                tokens[tokens.length - 2] = tokens[tokens.length - 2] + '<';
+            } else {
+                return '>' + trimmed + '<' + colorSuffix;
+            }
+            return tokens.join(' ') + colorSuffix;
+        }).join('\n');
 
         var textarea = document.getElementById('routeSearch');
         var plotBtn = document.getElementById('plot_r');
@@ -2332,6 +2926,217 @@
         // Re-plot when route selection changes
         $(document).on('change', '.pb-route-cb, #pb_check_all', function() {
             if (activePlayData) plotOnMap();
+        });
+
+        // ── Group event handlers ──
+
+        // New Group: show inline create form
+        $(document).on('click', '#pb_group_new', function() {
+            if (!selectedRouteIds.size) {
+                PERTIDialog.toast(t('playbook.groups.noRoutesSelected'), 'info');
+                return;
+            }
+            var suggested = suggestGroupName(selectedRouteIds);
+            var color = nextGroupColor();
+            $('#pb_group_name_input').val(suggested);
+            // Pre-select swatch
+            $('.pb-group-swatch').removeClass('active');
+            $('.pb-group-swatch[data-color="' + color + '"]').addClass('active');
+            $('#pb_group_create_form').slideDown(150);
+            $('#pb_group_name_input').focus().select();
+        });
+
+        // Palette swatch click
+        $(document).on('click', '.pb-group-swatch', function() {
+            $('.pb-group-swatch').removeClass('active');
+            $(this).addClass('active');
+        });
+
+        // Create group confirm
+        $(document).on('click', '#pb_group_create_confirm', function() {
+            var name = $('#pb_group_name_input').val().trim() || 'Group';
+            var color = $('.pb-group-swatch.active').data('color') || nextGroupColor();
+            createGroupFromSelection(name, color);
+            $('#pb_group_create_form').slideUp(150);
+            PERTIDialog.toast(t('playbook.groups.groupCreated'), 'success');
+        });
+        $(document).on('keydown', '#pb_group_name_input', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); $('#pb_group_create_confirm').click(); }
+            if (e.key === 'Escape') { $('#pb_group_create_form').slideUp(150); }
+        });
+
+        // Create group cancel
+        $(document).on('click', '#pb_group_create_cancel', function() {
+            $('#pb_group_create_form').slideUp(150);
+        });
+
+        // Delete group
+        $(document).on('click', '.pb-group-delete-btn', function() {
+            var idx = parseInt($(this).data('idx'));
+            deleteGroup(idx);
+            PERTIDialog.toast(t('playbook.groups.groupDeleted'), 'success');
+        });
+
+        // Edit group (re-open inline form pre-filled)
+        $(document).on('click', '.pb-group-edit-btn', function() {
+            var idx = parseInt($(this).data('idx'));
+            if (idx < 0 || idx >= routeGroups.length) return;
+            var g = routeGroups[idx];
+            groupEditingIdx = idx;
+
+            // Select the group's routes
+            selectedRouteIds.clear();
+            g.route_ids.forEach(function(rid) { selectedRouteIds.add(rid); });
+            updateCheckboxes();
+
+            $('#pb_group_name_input').val(g.group_name);
+            $('.pb-group-swatch').removeClass('active');
+            $('.pb-group-swatch[data-color="' + g.group_color + '"]').addClass('active');
+
+            // Change create button to "Update"
+            $('#pb_group_create_confirm').html('<i class="fas fa-check mr-1"></i>Update');
+            $('#pb_group_create_form').slideDown(150);
+            $('#pb_group_name_input').focus().select();
+
+            // Override create handler for update
+            $('#pb_group_create_confirm').off('click.groupedit').on('click.groupedit', function() {
+                var name = $('#pb_group_name_input').val().trim() || 'Group';
+                var color = $('.pb-group-swatch.active').data('color') || g.group_color;
+
+                // Remove selected routes from other groups first
+                var ids = new Set();
+                selectedRouteIds.forEach(function(rid) { ids.add(rid); });
+                routeGroups.forEach(function(og, oi) {
+                    if (oi === groupEditingIdx) return;
+                    ids.forEach(function(rid) { og.route_ids.delete(rid); });
+                });
+                routeGroups = routeGroups.filter(function(og, oi) { return oi === groupEditingIdx || og.route_ids.size > 0; });
+
+                // Recalculate editing index after filter
+                var newIdx = routeGroups.indexOf(g);
+                if (newIdx >= 0) {
+                    routeGroups[newIdx].group_name = name;
+                    routeGroups[newIdx].group_color = color;
+                    routeGroups[newIdx].route_ids = ids;
+                }
+
+                groupEditingIdx = -1;
+                $('#pb_group_create_confirm').off('click.groupedit');
+                $('#pb_group_create_confirm').html('<i class="fas fa-check mr-1"></i>' + t('playbook.groups.create'));
+                $('#pb_group_create_form').slideUp(150);
+
+                saveGroups();
+                refreshGroupUI();
+                PERTIDialog.toast(t('playbook.groups.groupsSaved'), 'success');
+            });
+        });
+
+        // Clear all groups
+        $(document).on('click', '#pb_group_clear', function() {
+            PERTIDialog.confirmDanger(
+                t('playbook.groups.confirmClear'),
+                t('playbook.groups.confirmClearText')
+            ).then(function(result) {
+                if (result.isConfirmed) {
+                    clearAllGroups();
+                    PERTIDialog.toast(t('playbook.groups.groupsCleared'), 'success');
+                }
+            });
+        });
+
+        // Auto-group option click
+        $(document).on('click', '.pb-auto-group-opt', function() {
+            var field = $(this).data('field');
+            var suffix = $(this).data('suffix') || '';
+            $('.pb-cb-dropdown').removeClass('open');
+
+            var doIt = function() {
+                if (field === 'common_segment') {
+                    autoGroupByCommonSegment();
+                } else {
+                    autoGroupByField(field, suffix);
+                }
+                PERTIDialog.toast(t('playbook.groups.groupsSaved'), 'success');
+            };
+
+            if (routeGroups.length) {
+                PERTIDialog.confirmDanger(
+                    t('playbook.groups.confirmReplace'),
+                    t('playbook.groups.confirmReplaceText')
+                ).then(function(result) {
+                    if (result.isConfirmed) doIt();
+                });
+            } else {
+                doIt();
+            }
+        });
+
+        // Load Config dropdown: populate on open
+        $(document).on('click', '#pb_load_config_dd .pb-cb-trigger', function() {
+            var $menu = $('#pb_load_config_dd .pb-config-menu');
+            $menu.html('<div class="pb-loading py-1 text-center"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
+            loadConfigList(function(configs) {
+                if (!configs.length) {
+                    $menu.html('<div class="small text-muted px-3 py-2">' + t('playbook.groups.noConfigs') + '</div>');
+                    return;
+                }
+                var html = '';
+                configs.forEach(function(c) {
+                    html += '<div class="pb-cb-item pb-config-opt" data-config-id="' + c.config_id + '">';
+                    html += escHtml(c.config_name);
+                    if (c.description) html += ' <small class="text-muted">— ' + escHtml(c.description.substring(0, 40)) + '</small>';
+                    html += '<button class="btn btn-xs text-danger pb-config-delete-btn ml-2" data-config-id="' + c.config_id + '" title="Delete"><i class="fas fa-trash-alt"></i></button>';
+                    html += '</div>';
+                });
+                $menu.html(html);
+            });
+        });
+
+        // Apply config
+        $(document).on('click', '.pb-config-opt', function(e) {
+            if ($(e.target).closest('.pb-config-delete-btn').length) return;
+            var configId = parseInt($(this).data('config-id'));
+            $('.pb-cb-dropdown').removeClass('open');
+
+            var doApply = function() { applyConfig(configId); };
+
+            if (routeGroups.length) {
+                PERTIDialog.confirmDanger(
+                    t('playbook.groups.confirmReplace'),
+                    t('playbook.groups.confirmReplaceText')
+                ).then(function(result) {
+                    if (result.isConfirmed) doApply();
+                });
+            } else {
+                doApply();
+            }
+        });
+
+        // Delete config
+        $(document).on('click', '.pb-config-delete-btn', function(e) {
+            e.stopPropagation();
+            var configId = parseInt($(this).data('config-id'));
+            var $item = $(this).closest('.pb-config-opt');
+            deleteConfig(configId);
+            $item.fadeOut(200, function() { $item.remove(); });
+        });
+
+        // Save config
+        $(document).on('click', '#pb_group_save_config', saveCurrentAsConfig);
+
+        // Click group name to scroll to those routes
+        $(document).on('click', '.pb-group-item-name', function() {
+            var idx = parseInt($(this).closest('.pb-group-item').data('group-idx'));
+            if (idx < 0 || idx >= routeGroups.length) return;
+            var firstId = Array.from(routeGroups[idx].route_ids)[0];
+            if (firstId) {
+                var $row = $('tr[data-route-id="' + firstId + '"]');
+                if ($row.length) {
+                    $row[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    $row.addClass('pb-route-flash');
+                    setTimeout(function() { $row.removeClass('pb-route-flash'); }, 1500);
+                }
+            }
         });
     });
 

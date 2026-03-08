@@ -977,3 +977,172 @@
         padding: 0.5rem;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ROUTE GROUPS — toolbar, swatches, list, table indicators
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Group Toolbar ──────────────────────────────────────────────── */
+.pb-group-toolbar {
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    background: #fafbfc;
+}
+
+.pb-group-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.pb-group-actions .btn-xs {
+    font-size: 0.62rem;
+    padding: 2px 6px;
+}
+
+/* ── Inline Create/Edit Form ────────────────────────────────────── */
+.pb-group-create-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    flex-wrap: wrap;
+    border-top: 1px solid #eee;
+    margin-top: 4px;
+    padding-top: 6px;
+}
+
+.pb-group-form-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #666;
+    white-space: nowrap;
+}
+
+.pb-group-name-input {
+    font-size: 0.72rem !important;
+    padding: 2px 6px !important;
+    max-width: 150px;
+    font-family: 'Inconsolata', monospace;
+}
+
+/* ── Color Palette Swatches ─────────────────────────────────────── */
+.pb-group-palette {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+}
+
+.pb-group-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: transform 0.1s, border-color 0.15s;
+}
+
+.pb-group-swatch:hover {
+    transform: scale(1.2);
+    border-color: rgba(0,0,0,0.3);
+}
+
+.pb-group-swatch.active {
+    border-color: #333;
+    transform: scale(1.25);
+    box-shadow: 0 0 0 1px #fff, 0 0 0 3px #333;
+}
+
+/* ── Group List ─────────────────────────────────────────────────── */
+.pb-group-list {
+    margin-top: 4px;
+    border-top: 1px solid #eee;
+    padding-top: 4px;
+}
+
+.pb-group-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 0;
+    font-size: 0.68rem;
+}
+
+.pb-group-item-name {
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+}
+.pb-group-item-name:hover { text-decoration: underline; }
+
+.pb-group-item-count {
+    font-size: 0.6rem;
+    color: #999;
+}
+
+.pb-group-edit-btn,
+.pb-group-delete-btn {
+    border: none;
+    background: transparent;
+    color: #bbb;
+    font-size: 0.55rem;
+    padding: 1px 3px;
+    cursor: pointer;
+}
+.pb-group-edit-btn:hover { color: #239BCD; }
+.pb-group-delete-btn:hover { color: #dc3545; }
+
+/* ── Group Dots ─────────────────────────────────────────────────── */
+.pb-group-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.pb-group-dot-empty {
+    background: transparent;
+    border: 2px solid #ccc;
+}
+
+.pb-group-dot-inline {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* ── Route Table Group Indicators ───────────────────────────────── */
+.pb-route-table tr.pb-route-grouped td:first-child {
+    position: relative;
+}
+
+/* Flash animation for scroll-to */
+.pb-route-table tr.pb-route-flash td {
+    animation: pb-row-flash 0.5s ease 2;
+}
+
+@keyframes pb-row-flash {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(35, 155, 205, 0.15); }
+}
+
+/* ── Config dropdown items ──────────────────────────────────────── */
+.pb-config-opt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.pb-config-delete-btn {
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.pb-config-opt:hover .pb-config-delete-btn {
+    opacity: 1;
+}
