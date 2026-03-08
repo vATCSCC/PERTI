@@ -92,6 +92,9 @@
         // Route label DOM markers (for draggable labels)
         routeLabelMarkers: [],
 
+        // Boundary data cache
+        boundaryCache: { artcc: null, supercenter: null, artcc_area: null, tracon: null },
+
         // ARTCC hierarchy level visibility
         artccHierarchy: {
             super: false,
@@ -3067,11 +3070,6 @@
 
         const config = window.NOD_CONFIG || {};
         const paths = config.geojsonPaths || {};
-
-        // Cache for boundaries
-        if (!state.boundaryCache) {
-            state.boundaryCache = { artcc: null, tracon: null };
-        }
 
         // ARTCC boundaries are loaded by PERTIArtccHierarchy in initMapLayers()
         // and cached in state.boundaryCache via the .then() callback

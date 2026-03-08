@@ -1306,20 +1306,30 @@ include("load/i18n.php");
                     <input type="range" class="nod-opacity-slider" id="opacity-artcc" min="0" max="100" value="70"
                            title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('artcc', this.value/100)">
                 </div>
-                <div class="nod-layer-item ml-3" id="artcc-hierarchy-filters" style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
-                    <span style="color: #999; font-size: 10px; margin-right: 2px;"><?= __('common.hierarchy.label') ?></span>
-                    <input type="checkbox" id="nod-hier-super" onchange="NOD.toggleArtccHierarchy('super', this.checked)">
-                    <span class="nod-layer-color" style="background: #F0C946; width: 8px; height: 8px;"></span>
-                    <label for="nod-hier-super" style="color: #ddd; cursor: pointer; font-size: 11px; margin-right: 4px;"><?= __('common.hierarchy.superCenters') ?></label>
-                    <input type="checkbox" id="nod-hier-fir" checked onchange="NOD.toggleArtccHierarchy('fir', this.checked)">
-                    <span class="nod-layer-color" style="background: #4A90D9; width: 8px; height: 8px;"></span>
-                    <label for="nod-hier-fir" style="color: #ddd; cursor: pointer; font-size: 11px; margin-right: 4px;"><?= __('common.hierarchy.firs') ?></label>
-                    <input type="checkbox" id="nod-hier-sub" onchange="NOD.toggleArtccHierarchy('sub', this.checked)">
-                    <span class="nod-layer-color" style="background: #2E6AAD; width: 8px; height: 8px; border: 1px dashed #2E6AAD;"></span>
-                    <label for="nod-hier-sub" style="color: #ddd; cursor: pointer; font-size: 11px; margin-right: 4px;"><?= __('common.hierarchy.subAreas') ?></label>
-                    <input type="checkbox" id="nod-hier-deep" onchange="NOD.toggleArtccHierarchy('deep', this.checked)">
-                    <span class="nod-layer-color" style="background: #1E4A7A; width: 8px; height: 8px; border: 1px dashed #1E4A7A;"></span>
-                    <label for="nod-hier-deep" style="color: #ddd; cursor: pointer; font-size: 11px;"><?= __('common.hierarchy.deepSubAreas') ?></label>
+                <div class="ml-3 mb-1" id="artcc-hierarchy-filters">
+                    <div style="color: #999; font-size: 10px; margin-bottom: 2px;"><?= __('common.hierarchy.label') ?></div>
+                    <div style="display: flex; flex-direction: column; gap: 1px;">
+                        <div style="display: flex; align-items: center;">
+                            <input type="checkbox" id="nod-hier-super" onchange="NOD.toggleArtccHierarchy('super', this.checked)">
+                            <span class="nod-layer-color" style="background: #F0C946; width: 8px; height: 8px; margin-left: 4px;"></span>
+                            <label for="nod-hier-super" style="color: #ddd; cursor: pointer; font-size: 11px; margin: 0 0 0 4px;"><?= __('common.hierarchy.superCenters') ?></label>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <input type="checkbox" id="nod-hier-fir" checked onchange="NOD.toggleArtccHierarchy('fir', this.checked)">
+                            <span class="nod-layer-color" style="background: #4A90D9; width: 8px; height: 8px; margin-left: 4px;"></span>
+                            <label for="nod-hier-fir" style="color: #ddd; cursor: pointer; font-size: 11px; margin: 0 0 0 4px;"><?= __('common.hierarchy.firs') ?></label>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <input type="checkbox" id="nod-hier-sub" onchange="NOD.toggleArtccHierarchy('sub', this.checked)">
+                            <span class="nod-layer-color" style="background: #2E6AAD; width: 8px; height: 8px; margin-left: 4px; border: 1px dashed #5a9ad5;"></span>
+                            <label for="nod-hier-sub" style="color: #ddd; cursor: pointer; font-size: 11px; margin: 0 0 0 4px;"><?= __('common.hierarchy.subAreas') ?></label>
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <input type="checkbox" id="nod-hier-deep" onchange="NOD.toggleArtccHierarchy('deep', this.checked)">
+                            <span class="nod-layer-color" style="background: #1E4A7A; width: 8px; height: 8px; margin-left: 4px; border: 1px dashed #4a7ab0;"></span>
+                            <label for="nod-hier-deep" style="color: #ddd; cursor: pointer; font-size: 11px; margin: 0 0 0 4px;"><?= __('common.hierarchy.deepSubAreas') ?></label>
+                        </div>
+                    </div>
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-tracon" onchange="NOD.toggleLayer('tracon', this.checked)">

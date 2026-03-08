@@ -365,23 +365,25 @@
                                     <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-artcc" value="artcc" checked>
                                     <label class="custom-control-label" for="boundary-artcc"><span class="badge" style="background-color: #4A90D9; color: #fff;">ARTCC</span></label>
                                 </div>
-                                <div class="d-flex flex-wrap align-items-center ml-2" id="sua-artcc-hierarchy" style="gap: 2px;">
-                                    <small class="text-muted mr-1" style="font-size: 10px;"><?= __('common.hierarchy.label') ?></small>
-                                    <div class="custom-control custom-checkbox custom-control-inline" style="min-height: auto;">
-                                        <input type="checkbox" class="custom-control-input" id="sua-hier-super" onchange="toggleArtccHierarchy('super', this.checked)">
-                                        <label class="custom-control-label" for="sua-hier-super"><span class="badge" style="background-color: #F0C946; color: #000; font-size: 9px;"><?= __('common.hierarchy.superCenters') ?></span></label>
-                                    </div>
-                                    <div class="custom-control custom-checkbox custom-control-inline" style="min-height: auto;">
-                                        <input type="checkbox" class="custom-control-input" id="sua-hier-fir" checked onchange="toggleArtccHierarchy('fir', this.checked)">
-                                        <label class="custom-control-label" for="sua-hier-fir"><span class="badge" style="background-color: #4A90D9; color: #fff; font-size: 9px;"><?= __('common.hierarchy.firs') ?></span></label>
-                                    </div>
-                                    <div class="custom-control custom-checkbox custom-control-inline" style="min-height: auto;">
-                                        <input type="checkbox" class="custom-control-input" id="sua-hier-sub" onchange="toggleArtccHierarchy('sub', this.checked)">
-                                        <label class="custom-control-label" for="sua-hier-sub"><span class="badge" style="background-color: #2E6AAD; color: #fff; font-size: 9px;"><?= __('common.hierarchy.subAreas') ?></span></label>
-                                    </div>
-                                    <div class="custom-control custom-checkbox custom-control-inline" style="min-height: auto;">
-                                        <input type="checkbox" class="custom-control-input" id="sua-hier-deep" onchange="toggleArtccHierarchy('deep', this.checked)">
-                                        <label class="custom-control-label" for="sua-hier-deep"><span class="badge" style="background-color: #1E4A7A; color: #fff; font-size: 9px;"><?= __('common.hierarchy.deepSubAreas') ?></span></label>
+                                <div class="ml-2 mt-1" id="sua-artcc-hierarchy">
+                                    <small class="text-muted d-block" style="font-size: 10px; margin-bottom: 2px;"><?= __('common.hierarchy.label') ?></small>
+                                    <div class="d-flex flex-column" style="gap: 1px;">
+                                        <div class="custom-control custom-checkbox" style="min-height: auto;">
+                                            <input type="checkbox" class="custom-control-input" id="sua-hier-super" onchange="toggleArtccHierarchy('super', this.checked)">
+                                            <label class="custom-control-label" for="sua-hier-super"><span class="badge" style="background-color: #F0C946; color: #000; font-size: 9px;"><?= __('common.hierarchy.superCenters') ?></span></label>
+                                        </div>
+                                        <div class="custom-control custom-checkbox" style="min-height: auto;">
+                                            <input type="checkbox" class="custom-control-input" id="sua-hier-fir" checked onchange="toggleArtccHierarchy('fir', this.checked)">
+                                            <label class="custom-control-label" for="sua-hier-fir"><span class="badge" style="background-color: #4A90D9; color: #fff; font-size: 9px;"><?= __('common.hierarchy.firs') ?></span></label>
+                                        </div>
+                                        <div class="custom-control custom-checkbox" style="min-height: auto;">
+                                            <input type="checkbox" class="custom-control-input" id="sua-hier-sub" onchange="toggleArtccHierarchy('sub', this.checked)">
+                                            <label class="custom-control-label" for="sua-hier-sub"><span class="badge" style="background-color: #2E6AAD; color: #fff; font-size: 9px;"><?= __('common.hierarchy.subAreas') ?></span></label>
+                                        </div>
+                                        <div class="custom-control custom-checkbox" style="min-height: auto;">
+                                            <input type="checkbox" class="custom-control-input" id="sua-hier-deep" onchange="toggleArtccHierarchy('deep', this.checked)">
+                                            <label class="custom-control-label" for="sua-hier-deep"><span class="badge" style="background-color: #1E4A7A; color: #fff; font-size: 9px;"><?= __('common.hierarchy.deepSubAreas') ?></span></label>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="custom-control custom-checkbox custom-control-inline">
