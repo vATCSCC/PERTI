@@ -1598,6 +1598,52 @@
         refreshGroupUI();
     }
 
+    function autoGroupByDCCRegion(direction) {
+        if (!activePlayData || !activePlayData.routes) return;
+        var FH = (typeof FacilityHierarchy !== 'undefined') ? FacilityHierarchy : null;
+        if (!FH || !FH.ARTCC_TO_REGION || !FH.DCC_REGIONS) {
+            autoGroupByField(direction === 'dest' ? 'dest_artccs' : 'origin_artccs', '');
+            return;
+        }
+
+        var routes = activePlayData.routes;
+        var artccField = direction === 'dest' ? 'dest_artccs' : 'origin_artccs';
+        var buckets = {};
+
+        routes.forEach(function(r) {
+            var artccs = csvSplit(r[artccField]);
+            var artcc = artccs.length ? artccs[0] : '';
+            var region = FH.ARTCC_TO_REGION[artcc] || 'OTHER';
+            if (!buckets[region]) buckets[region] = new Set();
+            buckets[region].add(r.route_id);
+        });
+
+        // Build groups using DCC region order and colors
+        var regionOrder = ['NORTHEAST', 'SOUTHEAST', 'MIDWEST', 'SOUTH_CENTRAL', 'WEST',
+                           'CANADA', 'MEXICO', 'CARIBBEAN', 'ECFMP', 'OTHER'];
+        routeGroups = [];
+        var sortIdx = 0;
+
+        regionOrder.forEach(function(regionKey) {
+            if (!buckets[regionKey] || !buckets[regionKey].size) return;
+            var region = FH.DCC_REGIONS[regionKey];
+            var regionName = region ? region.name : regionKey;
+            var regionColor = region ? region.color : '#6c757d';
+            routeGroups.push({
+                group_name: regionName,
+                group_color: regionColor,
+                route_ids: buckets[regionKey],
+                sort_order: sortIdx,
+                source_config_id: null,
+                _autoField: artccField
+            });
+            sortIdx++;
+        });
+
+        saveGroups();
+        refreshGroupUI();
+    }
+
     function autoGroupByCommonSegment() {
         if (!activePlayData || !activePlayData.routes) return;
         var routes = activePlayData.routes;
@@ -1877,9 +1923,13 @@
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="origin_airports" data-suffix="">' + t('playbook.groups.byOriginAirport') + '</div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="origin_tracons" data-suffix="">' + t('playbook.groups.byOriginTracon') + '</div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="origin_artccs" data-suffix="">' + t('playbook.groups.byOriginArtcc') + '</div>';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dcc_region_origin">' + t('playbook.groups.byOriginDCCRegion') + '</div>';
+        html += '<div style="border-top:1px solid #3a3a4e;margin:2px 0;"></div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dest_airports" data-suffix="">' + t('playbook.groups.byDestAirport') + '</div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dest_tracons" data-suffix="">' + t('playbook.groups.byDestTracon') + '</div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dest_artccs" data-suffix="">' + t('playbook.groups.byDestArtcc') + '</div>';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dcc_region_dest">' + t('playbook.groups.byDestDCCRegion') + '</div>';
+        html += '<div style="border-top:1px solid #3a3a4e;margin:2px 0;"></div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="common_segment">' + t('playbook.groups.byCommonSegment') + '</div>';
         html += '</div></div>';
 
@@ -3127,6 +3177,10 @@
             var doIt = function() {
                 if (field === 'common_segment') {
                     autoGroupByCommonSegment();
+                } else if (field === 'dcc_region_origin') {
+                    autoGroupByDCCRegion('origin');
+                } else if (field === 'dcc_region_dest') {
+                    autoGroupByDCCRegion('dest');
                 } else {
                     autoGroupByField(field, suffix);
                 }
