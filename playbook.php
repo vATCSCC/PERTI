@@ -72,10 +72,17 @@ include("load/nav.php");
             <div class="pb-legend-divider"></div>
             <div class="pb-map-legend-title"><?= __('playbook.legendHighlightLayers') ?></div>
             <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="artcc" checked> <?= __('playbook.legendArtcc') ?></label>
+            <div class="pb-hierarchy-controls" style="margin-left:18px; margin-bottom:2px;">
+                <div style="color:#999; font-size:9px; margin-bottom:1px;"><?= __('common.hierarchy.label') ?></div>
+                <label class="pb-legend-toggle" style="font-size:11px;"><input type="checkbox" data-hier-toggle="super"> <span class="pb-legend-swatch" style="background:#F0C946; width:8px; height:8px;"></span> <?= __('common.hierarchy.superCenters') ?></label>
+                <label class="pb-legend-toggle" style="font-size:11px;"><input type="checkbox" data-hier-toggle="fir" checked> <span class="pb-legend-swatch" style="background:#4A90D9; width:8px; height:8px;"></span> <?= __('common.hierarchy.firs') ?></label>
+                <label class="pb-legend-toggle" style="font-size:11px;"><input type="checkbox" data-hier-toggle="sub"> <span class="pb-legend-swatch" style="background:#2E6AAD; width:8px; height:8px; border:1px dashed #5a9ad5;"></span> <?= __('common.hierarchy.subAreas') ?></label>
+                <label class="pb-legend-toggle" style="font-size:11px;"><input type="checkbox" data-hier-toggle="deep"> <span class="pb-legend-swatch" style="background:#1E4A7A; width:8px; height:8px; border:1px dashed #4a7ab0;"></span> <?= __('common.hierarchy.deepSubAreas') ?></label>
+            </div>
             <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="tracon" checked> <?= __('playbook.legendTracon') ?></label>
+            <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="sectorSuperhigh" checked> <?= __('playbook.legendSectorSuperhigh') ?></label>
             <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="sectorHigh" checked> <?= __('playbook.legendSectorHigh') ?></label>
             <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="sectorLow" checked> <?= __('playbook.legendSectorLow') ?></label>
-            <label class="pb-legend-toggle"><input type="checkbox" data-hl-toggle="sectorSuperhigh" checked> <?= __('playbook.legendSectorSuperhigh') ?></label>
         </div>
     </div>
 

@@ -1339,6 +1339,13 @@ include("load/i18n.php");
                            title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('tracon', this.value/100)">
                 </div>
                 <div class="nod-layer-item">
+                    <input type="checkbox" id="layer-superhigh" onchange="NOD.toggleLayer('superhigh', this.checked)">
+                    <span class="nod-layer-color" style="background: #e83e8c;"></span>
+                    <label for="layer-superhigh"><?= __('nod.page.superhighSectors') ?></label>
+                    <input type="range" class="nod-opacity-slider" id="opacity-superhigh" min="0" max="100" value="50"
+                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('superhigh', this.value/100)">
+                </div>
+                <div class="nod-layer-item">
                     <input type="checkbox" id="layer-high" onchange="NOD.toggleLayer('high', this.checked)">
                     <span class="nod-layer-color" style="background: #6f42c1;"></span>
                     <label for="layer-high"><?= __('nod.page.highSectors') ?></label>
@@ -1351,13 +1358,6 @@ include("load/i18n.php");
                     <label for="layer-low"><?= __('nod.page.lowSectors') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-low" min="0" max="100" value="50"
                            title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('low', this.value/100)">
-                </div>
-                <div class="nod-layer-item">
-                    <input type="checkbox" id="layer-superhigh" onchange="NOD.toggleLayer('superhigh', this.checked)">
-                    <span class="nod-layer-color" style="background: #e83e8c;"></span>
-                    <label for="layer-superhigh"><?= __('nod.page.superhighSectors') ?></label>
-                    <input type="range" class="nod-opacity-slider" id="opacity-superhigh" min="0" max="100" value="50"
-                           title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('superhigh', this.value/100)">
                 </div>
 
                 <!-- Overlays -->
@@ -1533,14 +1533,12 @@ include("load/i18n.php");
                 <!-- Origin / Destination -->
                 <div class="form-group mb-2 px-2">
                     <label class="small text-muted mb-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.originDestination') ?></label>
-                    <div class="d-flex">
-                        <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary mr-1" 
-                               id="nod_filter_origin" placeholder="<?= __('nod.page.originPlaceholder') ?>" title="<?= __('nod.page.originTooltip') ?>" 
-                               style="flex: 1;" onchange="NOD.applyFilters()">
+                    <div class="d-flex align-items-center">
+                        <select class="form-control form-control-sm facility-filter-select"
+                                id="nod_filter_origin" style="flex: 1;"></select>
                         <span class="text-muted align-self-center mx-1">→</span>
-                        <input type="text" class="form-control form-control-sm bg-dark text-light border-secondary" 
-                               id="nod_filter_dest" placeholder="<?= __('nod.page.destPlaceholder') ?>" title="<?= __('nod.page.destTooltip') ?>" 
-                               style="flex: 1;" onchange="NOD.applyFilters()">
+                        <select class="form-control form-control-sm facility-filter-select"
+                                id="nod_filter_dest" style="flex: 1;"></select>
                     </div>
                 </div>
                 

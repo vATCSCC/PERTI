@@ -504,9 +504,9 @@
         var sExclFilter = excludeSectors.length ? ['in', 'label'].concat(excludeSectors) : emptySector;
 
         var sectorTiers = [
-            { prefix: 'low', toggle: 'sectorLow' },
-            { prefix: 'high', toggle: 'sectorHigh' },
             { prefix: 'superhigh', toggle: 'sectorSuperhigh' },
+            { prefix: 'high', toggle: 'sectorHigh' },
+            { prefix: 'low', toggle: 'sectorLow' },
         ];
         sectorTiers.forEach(function(tier) {
             var inclId = tier.prefix + '-sector-search-include';
@@ -1154,14 +1154,14 @@
                 if (travTraconArr.length) {
                     html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedTracons') + ':</span> ' + travTraconArr.map(function(c) { return '<span class="pb-fac-code">' + escHtml(c) + '</span>'; }).join(', ') + '</div>';
                 }
+                if (travSecSuperArr.length) {
+                    html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedSectorsSuperhigh') + ':</span> ' + travSecSuperArr.map(function(c) { return '<span class="pb-fac-code">' + escHtml(c) + '</span>'; }).join(', ') + '</div>';
+                }
                 if (travSecHighArr.length) {
                     html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedSectorsHigh') + ':</span> ' + travSecHighArr.map(function(c) { return '<span class="pb-fac-code">' + escHtml(c) + '</span>'; }).join(', ') + '</div>';
                 }
                 if (travSecLowArr.length) {
                     html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedSectorsLow') + ':</span> ' + travSecLowArr.map(function(c) { return '<span class="pb-fac-code">' + escHtml(c) + '</span>'; }).join(', ') + '</div>';
-                }
-                if (travSecSuperArr.length) {
-                    html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedSectorsSuperhigh') + ':</span> ' + travSecSuperArr.map(function(c) { return '<span class="pb-fac-code">' + escHtml(c) + '</span>'; }).join(', ') + '</div>';
                 }
                 html += '</div></div>';
             }
@@ -1743,8 +1743,10 @@
         Swal.fire({
             title: t('playbook.groups.saveConfig'),
             html:
-                '<input id="swal_cfg_name" class="swal2-input" placeholder="' + escHtml(t('playbook.groups.configNamePlaceholder')) + '">' +
-                '<input id="swal_cfg_desc" class="swal2-input" placeholder="' + escHtml(t('playbook.groups.configDescriptionPlaceholder')) + '">',
+                '<label for="swal_cfg_name" style="display:block;text-align:left;font-size:0.85rem;font-weight:600;margin:0 0 2px 4px;color:#adb5bd;">' + escHtml(t('playbook.groups.configName')) + '</label>' +
+                '<input id="swal_cfg_name" class="swal2-input" placeholder="' + escHtml(t('playbook.groups.configNamePlaceholder')) + '" style="margin-top:0;">' +
+                '<label for="swal_cfg_desc" style="display:block;text-align:left;font-size:0.85rem;font-weight:600;margin:8px 0 2px 4px;color:#adb5bd;">' + escHtml(t('playbook.groups.configDescription')) + '</label>' +
+                '<input id="swal_cfg_desc" class="swal2-input" placeholder="' + escHtml(t('playbook.groups.configDescriptionPlaceholder')) + '" style="margin-top:0;">',
             showCancelButton: true,
             confirmButtonText: t('common.save'),
             cancelButtonText: t('common.cancel'),
@@ -1858,8 +1860,10 @@
         html += '<div class="pb-cb-dropdown" id="pb_auto_group_dd">';
         html += '<button type="button" class="btn btn-xs btn-outline-info pb-cb-trigger"><i class="fas fa-magic mr-1"></i>' + t('playbook.groups.autoGroup') + ' <i class="fas fa-caret-down ml-1"></i></button>';
         html += '<div class="pb-cb-menu" style="min-width:180px;">';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="origin_airports" data-suffix="">' + t('playbook.groups.byOriginAirport') + '</div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="origin_tracons" data-suffix="">' + t('playbook.groups.byOriginTracon') + '</div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="origin_artccs" data-suffix="">' + t('playbook.groups.byOriginArtcc') + '</div>';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dest_airports" data-suffix="">' + t('playbook.groups.byDestAirport') + '</div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dest_tracons" data-suffix="">' + t('playbook.groups.byDestTracon') + '</div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dest_artccs" data-suffix="">' + t('playbook.groups.byDestArtcc') + '</div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="common_segment">' + t('playbook.groups.byCommonSegment') + '</div>';
@@ -2542,6 +2546,39 @@
         loadCategories();
         loadPlays();
 
+        // Sync hierarchy layer visibility with legend checkbox defaults after map loads.
+        // Hierarchy layers are created asynchronously by route-maplibre.js, so poll briefly.
+        (function syncHierarchyDefaults() {
+            var attempts = 0;
+            var timer = setInterval(function() {
+                var map = window.graphic_map;
+                attempts++;
+                if (!map || !map.getLayer || attempts > 40) { clearInterval(timer); return; }
+                // Wait until the FIR labels layer exists (last hierarchy layer created)
+                if (!map.getLayer('artcc-fir-labels')) return;
+                clearInterval(timer);
+                // Apply default states from the legend checkboxes
+                $('[data-hier-toggle]').each(function() {
+                    var level = $(this).data('hier-toggle');
+                    var visible = this.checked;
+                    var layerMap = {
+                        super: ['artcc-super-lines'],
+                        fir: ['artcc-fir-lines', 'artcc-fir-labels'],
+                        sub: ['artcc-sub-lines'],
+                        deep: ['artcc-deep-lines'],
+                    };
+                    var layers = layerMap[level];
+                    if (layers) {
+                        layers.forEach(function(layerId) {
+                            if (map.getLayer(layerId)) {
+                                map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+                            }
+                        });
+                    }
+                });
+            }, 500);
+        })();
+
         // Make overlays draggable via jQuery UI
         if ($.fn.draggable) {
             $('#pb_catalog_overlay').draggable({
@@ -2715,6 +2752,29 @@
                 } else {
                     updateMapHighlights(lastHighlightClauses);
                 }
+            }
+        });
+
+        // ARTCC hierarchy toggles (super/fir/sub/deep boundary layers)
+        $(document).on('change', '[data-hier-toggle]', function() {
+            var level = $(this).data('hier-toggle');
+            var visible = this.checked;
+            var map = window.graphic_map;
+            if (!map) return;
+            // Map hierarchy level to route-maplibre.js layer IDs
+            var layerMap = {
+                super: ['artcc-super-lines'],
+                fir: ['artcc-fir-lines', 'artcc-fir-labels'],
+                sub: ['artcc-sub-lines'],
+                deep: ['artcc-deep-lines'],
+            };
+            var layers = layerMap[level];
+            if (layers) {
+                layers.forEach(function(layerId) {
+                    if (map.getLayer(layerId)) {
+                        map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+                    }
+                });
             }
         });
 

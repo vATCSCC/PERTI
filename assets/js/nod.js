@@ -1278,10 +1278,80 @@
     }
 
     // =========================================
+    // Facility Filter Dropdowns (Select2)
+    // =========================================
+
+    function initFacilityDropdowns() {
+        const FH = (typeof FacilityHierarchy !== 'undefined') ? FacilityHierarchy : null;
+        const FC = (typeof FILTER_CONFIG !== 'undefined') ? FILTER_CONFIG : null;
+        if (!FH || !$.fn.select2) {
+            console.warn('[NOD] FacilityHierarchy or Select2 not available for facility dropdowns');
+            return;
+        }
+
+        const regions = FH.DCC_REGIONS;
+        const labels = FC && FC.artcc ? FC.artcc.labels || {} : {};
+        const regionColors = FC && FC.dccRegion ? FC.dccRegion.colors || {} : {};
+        const regionOrder = ['NORTHEAST', 'SOUTHEAST', 'MIDWEST', 'SOUTH_CENTRAL', 'WEST',
+                             'CANADA', 'MEXICO', 'CARIBBEAN', 'ECFMP'];
+
+        ['#nod_filter_origin', '#nod_filter_dest'].forEach(function(sel) {
+            var $el = $(sel);
+            if (!$el.length) return;
+
+            regionOrder.forEach(function(key) {
+                var region = regions[key];
+                if (!region) return;
+                var $group = $('<optgroup>').attr('label', region.name || key);
+                var artccs = region.artccs || [];
+                artccs.forEach(function(artcc) {
+                    var lbl = labels[artcc] ? artcc + ' \u2013 ' + labels[artcc] : artcc;
+                    $group.append(
+                        $('<option>').val(artcc).text(lbl)
+                            .attr('data-color', regionColors[key] || '#6c757d')
+                    );
+                });
+                $el.append($group);
+            });
+
+            $el.select2({
+                placeholder: PERTII18n.t('nod.page.originPlaceholder') || 'ARTCC or Airport',
+                allowClear: true,
+                tags: true,
+                width: '100%',
+                dropdownCssClass: 'facility-filter-dropdown',
+                templateResult: function(opt) {
+                    if (!opt.id) return opt.text;
+                    var color = $(opt.element).attr('data-color') || '#6c757d';
+                    return $('<span>').html(
+                        '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
+                        color + ';margin-right:6px;vertical-align:middle;"></span>' + escapeHtml(opt.text)
+                    );
+                },
+                templateSelection: function(opt) {
+                    if (!opt.id) return opt.text;
+                    var color = $(opt.element).attr('data-color') || '#e9ecef';
+                    return $('<span>').css({color: color, fontWeight: 600}).text(opt.id);
+                },
+                createTag: function(params) {
+                    var term = (params.term || '').toUpperCase().trim();
+                    if (term.length < 2 || term.length > 5) return null;
+                    return { id: term, text: term };
+                },
+            });
+
+            $el.on('change', function() { collectFiltersFromUI(); });
+        });
+
+        console.log('[NOD] Facility filter dropdowns initialized');
+    }
+
+    // =========================================
     // Data Loading
     // =========================================
 
     function loadAllData() {
+        initFacilityDropdowns();
         loadTMIData();
         loadAdvisories();
         loadJATOCData();
@@ -1924,6 +1994,22 @@
 
     function applyFilters() {
         const f = state.traffic.filters;
+        const FH = (typeof FacilityHierarchy !== 'undefined') ? FacilityHierarchy : null;
+
+        // Pre-resolve ARTCC canonical values outside the per-flight loop
+        let originCanonical = null;
+        if (f.origin && f.origin.length > 0 && FH) {
+            originCanonical = (FH.ALIAS_TO_CANONICAL && FH.ALIAS_TO_CANONICAL[f.origin])
+                ? FH.ALIAS_TO_CANONICAL[f.origin]
+                : (FH.ARTCCS && FH.ARTCCS.indexOf(f.origin) >= 0 ? f.origin : null);
+        }
+        let destCanonical = null;
+        if (f.dest && f.dest.length > 0 && FH) {
+            destCanonical = (FH.ALIAS_TO_CANONICAL && FH.ALIAS_TO_CANONICAL[f.dest])
+                ? FH.ALIAS_TO_CANONICAL[f.dest]
+                : (FH.ARTCCS && FH.ARTCCS.indexOf(f.dest) >= 0 ? f.dest : null);
+        }
+
         state.traffic.filteredData = state.traffic.data.filter(flight => {
             // Weight class filter - getWeightClass() returns normalized SUPER/HEAVY/LARGE/SMALL
             const wc = getWeightClass(flight);
@@ -1938,18 +2024,26 @@
             });
             if (!wcMatch) {return false;}
 
-            // Origin filter (airport or ARTCC)
+            // Origin filter (ARTCC or airport code)
             if (f.origin && f.origin.length > 0) {
-                const deptIcao = (flight.fp_dept_icao || '').toUpperCase().trim();
-                const deptArtcc = (flight.fp_dept_artcc || '').toUpperCase().trim();
-                if (!(deptIcao.includes(f.origin) || deptArtcc.includes(f.origin))) {return false;}
+                if (originCanonical) {
+                    if ((flight.fp_dept_artcc || '').toUpperCase().trim() !== originCanonical) {return false;}
+                } else {
+                    const deptIcao = (flight.fp_dept_icao || '').toUpperCase().trim();
+                    const deptArtcc = (flight.fp_dept_artcc || '').toUpperCase().trim();
+                    if (!(deptIcao.includes(f.origin) || deptArtcc.includes(f.origin))) {return false;}
+                }
             }
 
-            // Destination filter (airport or ARTCC)
+            // Destination filter (ARTCC or airport code)
             if (f.dest && f.dest.length > 0) {
-                const destIcao = (flight.fp_dest_icao || '').toUpperCase().trim();
-                const destArtcc = (flight.fp_dest_artcc || '').toUpperCase().trim();
-                if (!(destIcao.includes(f.dest) || destArtcc.includes(f.dest))) {return false;}
+                if (destCanonical) {
+                    if ((flight.fp_dest_artcc || '').toUpperCase().trim() !== destCanonical) {return false;}
+                } else {
+                    const destIcao = (flight.fp_dest_icao || '').toUpperCase().trim();
+                    const destArtcc = (flight.fp_dest_artcc || '').toUpperCase().trim();
+                    if (!(destIcao.includes(f.dest) || destArtcc.includes(f.dest))) {return false;}
+                }
             }
 
             // Carrier filter
@@ -2013,7 +2107,8 @@
 
         // Reset UI inputs
         $('#nod_wc_super, #nod_wc_heavy, #nod_wc_large, #nod_wc_small').prop('checked', true);
-        $('#nod_filter_origin, #nod_filter_dest, #nod_filter_carrier, #nod_filter_alt_min, #nod_filter_alt_max').val('');
+        $('#nod_filter_origin, #nod_filter_dest').val(null).trigger('change');
+        $('#nod_filter_carrier, #nod_filter_alt_min, #nod_filter_alt_max').val('');
 
         applyFilters();
         updateTrafficLayer();

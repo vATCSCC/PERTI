@@ -5143,6 +5143,22 @@ $(document).ready(function() {
 
         function applyFilters() {
             const f = state.filters;
+            var FH = (typeof FacilityHierarchy !== 'undefined') ? FacilityHierarchy : null;
+
+            // Pre-resolve ARTCC canonical values outside the per-flight loop
+            var originCanonical = null;
+            if (f.origin && f.origin.length > 0 && FH) {
+                originCanonical = (FH.ALIAS_TO_CANONICAL && FH.ALIAS_TO_CANONICAL[f.origin])
+                    ? FH.ALIAS_TO_CANONICAL[f.origin]
+                    : (FH.ARTCCS && FH.ARTCCS.indexOf(f.origin) >= 0 ? f.origin : null);
+            }
+            var destCanonical = null;
+            if (f.dest && f.dest.length > 0 && FH) {
+                destCanonical = (FH.ALIAS_TO_CANONICAL && FH.ALIAS_TO_CANONICAL[f.dest])
+                    ? FH.ALIAS_TO_CANONICAL[f.dest]
+                    : (FH.ARTCCS && FH.ARTCCS.indexOf(f.dest) >= 0 ? f.dest : null);
+            }
+
             state.filteredFlights = state.flights.filter(flight => {
                 // Weight class filter
                 const wc = (flight.weight_class || '').toUpperCase().trim();
@@ -5157,18 +5173,26 @@ $(document).ready(function() {
                 });
                 if (!wcMatch) {return false;}
 
-                // Origin filter
+                // Origin filter (ARTCC or airport code)
                 if (f.origin && f.origin.length > 0) {
-                    const deptIcao = (flight.fp_dept_icao || '').toUpperCase().trim();
-                    const deptArtcc = (flight.fp_dept_artcc || '').toUpperCase().trim();
-                    if (!(deptIcao.includes(f.origin) || deptArtcc.includes(f.origin))) {return false;}
+                    if (originCanonical) {
+                        if ((flight.fp_dept_artcc || '').toUpperCase().trim() !== originCanonical) {return false;}
+                    } else {
+                        var deptIcao = (flight.fp_dept_icao || '').toUpperCase().trim();
+                        var deptArtcc = (flight.fp_dept_artcc || '').toUpperCase().trim();
+                        if (!(deptIcao.includes(f.origin) || deptArtcc.includes(f.origin))) {return false;}
+                    }
                 }
 
-                // Destination filter
+                // Destination filter (ARTCC or airport code)
                 if (f.dest && f.dest.length > 0) {
-                    const destIcao = (flight.fp_dest_icao || '').toUpperCase().trim();
-                    const destArtcc = (flight.fp_dest_artcc || '').toUpperCase().trim();
-                    if (!(destIcao.includes(f.dest) || destArtcc.includes(f.dest))) {return false;}
+                    if (destCanonical) {
+                        if ((flight.fp_dest_artcc || '').toUpperCase().trim() !== destCanonical) {return false;}
+                    } else {
+                        var destIcao = (flight.fp_dest_icao || '').toUpperCase().trim();
+                        var destArtcc = (flight.fp_dest_artcc || '').toUpperCase().trim();
+                        if (!(destIcao.includes(f.dest) || destArtcc.includes(f.dest))) {return false;}
+                    }
                 }
 
                 // Carrier filter
@@ -5216,7 +5240,8 @@ $(document).ready(function() {
                 altitudeMin: null, altitudeMax: null,
             };
             $('#adl_wc_super, #adl_wc_heavy, #adl_wc_large, #adl_wc_small').prop('checked', true);
-            $('#adl_origin, #adl_dest, #adl_carrier, #adl_alt_min, #adl_alt_max').val('');
+            $('#adl_origin, #adl_dest').val(null).trigger('change');
+            $('#adl_carrier, #adl_alt_min, #adl_alt_max').val('');
             applyFilters();
             updateDisplay();
             updateStats();
@@ -5563,8 +5588,81 @@ $(document).ready(function() {
         // INITIALIZATION
         // ─────────────────────────────────────────────────────────────────────
 
+        function initFacilityDropdowns() {
+            var FH = (typeof FacilityHierarchy !== 'undefined') ? FacilityHierarchy : null;
+            var FC = (typeof FILTER_CONFIG !== 'undefined') ? FILTER_CONFIG : null;
+            if (!FH || !$.fn.select2) {
+                console.warn('[ADL-ML] FacilityHierarchy or Select2 not available for facility dropdowns');
+                return;
+            }
+
+            var regions = FH.DCC_REGIONS;
+            var labels = FC && FC.artcc ? FC.artcc.labels || {} : {};
+            var regionColors = FC && FC.dccRegion ? FC.dccRegion.colors || {} : {};
+            var regionOrder = ['NORTHEAST', 'SOUTHEAST', 'MIDWEST', 'SOUTH_CENTRAL', 'WEST',
+                               'CANADA', 'MEXICO', 'CARIBBEAN', 'ECFMP'];
+
+            ['#adl_origin', '#adl_dest'].forEach(function(sel) {
+                var $el = $(sel);
+                if (!$el.length) return;
+
+                regionOrder.forEach(function(key) {
+                    var region = regions[key];
+                    if (!region) return;
+                    var $group = $('<optgroup>').attr('label', region.name || key);
+                    var artccs = region.artccs || [];
+                    artccs.forEach(function(artcc) {
+                        var lbl = labels[artcc] ? artcc + ' \u2013 ' + labels[artcc] : artcc;
+                        $group.append(
+                            $('<option>').val(artcc).text(lbl)
+                                .attr('data-color', regionColors[key] || '#6c757d')
+                        );
+                    });
+                    $el.append($group);
+                });
+
+                $el.select2({
+                    placeholder: PERTII18n.t('route.page.origin') || 'ARTCC or Airport',
+                    allowClear: true,
+                    tags: true,
+                    width: '100%',
+                    dropdownCssClass: 'facility-filter-dropdown',
+                    templateResult: function(opt) {
+                        if (!opt.id) return opt.text;
+                        var color = $(opt.element).attr('data-color') || '#6c757d';
+                        return $('<span>').html(
+                            '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
+                            color + ';margin-right:6px;vertical-align:middle;"></span>' + $('<span>').text(opt.text).html()
+                        );
+                    },
+                    templateSelection: function(opt) {
+                        if (!opt.id) return opt.text;
+                        var color = $(opt.element).attr('data-color') || '#e9ecef';
+                        return $('<span>').css({color: color, fontWeight: 600}).text(opt.id);
+                    },
+                    createTag: function(params) {
+                        var term = (params.term || '').toUpperCase().trim();
+                        if (term.length < 2 || term.length > 5) return null;
+                        return { id: term, text: term };
+                    },
+                });
+
+                $el.on('change', function() {
+                    collectFiltersFromUI();
+                    applyFilters();
+                    updateDisplay();
+                    updateStats();
+                });
+            });
+
+            console.log('[ADL-ML] Facility filter dropdowns initialized');
+        }
+
         function init() {
             console.log('[ADL-ML] init() called, attaching event handlers');
+
+            // Initialize facility filter dropdowns
+            initFacilityDropdowns();
 
             // Load saved color rules from localStorage
             loadColorRules();

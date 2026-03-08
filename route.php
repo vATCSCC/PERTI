@@ -1811,10 +1811,12 @@ ROUTE2</pre>
                                 </div>
                                 <div class="mb-2">
                                     <label class="small mb-1 text-uppercase"><?= __('route.page.originDest') ?></label>
-                                    <div class="d-flex">
-                                        <input type="text" class="form-control form-control-sm adl-filter-input mr-2" id="adl_origin" placeholder="<?= __('route.page.origin') ?>" title="ARTCC (ZNY) or Airport (KJFK)" style="width: 100px;">
+                                    <div class="d-flex align-items-center">
+                                        <select class="form-control form-control-sm facility-filter-select"
+                                                id="adl_origin" style="flex: 1;"></select>
                                         <span class="text-muted align-self-center mx-1">→</span>
-                                        <input type="text" class="form-control form-control-sm adl-filter-input" id="adl_dest" placeholder="<?= __('route.page.dest') ?>" title="ARTCC (ZMA) or Airport (KMIA)" style="width: 100px;">
+                                        <select class="form-control form-control-sm facility-filter-select"
+                                                id="adl_dest" style="flex: 1;"></select>
                                     </div>
                                 </div>
                                 <div class="mb-2">
