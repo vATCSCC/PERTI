@@ -1602,7 +1602,7 @@
         if (!activePlayData || !activePlayData.routes) return;
         var routes = activePlayData.routes;
 
-        // Find common fix sequences (pivot detection)
+        // Count how often each fix appears across all routes
         var fixCounts = {};
         routes.forEach(function(r) {
             var tokens = (r.route_string || '').split(/\s+/).filter(Boolean);
@@ -1613,46 +1613,55 @@
             });
         });
 
-        // Find pivot fixes (appear in >40% of routes but not all)
-        var threshold = Math.max(2, Math.floor(routes.length * 0.4));
+        // Find pivot fixes (appear in >25% of routes but not all)
+        var threshold = Math.max(2, Math.floor(routes.length * 0.25));
         var pivots = Object.keys(fixCounts).filter(function(fix) {
             return fixCounts[fix] >= threshold && fixCounts[fix] < routes.length;
-        });
+        }).sort(function(a, b) { return fixCounts[b] - fixCounts[a]; });
 
         if (!pivots.length) {
-            // Fall back to origin ARTCC grouping
             autoGroupByField('origin_artccs', '');
             return;
         }
 
-        // Group by first matching pivot
-        var bestPivot = pivots.sort(function(a, b) { return fixCounts[b] - fixCounts[a]; })[0];
-        var withPivot = new Set(), withoutPivot = new Set();
-        routes.forEach(function(r) {
-            if ((r.route_string || '').indexOf(bestPivot) !== -1) {
-                withPivot.add(r.route_id);
-            } else {
-                withoutPivot.add(r.route_id);
+        // Greedy assignment: most frequent pivot first, each route assigned once
+        var assigned = new Set();
+        routeGroups = [];
+        var colorIdx = 0;
+
+        pivots.forEach(function(pivot) {
+            var members = new Set();
+            routes.forEach(function(r) {
+                if (assigned.has(r.route_id)) return;
+                if ((r.route_string || '').indexOf(pivot) !== -1) {
+                    members.add(r.route_id);
+                    assigned.add(r.route_id);
+                }
+            });
+            if (members.size) {
+                routeGroups.push({
+                    group_name: 'Via ' + pivot,
+                    group_color: GROUP_COLORS[colorIdx % GROUP_COLORS.length],
+                    route_ids: members,
+                    sort_order: colorIdx,
+                    source_config_id: null,
+                    _autoField: 'route_contains'
+                });
+                colorIdx++;
             }
         });
 
-        routeGroups = [];
-        if (withPivot.size) {
-            routeGroups.push({
-                group_name: 'Via ' + bestPivot,
-                group_color: GROUP_COLORS[0],
-                route_ids: withPivot,
-                sort_order: 0,
-                source_config_id: null,
-                _autoField: 'route_contains'
-            });
-        }
-        if (withoutPivot.size) {
+        // Remaining unassigned routes
+        var remaining = new Set();
+        routes.forEach(function(r) {
+            if (!assigned.has(r.route_id)) remaining.add(r.route_id);
+        });
+        if (remaining.size) {
             routeGroups.push({
                 group_name: 'Other',
-                group_color: GROUP_COLORS[1],
-                route_ids: withoutPivot,
-                sort_order: 1,
+                group_color: GROUP_COLORS[colorIdx % GROUP_COLORS.length],
+                route_ids: remaining,
+                sort_order: colorIdx,
                 source_config_id: null,
                 _autoField: null
             });
@@ -1743,12 +1752,17 @@
         Swal.fire({
             title: t('playbook.groups.saveConfig'),
             html:
-                '<label for="swal_cfg_name" style="display:block;text-align:left;font-size:0.85rem;font-weight:600;margin:0 0 2px 4px;color:#adb5bd;">' + escHtml(t('playbook.groups.configName')) + '</label>' +
-                '<input id="swal_cfg_name" class="swal2-input" placeholder="' + escHtml(t('playbook.groups.configNamePlaceholder')) + '" style="margin-top:0;">' +
-                '<label for="swal_cfg_desc" style="display:block;text-align:left;font-size:0.85rem;font-weight:600;margin:8px 0 2px 4px;color:#adb5bd;">' + escHtml(t('playbook.groups.configDescription')) + '</label>' +
-                '<input id="swal_cfg_desc" class="swal2-input" placeholder="' + escHtml(t('playbook.groups.configDescriptionPlaceholder')) + '" style="margin-top:0;">',
+                '<div style="text-align:left;padding:0 8px;">' +
+                '<label for="swal_cfg_name" style="display:block;font-size:0.75rem;font-weight:600;margin:0 0 4px 2px;color:#adb5bd;text-transform:uppercase;letter-spacing:0.5px;">' + escHtml(t('playbook.groups.configName')) + '</label>' +
+                '<input id="swal_cfg_name" class="form-control form-control-sm" placeholder="' + escHtml(t('playbook.groups.configNamePlaceholder')) + '" style="background:#2b2b3d;border:1px solid #495057;color:#e9ecef;border-radius:4px;padding:6px 10px;font-size:0.875rem;">' +
+                '<label for="swal_cfg_desc" style="display:block;font-size:0.75rem;font-weight:600;margin:12px 0 4px 2px;color:#adb5bd;text-transform:uppercase;letter-spacing:0.5px;">' + escHtml(t('playbook.groups.configDescription')) + '</label>' +
+                '<input id="swal_cfg_desc" class="form-control form-control-sm" placeholder="' + escHtml(t('playbook.groups.configDescriptionPlaceholder')) + '" style="background:#2b2b3d;border:1px solid #495057;color:#e9ecef;border-radius:4px;padding:6px 10px;font-size:0.875rem;">' +
+                '</div>',
+            background: '#1e1e2e',
+            color: '#e9ecef',
             showCancelButton: true,
             confirmButtonText: t('common.save'),
+            confirmButtonColor: '#28a745',
             cancelButtonText: t('common.cancel'),
             preConfirm: function() {
                 var name = document.getElementById('swal_cfg_name').value.trim();

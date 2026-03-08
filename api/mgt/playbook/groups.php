@@ -6,32 +6,10 @@
  * JSON body: { play_id: int, groups: [{ group_name, group_color, route_ids: [...], sort_order, source_config_id }] }
  */
 
-include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
 define('PERTI_MYSQL_ONLY', true);
 include_once(dirname(__DIR__, 3) . '/load/connect.php');
 
 header('Content-Type: application/json');
-
-// Auth
-$perm = false;
-if (!defined('DEV')) {
-    if (isset($_SESSION['VATSIM_CID'])) {
-        $cid = session_get('VATSIM_CID', '');
-        $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
-        if ($p_check) {
-            $perm = true;
-        }
-    }
-} else {
-    $perm = true;
-    $cid = '0';
-}
-
-if (!$perm) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Authentication required']);
-    exit;
-}
 
 $body = json_decode(file_get_contents('php://input'), true);
 if (!$body || !isset($body['play_id'])) {
@@ -68,7 +46,7 @@ $del->execute();
 $del->close();
 
 // Insert new groups
-$changed_by = session_get('VATSIM_CID', '0');
+$changed_by = isset($_SESSION) ? ($_SESSION['VATSIM_CID'] ?? '0') : '0';
 if (!empty($groups)) {
     $ins = $conn_sqli->prepare("INSERT INTO playbook_route_groups
         (play_id, group_name, group_color, route_ids, sort_order, source_config_id, created_by)

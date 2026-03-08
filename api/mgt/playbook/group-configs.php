@@ -12,32 +12,10 @@
  * }
  */
 
-include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
 define('PERTI_MYSQL_ONLY', true);
 include_once(dirname(__DIR__, 3) . '/load/connect.php');
 
 header('Content-Type: application/json');
-
-// Auth
-$perm = false;
-if (!defined('DEV')) {
-    if (isset($_SESSION['VATSIM_CID'])) {
-        $cid = session_get('VATSIM_CID', '');
-        $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
-        if ($p_check) {
-            $perm = true;
-        }
-    }
-} else {
-    $perm = true;
-    $cid = '0';
-}
-
-if (!$perm) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Authentication required']);
-    exit;
-}
 
 $method = $_SERVER['REQUEST_METHOD'];
 
@@ -83,7 +61,7 @@ if ($method === 'POST') {
     $config_name = trim($body['config_name'] ?? '');
     $description = trim($body['description'] ?? '');
     $rules = isset($body['rules']) && is_array($body['rules']) ? $body['rules'] : [];
-    $changed_by = session_get('VATSIM_CID', '0');
+    $changed_by = isset($_SESSION) ? ($_SESSION['VATSIM_CID'] ?? '0') : '0';
 
     if ($config_name === '') {
         http_response_code(400);
