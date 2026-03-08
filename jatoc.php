@@ -794,7 +794,7 @@ window.JATOC_CONFIG = {
     isLoggedIn: <?= $logged_in ? 'true' : 'false' ?>
 };
 </script>
-<script src="assets/js/lib/artcc-labels.js<?= _v('assets/js/lib/artcc-labels.js') ?>"></script>
+<script src="assets/js/lib/artcc-hierarchy.js<?= _v('assets/js/lib/artcc-hierarchy.js') ?>"></script>
 <script src="assets/js/config/facility-roles.js<?= _v('assets/js/config/facility-roles.js') ?>"></script>
 <script>
 window.JATOC_FACILITY_DATA = window.PERTI_FACILITY_DATA;

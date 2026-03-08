@@ -98,7 +98,14 @@
     "warning": "Avertissement",
     "yes": "Oui",
     "yesCancel": "Oui, annuler",
-    "yesDelete": "Oui, supprimer"
+    "yesDelete": "Oui, supprimer",
+    "hierarchy": {
+      "label": "Hiérarchie :",
+      "superCenters": "Super Centres",
+      "firs": "FIR/ARTCC",
+      "subAreas": "Sous-zones",
+      "deepSubAreas": "Sous-zones profondes"
+    }
   },
   "dccRegion": {
     "canada": "Canada",

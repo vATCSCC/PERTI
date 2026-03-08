@@ -92,6 +92,14 @@
         // Route label DOM markers (for draggable labels)
         routeLabelMarkers: [],
 
+        // ARTCC hierarchy level visibility
+        artccHierarchy: {
+            super: false,
+            fir: true,
+            sub: false,
+            deep: false,
+        },
+
         // Layer visibility
         layers: {
             artcc: true,
@@ -591,43 +599,26 @@
         }
 
         // =========================================
-        // 6. ARTCC Boundaries
+        // 6. ARTCC Boundaries (hierarchy levels)
         // =========================================
 
-        if (paths.artcc) {
-            state.map.addSource('artcc-source', {
-                type: 'geojson',
-                data: paths.artcc,
-            });
-
-            state.map.addLayer({
-                id: 'artcc-fill',
-                type: 'fill',
-                source: 'artcc-source',
-                filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
-                paint: {
-                    'fill-color': '#4a9eff',
-                    'fill-opacity': 0.05,
+        if (typeof PERTIArtccHierarchy !== 'undefined') {
+            PERTIArtccHierarchy.loadAndAdd(state.map, {
+                prefix: 'artcc',
+                visible: {
+                    super: state.layers.artcc && state.artccHierarchy.super,
+                    fir: state.layers.artcc && state.artccHierarchy.fir,
+                    sub: state.layers.artcc && state.artccHierarchy.sub,
+                    deep: state.layers.artcc && state.artccHierarchy.deep,
                 },
+                fillEnabled: true,
+                labelsEnabled: true,
+            }).then(function(data) {
+                if (data.artcc) state.boundaryCache.artcc = data.artcc;
+                if (data.supercenter) state.boundaryCache.supercenter = data.supercenter;
+                if (data.artcc_area) state.boundaryCache.artcc_area = data.artcc_area;
+                console.log('[NOD] ARTCC hierarchy layers loaded');
             });
-
-            state.map.addLayer({
-                id: 'artcc-lines',
-                type: 'line',
-                source: 'artcc-source',
-                filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
-                paint: {
-                    'line-color': '#4a9eff',
-                    'line-width': 1.5,
-                    'line-opacity': 0.7,
-                },
-            });
-
-        }
-
-        // Add ARTCC/FIR labels via shared utility on existing polygon source
-        if (typeof PERTIArtccLabels !== 'undefined') {
-            PERTIArtccLabels.addToMap(state.map, { source: 'artcc-source', visible: state.layers.artcc !== false });
         }
 
         // =========================================
@@ -3082,39 +3073,8 @@
             state.boundaryCache = { artcc: null, tracon: null };
         }
 
-        // Load ARTCC boundaries (assets/geojson/artcc.json)
-        if (!state.boundaryCache.artcc && paths.artcc) {
-            try {
-                const resp = await fetch(paths.artcc);
-                state.boundaryCache.artcc = await resp.json();
-                console.log('[NOD] Loaded ARTCC boundaries:', state.boundaryCache.artcc.features?.length);
-
-                // Debug: find US ARTCCs (starting with Z or K)
-                const usArtccs = state.boundaryCache.artcc.features?.filter(f => {
-                    const icao = (f.properties?.ICAOCODE || '').toUpperCase();
-                    return icao.startsWith('Z') || icao.startsWith('K');
-                });
-                console.log('[NOD] US ARTCCs found:', usArtccs?.length, usArtccs?.slice(0, 5).map(f => f.properties?.ICAOCODE));
-
-                // Try to find ZBW specifically
-                const zbw = state.boundaryCache.artcc.features?.find(f => {
-                    const props = f.properties || {};
-                    return Object.values(props).some(v =>
-                        v && v.toString().toUpperCase().includes('ZBW'),
-                    );
-                });
-                if (zbw) {
-                    console.log('[NOD] Found ZBW entry:', zbw.properties);
-                } else {
-                    console.log('[NOD] ZBW not found in artcc.json - checking all property names');
-                    // Show a few samples
-                    const samples = state.boundaryCache.artcc.features?.slice(0, 3).map(f => f.properties);
-                    console.log('[NOD] Sample ARTCC properties:', samples);
-                }
-            } catch (e) {
-                console.warn('[NOD] Could not load ARTCC boundaries:', e);
-            }
-        }
+        // ARTCC boundaries are loaded by PERTIArtccHierarchy in initMapLayers()
+        // and cached in state.boundaryCache via the .then() callback
 
         // Load TRACON boundaries (assets/geojson/tracon.json)
         if (!state.boundaryCache.tracon && paths.tracon) {
@@ -4196,8 +4156,8 @@
         state.layers[layerId] = visible;
 
         const layerMappings = {
-            // Boundaries
-            'artcc': ['artcc-fill', 'artcc-lines', 'artcc-labels'],
+            // Boundaries (ARTCC handled specially below for hierarchy)
+            'artcc': [],
             'tracon': ['tracon-fill', 'tracon-lines'],
             'high': ['high-lines'],
             'low': ['low-lines'],
@@ -4231,6 +4191,13 @@
             });
         }
 
+        // ARTCC hierarchy: toggle all levels, respecting individual checkbox states
+        if (layerId === 'artcc' && typeof PERTIArtccHierarchy !== 'undefined') {
+            PERTIArtccHierarchy.toggleAll(state.map, 'artcc', visible, state.artccHierarchy);
+            var hierFilters = document.getElementById('artcc-hierarchy-filters');
+            if (hierFilters) hierFilters.style.display = visible ? 'flex' : 'none';
+        }
+
         // Handle DOM route label markers visibility
         if (layerId === 'public-routes') {
             state.routeLabelMarkers.forEach(marker => {
@@ -4262,6 +4229,18 @@
     function toggleSplitsStrata(strata, visible) {
         state.splitsStrata[strata] = visible;
         applySplitsStrataFilter();
+        saveUIState();
+    }
+
+    /**
+     * Toggle ARTCC hierarchy level visibility
+     */
+    function toggleArtccHierarchy(level, visible) {
+        state.artccHierarchy[level] = visible;
+        if (!state.layers.artcc || !state.map) return;
+        if (typeof PERTIArtccHierarchy !== 'undefined') {
+            PERTIArtccHierarchy.toggleLevel(state.map, 'artcc', level, visible);
+        }
         saveUIState();
     }
 
@@ -4878,19 +4857,9 @@
                 }
             });
         } else if (layerName === 'artcc') {
-            const layers = ['artcc-fill', 'artcc-lines', 'artcc-labels'];
-            layers.forEach(layer => {
-                if (state.map.getLayer(layer)) {
-                    const type = state.map.getLayer(layer).type;
-                    if (type === 'fill') {
-                        state.map.setPaintProperty(layer, 'fill-opacity', opacity * 0.1);
-                    } else if (type === 'line') {
-                        state.map.setPaintProperty(layer, 'line-opacity', opacity);
-                    } else if (type === 'symbol') {
-                        state.map.setPaintProperty(layer, 'text-opacity', opacity);
-                    }
-                }
-            });
+            if (typeof PERTIArtccHierarchy !== 'undefined') {
+                PERTIArtccHierarchy.setOpacity(state.map, 'artcc', opacity);
+            }
         } else if (layerName === 'tracon') {
             const layers = ['tracon-fill', 'tracon-lines'];
             layers.forEach(layer => {
@@ -6642,7 +6611,7 @@
         if (!state.map) {return;}
 
         const layerMappings = {
-            'artcc': ['artcc-fill', 'artcc-lines', 'artcc-labels'],
+            'artcc': [], // Handled by PERTIArtccHierarchy below
             'tracon': ['tracon-fill', 'tracon-lines'],
             'high': ['high-lines'],
             'low': ['low-lines'],
@@ -6665,6 +6634,11 @@
                 });
             }
         });
+
+        // Apply ARTCC hierarchy visibility state
+        if (typeof PERTIArtccHierarchy !== 'undefined') {
+            PERTIArtccHierarchy.toggleAll(state.map, 'artcc', state.layers.artcc, state.artccHierarchy);
+        }
 
         // Apply track visibility state (separate from layers toggle)
         if (state.traffic.showTracks) {
@@ -7930,6 +7904,7 @@
         toggleDemandControls,
         toggleLayer,
         toggleSplitsStrata,
+        toggleArtccHierarchy,
         toggleDemandLayer,
         toggleTrafficLabels,
         toggleTrafficTracks,

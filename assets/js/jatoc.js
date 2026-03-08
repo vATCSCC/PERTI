@@ -12,7 +12,7 @@
         opsLevel: 1,
         countdown: 5,
         map: null,
-        boundaryData: { artcc: null, tracon: null },
+        boundaryData: { artcc: null, supercenter: null, artcc_area: null, tracon: null },
         layerControlExpanded: false,
         hiddenIncidents: new Set(),
         userProfile: null,
@@ -141,7 +141,7 @@
     };
 
     const LAYER_CONFIG = {
-        'artcc': { layerIds: ['artcc-line', 'artcc-labels'], labelKey: 'jatoc.layers.artccBoundaries', defaultOn: true },
+        'artcc': { layerIds: ['artcc-fir-lines', 'artcc-fir-labels', 'artcc-super-lines', 'artcc-super-labels', 'artcc-sub-lines', 'artcc-sub-labels', 'artcc-deep-lines', 'artcc-deep-labels'], labelKey: 'jatoc.layers.artccBoundaries', defaultOn: true },
         'tracon': { layerIds: ['tracon-line'], labelKey: 'jatoc.layers.traconBoundaries', defaultOn: false },
         'incidents': { layerIds: ['incident-fill', 'incident-outline', 'incident-points'], labelKey: 'jatoc.layers.activeIncidents', defaultOn: true },
         'weather': { layerIds: ['weather-radar-layer'], labelKey: 'jatoc.layers.weatherRadar', defaultOn: false },
@@ -811,11 +811,15 @@
     // ========== BOUNDARIES & MAP ==========
     async function loadBoundaries() {
         try {
-            const [artccRes, traconRes] = await Promise.all([
+            const [artccRes, superRes, areaRes, traconRes] = await Promise.all([
                 fetch('assets/geojson/artcc.json').then(r => r.ok ? r.json() : null).catch(() => null),
+                fetch('assets/geojson/supercenter.json').then(r => r.ok ? r.json() : null).catch(() => null),
+                fetch('assets/geojson/artcc_area.json').then(r => r.ok ? r.json() : null).catch(() => null),
                 fetch('assets/geojson/tracon.json').then(r => r.ok ? r.json() : null).catch(() => null),
             ]);
             state.boundaryData.artcc = artccRes;
+            state.boundaryData.supercenter = superRes;
+            state.boundaryData.artcc_area = areaRes;
             state.boundaryData.tracon = traconRes;
             // Debug: log available boundary IDs
             if (artccRes?.features?.length) {
@@ -855,14 +859,23 @@
             });
             state.map.addLayer({ id: 'weather-radar-layer', type: 'raster', source: 'weather-radar', paint: { 'raster-opacity': 0.5 }, layout: { 'visibility': 'none' } });
 
-            if (state.boundaryData.artcc) {
-                state.map.addSource('artcc', { type: 'geojson', data: state.boundaryData.artcc });
-                state.map.addLayer({ id: 'artcc-line', type: 'line', source: 'artcc', filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]], paint: { 'line-color': '#4a5568', 'line-width': 1, 'line-opacity': 0.5 } });
-
-                // Add ARTCC/FIR labels via shared utility
-                if (typeof PERTIArtccLabels !== 'undefined') {
-                    PERTIArtccLabels.addToMap(state.map, { source: 'artcc', visible: true });
-                }
+            // Add ARTCC hierarchy layers
+            if (typeof PERTIArtccHierarchy !== 'undefined') {
+                var artccHierData = {
+                    artcc: state.boundaryData.artcc,
+                    supercenter: state.boundaryData.supercenter,
+                    artcc_area: state.boundaryData.artcc_area,
+                };
+                PERTIArtccHierarchy.addLayers(state.map, artccHierData, {
+                    prefix: 'artcc',
+                    fillEnabled: false,
+                    labelsEnabled: true,
+                    visible: { super: false, fir: true, sub: false, deep: false },
+                    lineWidths: { super: 2, fir: 1, sub: 0.8, deep: 0.6 },
+                });
+            } else if (state.boundaryData.artcc) {
+                state.map.addSource('artcc-source', { type: 'geojson', data: state.boundaryData.artcc });
+                state.map.addLayer({ id: 'artcc-fir-lines', type: 'line', source: 'artcc-source', paint: { 'line-color': '#4a5568', 'line-width': 1, 'line-opacity': 0.5 } });
             }
 
             if (state.boundaryData.tracon) {
@@ -932,17 +945,22 @@
     // Find a boundary feature matching a facility code
     function findBoundaryFeature(code) {
         const fac = code.toUpperCase();
-        // Try ARTCC boundaries — exact match on codes/names
-        if (state.boundaryData.artcc?.features) {
-            const feature = state.boundaryData.artcc.features.find(f => {
+        // Try all ARTCC hierarchy boundaries (FIRs, supercenters, sub-areas)
+        const artccSources = [state.boundaryData.artcc, state.boundaryData.supercenter, state.boundaryData.artcc_area].filter(Boolean);
+        for (const src of artccSources) {
+            if (!src?.features) continue;
+            const feature = src.features.find(f => {
                 const p = f.properties || {};
                 const ids = [p.id, p.ICAOCODE, p.FIRname, p.icao, p.name].filter(Boolean).map(s => String(s).toUpperCase());
                 return ids.some(id => id === fac || id === 'K' + fac || id.startsWith(fac + '_') || id.endsWith('_' + fac));
             });
             if (feature) return feature;
-            // Fuzzy: FIRname contains the search term (e.g. "AME" in "AME ARTCC")
-            if (fac.length >= 3) {
-                const fuzzy = state.boundaryData.artcc.features.find(f => {
+        }
+        // Fuzzy: FIRname contains the search term
+        if (fac.length >= 3) {
+            for (const src of artccSources) {
+                if (!src?.features) continue;
+                const fuzzy = src.features.find(f => {
                     const name = String(f.properties?.FIRname || '').toUpperCase();
                     return name.startsWith(fac + ' ') || name === fac;
                 });

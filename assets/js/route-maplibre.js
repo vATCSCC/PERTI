@@ -1316,15 +1316,19 @@ $(document).ready(function() {
             filter: ['in', 'label', ''],
         });
 
-        // 4. ARTCC Boundaries
+        // 4. ARTCC Boundaries — source for L1 data + search highlight layers
         graphic_map.addSource('artcc', { type: 'geojson', data: emptyGeoJSON });
-        graphic_map.addLayer({
-            id: 'artcc-lines', type: 'line', source: 'artcc',
-            filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
-            paint: { 'line-color': artccLine, 'line-width': 1.5 },
-        });
 
-        // 4-labels. ARTCC/FIR Labels — placeholder; populated when artcc.json loads below
+        // 4-hier. Hierarchy sub/deep layers (added first = bottom of z-stack)
+        // These use separate sources loaded asynchronously via PERTIArtccHierarchy
+        // and are added after artcc.json loads below
+
+        // 4-fir. FIR/ARTCC lines (L1) — on the main artcc source
+        graphic_map.addLayer({
+            id: 'artcc-fir-lines', type: 'line', source: 'artcc',
+            filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
+            paint: { 'line-color': '#4A90D9', 'line-width': 1.5 },
+        });
 
         // 4a. ARTCC Search Highlight fills (playbook search integration)
         graphic_map.addLayer({
@@ -1387,22 +1391,80 @@ $(document).ready(function() {
         loadGeoJsonData('high-splits', 'assets/geojson/high.json');
         loadGeoJsonData('low-splits', 'assets/geojson/low.json');
         loadGeoJsonData('superhigh-splits', 'assets/geojson/superhigh.json');
-        // Load ARTCC boundaries + add label centroids via shared utility
-        fetch('assets/geojson/artcc.json')
-            .then(response => {
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                return response.json();
-            })
-            .then(data => {
-                console.log('[MAPLIBRE] Loaded artcc - features:', data.features ? data.features.length : 'N/A');
-                if (graphic_map.getSource('artcc')) {
-                    graphic_map.getSource('artcc').setData(data);
+        // Load ARTCC boundaries + hierarchy layers
+        if (typeof PERTIArtccHierarchy !== 'undefined') {
+            PERTIArtccHierarchy.loadData().then(function(data) {
+                // Set L1 data on the main 'artcc' source (used by search highlight layers)
+                if (data.artcc && graphic_map.getSource('artcc')) {
+                    graphic_map.getSource('artcc').setData(data.artcc);
+                    console.log('[MAPLIBRE] Loaded artcc - features:', data.artcc.features ? data.artcc.features.length : 'N/A');
                 }
-                if (typeof PERTIArtccLabels !== 'undefined') {
-                    PERTIArtccLabels.addToMap(graphic_map, { source: 'artcc', visible: false });
+                // Add hierarchy layers (super, sub, deep) with separate sources
+                // FIR labels use the existing 'artcc' source
+                if (data.supercenter) {
+                    if (!graphic_map.getSource('artcc-super-source')) {
+                        graphic_map.addSource('artcc-super-source', { type: 'geojson', data: data.supercenter });
+                    }
+                    if (!graphic_map.getLayer('artcc-super-lines')) {
+                        graphic_map.addLayer({
+                            id: 'artcc-super-lines', type: 'line', source: 'artcc-super-source',
+                            paint: { 'line-color': '#F0C946', 'line-width': 2.5, 'line-opacity': 0.8 },
+                            layout: { visibility: 'none' },
+                        }, 'artcc-fir-lines');
+                    }
                 }
-            })
-            .catch(err => console.error('[MAPLIBRE] Failed to load artcc:', err));
+                if (data.artcc_area) {
+                    if (!graphic_map.getSource('artcc-area-source')) {
+                        graphic_map.addSource('artcc-area-source', { type: 'geojson', data: data.artcc_area });
+                    }
+                    if (!graphic_map.getLayer('artcc-sub-lines')) {
+                        graphic_map.addLayer({
+                            id: 'artcc-sub-lines', type: 'line', source: 'artcc-area-source',
+                            filter: ['==', ['get', 'hierarchy_level'], 2],
+                            paint: { 'line-color': '#2E6AAD', 'line-width': 1.2, 'line-opacity': 0.8, 'line-dasharray': [4, 3] },
+                            layout: { visibility: 'none' },
+                        }, 'artcc-fir-lines');
+                    }
+                    if (!graphic_map.getLayer('artcc-deep-lines')) {
+                        graphic_map.addLayer({
+                            id: 'artcc-deep-lines', type: 'line', source: 'artcc-area-source',
+                            filter: ['>=', ['get', 'hierarchy_level'], 3],
+                            paint: { 'line-color': '#1E4A7A', 'line-width': 0.8, 'line-opacity': 0.8, 'line-dasharray': [4, 3] },
+                            layout: { visibility: 'none' },
+                        }, 'artcc-sub-lines');
+                    }
+                }
+                // Add FIR labels on the main artcc source
+                if (!graphic_map.getLayer('artcc-fir-labels')) {
+                    var labelFont = ['Noto Sans Bold'];
+                    try {
+                        var glyphs = (graphic_map.getStyle() || {}).glyphs || '';
+                        if (glyphs.indexOf('cartocdn') !== -1) labelFont = ['Open Sans Bold', 'Arial Unicode MS Bold'];
+                    } catch (e) {}
+                    graphic_map.addLayer({
+                        id: 'artcc-fir-labels', type: 'symbol', source: 'artcc',
+                        filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
+                        layout: {
+                            'text-field': PERTIArtccHierarchy.displayCodeExpr,
+                            'text-font': labelFont,
+                            'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18],
+                            'text-allow-overlap': false, 'text-ignore-placement': false, 'text-padding': 5,
+                            'visibility': 'none',
+                        },
+                        paint: { 'text-color': '#4A90D9', 'text-halo-color': 'rgba(0, 0, 0, 0.7)', 'text-halo-width': 1.5, 'text-opacity': 0.9 },
+                    });
+                }
+            }).catch(function(err) { console.error('[MAPLIBRE] Failed to load artcc hierarchy:', err); });
+        } else {
+            // Fallback: load artcc.json directly
+            fetch('assets/geojson/artcc.json')
+                .then(function(response) { if (!response.ok) throw new Error('HTTP ' + response.status); return response.json(); })
+                .then(function(data) {
+                    if (graphic_map.getSource('artcc')) graphic_map.getSource('artcc').setData(data);
+                    if (typeof PERTIArtccLabels !== 'undefined') PERTIArtccLabels.addToMap(graphic_map, { source: 'artcc', visible: false });
+                })
+                .catch(function(err) { console.error('[MAPLIBRE] Failed to load artcc:', err); });
+        }
 
         loadNavaidsData();
 
@@ -2080,7 +2142,10 @@ $(document).ready(function() {
         'cells': { layerIds: ['weather-cells-layer'], label: PERTII18n.t('route.layer.wxRadar') },
         'sigmets': { layerIds: ['sigmets-fill'], label: PERTII18n.t('route.layer.sigmets') },
         'sua': { layerIds: ['sua-fill', 'sua-outline'], label: PERTII18n.t('route.layer.activeSuaTfr'), onEnable: loadSuaData },
-        'artcc_labels': { layerIds: ['artcc-labels'], label: PERTII18n.t('route.layer.artccLabels') },
+        'artcc_labels': { layerIds: ['artcc-fir-labels'], label: PERTII18n.t('route.layer.artccLabels') },
+        'artcc_super': { layerIds: ['artcc-super-lines'], label: PERTII18n.t('common.hierarchy.superCenters') },
+        'artcc_sub': { layerIds: ['artcc-sub-lines'], label: PERTII18n.t('common.hierarchy.subAreas') },
+        'artcc_deep': { layerIds: ['artcc-deep-lines'], label: PERTII18n.t('common.hierarchy.deepSubAreas') },
         'route_labels': { layerIds: ['route-fixes-circles', 'route-fixes-labels', 'route-fix-leaders-lines'], label: PERTII18n.t('route.layer.routeFixLabels'), defaultOn: true },
     };
 

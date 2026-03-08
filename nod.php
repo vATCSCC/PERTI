@@ -1301,10 +1301,25 @@ include("load/i18n.php");
                 <div class="text-muted small mb-2 mt-1" style="font-size: 10px; text-transform: uppercase;"><?= __('nod.page.boundaries') ?></div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-artcc" checked onchange="NOD.toggleLayer('artcc', this.checked)">
-                    <span class="nod-layer-color" style="background: #4a9eff;"></span>
+                    <span class="nod-layer-color" style="background: #4A90D9;"></span>
                     <label for="layer-artcc"><?= __('nod.page.artccLabel') ?></label>
                     <input type="range" class="nod-opacity-slider" id="opacity-artcc" min="0" max="100" value="70"
                            title="<?= __('nod.page.opacity') ?>" onchange="NOD.setLayerOpacity('artcc', this.value/100)">
+                </div>
+                <div class="nod-layer-item ml-3" id="artcc-hierarchy-filters" style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
+                    <span style="color: #999; font-size: 10px; margin-right: 2px;"><?= __('common.hierarchy.label') ?></span>
+                    <input type="checkbox" id="nod-hier-super" onchange="NOD.toggleArtccHierarchy('super', this.checked)">
+                    <span class="nod-layer-color" style="background: #F0C946; width: 8px; height: 8px;"></span>
+                    <label for="nod-hier-super" style="color: #ddd; cursor: pointer; font-size: 11px; margin-right: 4px;"><?= __('common.hierarchy.superCenters') ?></label>
+                    <input type="checkbox" id="nod-hier-fir" checked onchange="NOD.toggleArtccHierarchy('fir', this.checked)">
+                    <span class="nod-layer-color" style="background: #4A90D9; width: 8px; height: 8px;"></span>
+                    <label for="nod-hier-fir" style="color: #ddd; cursor: pointer; font-size: 11px; margin-right: 4px;"><?= __('common.hierarchy.firs') ?></label>
+                    <input type="checkbox" id="nod-hier-sub" onchange="NOD.toggleArtccHierarchy('sub', this.checked)">
+                    <span class="nod-layer-color" style="background: #2E6AAD; width: 8px; height: 8px; border: 1px dashed #2E6AAD;"></span>
+                    <label for="nod-hier-sub" style="color: #ddd; cursor: pointer; font-size: 11px; margin-right: 4px;"><?= __('common.hierarchy.subAreas') ?></label>
+                    <input type="checkbox" id="nod-hier-deep" onchange="NOD.toggleArtccHierarchy('deep', this.checked)">
+                    <span class="nod-layer-color" style="background: #1E4A7A; width: 8px; height: 8px; border: 1px dashed #1E4A7A;"></span>
+                    <label for="nod-hier-deep" style="color: #ddd; cursor: pointer; font-size: 11px;"><?= __('common.hierarchy.deepSubAreas') ?></label>
                 </div>
                 <div class="nod-layer-item">
                     <input type="checkbox" id="layer-tracon" onchange="NOD.toggleLayer('tracon', this.checked)">
@@ -2175,7 +2190,6 @@ window.NOD_CONFIG = {
     mapCenter: [-98.5, 39.5],
     mapZoom: 4,
     geojsonPaths: {
-        artcc: 'assets/geojson/artcc.json',
         tracon: 'assets/geojson/tracon.json',
         high: 'assets/geojson/high.json',
         low: 'assets/geojson/low.json',
@@ -2200,8 +2214,8 @@ window.addEventListener('resize', updateNavbarHeight);
 <!-- Filter Colors Configuration -->
 <script src="assets/js/config/filter-colors.js<?= _v('assets/js/config/filter-colors.js') ?>"></script>
 
-<!-- ARTCC Labels Utility -->
-<script src="assets/js/lib/artcc-labels.js<?= _v('assets/js/lib/artcc-labels.js') ?>"></script>
+<!-- ARTCC Hierarchy Utility -->
+<script src="assets/js/lib/artcc-hierarchy.js<?= _v('assets/js/lib/artcc-hierarchy.js') ?>"></script>
 
 <!-- NOD Module -->
 <script src="assets/js/nod.js<?= _v('assets/js/nod.js') ?>"></script>

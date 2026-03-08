@@ -527,16 +527,41 @@ const boundaryLayersVisible = {
     tracon: false,
 };
 
-// Load boundary layers (ARTCC, superhigh, high, low, TRACON)
+// ARTCC hierarchy level visibility
+const artccHierarchyVisible = {
+    super: false,
+    fir: true,
+    sub: false,
+    deep: false,
+};
+
+// Load boundary layers (ARTCC hierarchy, superhigh, high, low, TRACON)
 function loadBoundaryLayers() {
     // Defensive fallbacks for PERTIColors.airspace (in case colors.js is cached)
     const airspaceColors = (typeof PERTIColors !== 'undefined' && PERTIColors.airspace) || {};
-    const artccLine = airspaceColors.artccLine || '#515151';
     const sectorLineDark = airspaceColors.sectorLineDark || '#303030';
     const sectorLine = airspaceColors.sectorLine || '#505050';
 
+    // Load ARTCC hierarchy layers via shared utility
+    if (typeof PERTIArtccHierarchy !== 'undefined') {
+        PERTIArtccHierarchy.loadAndAdd(suaMap, {
+            prefix: 'boundary-artcc',
+            beforeLayer: 'sua-area-fill',
+            fillEnabled: false,
+            labelsEnabled: true,
+            visible: {
+                super: boundaryLayersVisible.artcc && artccHierarchyVisible.super,
+                fir: boundaryLayersVisible.artcc && artccHierarchyVisible.fir,
+                sub: boundaryLayersVisible.artcc && artccHierarchyVisible.sub,
+                deep: boundaryLayersVisible.artcc && artccHierarchyVisible.deep,
+            },
+        }).then(function() {
+            console.log('[SUA] ARTCC hierarchy layers loaded');
+        });
+    }
+
+    // Load non-ARTCC boundary layers
     const boundaryConfigs = [
-        { id: 'artcc', url: 'assets/geojson/artcc.json', color: artccLine, weight: 1.5, visible: boundaryLayersVisible.artcc },
         { id: 'superhigh', url: 'assets/geojson/superhigh.json', color: sectorLineDark, weight: 1.5, visible: boundaryLayersVisible.superhigh },
         { id: 'high', url: 'assets/geojson/high.json', color: sectorLineDark, weight: 1.5, visible: boundaryLayersVisible.high },
         { id: 'low', url: 'assets/geojson/low.json', color: sectorLineDark, weight: 1.5, visible: boundaryLayersVisible.low },
@@ -545,13 +570,11 @@ function loadBoundaryLayers() {
 
     boundaryConfigs.forEach(function(config) {
         $.getJSON(config.url).done(function(data) {
-            // Add source
             suaMap.addSource('boundary-' + config.id, {
                 type: 'geojson',
                 data: data,
             });
 
-            // Add line layer (insert below SUA layers)
             suaMap.addLayer({
                 id: 'boundary-' + config.id + '-line',
                 type: 'line',
@@ -564,12 +587,7 @@ function loadBoundaryLayers() {
                     'line-width': config.weight,
                     'line-opacity': 1,
                 },
-            }, 'sua-area-fill'); // Insert below SUA fill layer
-
-            // Add ARTCC/FIR labels via shared utility on existing polygon source
-            if (config.id === 'artcc' && typeof PERTIArtccLabels !== 'undefined') {
-                PERTIArtccLabels.addToMap(suaMap, { source: 'boundary-artcc', visible: config.visible });
-            }
+            }, 'sua-area-fill');
 
             console.log('Loaded boundary layer:', config.id, '- features:', data.features ? data.features.length : 0);
         }).fail(function() {
@@ -583,15 +601,25 @@ function toggleBoundaryLayer(layerId, visible) {
     if (!suaMap || !mapLoaded) {return;}
 
     boundaryLayersVisible[layerId] = visible;
-    const mapLayerId = 'boundary-' + layerId + '-line';
 
-    if (suaMap.getLayer(mapLayerId)) {
-        suaMap.setLayoutProperty(mapLayerId, 'visibility', visible ? 'visible' : 'none');
+    if (layerId === 'artcc' && typeof PERTIArtccHierarchy !== 'undefined') {
+        // Toggle all ARTCC hierarchy levels, respecting individual states
+        PERTIArtccHierarchy.toggleAll(suaMap, 'boundary-artcc', visible, artccHierarchyVisible);
+    } else {
+        const mapLayerId = 'boundary-' + layerId + '-line';
+        if (suaMap.getLayer(mapLayerId)) {
+            suaMap.setLayoutProperty(mapLayerId, 'visibility', visible ? 'visible' : 'none');
+        }
     }
+}
 
-    // Toggle ARTCC labels along with ARTCC boundary
-    if (layerId === 'artcc' && typeof PERTIArtccLabels !== 'undefined') {
-        PERTIArtccLabels.toggle(suaMap, visible);
+// Toggle individual ARTCC hierarchy level
+function toggleArtccHierarchy(level, visible) {
+    if (!suaMap || !mapLoaded) {return;}
+    artccHierarchyVisible[level] = visible;
+    if (!boundaryLayersVisible.artcc) return;
+    if (typeof PERTIArtccHierarchy !== 'undefined') {
+        PERTIArtccHierarchy.toggleLevel(suaMap, 'boundary-artcc', level, visible);
     }
 }
 

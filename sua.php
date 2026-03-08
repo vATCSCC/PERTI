@@ -363,7 +363,26 @@
                             <div class="d-flex flex-wrap">
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-artcc" value="artcc" checked>
-                                    <label class="custom-control-label" for="boundary-artcc"><span class="badge" style="background-color: #515151; color: #fff;">ARTCC</span></label>
+                                    <label class="custom-control-label" for="boundary-artcc"><span class="badge" style="background-color: #4A90D9; color: #fff;">ARTCC</span></label>
+                                </div>
+                                <div class="d-flex flex-wrap align-items-center ml-2" id="sua-artcc-hierarchy" style="gap: 2px;">
+                                    <small class="text-muted mr-1" style="font-size: 10px;"><?= __('common.hierarchy.label') ?></small>
+                                    <div class="custom-control custom-checkbox custom-control-inline" style="min-height: auto;">
+                                        <input type="checkbox" class="custom-control-input" id="sua-hier-super" onchange="toggleArtccHierarchy('super', this.checked)">
+                                        <label class="custom-control-label" for="sua-hier-super"><span class="badge" style="background-color: #F0C946; color: #000; font-size: 9px;"><?= __('common.hierarchy.superCenters') ?></span></label>
+                                    </div>
+                                    <div class="custom-control custom-checkbox custom-control-inline" style="min-height: auto;">
+                                        <input type="checkbox" class="custom-control-input" id="sua-hier-fir" checked onchange="toggleArtccHierarchy('fir', this.checked)">
+                                        <label class="custom-control-label" for="sua-hier-fir"><span class="badge" style="background-color: #4A90D9; color: #fff; font-size: 9px;"><?= __('common.hierarchy.firs') ?></span></label>
+                                    </div>
+                                    <div class="custom-control custom-checkbox custom-control-inline" style="min-height: auto;">
+                                        <input type="checkbox" class="custom-control-input" id="sua-hier-sub" onchange="toggleArtccHierarchy('sub', this.checked)">
+                                        <label class="custom-control-label" for="sua-hier-sub"><span class="badge" style="background-color: #2E6AAD; color: #fff; font-size: 9px;"><?= __('common.hierarchy.subAreas') ?></span></label>
+                                    </div>
+                                    <div class="custom-control custom-checkbox custom-control-inline" style="min-height: auto;">
+                                        <input type="checkbox" class="custom-control-input" id="sua-hier-deep" onchange="toggleArtccHierarchy('deep', this.checked)">
+                                        <label class="custom-control-label" for="sua-hier-deep"><span class="badge" style="background-color: #1E4A7A; color: #fff; font-size: 9px;"><?= __('common.hierarchy.deepSubAreas') ?></span></label>
+                                    </div>
                                 </div>
                                 <div class="custom-control custom-checkbox custom-control-inline">
                                     <input type="checkbox" class="custom-control-input boundary-toggle" id="boundary-superhigh" value="superhigh">
@@ -778,8 +797,8 @@
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
 <!-- MapLibre Draw (Mapbox GL Draw compatible) -->
 <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.js" crossorigin=""></script>
-<!-- ARTCC Labels Utility -->
-<script src="assets/js/lib/artcc-labels.js<?= _v('assets/js/lib/artcc-labels.js') ?>"></script>
+<!-- ARTCC Hierarchy Utility -->
+<script src="assets/js/lib/artcc-hierarchy.js<?= _v('assets/js/lib/artcc-hierarchy.js') ?>"></script>
 
 <script src="assets/js/sua.js<?= _v('assets/js/sua.js') ?>"></script>
 
