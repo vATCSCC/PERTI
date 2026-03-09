@@ -2410,6 +2410,31 @@ $(document).ready(function() {
                 }
             }
 
+            // Split remaining dot-separated tokens not consumed by procedure expansion.
+            // FAA playbook uses TRANSITION.STAR notation (e.g., ZPLEN.LEESE for the
+            // LEESE STAR via ZPLEN transition). When the STAR name lacks a revision
+            // digit, the procedure expander can't match it; split into individual
+            // fixes so both resolve on the map.
+            {
+                const splitToks = [], splitSolid = [];
+                for (let si = 0; si < tokens.length; si++) {
+                    if (tokens[si].indexOf('.') !== -1) {
+                        const parts = tokens[si].split('.');
+                        for (let pi = 0; pi < parts.length; pi++) {
+                            if (parts[pi]) {
+                                splitToks.push(parts[pi]);
+                                splitSolid.push(currentSolidMask[si] || false);
+                            }
+                        }
+                    } else {
+                        splitToks.push(tokens[si]);
+                        splitSolid.push(currentSolidMask[si] || false);
+                    }
+                }
+                tokens = splitToks;
+                currentSolidMask = splitSolid;
+            }
+
             const expandedRouteString = ConvertRoute(tokens.join(' '));
             const expandedTokens = expandedRouteString.split(' ').filter(t => t !== '');
 
