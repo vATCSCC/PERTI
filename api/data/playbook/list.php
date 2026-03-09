@@ -68,6 +68,20 @@ if ($search !== '') {
 }
 
 if ($artcc !== '') {
+    // Normalize FAA/alias codes to ICAO canonical (e.g. CZU → CZUL, CZE → CZEG)
+    $artcc_aliases = [
+        'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
+        'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
+        'CZQ' => 'CZQX', 'CZO' => 'CZQO',
+        'ZEG' => 'CZEG', 'ZUL' => 'CZUL', 'ZVR' => 'CZVR',
+        'ZWG' => 'CZWG', 'ZYZ' => 'CZYZ', 'ZQM' => 'CZQM',
+        'ZQX' => 'CZQX', 'ZQO' => 'CZQO', 'CZX' => 'CZQX',
+        'KZAK' => 'ZAK', 'KZWY' => 'ZWY', 'PGZU' => 'ZUA',
+        'PAZA' => 'ZAN', 'PAZN' => 'ZAP', 'PHZH' => 'ZHN',
+        'ZMX' => 'MMMX', 'ZMT' => 'MMTY', 'ZMZ' => 'MMZT',
+        'ZMR' => 'MMMD', 'ZMC' => 'MMUN', 'ZSU' => 'TJZS',
+    ];
+    $artcc = $artcc_aliases[$artcc] ?? $artcc;
     $where[] = "FIND_IN_SET(?, p.facilities_involved) > 0";
     $params[] = $artcc;
     $types .= 's';

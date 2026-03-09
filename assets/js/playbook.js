@@ -191,7 +191,12 @@
                 // Propagate negation from first alt: -thru:ZFW,ZAU → both get negated
                 if (idx === 0 && negated) { inheritedNegated = true; }
                 else if (idx > 0 && !negated && inheritedNegated) { negated = true; }
-                return { term: term.toUpperCase(), negated: negated, qualifier: qualifier };
+                var upper = term.toUpperCase();
+                // Normalize facility aliases (e.g. CZU → CZUL, CZE → CZEG)
+                if (qualifier && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.ALIAS_TO_CANONICAL) {
+                    upper = FacilityHierarchy.ALIAS_TO_CANONICAL[upper] || upper;
+                }
+                return { term: upper, negated: negated, qualifier: qualifier };
             }).filter(function(a) { return a.term; });
         }).filter(function(c) { return c.length; });
     }
