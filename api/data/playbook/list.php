@@ -108,43 +108,65 @@ $rows = [];
 if (!empty($play_ids)) {
     // Phase 2: Fetch full play data + route aggregation only for these play_ids
     $id_list = implode(',', $play_ids); // safe — integers from our own query
-    $conn_sqli->query("SET SESSION group_concat_max_len = 65536");
+    $play_count = count($play_ids);
 
-    // Skip agg_route_strings for large result sets (prevents PHP OOM on B1ms tier)
-    $include_route_strings = count($play_ids) <= 1000;
-    $route_strings_col = $include_route_strings
-        ? "GROUP_CONCAT(route_string SEPARATOR ' ') AS agg_route_strings"
-        : "NULL AS agg_route_strings";
+    // For large result sets (>500 plays, e.g. FAA_HISTORICAL source with 3000+),
+    // skip route aggregation entirely to avoid PHP OOM. Play-level data
+    // (play_name, description, facilities_involved) is still searchable;
+    // detailed route data is loaded separately via get.php on play click.
+    if ($play_count > 500) {
+        $data_sql = "SELECT play_id, play_name, play_name_norm, display_name,
+                            description, category, impacted_area, facilities_involved,
+                            scenario_type, route_format, source, status,
+                            airac_cycle, route_count, org_code,
+                            created_by, updated_by, updated_at, created_at,
+                            NULL AS agg_origin_airports, NULL AS agg_origin_tracons,
+                            NULL AS agg_origin_artccs, NULL AS agg_dest_airports,
+                            NULL AS agg_dest_tracons, NULL AS agg_dest_artccs,
+                            NULL AS agg_traversed_artccs, NULL AS agg_traversed_tracons,
+                            NULL AS agg_traversed_sectors_low, NULL AS agg_traversed_sectors_high,
+                            NULL AS agg_traversed_sectors_superhigh, NULL AS agg_route_strings
+                     FROM playbook_plays
+                     WHERE play_id IN ($id_list)
+                     ORDER BY source ASC, play_name ASC";
+    } else {
+        $conn_sqli->query("SET SESSION group_concat_max_len = 65536");
 
-    $data_sql = "SELECT p.play_id, p.play_name, p.play_name_norm, p.display_name,
-                        p.description, p.category, p.impacted_area, p.facilities_involved,
-                        p.scenario_type, p.route_format, p.source, p.status,
-                        p.airac_cycle, p.route_count, p.org_code,
-                        p.created_by, p.updated_by, p.updated_at, p.created_at,
-                        ra.agg_origin_airports, ra.agg_origin_tracons, ra.agg_origin_artccs,
-                        ra.agg_dest_airports, ra.agg_dest_tracons, ra.agg_dest_artccs,
-                        ra.agg_traversed_artccs, ra.agg_traversed_tracons,
-                        ra.agg_traversed_sectors_low, ra.agg_traversed_sectors_high,
-                        ra.agg_traversed_sectors_superhigh, ra.agg_route_strings
-                 FROM playbook_plays p
-                 LEFT JOIN (
-                     SELECT play_id,
-                         GROUP_CONCAT(DISTINCT NULLIF(origin_airports,'') SEPARATOR ',') AS agg_origin_airports,
-                         GROUP_CONCAT(DISTINCT NULLIF(origin_tracons,'') SEPARATOR ',') AS agg_origin_tracons,
-                         GROUP_CONCAT(DISTINCT NULLIF(origin_artccs,'') SEPARATOR ',') AS agg_origin_artccs,
-                         GROUP_CONCAT(DISTINCT NULLIF(dest_airports,'') SEPARATOR ',') AS agg_dest_airports,
-                         GROUP_CONCAT(DISTINCT NULLIF(dest_tracons,'') SEPARATOR ',') AS agg_dest_tracons,
-                         GROUP_CONCAT(DISTINCT NULLIF(dest_artccs,'') SEPARATOR ',') AS agg_dest_artccs,
-                         GROUP_CONCAT(DISTINCT NULLIF(traversed_artccs,'') SEPARATOR ',') AS agg_traversed_artccs,
-                         GROUP_CONCAT(DISTINCT NULLIF(traversed_tracons,'') SEPARATOR ',') AS agg_traversed_tracons,
-                         GROUP_CONCAT(DISTINCT NULLIF(traversed_sectors_low,'') SEPARATOR ',') AS agg_traversed_sectors_low,
-                         GROUP_CONCAT(DISTINCT NULLIF(traversed_sectors_high,'') SEPARATOR ',') AS agg_traversed_sectors_high,
-                         GROUP_CONCAT(DISTINCT NULLIF(traversed_sectors_superhigh,'') SEPARATOR ',') AS agg_traversed_sectors_superhigh,
-                         $route_strings_col
-                     FROM playbook_routes WHERE play_id IN ($id_list) GROUP BY play_id
-                 ) ra ON ra.play_id = p.play_id
-                 WHERE p.play_id IN ($id_list)
-                 ORDER BY p.source ASC, p.play_name ASC";
+        // Skip agg_route_strings for medium result sets (prevents PHP OOM on B1ms tier)
+        $route_strings_col = $play_count <= 200
+            ? "GROUP_CONCAT(route_string SEPARATOR ' ') AS agg_route_strings"
+            : "NULL AS agg_route_strings";
+
+        $data_sql = "SELECT p.play_id, p.play_name, p.play_name_norm, p.display_name,
+                            p.description, p.category, p.impacted_area, p.facilities_involved,
+                            p.scenario_type, p.route_format, p.source, p.status,
+                            p.airac_cycle, p.route_count, p.org_code,
+                            p.created_by, p.updated_by, p.updated_at, p.created_at,
+                            ra.agg_origin_airports, ra.agg_origin_tracons, ra.agg_origin_artccs,
+                            ra.agg_dest_airports, ra.agg_dest_tracons, ra.agg_dest_artccs,
+                            ra.agg_traversed_artccs, ra.agg_traversed_tracons,
+                            ra.agg_traversed_sectors_low, ra.agg_traversed_sectors_high,
+                            ra.agg_traversed_sectors_superhigh, ra.agg_route_strings
+                     FROM playbook_plays p
+                     LEFT JOIN (
+                         SELECT play_id,
+                             GROUP_CONCAT(DISTINCT NULLIF(origin_airports,'') SEPARATOR ',') AS agg_origin_airports,
+                             GROUP_CONCAT(DISTINCT NULLIF(origin_tracons,'') SEPARATOR ',') AS agg_origin_tracons,
+                             GROUP_CONCAT(DISTINCT NULLIF(origin_artccs,'') SEPARATOR ',') AS agg_origin_artccs,
+                             GROUP_CONCAT(DISTINCT NULLIF(dest_airports,'') SEPARATOR ',') AS agg_dest_airports,
+                             GROUP_CONCAT(DISTINCT NULLIF(dest_tracons,'') SEPARATOR ',') AS agg_dest_tracons,
+                             GROUP_CONCAT(DISTINCT NULLIF(dest_artccs,'') SEPARATOR ',') AS agg_dest_artccs,
+                             GROUP_CONCAT(DISTINCT NULLIF(traversed_artccs,'') SEPARATOR ',') AS agg_traversed_artccs,
+                             GROUP_CONCAT(DISTINCT NULLIF(traversed_tracons,'') SEPARATOR ',') AS agg_traversed_tracons,
+                             GROUP_CONCAT(DISTINCT NULLIF(traversed_sectors_low,'') SEPARATOR ',') AS agg_traversed_sectors_low,
+                             GROUP_CONCAT(DISTINCT NULLIF(traversed_sectors_high,'') SEPARATOR ',') AS agg_traversed_sectors_high,
+                             GROUP_CONCAT(DISTINCT NULLIF(traversed_sectors_superhigh,'') SEPARATOR ',') AS agg_traversed_sectors_superhigh,
+                             $route_strings_col
+                         FROM playbook_routes WHERE play_id IN ($id_list) GROUP BY play_id
+                     ) ra ON ra.play_id = p.play_id
+                     WHERE p.play_id IN ($id_list)
+                     ORDER BY p.source ASC, p.play_name ASC";
+    }
 
     $data_result = $conn_sqli->query($data_sql);
     while ($row = $data_result->fetch_assoc()) {
