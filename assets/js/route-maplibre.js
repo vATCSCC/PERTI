@@ -2146,7 +2146,7 @@ $(document).ready(function() {
         'cells': { layerIds: ['weather-cells-layer'], label: PERTII18n.t('route.layer.wxRadar') },
         'sigmets': { layerIds: ['sigmets-fill'], label: PERTII18n.t('route.layer.sigmets') },
         'sua': { layerIds: ['sua-fill', 'sua-outline'], label: PERTII18n.t('route.layer.activeSuaTfr'), onEnable: loadSuaData },
-        'artcc_labels': { layerIds: ['artcc-fir-labels'], label: PERTII18n.t('route.layer.artccLabels') },
+        'artcc_labels': { layerIds: ['artcc-fir-labels'], label: PERTII18n.t('route.layer.artccLabels'), defaultOn: true },
         'artcc_super': { layerIds: ['artcc-super-lines'], label: PERTII18n.t('common.hierarchy.superCenters') },
         'artcc_sub': { layerIds: ['artcc-sub-lines'], label: PERTII18n.t('common.hierarchy.subAreas') },
         'artcc_deep': { layerIds: ['artcc-deep-lines'], label: PERTII18n.t('common.hierarchy.deepSubAreas') },
