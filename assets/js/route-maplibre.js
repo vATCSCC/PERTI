@@ -2595,12 +2595,12 @@ $(document).ready(function() {
                 }
             }
 
-            // Add origin/destination endpoint icons
+            // Add origin/destination endpoint icons (skip UNKN pseudo-fix in mid-Atlantic)
             if (nPoints >= 1) {
                 // Origin (first point)
                 const origin = routePoints[0];
                 const originKey = `${origin[0]}|${origin[1].toFixed(4)}|${origin[2].toFixed(4)}|origin`;
-                if (!seenEndpoints.has(originKey)) {
+                if (!seenEndpoints.has(originKey) && String(origin[0]).toUpperCase() !== 'UNKN') {
                     seenEndpoints.add(originKey);
                     endpointFeatures.push({
                         type: 'Feature',
@@ -2619,7 +2619,7 @@ $(document).ready(function() {
                 if (nPoints >= 2) {
                     const dest = routePoints[nPoints - 1];
                     const destKey = `${dest[0]}|${dest[1].toFixed(4)}|${dest[2].toFixed(4)}|dest`;
-                    if (!seenEndpoints.has(destKey)) {
+                    if (!seenEndpoints.has(destKey) && String(dest[0]).toUpperCase() !== 'UNKN') {
                         seenEndpoints.add(destKey);
                         endpointFeatures.push({
                             type: 'Feature',
