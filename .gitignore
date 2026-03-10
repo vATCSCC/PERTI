@@ -79,6 +79,10 @@ nul
 brightline_sno_flights.json
 2026-01-30-northeast-corridor-fno.json
 
+# Playbook backup exports (auto-generated)
+backups/playbook/*.json
+backups/playbook/*.txt
+
 # Funding/grant documents (private)
 docs/FUND*.md
 docs/FUNDING_PACKET*.md
