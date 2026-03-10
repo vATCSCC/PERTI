@@ -34,7 +34,6 @@ while ($row = $result->fetch_assoc()) {
     $row['group_id'] = (int)$row['group_id'];
     $row['play_id'] = (int)$row['play_id'];
     $row['sort_order'] = (int)$row['sort_order'];
-    $row['source_config_id'] = $row['source_config_id'] !== null ? (int)$row['source_config_id'] : null;
     $row['route_ids'] = json_decode($row['route_ids'], true);
     $groups[] = $row;
 }

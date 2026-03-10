@@ -3,7 +3,7 @@
  * Playbook Groups Management API
  * POST — Save per-play groups (replace all groups for that play)
  *
- * JSON body: { play_id: int, groups: [{ group_name, group_color, route_ids: [...], sort_order, source_config_id }] }
+ * JSON body: { play_id: int, groups: [{ group_name, group_color, route_ids: [...], sort_order }] }
  */
 
 define('PERTI_MYSQL_ONLY', true);
@@ -49,17 +49,16 @@ $del->close();
 $changed_by = isset($_SESSION) ? ($_SESSION['VATSIM_CID'] ?? '0') : '0';
 if (!empty($groups)) {
     $ins = $conn_sqli->prepare("INSERT INTO playbook_route_groups
-        (play_id, group_name, group_color, route_ids, sort_order, source_config_id, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?)");
+        (play_id, group_name, group_color, route_ids, sort_order, created_by)
+        VALUES (?, ?, ?, ?, ?, ?)");
 
     foreach ($groups as $idx => $g) {
         $name = trim($g['group_name'] ?? 'Group');
         $color = trim($g['group_color'] ?? '#e74c3c');
         $route_ids_json = json_encode(isset($g['route_ids']) && is_array($g['route_ids']) ? array_map('intval', $g['route_ids']) : []);
         $sort = isset($g['sort_order']) ? (int)$g['sort_order'] : $idx;
-        $src_config = isset($g['source_config_id']) && $g['source_config_id'] !== null ? (int)$g['source_config_id'] : null;
 
-        $ins->bind_param('isssiis', $play_id, $name, $color, $route_ids_json, $sort, $src_config, $changed_by);
+        $ins->bind_param('isssis', $play_id, $name, $color, $route_ids_json, $sort, $changed_by);
         $ins->execute();
     }
     $ins->close();

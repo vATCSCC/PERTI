@@ -523,7 +523,7 @@ class GISService
                     'index' => (int)$row['route_index'],
                     'route' => $row['route_input'],
                     'waypoint_count' => (int)$row['waypoint_count'],
-                    'artccs' => $this->pgArrayToPhp($row['artccs']),
+                    'artccs' => $this->cleanArtccCodes($this->pgArrayToPhp($row['artccs'])),
                     'artccs_display' => $row['artccs_display'],
                     'distance_nm' => round((float)$row['distance_nm'], 1),
                     'geojson' => $row['geojson'] ? json_decode($row['geojson'], true) : null,
