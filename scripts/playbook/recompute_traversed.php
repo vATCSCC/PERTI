@@ -67,17 +67,20 @@ $updated = 0;
 $errors = 0;
 
 /**
- * Normalize Canadian ARTCC codes from FAA 3-letter to ICAO 4-letter format.
- * Maps: CZE->CZEG, CZU->CZUL, CZV->CZVR, CZW->CZWG, CZY->CZYZ,
- *       CZM->CZQM, CZQ->CZQX, CZO->CZQO
+ * Normalize ARTCC codes:
+ * - US ICAO K-prefix stripping: KZNY->ZNY, KZMA->ZMA, etc.
+ * - Canadian FAA 3-letter to ICAO 4-letter: CZE->CZEG, CZU->CZUL, etc.
  */
 function normalizeCanadianArtcc($code) {
     static $map = [
         'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
         'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
         'CZQ' => 'CZQX', 'CZO' => 'CZQO',
+        'PAZA' => 'ZAN',
     ];
-    return $map[strtoupper(trim($code))] ?? $code;
+    $code = strtoupper(trim($code));
+    if (preg_match('/^KZ[A-Z]{2}$/', $code)) $code = substr($code, 1);
+    return $map[$code] ?? $code;
 }
 
 function normalizeCanadianArtccCsv($csv) {
@@ -153,7 +156,7 @@ while ($row = $result->fetch_assoc()) {
             $code = $r['code'];
             switch ($r['btype']) {
                 case 'artcc':
-                    if (strlen($code) === 4 && $code[0] === 'K') $code = substr($code, 1);
+                    $code = normalizeCanadianArtcc($code);
                     $artccs[] = $code;
                     break;
                 case 'tracon': $tracons[] = $code; break;

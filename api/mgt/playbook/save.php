@@ -49,7 +49,7 @@ $scenario_type = trim($body['scenario_type'] ?? '');
 $route_format  = in_array($body['route_format'] ?? '', ['standard', 'split']) ? $body['route_format'] : 'standard';
 $status        = in_array($body['status'] ?? '', ['active', 'draft', 'archived']) ? $body['status'] : 'active';
 $airac_cycle   = trim($body['airac_cycle'] ?? '');
-$facilities_involved = trim($body['facilities_involved'] ?? '');
+$facilities_involved = normalizeCanadianArtccCsv(trim($body['facilities_involved'] ?? ''));
 $impacted_area = trim($body['impacted_area'] ?? '');
 $source        = in_array($body['source'] ?? '', ['DCC', 'ECFMP', 'CANOC', 'CADENA']) ? $body['source'] : 'DCC';
 $remarks       = trim($body['remarks'] ?? '');
@@ -67,17 +67,20 @@ function normalizePlayName($name) {
 }
 
 /**
- * Normalize Canadian ARTCC codes from FAA 3-letter to ICAO 4-letter format.
- * Maps: CZE->CZEG, CZU->CZUL, CZV->CZVR, CZW->CZWG, CZY->CZYZ,
- *       CZM->CZQM, CZQ->CZQX, CZO->CZQO
+ * Normalize ARTCC codes:
+ * - US ICAO K-prefix stripping: KZNY->ZNY, KZMA->ZMA, etc.
+ * - Canadian FAA 3-letter to ICAO 4-letter: CZE->CZEG, CZU->CZUL, etc.
  */
 function normalizeCanadianArtcc($code) {
     static $map = [
         'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
         'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
         'CZQ' => 'CZQX', 'CZO' => 'CZQO',
+        'PAZA' => 'ZAN',
     ];
-    return $map[strtoupper(trim($code))] ?? $code;
+    $code = strtoupper(trim($code));
+    if (preg_match('/^KZ[A-Z]{2}$/', $code)) $code = substr($code, 1);
+    return $map[$code] ?? $code;
 }
 
 function normalizeCanadianArtccCsv($csv) {
@@ -224,9 +227,7 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
             $code = $row['code'];
             switch ($row['btype']) {
                 case 'artcc':
-                    if (strlen($code) === 4 && $code[0] === 'K') {
-                        $code = substr($code, 1);
-                    }
+                    $code = normalizeCanadianArtcc($code);
                     $artccs[] = $code;
                     break;
                 case 'tracon':
