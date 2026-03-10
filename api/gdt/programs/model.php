@@ -43,6 +43,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once(__DIR__ . '/../../../load/perti_constants.php');
 $auth_cid = gdt_optional_auth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -99,6 +100,9 @@ if ($dep_facilities !== '' && strtoupper($dep_facilities) !== 'ALL') {
                 $fir_wildcard = true; // FIR: alone = all origins
             } else {
                 $fir_patterns[] = $prefix;
+                // Also expand to known FIR codes for fp_dept_artcc matching
+                $expanded = perti_expand_fir_pattern($tok);
+                foreach ($expanded as $code) { $facilities[] = $code; }
             }
         } else {
             $facilities[] = $tok;

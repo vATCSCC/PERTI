@@ -148,6 +148,34 @@ const PERTI_REGION_PREFIXES = [
     'OCEANIC' => ['ZAK', 'ZWY', 'CZQO', 'CZQX'],
 ];
 
+/** All known ARTCC/FIR codes (synced with facility-hierarchy.js ARTCCS array) */
+const PERTI_FIR_CODES = [
+    // Continental US (20 CONUS)
+    'ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
+    'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL',
+    // Alaska & Hawaii
+    'ZAN', 'ZHN',
+    // US Oceanic
+    'ZAK', 'ZAP', 'ZWY', 'ZHO', 'ZMO', 'ZUA',
+    // Canada (ICAO codes)
+    'CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL',
+    // Mexico ACCs/FIRs
+    'MMMX', 'MMTY', 'MMZT', 'MMMD', 'MMUN', 'MMFR', 'MMFO',
+    // Caribbean & Central American FIRs
+    'TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP', 'MHCC', 'MPZL',
+    // European FIRs (ECFMP coverage)
+    'EGPX', 'EGTT', 'EISN',
+    'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
+    'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'ELLX', 'LSAS',
+    'EFIN', 'ENOR', 'ESAA', 'EKDK', 'BIRD', 'BICC',
+    'EETT', 'EVRR', 'EYVL', 'EPWW',
+    'LOVV', 'LKAA', 'LZBB', 'LHCC', 'LDZO', 'LJLA', 'LQSB',
+    'LECM', 'LECB', 'LECS', 'LPPC',
+    'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LGGG', 'LCCC', 'LMMM',
+    'LRBB', 'LBSR',
+    'LTAA', 'LYBA', 'LAAA', 'LWSK', 'LUUU',
+];
+
 // =============================================================================
 // GDT Program Types & Statuses (used by api/tmi/ and api/gdt/ endpoints)
 // =============================================================================
@@ -194,12 +222,17 @@ function perti_detect_element_type($element) {
         return 'MULTI';
     }
 
+    // Known ARTCC/FIR (US Z** and international 4-letter codes like EGTT, EDGG)
+    if (in_array($element, PERTI_FIR_CODES)) {
+        return 'ARTCC';
+    }
+
     // Airport patterns: K***, C***, P***, T*** (4-letter ICAO)
     if (preg_match('/^[KPCTY][A-Z]{2,3}$/', $element)) {
         return 'APT';
     }
 
-    // ARTCC (Z** — 3-letter US center code)
+    // ARTCC fallback (Z** — 3-letter US center code not in FIR list)
     if (preg_match('/^Z[A-Z]{2}$/', $element)) {
         return 'ARTCC';
     }
@@ -220,4 +253,85 @@ function perti_detect_element_type($element) {
     }
 
     return 'OTHER';
+}
+
+// =============================================================================
+// FIR Pattern Expansion (FIR:ED.. -> ['EDGG', 'EDMM', 'EDUU', 'EDWW'])
+// =============================================================================
+
+/**
+ * Expand a FIR pattern to matching FIR codes from PERTI_FIR_CODES.
+ *
+ * Strips 'FIR:' prefix and trailing dots (single-char wildcards),
+ * then matches the remaining prefix against all known FIR codes.
+ *
+ * Examples:
+ *   'FIR:ED..' -> ['EDGG', 'EDMM', 'EDUU', 'EDWW']
+ *   'FIR:EG..' -> ['EGPX', 'EGTT']
+ *   'FIR:C...' -> ['CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL']
+ *   'ED'       -> ['EDGG', 'EDMM', 'EDUU', 'EDWW']
+ *
+ * @param string $pattern Pattern like 'FIR:ED..', 'ED', 'C', 'LF', or '*'
+ * @return array Matching FIR codes from PERTI_FIR_CODES
+ */
+function perti_expand_fir_pattern($pattern) {
+    if (empty($pattern)) return [];
+    $prefix = strtoupper(trim($pattern));
+
+    // Strip FIR: prefix if present
+    if (strpos($prefix, 'FIR:') === 0) {
+        $prefix = substr($prefix, 4);
+    }
+
+    // Strip trailing dots (wildcards)
+    $prefix = rtrim($prefix, '.');
+
+    // Empty or wildcard = all FIR codes
+    if ($prefix === '' || $prefix === '*') {
+        return PERTI_FIR_CODES;
+    }
+
+    // Filter by prefix match
+    return array_values(array_filter(PERTI_FIR_CODES, function($code) use ($prefix) {
+        return strpos($code, $prefix) === 0;
+    }));
+}
+
+/**
+ * Process scope tokens, expanding any FIR: patterns to individual FIR codes.
+ *
+ * Input:  ['ZNY', 'FIR:ED..', 'ZDC']
+ * Output: ['ZNY', 'EDGG', 'EDMM', 'EDUU', 'EDWW', 'ZDC']
+ *
+ * @param array $tokens Array of scope code tokens (from split_codes())
+ * @return array Flat, deduplicated array with FIR patterns expanded
+ */
+function perti_expand_scope_codes($tokens) {
+    if (empty($tokens) || !is_array($tokens)) return [];
+
+    $result = [];
+    foreach ($tokens as $token) {
+        $token = trim($token);
+        if ($token === '') continue;
+
+        if (stripos($token, 'FIR:') === 0) {
+            // Explicit FIR: prefix (e.g., "FIR:ED..", "FIR:C...")
+            $expanded = perti_expand_fir_pattern($token);
+            foreach ($expanded as $code) {
+                $result[] = $code;
+            }
+        } elseif (preg_match('/^[A-Z]{1,3}\.+$/i', $token)) {
+            // Implicit FIR pattern — letters + trailing dots (e.g., "M...", "EH..", "L...")
+            // Handles comma-separated patterns after FIR: prefix:
+            //   "FIR:C...,M..." → split_codes produces ["FIR:C...", "M..."] → both expand
+            $expanded = perti_expand_fir_pattern($token);
+            foreach ($expanded as $code) {
+                $result[] = $code;
+            }
+        } else {
+            $result[] = $token;
+        }
+    }
+
+    return array_values(array_unique($result));
 }

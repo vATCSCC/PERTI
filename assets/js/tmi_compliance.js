@@ -4165,8 +4165,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                     // Load sector boundaries for any ARTCC facilities
                     const artccCodes = [];
-                    if (requestor && /^Z[A-Z]{2}$/.test(requestor)) {artccCodes.push(requestor);}
-                    if (provider && /^Z[A-Z]{2}$/.test(provider) && provider !== requestor) {artccCodes.push(provider);}
+                    const _isArtcc = function(c) { return typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc ? FacilityHierarchy.isArtcc(c) : /^(Z[A-Z]{2}|CZ[A-Z]{2})$/.test(c); };
+                    if (requestor && _isArtcc(requestor)) {artccCodes.push(requestor);}
+                    if (provider && _isArtcc(provider) && provider !== requestor) {artccCodes.push(provider);}
                     if (artccCodes.length > 0) {
                         console.log('Loading sector boundaries for ARTCCs:', artccCodes.join(', '));
                         const sectors = await this.loadLocalSectorBoundaries(artccCodes, provider);

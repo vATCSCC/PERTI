@@ -1249,7 +1249,7 @@ window.PublicRoutes = (function() {
             if (faaPattern.test(tok)) {
                 // If it starts with 'Z' and looks like an ARTCC pattern, treat as ARTCC
                 // (catches any ARTCCs not in our explicit list)
-                if (tok.startsWith('Z') && /^Z[A-Z]{2}$/.test(tok)) {
+                if ((typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc && FacilityHierarchy.isArtcc(tok)) || /^(Z[A-Z]{2}|CZ[A-Z]{2})$/.test(tok)) {
                     return { type: 'artcc', value: tok };
                 }
 

@@ -2427,8 +2427,11 @@
 
         if (!origin && !dest && !depArtcc && !arrArtcc) {return '#666666';} // Gray - no data
 
-        // Known ARTCC codes pattern (3 letters starting with Z)
-        const artccPattern = /^Z[A-Z]{2}$/;
+        // Known ARTCC/FIR codes — delegate to FacilityHierarchy when available
+        const artccTest = function(c) {
+            if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc) {return FacilityHierarchy.isArtcc(c);}
+            return /^(Z[A-Z]{2}|CZ[A-Z]{2})$/.test(c);
+        };
         // TRACON codes pattern (letter + 2 digits OR 3 letters like NCT, PCT, SCT)
         const traconPattern = /^[A-Z][0-9]{2}$|^(NCT|PCT|SCT|A80|N90|C90|D10|I90|L30)$/;
 
@@ -2448,7 +2451,7 @@
             if (airport === f) {return true;}
 
             // ARTCC match - filter is an ARTCC code
-            if (artccPattern.test(f) && artcc === f) {return true;}
+            if (artccTest(f) && artcc === f) {return true;}
 
             // TRACON match - filter is a TRACON code
             if (traconPattern.test(f) && tracon === f) {return true;}
@@ -2556,8 +2559,11 @@
         const depTracon = (flight.dep_tracon || '').toUpperCase();
         const arrTracon = (flight.arr_tracon || '').toUpperCase();
 
-        // Known ARTCC codes pattern (3 letters starting with Z)
-        const artccPattern = /^Z[A-Z]{2}$/;
+        // Known ARTCC/FIR codes — delegate to FacilityHierarchy when available
+        const artccTest2 = function(c) {
+            if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc) {return FacilityHierarchy.isArtcc(c);}
+            return /^(Z[A-Z]{2}|CZ[A-Z]{2})$/.test(c);
+        };
         // TRACON codes pattern
         const traconPattern = /^[A-Z][0-9]{2}$|^(NCT|PCT|SCT|A80|N90|C90|D10|I90|L30)$/;
 
@@ -2576,7 +2582,7 @@
             if (airport === f) {return true;}
 
             // ARTCC match
-            if (artccPattern.test(f) && artcc === f) {return true;}
+            if (artccTest2(f) && artcc === f) {return true;}
             if (artcc === f) {return true;}  // Also handle non-pattern ARTCC matches
 
             // TRACON match

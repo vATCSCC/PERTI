@@ -283,6 +283,9 @@ foreach ($origin_centers as $c) {
             $fir_wildcard = true; // FIR: alone = all origins, skip filter
         } else {
             $fir_like_patterns[] = $prefix;
+            // Also expand to known FIR codes for fp_dept_artcc matching
+            $expanded = perti_expand_fir_pattern($c);
+            foreach ($expanded as $code) { $artcc_codes[] = $code; }
         }
     } else {
         $artcc_codes[] = $c;

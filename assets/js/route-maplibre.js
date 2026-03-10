@@ -600,7 +600,8 @@ $(document).ready(function() {
     function detectFacilityType(code) {
         if (!code) {return 'airport';}
         const c = String(code).toUpperCase().trim();
-        // ARTCC: Z + 2 letters (ZNY, ZDC, ZTL, etc.)
+        // ARTCC/FIR: delegate to FacilityHierarchy if available
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc && FacilityHierarchy.isArtcc(c)) {return 'artcc';}
         if (/^Z[A-Z]{2}$/.test(c)) {return 'artcc';}
         // TRACON: Letter + 2 digits (N90, A80, C90, etc.) or 3-letter codes like PCT, NCT, SCT
         if (/^[A-Z]\d{2}$/.test(c)) {return 'tracon';}
@@ -4479,8 +4480,11 @@ $(document).ready(function() {
 
             if (!origin && !dest && !depArtcc && !arrArtcc) {return '#666666';} // Gray - no data
 
-            // Known ARTCC codes pattern (3 letters starting with Z)
-            const artccPattern = /^Z[A-Z]{2}$/;
+            // Known ARTCC/FIR codes — delegate to FacilityHierarchy when available
+            const artccTest = function(c) {
+                if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc) {return FacilityHierarchy.isArtcc(c);}
+                return /^(Z[A-Z]{2}|CZ[A-Z]{2})$/.test(c);
+            };
             // TRACON codes pattern
             const traconPattern = /^[A-Z][0-9]{2}$|^(NCT|PCT|SCT|A80|N90|C90|D10|I90|L30)$/;
 
@@ -4499,7 +4503,7 @@ $(document).ready(function() {
                 if (airport === f) {return true;}
 
                 // ARTCC match
-                if (artccPattern.test(f) && artcc === f) {return true;}
+                if (artccTest(f) && artcc === f) {return true;}
                 if (artcc === f) {return true;}  // Also handle non-pattern ARTCC matches
 
                 // TRACON match
@@ -4930,7 +4934,8 @@ $(document).ready(function() {
         function detectFacilityType(code) {
             if (!code) {return 'airport';}
             const c = String(code).toUpperCase().trim();
-            // ARTCC: Z + 2 letters (ZNY, ZDC, ZTL, etc.)
+            // ARTCC/FIR: delegate to FacilityHierarchy if available
+            if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc && FacilityHierarchy.isArtcc(c)) {return 'artcc';}
             if (/^Z[A-Z]{2}$/.test(c)) {return 'artcc';}
             // TRACON: Letter + 2 digits (N90, A80, C90, etc.) or 3-letter codes like PCT, NCT, SCT
             if (/^[A-Z]\d{2}$/.test(c)) {return 'tracon';}
@@ -5886,8 +5891,8 @@ $(document).ready(function() {
         if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc) {
             return FacilityHierarchy.isArtcc(t);
         }
-        // Fallback: US ARTCCs (Z**) + Canadian FIRs (CZ*)
-        return /^(Z[A-Z]{2}|CZ[A-Z])$/.test(t);
+        // Fallback: US ARTCCs (Z**) + Canadian FIRs (CZ**)
+        return /^(Z[A-Z]{2}|CZ[A-Z]{2})$/.test(t);
     }
 
     // Check if token is a TRACON/TCA (global)
