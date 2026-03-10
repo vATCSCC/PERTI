@@ -1904,18 +1904,34 @@
         var selected = getSelectedRoutes();
         if (!selected.length) return;
 
-        var usePB = canUsePBDirective(selected, allRoutes);
+        var hasGroups = routeGroups.length > 0;
         var text;
-        if (usePB) {
-            text = buildCurrentPBDirective();
-        } else {
+
+        if (hasGroups) {
+            // Groups active: forward per-route colors to route.php
             text = selected.map(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
                 parts.push(r.route_string);
                 if (r.dest) parts.push(r.dest);
-                return parts.join(' ');
+                var routeStr = parts.join(' ');
+                var color = getRouteGroupColor(r.route_id);
+                if (color) routeStr += ';' + color;
+                return routeStr;
             }).join('\n');
+        } else {
+            var usePB = canUsePBDirective(selected, allRoutes);
+            if (usePB) {
+                text = buildCurrentPBDirective();
+            } else {
+                text = selected.map(function(r) {
+                    var parts = [];
+                    if (r.origin) parts.push(r.origin);
+                    parts.push(r.route_string);
+                    if (r.dest) parts.push(r.dest);
+                    return parts.join(' ');
+                }).join('\n');
+            }
         }
 
         var encoded = btoa(text);
@@ -2577,10 +2593,12 @@
 
         // Overlay minimize/close handlers
         $(document).on('click', '#pb_catalog_minimize', function() {
-            $('#pb_catalog_overlay').toggleClass('minimized');
+            var $overlay = $('#pb_catalog_overlay').toggleClass('minimized');
+            $(this).find('i').toggleClass('fa-chevron-up fa-chevron-down');
         });
         $(document).on('click', '#pb_info_minimize', function() {
-            $('#pb_info_overlay').toggleClass('minimized');
+            var $overlay = $('#pb_info_overlay').toggleClass('minimized');
+            $(this).find('i').toggleClass('fa-chevron-up fa-chevron-down');
         });
         $(document).on('click', '#pb_info_close', function() {
             hideDetail();
@@ -2603,9 +2621,26 @@
         $(document).on('click', '#pb_open_route_page', openInRoutePage);
         $(document).on('click', '#pb_activate_reroute', activateAsReroute);
         $(document).on('click', '#pb_copy_pb_directive', function() {
-            var directive = buildCurrentPBDirective();
-            if (!directive) return;
-            navigator.clipboard.writeText(directive).then(function() {
+            var text;
+            if (routeGroups.length > 0) {
+                // Groups active: copy colored route strings
+                var selected = getSelectedRoutes();
+                if (!selected.length) return;
+                text = selected.map(function(r) {
+                    var parts = [];
+                    if (r.origin) parts.push(r.origin);
+                    parts.push(r.route_string);
+                    if (r.dest) parts.push(r.dest);
+                    var routeStr = parts.join(' ');
+                    var color = getRouteGroupColor(r.route_id);
+                    if (color) routeStr += ';' + color;
+                    return routeStr;
+                }).join('\n');
+            } else {
+                text = buildCurrentPBDirective();
+            }
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(function() {
                 PERTIDialog.toast('common.copied', 'success');
             });
         });

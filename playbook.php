@@ -101,7 +101,7 @@ include("load/nav.php");
                 </button>
                 <?php endif; ?>
                 <button class="pb-overlay-minimize" id="pb_catalog_minimize" title="Minimize">
-                    <i class="fas fa-minus"></i>
+                    <i class="fas fa-chevron-up"></i>
                 </button>
             </div>
         </div>
@@ -147,7 +147,7 @@ include("load/nav.php");
             <span class="pb-overlay-title" id="pb_info_title"></span>
             <div class="pb-overlay-controls">
                 <button class="pb-overlay-minimize" id="pb_info_minimize" title="Minimize">
-                    <i class="fas fa-minus"></i>
+                    <i class="fas fa-chevron-up"></i>
                 </button>
                 <button id="pb_info_close" title="Close">
                     <i class="fas fa-times"></i>
