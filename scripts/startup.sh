@@ -106,6 +106,14 @@ nohup php "${WWWROOT}/scripts/ecfmp_poll_daemon.php" --loop --interval=300 >> /h
 ECFMP_PID=$!
 echo "  ecfmp_poll_daemon.php started (PID: $ECFMP_PID)"
 
+# Start the playbook export daemon (daily backup of all playbook data)
+# MySQL-only — runs even in hibernation. Exports JSON + text to backups/playbook/.
+# 5-min initial delay, then every 24h. Change detection skips if no updates.
+echo "Starting playbook export (daily backup, every 24h)..."
+nohup bash -c "sleep 300; while true; do php '${WWWROOT}/scripts/playbook/export_playbook.php' --cli >> /home/LogFiles/playbook_export.log 2>&1; sleep 86400; done" &
+PLAYBOOK_EXPORT_PID=$!
+echo "  playbook export started (PID: $PLAYBOOK_EXPORT_PID, first run in 5min)"
+
 # =============================================================================
 # DOWNSTREAM DAEMONS (skipped in hibernation mode)
 # =============================================================================
@@ -289,6 +297,7 @@ if [ "$HIBERNATION" = "1" ]; then
     echo "  adl=$ADL_PID, arch=$ARCH_PID, mon=$MON_PID"
     echo "  discord_q=$DISCORD_Q_PID, adl_archive=$ADL_ARCHIVE_PID"
     echo "  ecfmp=$ECFMP_PID"
+    echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
     echo "  All other daemons: HIBERNATED"
 else
@@ -301,6 +310,7 @@ else
     echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
     echo "  ecfmp=$ECFMP_PID, cdm=$CDM_PID, vacdm=$VACDM_PID"
     echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
+    echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
 fi
 echo "========================================"
