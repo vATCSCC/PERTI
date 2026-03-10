@@ -636,7 +636,7 @@
                     var parent = FacilityHierarchy.getParentArtcc(resolved);
                     if (parent) artccs.push(parent);
                 }
-            } else if (/^(Z[A-Z]{2}|CZ[A-Z])$/.test(tok)) {
+            } else if ((typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc && FacilityHierarchy.isArtcc(tok)) || /^(Z[A-Z]{2}|CZ[A-Z]{2})$/.test(tok)) {
                 // Regex fallback for ARTCC/FIR codes
                 artccs.push(tok);
             } else if (/^[A-Z]{4}$/.test(tok) && !/^(Z[A-Z]{2}|CZ[A-Z])$/.test(tok.substring(0,3))) {

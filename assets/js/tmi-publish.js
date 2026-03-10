@@ -10293,7 +10293,7 @@
                     if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc) {
                         return FacilityHierarchy.isArtcc(c);
                     }
-                    return /^Z[A-Z]{2}$/i.test(c);
+                    return /^(Z[A-Z]{2}|CZ[A-Z]{2})$/i.test(c);
                 };
                 const toIcao = (typeof PERTI !== 'undefined' && PERTI.normalizeIcao)
                     ? function(a) { return PERTI.normalizeIcao(a); }

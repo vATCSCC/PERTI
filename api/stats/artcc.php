@@ -47,9 +47,9 @@ $date = isset($_GET['date']) ? $_GET['date'] : null;
 $days = isset($_GET['days']) ? (int)$_GET['days'] : 7;
 
 // Validate ARTCC code
-if ($artcc !== null && !preg_match('/^Z[A-Z]{2}$/', $artcc)) {
+if ($artcc !== null && !preg_match('/^[A-Z]{2,4}$/', $artcc)) {
     http_response_code(400);
-    echo json_encode(["error" => "Invalid ARTCC code. Must be 3 letters starting with Z."]);
+    echo json_encode(["error" => "Invalid facility code. Must be 2-4 uppercase letters."]);
     sqlsrv_close($conn);
     exit;
 }

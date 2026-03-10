@@ -497,13 +497,22 @@ class DiscordMessageParser {
     public function extractFacilityCodes($content) {
         $facilities = [];
 
-        // Common ARTCC prefixes
-        $artccPattern = '/\b(Z[A-Z]{2})\b/';
-        if (preg_match_all($artccPattern, strtoupper($content), $matches)) {
-            $facilities = array_unique($matches[1]);
+        $upper = strtoupper($content);
+
+        // Match US ARTCCs (Z**) via regex
+        if (preg_match_all('/\b(Z[A-Z]{2})\b/', $upper, $matches)) {
+            $facilities = array_merge($facilities, $matches[1]);
         }
 
-        return $facilities;
+        // Also match any known FIR codes from PERTI_FIR_CODES
+        $words = preg_split('/\s+/', $upper);
+        foreach ($words as $w) {
+            if (strlen($w) >= 3 && strlen($w) <= 4 && in_array($w, PERTI_FIR_CODES) && !in_array($w, $facilities)) {
+                $facilities[] = $w;
+            }
+        }
+
+        return array_values(array_unique($facilities));
     }
 
     /**

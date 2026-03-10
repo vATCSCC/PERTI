@@ -27,6 +27,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require_once(__DIR__ . '/../../load/connect.php');
+require_once(__DIR__ . '/../../load/perti_constants.php');
 
 // -------------------------------
 // Helpers
@@ -238,7 +239,7 @@ $carriers        = split_codes($carriers_raw);
 $scope_codes = split_codes($gdp_origin_centers);  // For reference only
 $dep_centers = split_codes($gdp_dep_facilities);  // The actual ARTCC codes to filter
 if (count($dep_centers) > 0 && $dep_centers[0] === 'ALL') { $dep_centers = []; }
-$origin_centers = $dep_centers;  // Use only the expanded facility list
+$origin_centers = perti_expand_scope_codes($dep_centers);
 
 $gdp_start = parse_utc_datetime($gdp_start_raw);
 $gdp_end   = parse_utc_datetime($gdp_end_raw);

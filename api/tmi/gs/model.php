@@ -41,6 +41,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GS_API_INCLUDED', true);
 require_once(__DIR__ . '/common.php');
+require_once(__DIR__ . '/../../../load/perti_constants.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -85,7 +86,7 @@ if (!$program_result['success'] || !$program_result['data']) {
 $program = $program_result['data'];
 
 // Parse dep_facilities into array
-$facilities = split_codes($dep_facilities);
+$facilities = perti_expand_scope_codes(split_codes($dep_facilities));
 if (empty($facilities)) {
     respond_json(400, [
         'status' => 'error',

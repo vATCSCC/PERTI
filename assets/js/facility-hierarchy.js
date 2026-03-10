@@ -1330,6 +1330,20 @@
         return OPERATOR_GROUP_COLORS[group] || OPERATOR_GROUP_COLORS.OTHER;
     }
 
+    /**
+     * Expand a FIR pattern (e.g., 'FIR:ED..') to matching FIR codes from ARTCCS.
+     *
+     * Dots are single-character wildcards representing remaining code length.
+     * @param {string} pattern - Pattern like 'FIR:ED..', 'ED', 'C', 'LF', or '*'
+     * @returns {string[]} Matching FIR codes from ARTCCS
+     */
+    function expandFirPattern(pattern) {
+        if (!pattern) return [];
+        var prefix = String(pattern).toUpperCase().replace(/^FIR:/i, '').replace(/\.+$/, '');
+        if (!prefix || prefix === '*') return ARTCCS.slice();
+        return ARTCCS.filter(function(code) { return code.indexOf(prefix) === 0; });
+    }
+
     // ===========================================
     // Export to Global Namespace
     // ===========================================
@@ -1391,6 +1405,9 @@
         // ICAO normalization utilities
         normalizeIcao: normalizeIcao,
         denormalizeIcao: denormalizeIcao,
+
+        // FIR pattern expansion
+        expandFirPattern: expandFirPattern,
     };
 
 })(typeof window !== 'undefined' ? window : this);

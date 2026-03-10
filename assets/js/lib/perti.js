@@ -1801,7 +1801,7 @@
 
     // Pre-compiled regex objects for common patterns
     const PATTERNS = Object.freeze({
-        ARTCC: /^Z[A-Z]{2}$/,
+        ARTCC: /^Z[A-Z]{2}$|^CZ[A-Z]{2}$/,
         TRACON: /^[A-Z][0-9]{2}$|^(NCT|PCT|SCT|A11|A80|A90|C90|D01|D10|D21|F11|I90|L30|M03|M98|N90|P31|P50|P80|R90|S46|S56|T75|U90|Y90)$/i,
         AIRPORT_ICAO: /^[A-Z]{4}$/,
         AIRPORT_FAA: /^[A-Z0-9]{3}$/,
@@ -2295,7 +2295,11 @@
      */
     function isARTCC(str) {
         if (!str) return false;
-        return PATTERNS.ARTCC.test(str.toUpperCase());
+        var upper = str.toUpperCase();
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc) {
+            return FacilityHierarchy.isArtcc(upper);
+        }
+        return PATTERNS.ARTCC.test(upper);
     }
 
     /**

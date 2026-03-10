@@ -2,6 +2,7 @@
 header('Content-Type: application/json; charset=utf-8');
 
 require_once(__DIR__ . '/../../load/connect.php');  // provides $conn_adl
+require_once(__DIR__ . '/../../load/perti_constants.php');
 
 // -------------------------------
 // Helpers
@@ -68,7 +69,9 @@ $dep_centers   = split_codes($gs_dep_facilities);
 if (count($dep_centers) > 0 && $dep_centers[0] === 'ALL') {
     $dep_centers = [];
 }
-$origin_centers = array_values(array_unique(array_merge($scope_centers, $dep_centers)));
+$origin_centers = perti_expand_scope_codes(
+    array_values(array_unique(array_merge($scope_centers, $dep_centers)))
+);
 
 $gs_start = parse_utc_datetime($gs_start_raw);
 $gs_end   = parse_utc_datetime($gs_end_raw);

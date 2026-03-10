@@ -16,6 +16,7 @@
  */
 
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../../../../load/perti_constants.php';
 require_once __DIR__ . '/../../../../load/services/GISService.php';
 require_once __DIR__ . '/../../../../api/tmi/AdvisoryNumber.php';
 
@@ -1060,7 +1061,12 @@ function parseFacilityCodes(?string $facilitiesStr, ?string $advisoryText = null
     $facilities = preg_split('/[\/,]+/', $parseString);
     $facilities = array_map('trim', $facilities);
     $facilities = array_filter($facilities, function($f) {
-        return !empty($f) && preg_match('/^C?Z[A-Z]{1,3}$/i', $f); // Matches ZAU, CZYZ, etc.
+        if (empty($f)) return false;
+        $fu = strtoupper($f);
+        // Accept US ARTCCs, Canadian FIRs, or any known PERTI FIR code
+        if (preg_match('/^C?Z[A-Z]{1,3}$/i', $f)) return true;
+        if (defined('PERTI_FIR_CODES') && in_array($fu, PERTI_FIR_CODES)) return true;
+        return false;
     });
     return array_map('strtoupper', array_values($facilities));
 }
