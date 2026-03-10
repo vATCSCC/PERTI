@@ -1401,22 +1401,18 @@ $(document).ready(function() {
                 }
                 // Add hierarchy layers (super, sub, deep) with separate sources
                 // FIR labels use the existing 'artcc' source
-                if (data.supercenter) {
-                    if (!graphic_map.getSource('artcc-super-source')) {
-                        graphic_map.addSource('artcc-super-source', { type: 'geojson', data: data.supercenter });
-                    }
-                    if (!graphic_map.getLayer('artcc-super-lines')) {
-                        graphic_map.addLayer({
-                            id: 'artcc-super-lines', type: 'line', source: 'artcc-super-source',
-                            paint: { 'line-color': '#F0C946', 'line-width': 2.5, 'line-opacity': 0.8 },
-                            layout: { visibility: 'none' },
-                        }, 'artcc-fir-lines');
-                    }
+                // Add hierarchy sources
+                if (data.supercenter && !graphic_map.getSource('artcc-super-source')) {
+                    graphic_map.addSource('artcc-super-source', { type: 'geojson', data: data.supercenter });
                 }
+                if (data.artcc_area && !graphic_map.getSource('artcc-area-source')) {
+                    graphic_map.addSource('artcc-area-source', { type: 'geojson', data: data.artcc_area });
+                }
+
+                // Add hierarchy layers in correct z-order (bottom → top):
+                // deep sub-areas → sub-areas → (fir already exists) → super centers
+                // Layers inserted BEFORE 'artcc-fir-lines' render below it.
                 if (data.artcc_area) {
-                    if (!graphic_map.getSource('artcc-area-source')) {
-                        graphic_map.addSource('artcc-area-source', { type: 'geojson', data: data.artcc_area });
-                    }
                     if (!graphic_map.getLayer('artcc-sub-lines')) {
                         graphic_map.addLayer({
                             id: 'artcc-sub-lines', type: 'line', source: 'artcc-area-source',
@@ -1434,6 +1430,14 @@ $(document).ready(function() {
                         }, 'artcc-sub-lines');
                     }
                 }
+                // Super centers render ABOVE fir — no beforeId = top of current stack
+                if (data.supercenter && !graphic_map.getLayer('artcc-super-lines')) {
+                    graphic_map.addLayer({
+                        id: 'artcc-super-lines', type: 'line', source: 'artcc-super-source',
+                        paint: { 'line-color': '#F0C946', 'line-width': 2.5, 'line-opacity': 0.8 },
+                        layout: { visibility: 'none' },
+                    });
+                }
                 // Add FIR labels on the main artcc source
                 if (!graphic_map.getLayer('artcc-fir-labels')) {
                     var labelFont = ['Noto Sans Bold'];
@@ -1449,7 +1453,7 @@ $(document).ready(function() {
                             'text-font': labelFont,
                             'text-size': ['interpolate', ['linear'], ['zoom'], 3, 11, 5, 14, 8, 18],
                             'text-allow-overlap': false, 'text-ignore-placement': false, 'text-padding': 5,
-                            'visibility': 'none',
+                            'visibility': 'visible',
                         },
                         paint: { 'text-color': '#4A90D9', 'text-halo-color': 'rgba(0, 0, 0, 0.7)', 'text-halo-width': 1.5, 'text-opacity': 0.9 },
                     });

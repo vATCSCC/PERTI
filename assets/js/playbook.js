@@ -43,7 +43,7 @@
     var selectedRouteIds = new Set();
     var currentPage = 1;
     var playsPerPage = 200;
-    var regionColorEnabled = false;
+    var regionColorEnabled = true;
     var currentSearchClauses = [];  // Set by applyFilters(), read by route emphasis
 
     // Route group state
@@ -2832,10 +2832,10 @@
             if (!map) return;
             // Map hierarchy level to route-maplibre.js layer IDs
             var layerMap = {
-                super: ['artcc-super-lines'],
-                fir: ['artcc-fir-lines', 'artcc-fir-labels'],
-                sub: ['artcc-sub-lines'],
-                deep: ['artcc-deep-lines'],
+                super: ['artcc-super-fill', 'artcc-super-lines', 'artcc-super-labels'],
+                fir: ['artcc-fir-fill', 'artcc-fir-lines', 'artcc-fir-labels'],
+                sub: ['artcc-sub-fill', 'artcc-sub-lines', 'artcc-sub-labels'],
+                deep: ['artcc-deep-fill', 'artcc-deep-lines', 'artcc-deep-labels'],
             };
             var layers = layerMap[level];
             if (layers) {
