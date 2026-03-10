@@ -2568,6 +2568,7 @@ $(document).ready(function() {
 
                 for (let i = 0; i < firstNavIndex; i++) {
                     const ap = routePoints[i];
+                    if (String(ap[0]).toUpperCase() === 'UNKN') {continue;}
                     addSegmentFeature(routeFeatures, [[ap[2], ap[1]], [firstNav[2], firstNav[1]]], routeColor, false, true, thisRouteId, ap[0], firstNav[0]);
                 }
 
@@ -2582,6 +2583,7 @@ $(document).ready(function() {
 
                 for (let i = lastNavIndex + 1; i < nPoints; i++) {
                     const ap = routePoints[i];
+                    if (String(ap[0]).toUpperCase() === 'UNKN') {continue;}
                     addSegmentFeature(routeFeatures, [[lastNav[2], lastNav[1]], [ap[2], ap[1]]], routeColor, false, true, thisRouteId, lastNav[0], ap[0]);
                 }
             } else {

@@ -63,6 +63,7 @@
 /* Minimized state: collapse body, keep titlebar */
 .pb-catalog-overlay.minimized .pb-catalog-body { display: none; }
 .pb-catalog-overlay.minimized { max-height: none; overflow: visible; }
+.pb-catalog-overlay.minimized .pb-overlay-titlebar { border-bottom: none; }
 
 /* ── Shared Overlay Titlebar (drag handle) ──────────────────────── */
 .pb-overlay-titlebar {
@@ -135,6 +136,7 @@
 
 .pb-info-overlay.minimized .pb-info-content { display: none; }
 .pb-info-overlay.minimized { max-height: none; overflow: visible; }
+.pb-info-overlay.minimized .pb-overlay-titlebar { border-bottom: none; }
 
 .pb-info-content {
     flex: 1;
