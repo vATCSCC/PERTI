@@ -43,7 +43,7 @@
     var selectedRouteIds = new Set();
     var currentPage = 1;
     var playsPerPage = 200;
-    var regionColorEnabled = false;
+    var regionColorEnabled = true;
     var currentSearchClauses = [];  // Set by applyFilters(), read by route emphasis
 
     // Route group state
@@ -191,7 +191,12 @@
                 // Propagate negation from first alt: -thru:ZFW,ZAU → both get negated
                 if (idx === 0 && negated) { inheritedNegated = true; }
                 else if (idx > 0 && !negated && inheritedNegated) { negated = true; }
-                return { term: term.toUpperCase(), negated: negated, qualifier: qualifier };
+                var upper = term.toUpperCase();
+                // Normalize facility aliases (e.g. CZU → CZUL, CZE → CZEG)
+                if (qualifier && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.ALIAS_TO_CANONICAL) {
+                    upper = FacilityHierarchy.ALIAS_TO_CANONICAL[upper] || upper;
+                }
+                return { term: upper, negated: negated, qualifier: qualifier };
             }).filter(function(a) { return a.term; });
         }).filter(function(c) { return c.length; });
     }
@@ -2827,10 +2832,10 @@
             if (!map) return;
             // Map hierarchy level to route-maplibre.js layer IDs
             var layerMap = {
-                super: ['artcc-super-lines'],
-                fir: ['artcc-fir-lines', 'artcc-fir-labels'],
-                sub: ['artcc-sub-lines'],
-                deep: ['artcc-deep-lines'],
+                super: ['artcc-super-fill', 'artcc-super-lines', 'artcc-super-labels'],
+                fir: ['artcc-fir-fill', 'artcc-fir-lines', 'artcc-fir-labels'],
+                sub: ['artcc-sub-fill', 'artcc-sub-lines', 'artcc-sub-labels'],
+                deep: ['artcc-deep-fill', 'artcc-deep-lines', 'artcc-deep-labels'],
             };
             var layers = layerMap[level];
             if (layers) {

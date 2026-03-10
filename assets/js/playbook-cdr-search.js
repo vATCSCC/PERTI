@@ -170,15 +170,20 @@ const PlaybookCDRSearch = (function() {
     }
 
     function getFilterValues() {
+        // Normalize facility aliases (e.g. CZU → CZUL, CZE → CZEG)
+        var A2C = (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.ALIAS_TO_CANONICAL)
+            ? FacilityHierarchy.ALIAS_TO_CANONICAL : {};
+        var origArtcc = $('#pbcdr_orig_artcc').val().trim().toUpperCase();
+        var destArtcc = $('#pbcdr_dest_artcc').val().trim().toUpperCase();
         return {
             name: $('#pbcdr_name').val().trim().toUpperCase(),
             routeText: $('#pbcdr_route_text').val().trim().toUpperCase(),
             origApt: $('#pbcdr_orig_apt').val().trim().toUpperCase(),
             origTracon: $('#pbcdr_orig_tracon').val().trim().toUpperCase(),
-            origArtcc: $('#pbcdr_orig_artcc').val().trim().toUpperCase(),
+            origArtcc: A2C[origArtcc] || origArtcc,
             destApt: $('#pbcdr_dest_apt').val().trim().toUpperCase(),
             destTracon: $('#pbcdr_dest_tracon').val().trim().toUpperCase(),
-            destArtcc: $('#pbcdr_dest_artcc').val().trim().toUpperCase(),
+            destArtcc: A2C[destArtcc] || destArtcc,
         };
     }
 

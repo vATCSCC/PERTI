@@ -34,6 +34,29 @@ try {
 
 function normPlay($n) { return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $n)); }
 
+/**
+ * Normalize ARTCC codes:
+ * - US ICAO K-prefix stripping: KZNY->ZNY, KZMA->ZMA, etc.
+ * - Canadian FAA 3-letter to ICAO 4-letter: CZE->CZEG, CZU->CZUL, etc.
+ * Applied to ARTCC CSV fields only (NOT route strings — CZM is Cozumel VOR, not Moncton ARTCC).
+ */
+function normalizeCanadianArtcc($code) {
+    static $map = [
+        'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
+        'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
+        'CZQ' => 'CZQX', 'CZO' => 'CZQO',
+        'PAZA' => 'ZAN',
+    ];
+    $code = strtoupper(trim($code));
+    if (preg_match('/^KZ[A-Z]{2}$/', $code)) $code = substr($code, 1);
+    return $map[$code] ?? $code;
+}
+
+function normalizeCanadianArtccCsv($csv) {
+    if (trim($csv) === '') return $csv;
+    return implode(',', array_map('normalizeCanadianArtcc', explode(',', $csv)));
+}
+
 // ============================================================================
 // PLAY DEFINITIONS
 // ============================================================================
@@ -405,7 +428,7 @@ try {
             'CADENA PASA',
             $pd['impacted_area'],
             $pd['remarks'],
-            $pd['facilities_involved'],
+            normalizeCanadianArtccCsv($pd['facilities_involved']),
             $rc,
             'CADENA',
         ]);
@@ -425,7 +448,8 @@ try {
 
         $route_batch[] = [
             $pid, $r[1], $r[2], $r[3],
-            $r[4], $r[5], $r[6], $r[7],
+            $r[4], normalizeCanadianArtccCsv($r[5]),
+            $r[6], normalizeCanadianArtccCsv($r[7]),
             $r[8], $sort_counters[$pn]++
         ];
 
