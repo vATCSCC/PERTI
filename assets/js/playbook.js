@@ -13,8 +13,6 @@
     var API_DELETE  = 'api/mgt/playbook/delete.php';
     var API_GROUPS      = 'api/data/playbook/groups.php';
     var API_GROUPS_SAVE = 'api/mgt/playbook/groups.php';
-    var API_CONFIGS     = 'api/data/playbook/group-configs.php';
-    var API_CONFIGS_MGT = 'api/mgt/playbook/group-configs.php';
 
     var t = typeof PERTII18n !== 'undefined' ? PERTII18n.t.bind(PERTII18n) : function(k) { return k; };
     var hasPerm = window.PERTI_PLAYBOOK_PERM === true;
@@ -47,7 +45,7 @@
     var currentSearchClauses = [];  // Set by applyFilters(), read by route emphasis
 
     // Route group state
-    var routeGroups = [];           // Array of { group_name, group_color, route_ids: Set, sort_order, source_config_id }
+    var routeGroups = [];           // Array of { group_name, group_color, route_ids: Set, sort_order }
     var groupEditingIdx = -1;       // Index of group being edited (-1 = none)
 
     var GROUP_COLORS = [
@@ -1456,7 +1454,6 @@
                         group_color: g.group_color,
                         route_ids: new Set(g.route_ids || []),
                         sort_order: g.sort_order,
-                        source_config_id: g.source_config_id || null,
                         _autoField: null
                     });
                 });
@@ -1477,8 +1474,7 @@
                     group_name: g.group_name,
                     group_color: g.group_color,
                     route_ids: Array.from(g.route_ids),
-                    sort_order: idx,
-                    source_config_id: g.source_config_id || null
+                    sort_order: idx
                 };
             })
         };
@@ -1508,7 +1504,6 @@
             group_color: color,
             route_ids: ids,
             sort_order: routeGroups.length,
-            source_config_id: null,
             _autoField: null
         });
 
@@ -1537,9 +1532,9 @@
     }
 
     function suggestGroupName(routeIds) {
-        if (!activePlayData || !activePlayData.routes) return 'Group';
+        if (!activePlayData || !activePlayData.routes) return t('playbook.groups.defaultName');
         var routes = activePlayData.routes.filter(function(r) { return routeIds.has(r.route_id); });
-        if (!routes.length) return 'Group';
+        if (!routes.length) return t('playbook.groups.defaultName');
 
         // Find most common origin TRACON
         var counts = {};
@@ -1552,7 +1547,7 @@
         Object.keys(counts).forEach(function(k) {
             if (counts[k] > bestCount) { best = k; bestCount = counts[k]; }
         });
-        if (best && bestCount >= routes.length * 0.5) return best + ' Routes';
+        if (best && bestCount >= routes.length * 0.5) return best + ' ' + t('playbook.groups.routesSuffix');
 
         // Try origin ARTCC
         counts = {};
@@ -1565,9 +1560,9 @@
         Object.keys(counts).forEach(function(k) {
             if (counts[k] > bestCount) { best = k; bestCount = counts[k]; }
         });
-        if (best) return best + ' Routes';
+        if (best) return best + ' ' + t('playbook.groups.routesSuffix');
 
-        return 'Group ' + (routeGroups.length + 1);
+        return t('playbook.groups.defaultName') + ' ' + (routeGroups.length + 1);
     }
 
     // ── Auto-grouping ──
@@ -1587,13 +1582,13 @@
         var colorIdx = 0;
         var keys = Object.keys(buckets).sort();
         keys.forEach(function(key) {
-            if (!buckets[key].size) return;
+            if (buckets[key].size < 2) return;
+            var displayName = (key === 'Other') ? t('playbook.groups.other') : key;
             routeGroups.push({
-                group_name: key + (labelSuffix || ''),
+                group_name: displayName + (labelSuffix || ''),
                 group_color: GROUP_COLORS[colorIdx % GROUP_COLORS.length],
                 route_ids: buckets[key],
                 sort_order: colorIdx,
-                source_config_id: null,
                 _autoField: fieldName
             });
             colorIdx++;
@@ -1630,7 +1625,7 @@
         var sortIdx = 0;
 
         regionOrder.forEach(function(regionKey) {
-            if (!buckets[regionKey] || !buckets[regionKey].size) return;
+            if (!buckets[regionKey] || buckets[regionKey].size < 2) return;
             var region = FH.DCC_REGIONS[regionKey];
             var regionName = region ? region.name : regionKey;
             var regionColor = region ? region.color : '#6c757d';
@@ -1639,7 +1634,6 @@
                 group_color: regionColor,
                 route_ids: buckets[regionKey],
                 sort_order: sortIdx,
-                source_config_id: null,
                 _autoField: artccField
             });
             sortIdx++;
@@ -1689,13 +1683,14 @@
                     assigned.add(r.route_id);
                 }
             });
-            if (members.size) {
+            if (members.size < 2) {
+                members.forEach(function(rid) { assigned.delete(rid); });
+            } else {
                 routeGroups.push({
-                    group_name: 'Via ' + pivot,
+                    group_name: t('playbook.groups.viaPrefix') + ' ' + pivot,
                     group_color: GROUP_COLORS[colorIdx % GROUP_COLORS.length],
                     route_ids: members,
                     sort_order: colorIdx,
-                    source_config_id: null,
                     _autoField: 'route_contains'
                 });
                 colorIdx++;
@@ -1709,201 +1704,16 @@
         });
         if (remaining.size) {
             routeGroups.push({
-                group_name: 'Other',
+                group_name: t('playbook.groups.other'),
                 group_color: GROUP_COLORS[colorIdx % GROUP_COLORS.length],
                 route_ids: remaining,
                 sort_order: colorIdx,
-                source_config_id: null,
                 _autoField: null
             });
         }
 
         saveGroups();
         refreshGroupUI();
-    }
-
-    // ── Config management ──
-    function loadConfigList(callback) {
-        $.getJSON(API_CONFIGS, function(data) {
-            if (data && data.success) {
-                callback(data.configs || []);
-            } else {
-                callback([]);
-            }
-        }).fail(function() { callback([]); });
-    }
-
-    function applyConfig(configId) {
-        if (!activePlayData || !activePlayData.routes) return;
-        $.getJSON(API_CONFIGS + '?id=' + configId, function(data) {
-            if (!data || !data.success || !data.config || !data.config.rules) return;
-            var rules = data.config.rules;
-            var routes = activePlayData.routes;
-
-            routeGroups = [];
-            // Each rule defines a group. Match routes against it.
-            rules.forEach(function(rule, idx) {
-                var matchedIds = new Set();
-                var matchValues = (rule.match_value || '').split(',').map(function(v) { return v.trim().toUpperCase(); }).filter(Boolean);
-
-                routes.forEach(function(r) {
-                    var field = rule.match_field;
-                    var routeValues;
-                    if (field === 'route_contains') {
-                        routeValues = [(r.route_string || '').toUpperCase()];
-                    } else {
-                        routeValues = csvSplit(r[field]).map(function(v) { return v.toUpperCase(); });
-                    }
-
-                    var matches = false;
-                    if (field === 'route_contains') {
-                        matches = matchValues.some(function(mv) { return routeValues[0].indexOf(mv) !== -1; });
-                    } else {
-                        matches = matchValues.some(function(mv) { return routeValues.indexOf(mv) !== -1; });
-                    }
-
-                    if (matches) matchedIds.add(r.route_id);
-                });
-
-                if (matchedIds.size) {
-                    routeGroups.push({
-                        group_name: rule.group_name,
-                        group_color: rule.group_color,
-                        route_ids: matchedIds,
-                        sort_order: idx,
-                        source_config_id: configId,
-                        _autoField: rule.match_field
-                    });
-                }
-            });
-
-            // Remove routes assigned to multiple groups (later group wins)
-            var assigned = new Set();
-            for (var i = routeGroups.length - 1; i >= 0; i--) {
-                var newIds = new Set();
-                routeGroups[i].route_ids.forEach(function(rid) {
-                    if (!assigned.has(rid)) {
-                        newIds.add(rid);
-                        assigned.add(rid);
-                    }
-                });
-                routeGroups[i].route_ids = newIds;
-            }
-            routeGroups = routeGroups.filter(function(g) { return g.route_ids.size > 0; });
-
-            saveGroups();
-            refreshGroupUI();
-            PERTIDialog.toast(t('playbook.groups.groupsSaved'), 'success');
-        });
-    }
-
-    function saveCurrentAsConfig() {
-        if (!routeGroups.length) return;
-
-        Swal.fire({
-            title: t('playbook.groups.saveConfig'),
-            html:
-                '<div style="text-align:left;padding:0 8px;">' +
-                '<label for="swal_cfg_name" style="display:block;font-size:0.75rem;font-weight:600;margin:0 0 4px 2px;color:#adb5bd;text-transform:uppercase;letter-spacing:0.5px;">' + escHtml(t('playbook.groups.configName')) + '</label>' +
-                '<input id="swal_cfg_name" class="form-control form-control-sm" placeholder="' + escHtml(t('playbook.groups.configNamePlaceholder')) + '" style="background:#2b2b3d;border:1px solid #495057;color:#e9ecef;border-radius:4px;padding:6px 10px;font-size:0.875rem;">' +
-                '<label for="swal_cfg_desc" style="display:block;font-size:0.75rem;font-weight:600;margin:12px 0 4px 2px;color:#adb5bd;text-transform:uppercase;letter-spacing:0.5px;">' + escHtml(t('playbook.groups.configDescription')) + '</label>' +
-                '<input id="swal_cfg_desc" class="form-control form-control-sm" placeholder="' + escHtml(t('playbook.groups.configDescriptionPlaceholder')) + '" style="background:#2b2b3d;border:1px solid #495057;color:#e9ecef;border-radius:4px;padding:6px 10px;font-size:0.875rem;">' +
-                '</div>',
-            background: '#1e1e2e',
-            color: '#e9ecef',
-            showCancelButton: true,
-            confirmButtonText: t('common.save'),
-            confirmButtonColor: '#28a745',
-            cancelButtonText: t('common.cancel'),
-            preConfirm: function() {
-                var name = document.getElementById('swal_cfg_name').value.trim();
-                if (!name) { Swal.showValidationMessage(t('playbook.groups.configName')); return false; }
-                return { name: name, desc: document.getElementById('swal_cfg_desc').value.trim() };
-            }
-        }).then(function(result) {
-            if (!result.isConfirmed) return;
-            var rules = [];
-            routeGroups.forEach(function(g, idx) {
-                // Derive match rule from auto-group field or from common origin
-                var matchField = g._autoField || 'origin_artccs';
-                var matchValue = '';
-
-                if (g._autoField && g._autoField !== 'route_contains') {
-                    // Extract common values from grouped routes
-                    var vals = new Set();
-                    if (activePlayData && activePlayData.routes) {
-                        activePlayData.routes.forEach(function(r) {
-                            if (!g.route_ids.has(r.route_id)) return;
-                            csvSplit(r[g._autoField]).forEach(function(v) { if (v) vals.add(v); });
-                        });
-                    }
-                    matchValue = Array.from(vals).join(',');
-                } else if (g._autoField === 'route_contains') {
-                    // Extract from group name: "Via FIX" → "FIX"
-                    matchValue = g.group_name.replace(/^Via\s+/i, '').trim();
-                } else {
-                    // Manual group: derive from most common origin ARTCC
-                    var counts = {};
-                    if (activePlayData && activePlayData.routes) {
-                        activePlayData.routes.forEach(function(r) {
-                            if (!g.route_ids.has(r.route_id)) return;
-                            csvSplit(r.origin_artccs).forEach(function(v) {
-                                if (v) counts[v] = (counts[v] || 0) + 1;
-                            });
-                        });
-                    }
-                    var best = '';
-                    Object.keys(counts).forEach(function(k) {
-                        if (!best || counts[k] > counts[best]) best = k;
-                    });
-                    matchValue = best || 'UNKN';
-                }
-
-                rules.push({
-                    group_name: g.group_name,
-                    group_color: g.group_color,
-                    sort_order: idx,
-                    match_field: matchField,
-                    match_value: matchValue
-                });
-            });
-
-            $.ajax({
-                url: API_CONFIGS_MGT,
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    config_id: 0,
-                    config_name: result.value.name,
-                    description: result.value.desc,
-                    rules: rules
-                }),
-                dataType: 'json',
-                success: function(res) {
-                    if (res && res.success) {
-                        PERTIDialog.toast(t('playbook.groups.configSaved'), 'success');
-                    } else {
-                        PERTIDialog.toast(t('playbook.groups.configSaveFailed'), 'error');
-                    }
-                },
-                error: function() {
-                    PERTIDialog.toast(t('playbook.groups.configSaveFailed'), 'error');
-                }
-            });
-        });
-    }
-
-    function deleteConfig(configId) {
-        $.ajax({
-            url: API_CONFIGS_MGT + '?id=' + configId,
-            method: 'DELETE',
-            dataType: 'json',
-            success: function(res) {
-                if (res && res.success) {
-                    PERTIDialog.toast(t('playbook.groups.configDeleted'), 'success');
-                }
-            }
-        });
     }
 
     // ── Group Toolbar UI ──
@@ -1938,16 +1748,8 @@
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="common_segment">' + t('playbook.groups.byCommonSegment') + '</div>';
         html += '</div></div>';
 
-        // Load Config dropdown
-        html += '<div class="pb-cb-dropdown" id="pb_load_config_dd">';
-        html += '<button type="button" class="btn btn-xs btn-outline-secondary pb-cb-trigger"><i class="fas fa-folder-open mr-1"></i>' + t('playbook.groups.loadConfig') + ' <i class="fas fa-caret-down ml-1"></i></button>';
-        html += '<div class="pb-cb-menu pb-config-menu" style="min-width:200px;">';
-        html += '<div class="pb-loading py-1 text-center"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
-        html += '</div></div>';
-
         if (routeGroups.length) {
             html += '<button class="btn btn-xs btn-outline-danger" id="pb_group_clear"><i class="fas fa-trash mr-1"></i>' + t('playbook.groups.clearAll') + '</button>';
-            html += '<button class="btn btn-xs btn-outline-warning" id="pb_group_save_config"><i class="fas fa-save mr-1"></i>' + t('playbook.groups.saveConfig') + '</button>';
         }
         html += '</div>';
 
@@ -3081,65 +2883,25 @@
             $(this).addClass('active');
         });
 
-        // Create group confirm
+        // Create/Update group confirm (unified handler)
         $(document).on('click', '#pb_group_create_confirm', function() {
-            var name = $('#pb_group_name_input').val().trim() || 'Group';
+            var name = $('#pb_group_name_input').val().trim() || t('playbook.groups.defaultName');
             var color = $('.pb-group-swatch.active').data('color') || nextGroupColor();
-            createGroupFromSelection(name, color);
-            $('#pb_group_create_form').slideUp(150);
-            PERTIDialog.toast(t('playbook.groups.groupCreated'), 'success');
-        });
-        $(document).on('keydown', '#pb_group_name_input', function(e) {
-            if (e.key === 'Enter') { e.preventDefault(); $('#pb_group_create_confirm').click(); }
-            if (e.key === 'Escape') { $('#pb_group_create_form').slideUp(150); }
-        });
 
-        // Create group cancel
-        $(document).on('click', '#pb_group_create_cancel', function() {
-            $('#pb_group_create_form').slideUp(150);
-        });
-
-        // Delete group
-        $(document).on('click', '.pb-group-delete-btn', function() {
-            var idx = parseInt($(this).data('idx'));
-            deleteGroup(idx);
-            PERTIDialog.toast(t('playbook.groups.groupDeleted'), 'success');
-        });
-
-        // Edit group (re-open inline form pre-filled)
-        $(document).on('click', '.pb-group-edit-btn', function() {
-            var idx = parseInt($(this).data('idx'));
-            if (idx < 0 || idx >= routeGroups.length) return;
-            var g = routeGroups[idx];
-            groupEditingIdx = idx;
-
-            // Select the group's routes
-            selectedRouteIds.clear();
-            g.route_ids.forEach(function(rid) { selectedRouteIds.add(rid); });
-            updateCheckboxes();
-
-            $('#pb_group_name_input').val(g.group_name);
-            $('.pb-group-swatch').removeClass('active');
-            $('.pb-group-swatch[data-color="' + g.group_color + '"]').addClass('active');
-
-            // Change create button to "Update"
-            $('#pb_group_create_confirm').html('<i class="fas fa-check mr-1"></i>Update');
-            $('#pb_group_create_form').slideDown(150);
-            $('#pb_group_name_input').focus().select();
-
-            // Override create handler for update
-            $('#pb_group_create_confirm').off('click.groupedit').on('click.groupedit', function() {
-                var name = $('#pb_group_name_input').val().trim() || 'Group';
-                var color = $('.pb-group-swatch.active').data('color') || g.group_color;
-
-                // Remove selected routes from other groups first
+            if (groupEditingIdx >= 0 && groupEditingIdx < routeGroups.length) {
+                // UPDATE existing group
+                var g = routeGroups[groupEditingIdx];
                 var ids = new Set();
                 selectedRouteIds.forEach(function(rid) { ids.add(rid); });
+
+                // Remove selected routes from other groups
                 routeGroups.forEach(function(og, oi) {
                     if (oi === groupEditingIdx) return;
                     ids.forEach(function(rid) { og.route_ids.delete(rid); });
                 });
-                routeGroups = routeGroups.filter(function(og, oi) { return oi === groupEditingIdx || og.route_ids.size > 0; });
+                routeGroups = routeGroups.filter(function(og, oi) {
+                    return oi === groupEditingIdx || og.route_ids.size > 0;
+                });
 
                 // Recalculate editing index after filter
                 var newIdx = routeGroups.indexOf(g);
@@ -3150,14 +2912,54 @@
                 }
 
                 groupEditingIdx = -1;
-                $('#pb_group_create_confirm').off('click.groupedit');
                 $('#pb_group_create_confirm').html('<i class="fas fa-check mr-1"></i>' + t('playbook.groups.create'));
                 $('#pb_group_create_form').slideUp(150);
-
                 saveGroups();
                 refreshGroupUI();
                 PERTIDialog.toast(t('playbook.groups.groupsSaved'), 'success');
-            });
+            } else {
+                // CREATE new group
+                createGroupFromSelection(name, color);
+                $('#pb_group_create_form').slideUp(150);
+                PERTIDialog.toast(t('playbook.groups.groupCreated'), 'success');
+            }
+        });
+        $(document).on('keydown', '#pb_group_name_input', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); $('#pb_group_create_confirm').click(); }
+            if (e.key === 'Escape') { $('#pb_group_create_cancel').click(); }
+        });
+
+        // Create/Edit group cancel
+        $(document).on('click', '#pb_group_create_cancel', function() {
+            groupEditingIdx = -1;
+            $('#pb_group_create_confirm').html('<i class="fas fa-check mr-1"></i>' + t('playbook.groups.create'));
+            $('#pb_group_create_form').slideUp(150);
+        });
+
+        // Delete group
+        $(document).on('click', '.pb-group-delete-btn', function() {
+            var idx = parseInt($(this).data('idx'));
+            deleteGroup(idx);
+            PERTIDialog.toast(t('playbook.groups.groupDeleted'), 'success');
+        });
+
+        // Edit group (open inline form pre-filled, set edit state)
+        $(document).on('click', '.pb-group-edit-btn', function() {
+            var idx = parseInt($(this).data('idx'));
+            if (idx < 0 || idx >= routeGroups.length) return;
+            var g = routeGroups[idx];
+            groupEditingIdx = idx;
+
+            selectedRouteIds.clear();
+            g.route_ids.forEach(function(rid) { selectedRouteIds.add(rid); });
+            updateCheckboxes();
+
+            $('#pb_group_name_input').val(g.group_name);
+            $('.pb-group-swatch').removeClass('active');
+            $('.pb-group-swatch[data-color="' + g.group_color + '"]').addClass('active');
+            $('#pb_group_create_confirm').html('<i class="fas fa-check mr-1"></i>' + t('playbook.groups.update'));
+            $('#pb_group_create_form').slideDown(150);
+            $('#pb_group_name_input').focus().select();
         });
 
         // Clear all groups
@@ -3203,59 +3005,6 @@
                 doIt();
             }
         });
-
-        // Load Config dropdown: populate on open
-        $(document).on('click', '#pb_load_config_dd .pb-cb-trigger', function() {
-            var $menu = $('#pb_load_config_dd .pb-config-menu');
-            $menu.html('<div class="pb-loading py-1 text-center"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
-            loadConfigList(function(configs) {
-                if (!configs.length) {
-                    $menu.html('<div class="small text-muted px-3 py-2">' + t('playbook.groups.noConfigs') + '</div>');
-                    return;
-                }
-                var html = '';
-                configs.forEach(function(c) {
-                    html += '<div class="pb-cb-item pb-config-opt" data-config-id="' + c.config_id + '">';
-                    html += escHtml(c.config_name);
-                    if (c.description) html += ' <small class="text-muted">— ' + escHtml(c.description.substring(0, 40)) + '</small>';
-                    html += '<button class="btn btn-xs text-danger pb-config-delete-btn ml-2" data-config-id="' + c.config_id + '" title="Delete"><i class="fas fa-trash-alt"></i></button>';
-                    html += '</div>';
-                });
-                $menu.html(html);
-            });
-        });
-
-        // Apply config
-        $(document).on('click', '.pb-config-opt', function(e) {
-            if ($(e.target).closest('.pb-config-delete-btn').length) return;
-            var configId = parseInt($(this).data('config-id'));
-            $('.pb-cb-dropdown').removeClass('open');
-
-            var doApply = function() { applyConfig(configId); };
-
-            if (routeGroups.length) {
-                PERTIDialog.confirmDanger(
-                    t('playbook.groups.confirmReplace'),
-                    t('playbook.groups.confirmReplaceText')
-                ).then(function(result) {
-                    if (result.isConfirmed) doApply();
-                });
-            } else {
-                doApply();
-            }
-        });
-
-        // Delete config
-        $(document).on('click', '.pb-config-delete-btn', function(e) {
-            e.stopPropagation();
-            var configId = parseInt($(this).data('config-id'));
-            var $item = $(this).closest('.pb-config-opt');
-            deleteConfig(configId);
-            $item.fadeOut(200, function() { $item.remove(); });
-        });
-
-        // Save config
-        $(document).on('click', '#pb_group_save_config', saveCurrentAsConfig);
 
         // Click group name to scroll to those routes
         $(document).on('click', '.pb-group-item-name', function() {
