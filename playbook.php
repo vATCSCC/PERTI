@@ -291,6 +291,7 @@ include("load/nav.php");
                                 <th><?= __('playbook.destination') ?></th>
                                 <th><?= __('playbook.destFilter') ?></th>
                                 <th class="pb-re-th-route"><?= __('playbook.routeString') ?></th>
+                                <th><?= __('playbook.remarks') ?></th>
                                 <th style="width:32px;"></th>
                             </tr>
                         </thead>
