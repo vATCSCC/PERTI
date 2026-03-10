@@ -1082,12 +1082,12 @@
 
         // Description
         if (play.description) {
-            html += '<div class="pb-play-description">' + escHtml(play.description) + '</div>';
+            html += '<div class="pb-play-description" style="white-space:pre-wrap;">' + escHtml(play.description) + '</div>';
         }
 
         // Play-level remarks
         if (play.remarks) {
-            html += '<div class="pb-play-remarks"><strong>' + t('playbook.remarks') + ':</strong> ' + escHtml(play.remarks) + '</div>';
+            html += '<div class="pb-play-remarks" style="white-space:pre-wrap;"><strong>' + t('playbook.remarks') + ':</strong> ' + escHtml(play.remarks) + '</div>';
         }
 
         // Facilities (inline-editable with optional region coloring)
@@ -1238,6 +1238,7 @@
             html += '<th>TRACON</th>';
             html += '<th>ARTCC</th>';
             html += '<th>Traversed</th>';
+            html += '<th>Remarks</th>';
             html += '</tr></thead><tbody>';
 
             sortedRoutes.forEach(function(r) {
@@ -1284,6 +1285,7 @@
                 html += '<td>' + renderFacilityCodes(destTracon, ',') + '</td>';
                 html += '<td>' + renderFacilityCodes(destArtcc, ',') + '</td>';
                 html += '<td>' + renderFacilityCodes(r.traversed_artccs || '-', ',') + '</td>';
+                html += '<td style="white-space:pre-wrap;">' + escHtml(r.remarks || '') + '</td>';
                 html += '</tr>';
             });
 
@@ -2174,6 +2176,7 @@
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest pb-re-apt" value="' + escHtml(route.dest || '') + '" placeholder="KXYZ"></td>';
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest-filter pb-re-filter" value="' + escHtml(route.dest_filter || '') + '" placeholder="-APT"></td>';
         html += '<td class="pb-re-cell"><textarea class="form-control form-control-sm pb-re-route" rows="1" placeholder="DCT FIX1 J123 FIX2 DCT">' + escHtml(route.route_string || '') + '</textarea></td>';
+        html += '<td class="pb-re-cell"><textarea class="form-control form-control-sm pb-re-remarks" rows="1" placeholder="Notes...">' + escHtml(route.remarks || '') + '</textarea></td>';
         html += '<td class="pb-re-cell"><button class="btn btn-sm btn-outline-danger pb-re-delete" title="' + t('playbook.deleteRoute') + '"><i class="fas fa-times"></i></button></td>';
         html += '</tr>';
         $('#pb_route_edit_body').append(html);
@@ -2273,7 +2276,8 @@
                 origin_artccs: unique(csvSplit(computed ? computed.origin_artccs : '').concat(origClass.artccs)).join(','),
                 dest_airports: unique(csvSplit(computed ? computed.dest_airports : '').concat(destClass.airports)).join(','),
                 dest_tracons: unique(csvSplit(computed ? computed.dest_tracons : '').concat(destClass.tracons)).join(','),
-                dest_artccs: unique(csvSplit(computed ? computed.dest_artccs : '').concat(destClass.artccs)).join(',')
+                dest_artccs: unique(csvSplit(computed ? computed.dest_artccs : '').concat(destClass.artccs)).join(','),
+                remarks: $tr.find('.pb-re-remarks').val().trim()
             });
         });
 
