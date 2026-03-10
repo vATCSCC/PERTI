@@ -2589,6 +2589,7 @@ $(document).ready(function() {
             } else {
                 for (let i = 0; i < nPoints - 1; i++) {
                     const from = routePoints[i], to = routePoints[i + 1];
+                    if (String(from[0]).toUpperCase() === 'UNKN' || String(to[0]).toUpperCase() === 'UNKN') {continue;}
                     const idxFrom = routeExpandedIndex[i], idxTo = routeExpandedIndex[i + 1];
                     const segSolid = solidExpanded[idxFrom] && solidExpanded[idxTo];
                     addSegmentFeature(routeFeatures, [[from[2], from[1]], [to[2], to[1]]], routeColor, segSolid, false, thisRouteId, from[0], to[0]);
