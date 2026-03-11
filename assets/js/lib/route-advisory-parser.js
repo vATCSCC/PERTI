@@ -73,12 +73,12 @@
         var routeStrings = [];
         parsed.forEach(function(r) {
             var str = r.route_string;
-            // Prepend origin if it looks like an ICAO airport (4 alpha chars)
-            if (r.origin && /^[A-Z]{4}$/.test(r.origin)) {
+            // Prepend origin if it looks like an ICAO airport (4 alpha chars, not UNKN)
+            if (r.origin && /^[A-Z]{4}$/.test(r.origin) && r.origin !== 'UNKN') {
                 str = r.origin + ' ' + str;
             }
-            // Append dest if it looks like an ICAO airport
-            if (r.dest && /^[A-Z]{4}$/.test(r.dest)) {
+            // Append dest if it looks like an ICAO airport (not UNKN)
+            if (r.dest && /^[A-Z]{4}$/.test(r.dest) && r.dest !== 'UNKN') {
                 str = str + ' ' + r.dest;
             }
             routeStrings.push(str);
@@ -347,12 +347,36 @@
     // ── Utilities ────────────────────────────────────────────────────────────
 
     /**
-     * Parse an origin/dest field like "ZLA(-LAS -SAN)" or "KEWR KJFK KLGA"
-     * into array of {code, filter}
+     * Parse an origin/dest field like "ZLA(-LAS -SAN)", "KEWR KJFK KLGA",
+     * or "FIR:EB..,ED..,EP..,LO.." into array of {code, filter}
      */
     function parseOriginDestField(raw) {
         if (!raw || raw === 'UNKN') return [];
         var str = raw.replace(/\s+/g, ' ').trim();
+
+        // Handle FIR: pattern — expand using FacilityHierarchy if available
+        var firMatch = str.match(/^FIR:([A-Z0-9]{1,4}\.{2,}(?:,[A-Z0-9]{1,4}\.{2,})*)$/i);
+        if (firMatch) {
+            if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.expandFirPattern) {
+                var expanded = [];
+                firMatch[1].split(',').forEach(function(pat) {
+                    pat = pat.trim();
+                    if (!pat) return;
+                    var codes = FacilityHierarchy.expandFirPattern('FIR:' + pat);
+                    expanded = expanded.concat(codes);
+                });
+                // Deduplicate
+                var seen = {};
+                return expanded.filter(function(c) {
+                    if (seen[c]) return false;
+                    seen[c] = true;
+                    return true;
+                }).map(function(c) { return { code: c, filter: '' }; });
+            }
+            // Fallback: return the raw pattern as a single entry
+            return [{ code: str, filter: '' }];
+        }
+
         var results = [];
         var re = /([A-Z][A-Z0-9]{1,4})(\([^)]*\))?/g;
         var m;

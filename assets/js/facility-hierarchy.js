@@ -1340,11 +1340,37 @@
      * @param {string} pattern - Pattern like 'FIR:ED..', 'ED', 'C', 'LF', or '*'
      * @returns {string[]} Matching FIR codes from ARTCCS
      */
+    // Dynamic FIR code registry — populated at runtime from GeoJSON data
+    var _registeredFirCodes = [];
+
+    /**
+     * Register additional FIR codes for pattern expansion (e.g. from GeoJSON).
+     * Deduplicates against existing ARTCCS entries.
+     * @param {string[]} codes - Array of ICAO FIR codes
+     */
+    function registerFirCodes(codes) {
+        if (!codes || !codes.length) return;
+        var existing = {};
+        ARTCCS.forEach(function(c) { existing[c] = true; });
+        _registeredFirCodes.forEach(function(c) { existing[c] = true; });
+        var added = 0;
+        codes.forEach(function(c) {
+            c = String(c).toUpperCase().trim();
+            if (c && !existing[c]) {
+                _registeredFirCodes.push(c);
+                existing[c] = true;
+                added++;
+            }
+        });
+        if (added > 0) console.log('[FacilityHierarchy] Registered', added, 'additional FIR codes (total:', ARTCCS.length + _registeredFirCodes.length + ')');
+    }
+
     function expandFirPattern(pattern) {
         if (!pattern) return [];
         var prefix = String(pattern).toUpperCase().replace(/^FIR:/i, '').replace(/\.+$/, '');
-        if (!prefix || prefix === '*') return ARTCCS.slice();
-        return ARTCCS.filter(function(code) { return code.indexOf(prefix) === 0; });
+        var all = ARTCCS.concat(_registeredFirCodes);
+        if (!prefix || prefix === '*') return all.slice();
+        return all.filter(function(code) { return code.indexOf(prefix) === 0; });
     }
 
     // ===========================================
@@ -1411,6 +1437,7 @@
 
         // FIR pattern expansion
         expandFirPattern: expandFirPattern,
+        registerFirCodes: registerFirCodes,
     };
 
 })(typeof window !== 'undefined' ? window : this);
