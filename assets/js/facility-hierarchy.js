@@ -79,7 +79,28 @@
         'CZQX': ['ZQX', 'CZX'],    // Gander Domestic
         'CZQO': ['ZQO', 'CZO'],    // Gander Oceanic
         'CZUL': ['ZUL', 'CZU'],    // Montreal
-        // US Oceanic with ICAO prefixes
+        // US CONUS ARTCCs: ICAO K-prefix → FAA 3-letter
+        'ZAB': ['KZAB'],           // Albuquerque
+        'ZAU': ['KZAU'],           // Chicago
+        'ZBW': ['KZBW'],           // Boston
+        'ZDC': ['KZDC'],           // Washington
+        'ZDV': ['KZDV'],           // Denver
+        'ZFW': ['KZFW'],           // Fort Worth
+        'ZHU': ['KZHU'],           // Houston
+        'ZID': ['KZID'],           // Indianapolis
+        'ZJX': ['KZJX'],           // Jacksonville
+        'ZKC': ['KZKC'],           // Kansas City
+        'ZLA': ['KZLA'],           // Los Angeles
+        'ZLC': ['KZLC'],           // Salt Lake City
+        'ZMA': ['KZMA'],           // Miami
+        'ZME': ['KZME'],           // Memphis
+        'ZMP': ['KZMP'],           // Minneapolis
+        'ZNY': ['KZNY'],           // New York
+        'ZOA': ['KZOA'],           // Oakland
+        'ZOB': ['KZOB'],           // Cleveland
+        'ZSE': ['KZSE'],           // Seattle
+        'ZTL': ['KZTL'],           // Atlanta
+        // US Oceanic/Territory with ICAO prefixes
         'ZAK': ['KZAK'],           // Oakland Oceanic
         'ZWY': ['KZWY'],           // New York Oceanic
         'ZUA': ['PGZU'],           // Guam CERAP
@@ -714,6 +735,285 @@
                 'LRBB', 'LBSR', 'LTAA', 'LYBA', 'LAAA', 'LWSK', 'LUUU'],
         },
     };
+
+    // ===========================================
+    // FIR Facility Groups (macro-regional groupings)
+    // Used by FIR: prefix expansion — FIR:SSA → list of L1 FIR codes
+    // Members are authoritative L1 ARTCC/FIR/ACC codes
+    // ===========================================
+
+    const FIR_FACILITY_GROUPS = {
+        // ============ North America ============
+        'USA': {
+            name: 'USA (CONUS)',
+            description: 'Continental US ARTCCs (Lower 48)',
+            members: ['ZAB', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHU', 'ZID', 'ZJX', 'ZKC',
+                       'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB', 'ZSE', 'ZTL'],
+        },
+        'CONUS': { alias: 'USA' },
+        'USALL': {
+            name: 'USA (All)',
+            description: 'All US ARTCCs incl. Alaska, Hawaii, Oceanic',
+            members: ['ZAB', 'ZAN', 'ZAU', 'ZBW', 'ZDC', 'ZDV', 'ZFW', 'ZHN', 'ZHU', 'ZID',
+                       'ZJX', 'ZKC', 'ZLA', 'ZLC', 'ZMA', 'ZME', 'ZMP', 'ZNY', 'ZOA', 'ZOB',
+                       'ZSE', 'ZTL', 'ZHO', 'ZMO', 'ZWY', 'ZAK', 'ZAP', 'ZUA'],
+        },
+        'USAEC': {
+            name: 'USA East Coast',
+            description: 'Eastern US ARTCCs',
+            members: ['ZBW', 'ZNY', 'ZDC', 'ZOB', 'ZID', 'ZTL', 'ZJX', 'ZMA'],
+        },
+        'USAWC': {
+            name: 'USA West Coast',
+            description: 'Pacific Coast ARTCCs',
+            members: ['ZSE', 'ZOA', 'ZLA'],
+        },
+        'USA4W': {
+            name: '4 West',
+            description: 'Four westernmost ARTCCs',
+            members: ['ZLA', 'ZOA', 'ZSE', 'ZLC'],
+        },
+        'USA6W': {
+            name: '6 West',
+            description: 'Six western ARTCCs',
+            members: ['ZLA', 'ZLC', 'ZDV', 'ZOA', 'ZAB', 'ZSE'],
+        },
+        '6WEST': { alias: 'USA6W' },
+        'USA8W': {
+            name: '8 West',
+            description: 'Eight western ARTCCs',
+            members: ['ZLA', 'ZLC', 'ZDV', 'ZOA', 'ZAB', 'ZSE', 'ZFW', 'ZHU'],
+        },
+        'USA10W': {
+            name: '10 West',
+            description: 'Ten western ARTCCs',
+            members: ['ZAB', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZMP', 'ZOA', 'ZSE'],
+        },
+        '10WEST': { alias: 'USA10W' },
+        'USA12W': {
+            name: '12 West',
+            description: 'Twelve western/central ARTCCs',
+            members: ['ZAB', 'ZAU', 'ZDV', 'ZFW', 'ZHU', 'ZKC', 'ZLA', 'ZLC', 'ZME', 'ZMP', 'ZOA', 'ZSE'],
+        },
+        '12WEST': { alias: 'USA12W' },
+        'GULF': {
+            name: 'Gulf',
+            description: 'US Gulf region ARTCCs',
+            members: ['ZJX', 'ZMA', 'ZHU'],
+        },
+        'CAN': {
+            name: 'Canada (Domestic)',
+            description: 'Domestic Canadian FIRs (non-oceanic)',
+            members: ['CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZUL'],
+        },
+        'CANE': {
+            name: 'Canada East',
+            description: 'Eastern Canadian FIRs',
+            members: ['CZYZ', 'CZUL', 'CZQM', 'CZQX'],
+        },
+        'CANW': {
+            name: 'Canada West',
+            description: 'Western Canadian FIRs',
+            members: ['CZVR', 'CZEG', 'CZWG'],
+        },
+        'MEX': {
+            name: 'Mexico',
+            description: 'Mexican FIRs (non-oceanic)',
+            members: ['MMMX', 'MMTY', 'MMZT', 'MMMD', 'MMUN', 'MMFR'],
+        },
+        'CAR': {
+            name: 'Caribbean',
+            description: 'Caribbean FIRs',
+            members: ['TJZS', 'MKJK', 'MUFH', 'MYNA', 'MDCS', 'MTEG', 'TNCF', 'TTZP'],
+        },
+        'CAM': {
+            name: 'Central America',
+            description: 'Central American FIRs (non-oceanic)',
+            members: ['MHCC', 'MPZL', 'MGGT', 'MNMG', 'MRPV', 'MSLP'],
+        },
+
+        // ============ South America ============
+        'SAM': {
+            name: 'South America',
+            description: 'South American FIRs (non-oceanic)',
+            members: ['SACF', 'SBCW', 'SCFZ', 'SEGU', 'SKED', 'SLVR', 'SMPM', 'SPIM', 'SVZM', 'SYGC', 'SUEO'],
+        },
+
+        // ============ Europe ============
+        'EUR': {
+            name: 'Europe',
+            description: 'European FIRs (non-oceanic)',
+            members: [
+                'EGPX', 'EGTT', 'EISN',
+                'LFFF', 'LFBB', 'LFEE', 'LFMM', 'LFRR',
+                'EDGG', 'EDMM', 'EDUU', 'EDWW', 'EHAA', 'EBBU', 'ELLX', 'LSAS',
+                'EFIN', 'ENOR', 'ESAA', 'EKDK',
+                'EETT', 'EVRR', 'EYVL', 'EPWW',
+                'LOVV', 'LKAA', 'LZBB', 'LHCC', 'LDZO', 'LJLA', 'LQSB',
+                'LECM', 'LECB', 'LECS', 'LPPC',
+                'LIBB', 'LIMM', 'LIPP', 'LIRR', 'LGGG', 'LCCC', 'LMMM',
+                'LRBB', 'LBSR', 'LTAA', 'LYBA', 'LAAA', 'LWSK', 'LUUU',
+                'UKBV',
+            ],
+        },
+
+        // ============ Africa ============
+        'AFR': {
+            name: 'Africa',
+            description: 'All African FIRs',
+            members: [
+                'HECC', 'HLLL', 'DTTC', 'DAAA', 'GMMM', 'GCCC',
+                'GOOO', 'GUCY', 'GFLL', 'GLRB', 'DGAC', 'DBBB', 'DNKK', 'DRRR', 'DXXX',
+                'FTTT', 'FKKK', 'FGSL', 'FOON', 'FZZA', 'FCCC',
+                'HAAA', 'HKNA', 'HUEN', 'HRYR', 'HTDC', 'HSSS', 'HDAL', 'HCSM',
+                'FAJA', 'FQBE', 'FVHA', 'FBGR', 'FWLL', 'FLFI', 'FYWH', 'FXMM', 'FDMS', 'FMMI', 'FNLU', 'FHAW',
+            ],
+        },
+        'NAFR': {
+            name: 'North Africa',
+            description: 'North African FIRs (Mediterranean + Canaries)',
+            members: ['HECC', 'HLLL', 'DTTC', 'DAAA', 'GMMM', 'GCCC'],
+        },
+        'SSA': {
+            name: 'Sub-Saharan Africa',
+            description: 'Sub-Saharan African FIRs',
+            members: [
+                'GOOO', 'GUCY', 'GFLL', 'GLRB', 'DGAC', 'DBBB', 'DNKK', 'DRRR', 'DXXX',
+                'FTTT', 'FKKK', 'FGSL', 'FOON', 'FZZA', 'FCCC',
+                'HAAA', 'HKNA', 'HUEN', 'HRYR', 'HTDC', 'HSSS', 'HDAL', 'HCSM',
+                'FAJA', 'FQBE', 'FVHA', 'FBGR', 'FWLL', 'FLFI', 'FYWH', 'FXMM', 'FDMS', 'FMMI', 'FNLU', 'FHAW',
+            ],
+        },
+
+        // ============ Middle East ============
+        'MEA': {
+            name: 'Middle East',
+            description: 'Middle Eastern FIRs',
+            members: ['OEJD', 'OOMM', 'OMAE', 'OBBB', 'OKAC', 'OTBD', 'OIIX', 'OJAC', 'OSTT', 'OLBB', 'ORBB', 'LLLL', 'OYSC'],
+        },
+
+        // ============ Asia ============
+        'SEA': {
+            name: 'Southeast Asia',
+            description: 'Southeast Asian FIRs (non-oceanic)',
+            members: ['VTBB', 'VLVT', 'VVHN', 'VYYY', 'WMFC', 'WSJC', 'WIIF', 'WAAF', 'WBFC', 'WRRR', 'RPHI'],
+        },
+        'IND': {
+            name: 'India',
+            description: 'Indian FIRs',
+            members: ['VABF', 'VECF', 'VIDF', 'VOMF'],
+        },
+        'SOA': {
+            name: 'South Asia',
+            description: 'India, Bangladesh, Nepal, Sri Lanka, Pakistan, Bhutan',
+            members: ['VABF', 'VECF', 'VIDF', 'VOMF', 'VGFR', 'VNKT', 'VCCF', 'VQPR', 'OPLR'],
+        },
+        'CHI': {
+            name: 'China',
+            description: 'Chinese FIRs (non-oceanic)',
+            members: ['ZBPE', 'ZSHA', 'ZGZU', 'ZHWH', 'ZUUU', 'ZYSH', 'ZLHW'],
+        },
+        'ZHI': { alias: 'CHI' },
+        'EAA': {
+            name: 'East Asia',
+            description: 'China, Japan, Korea (both), Taiwan, Hong Kong, Macau, Mongolia',
+            members: ['ZBPE', 'ZSHA', 'ZGZU', 'ZHWH', 'ZUUU', 'ZYSH', 'ZLHW',
+                       'RJJJ', 'RORK', 'RKRR', 'RCAA', 'ZKPY', 'VHHK', 'VMMC', 'UBRR'],
+        },
+        'NDO': {
+            name: 'Indonesia',
+            description: 'Indonesian FIRs (non-oceanic)',
+            members: ['WIIF', 'WAAF', 'WRRR'],
+        },
+        'NDP': {
+            name: 'Indo-Pacific',
+            description: 'Indo-Pacific region (non-oceanic)',
+            members: [
+                // South Asia
+                'VABF', 'VECF', 'VIDF', 'VOMF', 'VGFR', 'VNKT', 'VCCF', 'VQPR', 'OPLR',
+                // Southeast Asia
+                'VTBB', 'VLVT', 'VVHN', 'VYYY', 'WMFC', 'WSJC', 'WIIF', 'WAAF', 'WBFC', 'WRRR', 'RPHI',
+                // East Asia
+                'ZBPE', 'ZSHA', 'ZGZU', 'ZHWH', 'ZUUU', 'ZYSH', 'ZLHW',
+                'RJJJ', 'RORK', 'RKRR', 'RCAA', 'VHHK', 'VMMC',
+                // Oceania
+                'YMMM', 'YBBB', 'NZZO',
+            ],
+        },
+        'RUS': {
+            name: 'Russia',
+            description: 'Russian FIRs (non-oceanic)',
+            members: ['UUWV', 'ULMM', 'URRV', 'UWWW', 'USSS', 'UNNT', 'UHHH'],
+        },
+        'CEA': {
+            name: 'Central Asia',
+            description: 'Central Asian FIRs (Kazakhstan, Uzbekistan, etc.)',
+            members: ['UTAT', 'UACC', 'UTDD', 'UCFM'],
+        },
+
+        // ============ Oceania / Pacific ============
+        'AUS': {
+            name: 'Australia',
+            description: 'Australian FIRs (non-oceanic)',
+            members: ['YMMM', 'YBBB'],
+        },
+        'NZE': {
+            name: 'New Zealand',
+            description: 'New Zealand FIR',
+            members: ['NZZO'],
+        },
+        'ANZ': {
+            name: 'Australia & New Zealand',
+            description: 'Australia and New Zealand FIRs',
+            members: ['YMMM', 'YBBB', 'NZZO'],
+        },
+        'SPAC': {
+            name: 'South Pacific',
+            description: 'South Pacific island FIRs',
+            members: ['NFFF', 'NWWW', 'NCRG', 'NSFA', 'NTTT'],
+        },
+        'APAC': {
+            name: 'ANZ + South Pacific',
+            description: 'Australia, New Zealand, and South Pacific',
+            members: ['YMMM', 'YBBB', 'NZZO', 'NFFF', 'NWWW', 'NCRG', 'NSFA', 'NTTT'],
+        },
+        'PAC': {
+            name: 'Pacific (Islands)',
+            description: 'Pacific island FIRs (excl. Australia/NZ)',
+            members: ['NFFF', 'NWWW', 'NCRG', 'NSFA', 'NTTT', 'PGUM', 'PWUZ', 'PKMJ', 'PTAA'],
+        },
+        'EPAC': {
+            name: 'East Pacific',
+            description: 'Eastern Pacific oceanic FIRs',
+            members: ['ZAK', 'ZHN'],
+        },
+        'WPAC': {
+            name: 'West Pacific',
+            description: 'Western Pacific FIRs',
+            members: ['PGUM', 'PWUZ', 'PKMJ', 'PTAA'],
+        },
+        'NPAC': {
+            name: 'North Pacific',
+            description: 'Northern Pacific oceanic FIRs',
+            members: ['ZAP', 'ZAK'],
+        },
+    };
+
+    /**
+     * Resolve a FIR facility group code, following aliases.
+     * @param {string} code - Group code (e.g. 'SSA', 'ZHI', '6WEST')
+     * @returns {object|null} Group entry with members[], or null
+     */
+    function resolveFirGroup(code) {
+        if (!code) {return null;}
+        var entry = FIR_FACILITY_GROUPS[code.toUpperCase()];
+        if (!entry) {return null;}
+        // Follow alias chain (max 2 hops to prevent infinite loops)
+        for (var i = 0; i < 2 && entry && entry.alias; i++) {
+            entry = FIR_FACILITY_GROUPS[entry.alias];
+        }
+        return (entry && entry.members) ? entry : null;
+    }
 
     // ===========================================
     // Airport Groups (FAA operational performance tiers)
@@ -1370,7 +1670,35 @@
         var prefix = String(pattern).toUpperCase().replace(/^FIR:/i, '').replace(/\.+$/, '');
         var all = ARTCCS.concat(_registeredFirCodes);
         if (!prefix || prefix === '*') return all.slice();
-        return all.filter(function(code) { return code.indexOf(prefix) === 0; });
+
+        // Check FIR facility groups first (e.g., SSA, EUR, CHI)
+        var group = resolveFirGroup(prefix);
+        if (group) return group.members.slice();
+
+        // Prefix matching against ARTCCS + registered codes
+        var matches = all.filter(function(code) { return code.indexOf(prefix) === 0; });
+
+        // US ICAO normalization: KZAB→ZAB, KZOA→ZOA
+        // If prefix starts with K (US ICAO) and no direct matches, strip K and retry
+        if (!matches.length && prefix.charAt(0) === 'K') {
+            var stripped = prefix.substring(1);
+            matches = all.filter(function(code) { return code.indexOf(stripped) === 0; });
+        }
+        // Non-K ICAO prefixes (PAZA→ZAN, PHZH→ZHN, PGZU→ZUA): check aliases
+        if (!matches.length) {
+            var seen = {};
+            Object.keys(ALIAS_TO_CANONICAL).forEach(function(alias) {
+                if (alias.indexOf(prefix) === 0) {
+                    var canonical = ALIAS_TO_CANONICAL[alias];
+                    if (!seen[canonical]) {
+                        seen[canonical] = true;
+                        matches.push(canonical);
+                    }
+                }
+            });
+        }
+
+        return matches;
     }
 
     // ===========================================
@@ -1438,6 +1766,8 @@
         // FIR pattern expansion
         expandFirPattern: expandFirPattern,
         registerFirCodes: registerFirCodes,
+        FIR_FACILITY_GROUPS: FIR_FACILITY_GROUPS,
+        resolveFirGroup: resolveFirGroup,
     };
 
 })(typeof window !== 'undefined' ? window : this);

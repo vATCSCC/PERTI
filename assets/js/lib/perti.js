@@ -1306,6 +1306,12 @@
         });
     });
 
+    // US CONUS ARTCCs: ICAO K-prefix → FAA 3-letter
+    ['ZAB','ZAU','ZBW','ZDC','ZDV','ZFW','ZHU','ZID','ZJX','ZKC',
+     'ZLA','ZLC','ZMA','ZME','ZMP','ZNY','ZOA','ZOB','ZSE','ZTL'].forEach(function(faa) {
+        ARTCC_ALIASES['K' + faa] = faa;
+    });
+
     // US Oceanic/Territory ARTCCs: ICAO form → canonical FAA form
     ARTCC_ALIASES['KZAK'] = 'ZAK';   // Oakland Oceanic
     ARTCC_ALIASES['KZWY'] = 'ZWY';   // New York Oceanic

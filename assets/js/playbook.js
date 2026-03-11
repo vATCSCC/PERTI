@@ -624,7 +624,8 @@
             tok = tok.toUpperCase();
             var resolved = resolveTraconAlias(tok);
             if (hasFH && FacilityHierarchy.isArtcc(resolved)) {
-                artccs.push(resolved);
+                // Push canonical form (e.g. KZOA→ZOA, PAZA→ZAN)
+                artccs.push(FacilityHierarchy.resolveAlias ? FacilityHierarchy.resolveAlias(resolved) : resolved);
             } else if (hasFH && FacilityHierarchy.isTracon(resolved)) {
                 tracons.push(resolved);
                 var parent = FacilityHierarchy.getParentArtcc(resolved);
@@ -637,8 +638,8 @@
                     if (parent) artccs.push(parent);
                 }
             } else if ((typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isArtcc && FacilityHierarchy.isArtcc(tok)) || /^(Z[A-Z]{2}|CZ[A-Z]{2})$/.test(tok)) {
-                // Regex fallback for ARTCC/FIR codes
-                artccs.push(tok);
+                // Regex fallback for ARTCC/FIR codes — push canonical form
+                artccs.push(hasFH && FacilityHierarchy.resolveAlias ? FacilityHierarchy.resolveAlias(tok) : tok);
             } else if (/^[A-Z]{4}$/.test(tok) && !/^(Z[A-Z]{2}|CZ[A-Z])$/.test(tok.substring(0,3))) {
                 // 4-letter ICAO airport
                 airports.push(tok);
