@@ -219,15 +219,6 @@ include("load/nav.php");
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-4">
-                        <div class="form-group">
-                            <label><?= __('playbook.routeFormat') ?></label>
-                            <select id="pb_edit_route_format" class="form-control form-control-sm">
-                                <option value="standard"><?= __('playbook.formatStandard') ?></option>
-                                <option value="split"><?= __('playbook.formatSplit') ?></option>
-                            </select>
-                        </div>
-                    </div>
                 </div>
 
                 <div class="form-group">
@@ -236,7 +227,7 @@ include("load/nav.php");
                 </div>
 
                 <div class="form-group">
-                    <label>Remarks</label>
+                    <label><?= __('playbook.remarks') ?></label>
                     <textarea id="pb_edit_remarks" class="form-control form-control-sm" rows="2" placeholder="Notes for TMU personnel..."></textarea>
                 </div>
 
@@ -291,8 +282,8 @@ include("load/nav.php");
                                 <th><?= __('playbook.destination') ?></th>
                                 <th><?= __('playbook.destFilter') ?></th>
                                 <th class="pb-re-th-route"><?= __('playbook.routeString') ?></th>
-                                <th><?= __('playbook.remarks') ?></th>
-                                <th style="width:32px;"></th>
+                                <th class="pb-re-th-remarks" title="<?= __('playbook.remarks') ?>"><i class="fas fa-sticky-note"></i></th>
+                                <th class="pb-re-th-action"></th>
                             </tr>
                         </thead>
                         <tbody id="pb_route_edit_body"></tbody>

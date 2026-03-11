@@ -2110,7 +2110,6 @@
         $('#pb_edit_display_name').val('');
         setCategoryDropdown('');
         $('#pb_edit_scenario_type').val('');
-        $('#pb_edit_route_format').val('standard');
         $('#pb_edit_description').val('');
         $('#pb_edit_remarks').val('');
         $('#pb_edit_status').val('active');
@@ -2128,7 +2127,6 @@
         $('#pb_edit_display_name').val(play.display_name || '');
         setCategoryDropdown(play.category || '');
         $('#pb_edit_scenario_type').val(play.scenario_type || '');
-        $('#pb_edit_route_format').val(play.route_format || 'standard');
         $('#pb_edit_description').val(play.description || '');
         $('#pb_edit_remarks').val(play.remarks || '');
         $('#pb_edit_status').val(play.status || 'active');
@@ -2152,7 +2150,6 @@
         $('#pb_edit_display_name').val(play.display_name || '');
         setCategoryDropdown(play.category || '');
         $('#pb_edit_scenario_type').val(play.scenario_type || '');
-        $('#pb_edit_route_format').val(play.route_format || 'standard');
         $('#pb_edit_description').val(play.description || '');
         $('#pb_edit_remarks').val(play.remarks || '');
         $('#pb_edit_status').val('draft');
@@ -2170,17 +2167,71 @@
 
     function addEditRouteRow(r) {
         var route = r || {};
+        var hasRemarks = !!(route.remarks && route.remarks.trim());
         var html = '<tr>';
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-origin pb-re-apt" value="' + escHtml(route.origin || '') + '" placeholder="KABC"></td>';
-        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-origin-filter pb-re-filter" value="' + escHtml(route.origin_filter || '') + '" placeholder="-APT"></td>';
+        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-origin-filter" value="' + escHtml(route.origin_filter || '') + '" placeholder="-APT"></td>';
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest pb-re-apt" value="' + escHtml(route.dest || '') + '" placeholder="KXYZ"></td>';
-        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest-filter pb-re-filter" value="' + escHtml(route.dest_filter || '') + '" placeholder="-APT"></td>';
+        html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest-filter" value="' + escHtml(route.dest_filter || '') + '" placeholder="-APT"></td>';
         html += '<td class="pb-re-cell"><textarea class="form-control form-control-sm pb-re-route" rows="1" placeholder="DCT FIX1 J123 FIX2 DCT">' + escHtml(route.route_string || '') + '</textarea></td>';
-        html += '<td class="pb-re-cell"><textarea class="form-control form-control-sm pb-re-remarks" rows="1" placeholder="Notes...">' + escHtml(route.remarks || '') + '</textarea></td>';
-        html += '<td class="pb-re-cell"><button class="btn btn-sm btn-outline-danger pb-re-delete" title="' + t('playbook.deleteRoute') + '"><i class="fas fa-times"></i></button></td>';
+        html += '<td class="pb-re-cell" style="text-align:center;"><input type="hidden" class="pb-re-remarks" value="' + escHtml(route.remarks || '') + '"><button type="button" class="pb-re-remarks-btn' + (hasRemarks ? ' has-remarks' : '') + '" title="' + escHtml(route.remarks || t('playbook.remarks')) + '"><i class="fas fa-sticky-note"></i></button></td>';
+        html += '<td class="pb-re-cell" style="text-align:center;"><button class="btn btn-sm btn-outline-danger pb-re-delete" title="' + t('playbook.deleteRoute') + '"><i class="fas fa-times"></i></button></td>';
         html += '</tr>';
-        $('#pb_route_edit_body').append(html);
+        var $tr = $(html);
+        $('#pb_route_edit_body').append($tr);
+
+        // Auto-resize route textarea to fit content
+        var $ta = $tr.find('.pb-re-route');
+        autoResizeTextarea($ta[0]);
+        $ta.on('input', function() { autoResizeTextarea(this); });
     }
+
+    function autoResizeTextarea(el) {
+        if (!el) return;
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+    }
+
+    // Remarks popover — toggle on button click
+    $(document).on('click', '.pb-re-remarks-btn', function(e) {
+        e.stopPropagation();
+        var $btn = $(this);
+        var $td = $btn.closest('td');
+        var $hidden = $td.find('.pb-re-remarks');
+
+        // Close any existing popover
+        $('.pb-re-remarks-popover').remove();
+
+        var $pop = $('<div class="pb-re-remarks-popover"></div>');
+        var $ta = $('<textarea rows="3" placeholder="' + t('playbook.remarks') + '..."></textarea>');
+        $ta.val($hidden.val());
+        $pop.append($ta);
+        $td.css('position', 'relative').append($pop);
+        $ta.focus();
+
+        // Save on blur
+        $ta.on('blur', function() {
+            var val = $ta.val().trim();
+            $hidden.val(val);
+            $btn.toggleClass('has-remarks', !!val);
+            $btn.attr('title', val || t('playbook.remarks'));
+            $pop.remove();
+        });
+
+        // Close on Escape
+        $ta.on('keydown', function(ev) {
+            if (ev.key === 'Escape') { $ta.blur(); }
+        });
+    });
+
+    // Close remarks popover when clicking elsewhere
+    $(document).on('click', function() { $('.pb-re-remarks-popover').remove(); });
+    $(document).on('click', '.pb-re-remarks-popover', function(e) { e.stopPropagation(); });
+
+    // Auto-resize all route textareas when modal becomes visible
+    $('#pb_play_modal').on('shown.bs.modal', function() {
+        $('#pb_route_edit_body .pb-re-route').each(function() { autoResizeTextarea(this); });
+    });
 
     function applyBulkPaste() {
         var text = $('#pb_bulk_paste_text').val().trim();
@@ -2297,7 +2348,6 @@
             description: $('#pb_edit_description').val().trim(),
             category: ($('#pb_edit_category').val() || '').replace('__custom__', '').trim(),
             scenario_type: $('#pb_edit_scenario_type').val(),
-            route_format: $('#pb_edit_route_format').val(),
             status: $('#pb_edit_status').val(),
             source: sourceVal,
             airac_cycle: getAiracCycle(),
@@ -2735,7 +2785,6 @@
                 description: play.description || '',
                 category: play.category || '',
                 scenario_type: play.scenario_type || '',
-                route_format: play.route_format || 'standard',
                 status: play.status || 'active',
                 airac_cycle: play.airac_cycle || '',
                 facilities_involved: newVal,
