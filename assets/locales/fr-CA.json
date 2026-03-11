@@ -3732,7 +3732,25 @@
       "groupDeleted": "Groupe supprim\u00e9",
       "saveFailed": "\u00c9chec de l'enregistrement des groupes",
       "loadFailed": "\u00c9chec du chargement des groupes"
-    }
+    },
+    "routeTools": "Outils de routes",
+    "consolidateRoutes": "Consolider les routes",
+    "consolidateCount": "{count} routes consolid\u00e9es en {groups} groupes",
+    "noConsolidation": "Aucune route en double trouv\u00e9e",
+    "consolidatedBadge": "{count} routes",
+    "standardView": "Standard",
+    "compactView": "Compact",
+    "pivotFix": "PIVOT",
+    "fromRoutes": "DE",
+    "toRoutes": "VERS",
+    "routesVia": "{count} sur {total} routes via {fix}",
+    "noPivots": "Aucun point pivot trouv\u00e9 \u2014 affichage consolid\u00e9",
+    "autoFilters": "Filtres auto",
+    "autoFiltersCount": "{count} filtres sugg\u00e9r\u00e9s",
+    "autoFiltersNone": "Aucun chevauchement hi\u00e9rarchique trouv\u00e9",
+    "autoFiltersApplied": "{count} filtres appliqu\u00e9s",
+    "autoFiltersConfirm": "Appliquer {count} filtres d\u00e9tect\u00e9s automatiquement ?",
+    "autoFiltersDesc": "Les filtres d'exclusion suivants ont \u00e9t\u00e9 d\u00e9tect\u00e9s \u00e0 partir des chevauchements de hi\u00e9rarchie ARTCC/a\u00e9roport :"
   },
   "privacy": {
     "changesText": "CANOC doit s'assurer de notifier tous les membres concernés de tout changement à cette politique. Toutes les informations collectées avant la date d'une nouvelle politique sont soumises aux dispositions de l'ancienne politique et ne peuvent être modifiées ou partagées de quelque manière que ce soit sans consentement adéquat.",
