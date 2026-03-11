@@ -89,7 +89,56 @@ $(document).ready(function() {
 
         // Small airports often used as pseudo-fixes
         'MMU': { lat: 40.80, lon: -74.42 },    // Morristown Municipal, NJ
+
+        // Most international FIR centers are populated dynamically from artcc.json GeoJSON
+        // via enrichAreaCentersFromGeoJSON() after boundary data loads (~370 codes).
+        // The entries below are fallbacks for codes NOT in the primary GeoJSON.
+        // Sources: backup GeoJSON (ENOR, ESAA, LSAS, MMFR, EDUU),
+        //          oceanic_fir_bounds midpoints (ZAP, ZWY, ZHO, ZMO),
+        //          well-known positions (MMUN, MMFO, MYNA, ELLX, BICC).
+        'ZAP':  { lat: 59.00, lon: -175.90 },  // Anchorage Oceanic
+        'ZWY':  { lat: 37.50, lon: -57.50 },   // New York Oceanic
+        'ZHO':  { lat: 24.00, lon: -91.50 },   // Houston Oceanic
+        'ZMO':  { lat: 23.65, lon: -73.07 },   // Miami Oceanic
+        'MMUN': { lat: 21.04, lon: -86.87 },   // Cancun FIR
+        'MMFO': { lat: 22.00, lon: -115.00 },  // Mazatlan Oceanic
+        'MMFR': { lat: 22.90, lon: -102.81 },  // Mexico North FIR
+        'MYNA': { lat: 25.21, lon: -77.30 },   // Nassau FIR
+        'EDUU': { lat: 51.50, lon: 10.10 },    // Karlsruhe UAC
+        'ELLX': { lat: 49.61, lon: 6.13 },     // Luxembourg FIR
+        'LSAS': { lat: 46.76, lon: 7.86 },     // Swiss FIR
+        'ENOR': { lat: 62.53, lon: 9.46 },     // Norway FIR
+        'ESAA': { lat: 62.45, lon: 16.66 },    // Sweden FIR
+        'BICC': { lat: 64.80, lon: -18.00 },   // Reykjavik ACC
     };
+
+    /**
+     * Populate areaCenters from ARTCC boundary GeoJSON data.
+     * Extracts label_lat/label_lon from each feature's properties and adds entries
+     * under both the raw ICAOCODE and canonical alias (via FacilityHierarchy.resolveAlias).
+     * Skips codes already in areaCenters to preserve hardcoded US ARTCC/TRACON entries.
+     */
+    function enrichAreaCentersFromGeoJSON(geojson) {
+        if (!geojson || !geojson.features) return;
+        var added = 0;
+        for (var fi = 0; fi < geojson.features.length; fi++) {
+            var p = geojson.features[fi].properties;
+            if (!p || !p.ICAOCODE || p.label_lat == null || p.label_lon == null) continue;
+            var code = String(p.ICAOCODE).trim();
+            if (!code) continue;
+            // Add under raw ICAOCODE
+            if (!areaCenters[code]) { areaCenters[code] = { lat: p.label_lat, lon: p.label_lon }; added++; }
+            // Add under canonical alias (e.g. KZAK→ZAK, MMEX→MMMX, EDXX→EDUU)
+            if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.resolveAlias) {
+                var canonical = FacilityHierarchy.resolveAlias(code);
+                if (canonical !== code && !areaCenters[canonical]) {
+                    areaCenters[canonical] = { lat: p.label_lat, lon: p.label_lon }; added++;
+                }
+            }
+        }
+        if (added > 0) console.log('[MAPLIBRE] areaCenters: enriched with', added, 'entries from GeoJSON');
+    }
+
     const cdrMap = {};
     const playbookRoutes = [];
     const playbookByPlayName = {};
@@ -1398,6 +1447,7 @@ $(document).ready(function() {
                 // Set L1 data on the main 'artcc' source (used by search highlight layers)
                 if (data.artcc && graphic_map.getSource('artcc')) {
                     graphic_map.getSource('artcc').setData(data.artcc);
+                    enrichAreaCentersFromGeoJSON(data.artcc);
                     console.log('[MAPLIBRE] Loaded artcc - features:', data.artcc.features ? data.artcc.features.length : 'N/A');
                 }
                 // Add hierarchy layers (super, sub, deep) with separate sources
@@ -1466,6 +1516,7 @@ $(document).ready(function() {
                 .then(function(response) { if (!response.ok) throw new Error('HTTP ' + response.status); return response.json(); })
                 .then(function(data) {
                     if (graphic_map.getSource('artcc')) graphic_map.getSource('artcc').setData(data);
+                    enrichAreaCentersFromGeoJSON(data);
                     if (typeof PERTIArtccLabels !== 'undefined') PERTIArtccLabels.addToMap(graphic_map, { source: 'artcc', visible: false });
                 })
                 .catch(function(err) { console.error('[MAPLIBRE] Failed to load artcc:', err); });
@@ -2402,6 +2453,42 @@ $(document).ready(function() {
 
             let tokens = origTokensClean.slice();
             let currentSolidMask = solidMask.slice();
+
+            // FIR pattern expansion: expand FIR:XX.. tokens to individual FIR codes
+            // Handles: FIR:EI.., FIR:EI..,EG..,LF.. (comma-separated), bare dot-patterns EG..
+            // Must run BEFORE dot-splitting (which strips trailing dots)
+            if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.expandFirPattern) {
+                const expToks = [], expSolid = [];
+                for (let fi = 0; fi < tokens.length; fi++) {
+                    const tok = tokens[fi];
+                    const sol = currentSolidMask[fi] || false;
+                    const hasFirPrefix = /^FIR:/i.test(tok);
+                    const hasDots = /\.\./.test(tok);
+                    if (!hasFirPrefix && !hasDots) { expToks.push(tok); expSolid.push(sol); continue; }
+
+                    // Split comma-separated patterns (FIR:EI..,EG..,LF..)
+                    const parts = tok.indexOf(',') !== -1 ? tok.split(',') : [tok];
+                    let expanded = false;
+                    for (let pi = 0; pi < parts.length; pi++) {
+                        let pat = parts[pi].trim();
+                        if (!pat) {continue;}
+                        // Inherit FIR: prefix for comma-separated parts after the first
+                        if (pi > 0 && hasFirPrefix && !/^FIR:/i.test(pat)) { pat = 'FIR:' + pat; }
+                        // Only expand if it looks like a pattern (has FIR: prefix or trailing dots)
+                        if (/^FIR:/i.test(pat) || /^[A-Z]{1,3}\.{2,}$/i.test(pat)) {
+                            const codes = FacilityHierarchy.expandFirPattern(pat);
+                            for (let ci = 0; ci < codes.length; ci++) { expToks.push(codes[ci]); expSolid.push(sol); }
+                            if (codes.length > 0) {expanded = true;}
+                        }
+                    }
+                    if (!expanded) { expToks.push(tok); expSolid.push(sol); }
+                }
+                if (expToks.length !== tokens.length) {
+                    tokens = expToks;
+                    currentSolidMask = expSolid;
+                    console.log('[MAPLIBRE] FIR expansion:', tokens.length, 'tokens after expansion');
+                }
+            }
 
             if (typeof preprocessRouteProcedures === 'function') {
                 const procInfo = preprocessRouteProcedures(tokens);
