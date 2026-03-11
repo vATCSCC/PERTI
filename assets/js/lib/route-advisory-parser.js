@@ -355,7 +355,8 @@
         var str = raw.replace(/\s+/g, ' ').trim();
 
         // Handle FIR: pattern — expand using FacilityHierarchy if available
-        var firMatch = str.match(/^FIR:([A-Z0-9]{1,4}\.{2,}(?:,[A-Z0-9]{1,4}\.{2,})*)$/i);
+        // Single dot OK (e.g. LIC. = 3-letter prefix), two dots also OK (e.g. LS.. = 2-letter prefix)
+        var firMatch = str.match(/^FIR:([A-Z0-9]{1,4}\.+(?:,[A-Z0-9]{1,4}\.+)*)$/i);
         if (firMatch) {
             if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.expandFirPattern) {
                 var expanded = [];

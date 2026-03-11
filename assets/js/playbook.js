@@ -2187,12 +2187,24 @@
         var $ta = $tr.find('.pb-re-route');
         autoResizeTextarea($ta[0]);
         $ta.on('input', function() { autoResizeTextarea(this); });
+
+        // Auto-size origin/dest/filter inputs to fit content
+        $tr.find('.pb-re-origin, .pb-re-dest, .pb-re-origin-filter, .pb-re-dest-filter').each(function() {
+            autoSizeInput(this);
+        }).on('input', function() { autoSizeInput(this); });
     }
 
     function autoResizeTextarea(el) {
         if (!el) return;
         el.style.height = 'auto';
         el.style.height = el.scrollHeight + 'px';
+    }
+
+    /** Auto-size a text input to fit its value (monospace: ~0.62em per char at 0.72rem) */
+    function autoSizeInput(el) {
+        if (!el) return;
+        var v = el.value || el.placeholder || '';
+        el.size = Math.max(v.length + 1, 4);
     }
 
     // Remarks popover — toggle on button click
@@ -2234,6 +2246,7 @@
     // Auto-resize all route textareas when modal becomes visible
     $('#pb_play_modal').on('shown.bs.modal', function() {
         $('#pb_route_edit_body .pb-re-route').each(function() { autoResizeTextarea(this); });
+        $('#pb_route_edit_body .pb-re-origin, #pb_route_edit_body .pb-re-dest, #pb_route_edit_body .pb-re-origin-filter, #pb_route_edit_body .pb-re-dest-filter').each(function() { autoSizeInput(this); });
     });
 
     /**
@@ -2242,8 +2255,9 @@
      * or null if no FIR pattern found.
      */
     function extractFirOrigin(line) {
-        // Match FIR:XX..[,YY..[,...]] at the start, followed by whitespace
-        var m = line.match(/^(FIR:[A-Z0-9]{1,4}\.{2,}(?:,[A-Z0-9]{1,4}\.{2,})*)\s+/i);
+        // Match FIR:XX.+[,YY.+[,...]] at the start, followed by whitespace
+        // Single dot OK (e.g. LIC. = 3-letter prefix), two dots also OK (e.g. LS.. = 2-letter prefix)
+        var m = line.match(/^(FIR:[A-Z0-9]{1,4}\.+(?:,[A-Z0-9]{1,4}\.+)*)\s+/i);
         if (!m) return null;
         var firStr = m[1];
         var rest = line.substring(m[0].length);
@@ -2280,14 +2294,62 @@
                 trimmed = fir.rest;
             }
 
+            // ── Detect >ROUTE< format: ORIGINS >ROUTE_STRING< DESTINATIONS ──
+            var bracketMatch = trimmed.match(/^(.*?)>(.*?)<(.*)$/);
+            if (bracketMatch) {
+                var originsText = bracketMatch[1].trim();
+                var routeStr = bracketMatch[2].trim();
+                var destsText = bracketMatch[3].trim();
+                if (!routeStr) return;
+
+                // Strip trailing UNKN from destinations
+                destsText = destsText.replace(/\s+UNKN$/i, '').trim();
+
+                var routeData = {
+                    origin: firOrigin || originsText,
+                    route_string: routeStr,
+                    dest: destsText
+                };
+
+                // Classify origin facilities
+                if (firOrigin) {
+                    routeData.origin_artccs = firArtccs.join(',');
+                } else if (originsText) {
+                    var origCodes = originsText.split(/\s+/);
+                    var oTracons = [], oArtccs = [];
+                    origCodes.forEach(function(c) {
+                        var cls = classifyOriginDest(c);
+                        oTracons = oTracons.concat(cls.tracons);
+                        oArtccs = oArtccs.concat(cls.artccs);
+                    });
+                    routeData.origin_tracons = unique(oTracons).join(',');
+                    routeData.origin_artccs = unique(oArtccs).join(',');
+                }
+
+                // Classify destination facilities
+                if (destsText) {
+                    var destCodes = destsText.split(/\s+/);
+                    var dTracons = [], dArtccs = [];
+                    destCodes.forEach(function(c) {
+                        var cls = classifyOriginDest(c);
+                        dTracons = dTracons.concat(cls.tracons);
+                        dArtccs = dArtccs.concat(cls.artccs);
+                    });
+                    routeData.dest_tracons = unique(dTracons).join(',');
+                    routeData.dest_artccs = unique(dArtccs).join(',');
+                }
+
+                addEditRouteRow(routeData);
+                return; // handled — skip plain-route logic
+            }
+
+            // ── Plain route string (no >< markers) ──
             var cleaned = trimmed
-                .replace(/[><]/g, '')   // Strip mandatory route markers
-                .replace(/\s+/g, ' ')   // Normalize whitespace
+                .replace(/\s+/g, ' ')
                 .trim();
             if (!cleaned) return;
 
             // Strip trailing UNKN (unknown destination placeholder in advisories)
-            var destOverride = '';
             if (/\s+UNKN$/i.test(cleaned)) {
                 cleaned = cleaned.replace(/\s+UNKN$/i, '').trim();
             }
@@ -2299,7 +2361,6 @@
                 var parsed = MapLibreRoute.parseRoutesEnhanced([cleaned]);
                 if (parsed && parsed.length) {
                     var r = parsed[0];
-                    // Use the route body (without orig/dest) as route_string
                     if (r.assignedRoute) routeData.route_string = r.assignedRoute;
                     routeData.origin = r.orig || '';
                     routeData.dest = r.dest || '';
