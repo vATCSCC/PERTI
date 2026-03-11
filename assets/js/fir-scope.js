@@ -207,10 +207,19 @@
         optgroupRegional.label = PERTII18n.t('fir.regionalGroups');
 
         Object.keys(FIR_TIER_DATA.regional || {}).forEach(function(code) {
-            const entry = FIR_TIER_DATA.regional[code];
+            var entry = FIR_TIER_DATA.regional[code];
+            // Resolve alias entries (e.g., CONUS → USA)
+            if (entry.alias && FIR_TIER_DATA.regional[entry.alias]) {
+                return; // Skip alias entries in the selector (show only canonical)
+            }
             const opt = document.createElement('option');
             opt.value = code;
             opt.dataset.type = 'fir-regional';
+            // Entries have either patterns (ICAO prefix) or members (L1 facility codes)
+            if (entry.members && entry.members.length > 0) {
+                opt.dataset.scopeType = 'artcc';
+                opt.dataset.members = JSON.stringify(entry.members);
+            }
             opt.dataset.patterns = JSON.stringify(entry.patterns || []);
             opt.textContent = entry.label || code;
             if (entry.description) {
@@ -313,7 +322,8 @@
     }
 
     /**
-     * Check if a departure airport matches FIR scope patterns
+     * Check if a departure airport matches FIR scope patterns,
+     * respecting exclusions from fir_tiers.json (e.g. EGYP excluded from EG*).
      * @param {string} depIcao - Departure airport ICAO code
      * @param {string[]} patterns - Array of patterns (e.g., ['EG*', 'LF*'])
      * @returns {boolean}
@@ -334,9 +344,24 @@
             // E* -> ^E
             // EG* -> ^EG
             // EG** -> ^EG (same as EG*)
-            const regexStr = '^' + pattern.replace(/\*+/g, '');
+            const prefix = pattern.replace(/\*+/g, '');
+            const regexStr = '^' + prefix;
 
             if (new RegExp(regexStr).test(depIcao)) {
+                // Check exclusions from tier config
+                if (FIR_TIER_DATA && FIR_TIER_DATA.byIcaoPrefix && FIR_TIER_DATA.byIcaoPrefix[prefix]) {
+                    var excl = FIR_TIER_DATA.byIcaoPrefix[prefix].exclude;
+                    if (Array.isArray(excl)) {
+                        var isExcluded = false;
+                        for (var e = 0; e < excl.length; e++) {
+                            if (depIcao.indexOf(excl[e].toUpperCase()) === 0) {
+                                isExcluded = true;
+                                break;
+                            }
+                        }
+                        if (isExcluded) {continue;}
+                    }
+                }
                 return true;
             }
         }
@@ -377,6 +402,7 @@
         isActive: isFirModeActive,
         getCurrentPatterns: getCurrentScopePatterns,
         getData: function() { return FIR_TIER_DATA; },
+        getTierData: function() { return FIR_TIER_DATA; },
     };
 
     // Initialize when DOM is ready

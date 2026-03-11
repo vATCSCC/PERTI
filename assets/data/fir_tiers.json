@@ -173,6 +173,251 @@
       "label": "Levant",
       "description": "Israel, Jordan, Lebanon, Syria",
       "patterns": ["LL*", "OJ*", "OL*", "OS*"]
+    },
+
+    "USA": {
+      "code": "USA",
+      "label": "USA (CONUS)",
+      "description": "Continental US ARTCCs (Lower 48)",
+      "members": ["ZAB", "ZAU", "ZBW", "ZDC", "ZDV", "ZFW", "ZHU", "ZID", "ZJX", "ZKC",
+                   "ZLA", "ZLC", "ZMA", "ZME", "ZMP", "ZNY", "ZOA", "ZOB", "ZSE", "ZTL"]
+    },
+    "CONUS": {
+      "code": "CONUS",
+      "label": "CONUS",
+      "description": "Alias for USA (Continental US)",
+      "alias": "USA"
+    },
+    "USALL": {
+      "code": "USALL",
+      "label": "USA (All)",
+      "description": "All US ARTCCs incl. Alaska, Hawaii, Oceanic",
+      "members": ["ZAB", "ZAN", "ZAU", "ZBW", "ZDC", "ZDV", "ZFW", "ZHN", "ZHU", "ZID",
+                   "ZJX", "ZKC", "ZLA", "ZLC", "ZMA", "ZME", "ZMP", "ZNY", "ZOA", "ZOB",
+                   "ZSE", "ZTL", "ZHO", "ZMO", "ZWY", "ZAK", "ZAP", "ZUA"]
+    },
+    "USAEC": {
+      "code": "USAEC",
+      "label": "USA East Coast",
+      "description": "Eastern US ARTCCs",
+      "members": ["ZBW", "ZNY", "ZDC", "ZOB", "ZID", "ZTL", "ZJX", "ZMA"]
+    },
+    "USAWC": {
+      "code": "USAWC",
+      "label": "USA West Coast",
+      "description": "Pacific Coast ARTCCs",
+      "members": ["ZSE", "ZOA", "ZLA"]
+    },
+    "USA4W": {
+      "code": "USA4W",
+      "label": "4 West",
+      "description": "Four westernmost ARTCCs",
+      "members": ["ZLA", "ZOA", "ZSE", "ZLC"]
+    },
+    "USA6W": {
+      "code": "USA6W",
+      "label": "6 West",
+      "description": "Six western ARTCCs",
+      "members": ["ZLA", "ZLC", "ZDV", "ZOA", "ZAB", "ZSE"]
+    },
+    "USA8W": {
+      "code": "USA8W",
+      "label": "8 West",
+      "description": "Eight western ARTCCs",
+      "members": ["ZLA", "ZLC", "ZDV", "ZOA", "ZAB", "ZSE", "ZFW", "ZHU"]
+    },
+    "USA10W": {
+      "code": "USA10W",
+      "label": "10 West",
+      "description": "Ten western ARTCCs",
+      "members": ["ZAB", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZMP", "ZOA", "ZSE"]
+    },
+    "USA12W": {
+      "code": "USA12W",
+      "label": "12 West",
+      "description": "Twelve western/central ARTCCs",
+      "members": ["ZAB", "ZAU", "ZDV", "ZFW", "ZHU", "ZKC", "ZLA", "ZLC", "ZME", "ZMP", "ZOA", "ZSE"]
+    },
+    "GULF": {
+      "code": "GULF",
+      "label": "Gulf (US)",
+      "description": "US Gulf region ARTCCs",
+      "members": ["ZJX", "ZMA", "ZHU"]
+    },
+
+    "CAN": {
+      "code": "CAN",
+      "label": "Canada (Domestic)",
+      "description": "Domestic Canadian FIRs (non-oceanic)",
+      "patterns": ["CZ*"]
+    },
+    "CANE": {
+      "code": "CANE",
+      "label": "Canada East",
+      "description": "Eastern Canadian FIRs (Toronto, Montreal, Moncton, Gander)",
+      "members": ["CZYZ", "CZUL", "CZQM", "CZQX"]
+    },
+    "CANW": {
+      "code": "CANW",
+      "label": "Canada West",
+      "description": "Western Canadian FIRs (Vancouver, Edmonton, Winnipeg)",
+      "members": ["CZVR", "CZEG", "CZWG"]
+    },
+
+    "MEX": {
+      "code": "MEX",
+      "label": "Mexico",
+      "description": "Mexican FIRs (non-oceanic)",
+      "patterns": ["MM*"]
+    },
+    "CAR": {
+      "code": "CAR",
+      "label": "Caribbean",
+      "description": "Caribbean islands FIRs",
+      "patterns": ["MK*", "MU*", "MY*", "MD*", "MT*", "TN*", "TT*", "TJ*", "TB*"]
+    },
+    "CAM": {
+      "code": "CAM",
+      "label": "Central America",
+      "description": "Central American FIRs (non-oceanic)",
+      "patterns": ["MH*", "MP*", "MG*", "MN*", "MR*", "MS*"]
+    },
+
+    "NAFR": {
+      "code": "NAFR",
+      "label": "North Africa",
+      "description": "Mediterranean coast + Canaries/Cape Verde",
+      "patterns": ["HE*", "HL*", "DT*", "DA*", "GM*", "GC*"]
+    },
+    "SSA": {
+      "code": "SSA",
+      "label": "Sub-Saharan Africa",
+      "description": "Sub-Saharan African FIRs",
+      "patterns": ["GO*", "GU*", "GF*", "GL*", "DG*", "DB*", "DN*", "DF*", "DX*",
+                    "FT*", "FK*", "FG*", "FO*", "FZ*", "FC*",
+                    "HA*", "HK*", "HU*", "HR*", "HT*", "HS*", "HD*", "HC*",
+                    "FA*", "FQ*", "FV*", "FB*", "FW*", "FL*", "FY*", "FX*", "FD*", "FM*", "FN*", "FH*",
+                    "FI*", "FS*", "FR*"]
+    },
+
+    "MEA": {
+      "code": "MEA",
+      "label": "Middle East",
+      "description": "Middle Eastern FIRs (alias for MID)",
+      "patterns": ["O*", "LL*"]
+    },
+
+    "SEA": {
+      "code": "SEA",
+      "label": "Southeast Asia",
+      "description": "Southeast Asian FIRs (non-oceanic)",
+      "patterns": ["VT*", "VL*", "VV*", "VY*", "WM*", "WS*", "WI*", "WA*", "WB*", "WR*", "RP*"]
+    },
+    "IND": {
+      "code": "IND",
+      "label": "India",
+      "description": "Indian FIRs",
+      "patterns": ["VA*", "VE*", "VI*", "VO*"]
+    },
+    "SOA": {
+      "code": "SOA",
+      "label": "South Asia",
+      "description": "India, Bangladesh, Nepal, Sri Lanka, Pakistan, Bhutan",
+      "patterns": ["VA*", "VE*", "VI*", "VO*", "VG*", "VN*", "VC*", "VQ*", "OP*"]
+    },
+    "CHI": {
+      "code": "CHI",
+      "label": "China",
+      "description": "Chinese FIRs (non-oceanic)",
+      "patterns": ["ZB*", "ZG*", "ZH*", "ZL*", "ZP*", "ZS*", "ZU*", "ZW*", "ZY*"]
+    },
+    "ZHI": {
+      "code": "ZHI",
+      "label": "China",
+      "description": "Alias for CHI",
+      "alias": "CHI"
+    },
+    "EAA": {
+      "code": "EAA",
+      "label": "East Asia",
+      "description": "China, Japan, Korea, Taiwan, Hong Kong, Macau, Mongolia",
+      "patterns": ["ZB*", "ZG*", "ZH*", "ZL*", "ZP*", "ZS*", "ZU*", "ZW*", "ZY*",
+                    "ZK*", "RJ*", "RK*", "RO*", "RC*", "VH*", "VM*", "UB*"]
+    },
+    "NDO": {
+      "code": "NDO",
+      "label": "Indonesia",
+      "description": "Indonesian FIRs (non-oceanic)",
+      "patterns": ["WI*", "WA*", "WR*"]
+    },
+    "NDP": {
+      "code": "NDP",
+      "label": "Indo-Pacific",
+      "description": "South/Southeast/East Asia + Oceania",
+      "patterns": ["V*", "W*", "R*", "Z*", "Y*", "NZ*", "OP*"]
+    },
+
+    "AUS": {
+      "code": "AUS",
+      "label": "Australia",
+      "description": "Australian FIRs (non-oceanic)",
+      "patterns": ["Y*"]
+    },
+    "NZE": {
+      "code": "NZE",
+      "label": "New Zealand",
+      "description": "New Zealand FIR",
+      "patterns": ["NZ*"]
+    },
+    "ANZ": {
+      "code": "ANZ",
+      "label": "Australia & New Zealand",
+      "description": "Australia and New Zealand FIRs",
+      "patterns": ["Y*", "NZ*"]
+    },
+    "SPAC": {
+      "code": "SPAC",
+      "label": "South Pacific",
+      "description": "South Pacific island FIRs",
+      "patterns": ["NF*", "NW*", "NC*", "NS*", "NI*", "NT*"]
+    },
+    "PAC": {
+      "code": "PAC",
+      "label": "Pacific (Islands)",
+      "description": "Pacific island FIRs (excl. Australia/NZ)",
+      "patterns": ["NF*", "NW*", "NC*", "NS*", "NI*", "NT*", "PG*", "PW*", "PK*", "PT*"]
+    },
+
+    "RUS": {
+      "code": "RUS",
+      "label": "Russia",
+      "description": "Russian FIRs (non-oceanic)",
+      "patterns": ["UU*", "UL*", "UR*", "UW*", "US*", "UN*", "UH*"]
+    },
+    "CEA": {
+      "code": "CEA",
+      "label": "Central Asia",
+      "description": "Central Asian FIRs (Kazakhstan, Uzbekistan, etc.)",
+      "patterns": ["UT*", "UA*", "UC*"]
+    },
+
+    "EPAC": {
+      "code": "EPAC",
+      "label": "East Pacific",
+      "description": "Eastern Pacific oceanic FIRs",
+      "members": ["ZAK", "ZHN"]
+    },
+    "WPAC": {
+      "code": "WPAC",
+      "label": "West Pacific",
+      "description": "Western Pacific FIRs",
+      "members": ["PGUM", "PWUZ", "PKMJ", "PTAA"]
+    },
+    "NPAC": {
+      "code": "NPAC",
+      "label": "North Pacific",
+      "description": "Northern Pacific oceanic FIRs",
+      "members": ["ZAP", "ZAK"]
     }
   },
   
@@ -183,7 +428,8 @@
       "code": "EG",
       "label": "United Kingdom",
       "country": "GB",
-      "patterns": ["EG*"]
+      "patterns": ["EG*"],
+      "exclude": ["EGYP"]
     },
     "EI": {
       "code": "EI",
