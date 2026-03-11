@@ -2275,11 +2275,28 @@
         return { origin: firStr, artccs: artccs, rest: rest };
     }
 
+    /**
+     * Split tokens into leading ICAO airports, route body, and trailing ICAO airports.
+     * ICAO airports are exactly 4 uppercase letters (LIEA, EGGW, etc.).
+     * Waypoints (5+ letters), airways (letters+digits), and DCT are route tokens.
+     */
+    function splitOriginRouteDest(tokens) {
+        // Walk from left: consecutive 4-letter alpha codes = origins
+        var oi = 0;
+        while (oi < tokens.length && /^[A-Z]{4}$/.test(tokens[oi]) && tokens[oi] !== 'UNKN') oi++;
+        // Walk from right: consecutive 4-letter alpha codes = destinations
+        var di = tokens.length;
+        while (di > oi && /^[A-Z]{4}$/.test(tokens[di - 1]) && tokens[di - 1] !== 'UNKN') di--;
+        return {
+            origins: tokens.slice(0, oi),
+            route: tokens.slice(oi, di),
+            dests: tokens.slice(di)
+        };
+    }
+
     function applyBulkPaste() {
         var text = $('#pb_bulk_paste_text').val().trim();
         if (!text) return;
-
-        var hasParsed = typeof MapLibreRoute !== 'undefined' && MapLibreRoute.parseRoutesEnhanced;
 
         var lines = text.split('\n').filter(function(l) { return l.trim(); });
         lines.forEach(function(line) {
@@ -2294,57 +2311,9 @@
                 trimmed = fir.rest;
             }
 
-            // ── Detect >ROUTE< format: ORIGINS >ROUTE_STRING< DESTINATIONS ──
-            var bracketMatch = trimmed.match(/^(.*?)>(.*?)<(.*)$/);
-            if (bracketMatch) {
-                var originsText = bracketMatch[1].trim();
-                var routeStr = bracketMatch[2].trim();
-                var destsText = bracketMatch[3].trim();
-                if (!routeStr) return;
-
-                // Strip trailing UNKN from destinations
-                destsText = destsText.replace(/\s+UNKN$/i, '').trim();
-
-                var routeData = {
-                    origin: firOrigin || originsText,
-                    route_string: routeStr,
-                    dest: destsText
-                };
-
-                // Classify origin facilities
-                if (firOrigin) {
-                    routeData.origin_artccs = firArtccs.join(',');
-                } else if (originsText) {
-                    var origCodes = originsText.split(/\s+/);
-                    var oTracons = [], oArtccs = [];
-                    origCodes.forEach(function(c) {
-                        var cls = classifyOriginDest(c);
-                        oTracons = oTracons.concat(cls.tracons);
-                        oArtccs = oArtccs.concat(cls.artccs);
-                    });
-                    routeData.origin_tracons = unique(oTracons).join(',');
-                    routeData.origin_artccs = unique(oArtccs).join(',');
-                }
-
-                // Classify destination facilities
-                if (destsText) {
-                    var destCodes = destsText.split(/\s+/);
-                    var dTracons = [], dArtccs = [];
-                    destCodes.forEach(function(c) {
-                        var cls = classifyOriginDest(c);
-                        dTracons = dTracons.concat(cls.tracons);
-                        dArtccs = dArtccs.concat(cls.artccs);
-                    });
-                    routeData.dest_tracons = unique(dTracons).join(',');
-                    routeData.dest_artccs = unique(dArtccs).join(',');
-                }
-
-                addEditRouteRow(routeData);
-                return; // handled — skip plain-route logic
-            }
-
-            // ── Plain route string (no >< markers) ──
+            // Strip >< route markers (mandatory/non-mandatory segment annotations)
             var cleaned = trimmed
+                .replace(/[><]/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
             if (!cleaned) return;
@@ -2354,48 +2323,48 @@
                 cleaned = cleaned.replace(/\s+UNKN$/i, '').trim();
             }
 
-            var routeData = { route_string: cleaned };
+            // Split tokens into leading airports (origins), route body, trailing airports (dests)
+            var tokens = cleaned.split(/\s+/);
+            var split = splitOriginRouteDest(tokens);
 
-            // Parse to separate origin/route/dest and compute facility fields
-            if (hasParsed) {
-                var parsed = MapLibreRoute.parseRoutesEnhanced([cleaned]);
-                if (parsed && parsed.length) {
-                    var r = parsed[0];
-                    if (r.assignedRoute) routeData.route_string = r.assignedRoute;
-                    routeData.origin = r.orig || '';
-                    routeData.dest = r.dest || '';
-                }
+            var routeData = {
+                origin: firOrigin || split.origins.join(' '),
+                route_string: split.route.join(' '),
+                dest: split.dests.join(' ')
+            };
+
+            // If no route body found (all tokens were airports), treat as plain route
+            if (!routeData.route_string && cleaned) {
+                routeData.route_string = cleaned;
+                routeData.origin = '';
+                routeData.dest = '';
             }
 
-            // Compute full facility fields (tracons, artccs) from detected origin/dest
-            var computed = autoComputeRouteFields(cleaned);
-            if (computed) {
-                if (!routeData.origin) routeData.origin = computed.origin;
-                if (!routeData.dest) routeData.dest = computed.dest;
-                routeData.origin_airports = computed.origin_airports;
-                routeData.origin_tracons = computed.origin_tracons;
-                routeData.origin_artccs = computed.origin_artccs;
-                routeData.dest_airports = computed.dest_airports;
-                routeData.dest_tracons = computed.dest_tracons;
-                routeData.dest_artccs = computed.dest_artccs;
-            }
-
-            // Apply FIR origin — overrides any parsed origin, merges artccs
+            // Classify origin facilities
             if (firOrigin) {
-                routeData.origin = firOrigin;
-                routeData.origin_artccs = unique(csvSplit(routeData.origin_artccs).concat(firArtccs)).join(',');
+                routeData.origin_artccs = firArtccs.join(',');
+            } else if (split.origins.length) {
+                var oTracons = [], oArtccs = [];
+                split.origins.forEach(function(c) {
+                    var cls = classifyOriginDest(c);
+                    oTracons = oTracons.concat(cls.tracons);
+                    oArtccs = oArtccs.concat(cls.artccs);
+                });
+                routeData.origin_tracons = unique(oTracons).join(',');
+                routeData.origin_artccs = unique(oArtccs).join(',');
             }
 
-            // Post-classify explicit origin/dest for TRACON/ARTCC codes
-            // (skip for FIR origins — already expanded above)
-            if (!firOrigin) {
-                var origClass = classifyOriginDest(routeData.origin);
-                routeData.origin_tracons = unique(csvSplit(routeData.origin_tracons).concat(origClass.tracons)).join(',');
-                routeData.origin_artccs = unique(csvSplit(routeData.origin_artccs).concat(origClass.artccs)).join(',');
+            // Classify destination facilities
+            if (split.dests.length) {
+                var dTracons = [], dArtccs = [];
+                split.dests.forEach(function(c) {
+                    var cls = classifyOriginDest(c);
+                    dTracons = dTracons.concat(cls.tracons);
+                    dArtccs = dArtccs.concat(cls.artccs);
+                });
+                routeData.dest_tracons = unique(dTracons).join(',');
+                routeData.dest_artccs = unique(dArtccs).join(',');
             }
-            var destClass = classifyOriginDest(routeData.dest);
-            routeData.dest_tracons = unique(csvSplit(routeData.dest_tracons).concat(destClass.tracons)).join(',');
-            routeData.dest_artccs = unique(csvSplit(routeData.dest_artccs).concat(destClass.artccs)).join(',');
 
             addEditRouteRow(routeData);
         });
