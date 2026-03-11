@@ -2188,23 +2188,12 @@
         autoResizeTextarea($ta[0]);
         $ta.on('input', function() { autoResizeTextarea(this); });
 
-        // Auto-size origin/dest/filter inputs to fit content
-        $tr.find('.pb-re-origin, .pb-re-dest, .pb-re-origin-filter, .pb-re-dest-filter').each(function() {
-            autoSizeInput(this);
-        }).on('input', function() { autoSizeInput(this); });
     }
 
     function autoResizeTextarea(el) {
         if (!el) return;
         el.style.height = 'auto';
         el.style.height = el.scrollHeight + 'px';
-    }
-
-    /** Auto-size a text input to fit its value (monospace: ~0.62em per char at 0.72rem) */
-    function autoSizeInput(el) {
-        if (!el) return;
-        var v = el.value || el.placeholder || '';
-        el.size = Math.max(v.length + 1, 4);
     }
 
     // Remarks popover — toggle on button click
@@ -2246,7 +2235,6 @@
     // Auto-resize all route textareas when modal becomes visible
     $('#pb_play_modal').on('shown.bs.modal', function() {
         $('#pb_route_edit_body .pb-re-route').each(function() { autoResizeTextarea(this); });
-        $('#pb_route_edit_body .pb-re-origin, #pb_route_edit_body .pb-re-dest, #pb_route_edit_body .pb-re-origin-filter, #pb_route_edit_body .pb-re-dest-filter').each(function() { autoSizeInput(this); });
     });
 
     /**
