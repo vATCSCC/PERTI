@@ -87,13 +87,16 @@
         'ZAP': ['PAZN'],           // Anchorage Oceanic
         'ZHN': ['PHZH'],           // Honolulu
         // Mexican FIRs: ICAO -> Short
-        'MMMX': ['ZMX'],           // Mexico City
+        'MMMX': ['ZMX', 'MMEX'],   // Mexico City (MMEX in GeoJSON)
         'MMTY': ['ZMT'],           // Monterrey
         'MMZT': ['ZMZ'],           // Mazatlan
-        'MMMD': ['ZMR'],           // Merida
+        'MMMD': ['ZMR', 'MMID'],   // Merida (MMID in GeoJSON)
         'MMUN': ['ZMC'],           // Cancun
         // Caribbean FIRs
         'TJZS': ['ZSU'],           // San Juan
+        // GeoJSON alternate ICAO codes
+        'EDUU': ['EDXX'],          // Karlsruhe UAC (EDXX in GeoJSON)
+        'LWSK': ['LWSS'],          // Skopje FIR (LWSS in GeoJSON)
     };
 
     // TRACON aliases: consolidated/legacy TRACONs mapped to their current canonical code.
