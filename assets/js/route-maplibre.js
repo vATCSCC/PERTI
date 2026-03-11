@@ -2334,6 +2334,11 @@ $(document).ready(function() {
                 const advRoutes = parseAdvisoryRoutes(block);
                 if (advRoutes) {routeStrings = routeStrings.concat(advRoutes);}
             });
+        } else if (typeof RouteAdvisoryParser !== 'undefined' && RouteAdvisoryParser.isAdvisorySection(rawInput)) {
+            // Auto-detect advisory ROUTES section (ORIG/DEST/ROUTE or FROM:/TO: format)
+            const advStrings = RouteAdvisoryParser.toRouteStrings(rawInput);
+            console.log('[MAPLIBRE] Parsed advisory ROUTES section:', advStrings.length, 'routes');
+            routeStrings = routeStrings.concat(advStrings);
         } else {
             const expanded = expandGroupsInRouteInput(rawInput);
             expanded.split(/\r?\n/).forEach(line => {

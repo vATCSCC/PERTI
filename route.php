@@ -2329,6 +2329,7 @@ include('load/footer.php');
 <script src="assets/js/public-routes.js<?= _v('assets/js/public-routes.js') ?>"></script>
 <script src="assets/js/playbook-cdr-search.js<?= _v('assets/js/playbook-cdr-search.js') ?>"></script>
 <script src="assets/js/lib/artcc-hierarchy.js<?= _v('assets/js/lib/artcc-hierarchy.js') ?>"></script>
+<script src="assets/js/lib/route-advisory-parser.js<?= _v('assets/js/lib/route-advisory-parser.js') ?>"></script>
 <script src="assets/js/route-maplibre.js<?= _v('assets/js/route-maplibre.js') ?>"></script>
 <script src="assets/js/playbook-dcc-loader.js<?= _v('assets/js/playbook-dcc-loader.js') ?>"></script>
 
