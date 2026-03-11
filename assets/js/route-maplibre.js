@@ -50,12 +50,19 @@ $(document).ready(function() {
         'ZHN': { lat: 21.32, lon: -157.92 },  // Honolulu Center
         'TJZS': { lat: 18.44, lon: -66.00 },  // San Juan FIR (Caribbean)
 
-        // Canadian FIRs (short codes)
-        'CZY': { lat: 43.68, lon: -79.63 },   // Toronto FIR (CZYZ)
-        'CZU': { lat: 45.47, lon: -73.74 },   // Montreal FIR (CZUL)
-        'CZV': { lat: 49.19, lon: -123.18 },  // Vancouver FIR (CZVR)
-        'CZW': { lat: 49.91, lon: -97.24 },   // Winnipeg FIR (CZWG)
-        'CZE': { lat: 53.31, lon: -113.58 },  // Edmonton FIR (CZEG)
+        // Canadian FIRs (short aliases + full ICAO codes)
+        // Full ICAO codes hardcoded here so enrichAreaCentersFromGeoJSON() skips them —
+        // GeoJSON centroids are geometric (pulled far north by Arctic boundaries).
+        'CZY':  { lat: 43.68, lon: -79.63 },   // Toronto FIR (short)
+        'CZYZ': { lat: 43.68, lon: -79.63 },   // Toronto FIR
+        'CZU':  { lat: 45.47, lon: -73.74 },   // Montreal FIR (short)
+        'CZUL': { lat: 45.47, lon: -73.74 },   // Montreal FIR
+        'CZV':  { lat: 49.19, lon: -123.18 },  // Vancouver FIR (short)
+        'CZVR': { lat: 49.19, lon: -123.18 },  // Vancouver FIR
+        'CZW':  { lat: 49.91, lon: -97.24 },   // Winnipeg FIR (short)
+        'CZWG': { lat: 49.91, lon: -97.24 },   // Winnipeg FIR
+        'CZE':  { lat: 53.31, lon: -113.58 },  // Edmonton FIR (short)
+        'CZEG': { lat: 53.31, lon: -113.58 },  // Edmonton FIR
 
         // Caribbean / Central America FIRs
         'MDPO': { lat: 18.43, lon: -69.67 },  // Santo Domingo FIR (Dominican Republic)
@@ -121,11 +128,13 @@ $(document).ready(function() {
     function enrichAreaCentersFromGeoJSON(geojson) {
         if (!geojson || !geojson.features) return;
         var added = 0;
+        var firCodes = [];
         for (var fi = 0; fi < geojson.features.length; fi++) {
             var p = geojson.features[fi].properties;
             if (!p || !p.ICAOCODE || p.label_lat == null || p.label_lon == null) continue;
             var code = String(p.ICAOCODE).trim();
             if (!code) continue;
+            firCodes.push(code);
             // Add under raw ICAOCODE
             if (!areaCenters[code]) { areaCenters[code] = { lat: p.label_lat, lon: p.label_lon }; added++; }
             // Add under canonical alias (e.g. KZAK→ZAK, MMEX→MMMX, EDXX→EDUU)
@@ -137,6 +146,10 @@ $(document).ready(function() {
             }
         }
         if (added > 0) console.log('[MAPLIBRE] areaCenters: enriched with', added, 'entries from GeoJSON');
+        // Register all GeoJSON FIR codes globally so FIR pattern expansion covers all 387+ codes
+        if (firCodes.length && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.registerFirCodes) {
+            FacilityHierarchy.registerFirCodes(firCodes);
+        }
     }
 
     const cdrMap = {};

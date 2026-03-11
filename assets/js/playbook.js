@@ -2236,6 +2236,31 @@
         $('#pb_route_edit_body .pb-re-route').each(function() { autoResizeTextarea(this); });
     });
 
+    /**
+     * Detect and extract a FIR: pattern from the start of a route line.
+     * Returns { origin: 'FIR:EB..,ED..', artccs: ['EBBU','EDGG',...], rest: 'remaining line' }
+     * or null if no FIR pattern found.
+     */
+    function extractFirOrigin(line) {
+        // Match FIR:XX..[,YY..[,...]] at the start, followed by whitespace
+        var m = line.match(/^(FIR:[A-Z0-9]{1,4}\.{2,}(?:,[A-Z0-9]{1,4}\.{2,})*)\s+/i);
+        if (!m) return null;
+        var firStr = m[1];
+        var rest = line.substring(m[0].length);
+        var artccs = [];
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.expandFirPattern) {
+            var raw = firStr.replace(/^FIR:/i, '');
+            raw.split(',').forEach(function(pat) {
+                pat = pat.trim();
+                if (!pat) return;
+                var codes = FacilityHierarchy.expandFirPattern('FIR:' + pat);
+                artccs = artccs.concat(codes);
+            });
+            artccs = unique(artccs);
+        }
+        return { origin: firStr, artccs: artccs, rest: rest };
+    }
+
     function applyBulkPaste() {
         var text = $('#pb_bulk_paste_text').val().trim();
         if (!text) return;
@@ -2244,11 +2269,28 @@
 
         var lines = text.split('\n').filter(function(l) { return l.trim(); });
         lines.forEach(function(line) {
-            var cleaned = line.trim()
+            var trimmed = line.trim();
+
+            // Detect FIR: pattern at the start as origin
+            var fir = extractFirOrigin(trimmed);
+            var firOrigin = '', firArtccs = [];
+            if (fir) {
+                firOrigin = fir.origin;
+                firArtccs = fir.artccs;
+                trimmed = fir.rest;
+            }
+
+            var cleaned = trimmed
                 .replace(/[><]/g, '')   // Strip mandatory route markers
                 .replace(/\s+/g, ' ')   // Normalize whitespace
                 .trim();
             if (!cleaned) return;
+
+            // Strip trailing UNKN (unknown destination placeholder in advisories)
+            var destOverride = '';
+            if (/\s+UNKN$/i.test(cleaned)) {
+                cleaned = cleaned.replace(/\s+UNKN$/i, '').trim();
+            }
 
             var routeData = { route_string: cleaned };
 
@@ -2277,11 +2319,20 @@
                 routeData.dest_artccs = computed.dest_artccs;
             }
 
+            // Apply FIR origin — overrides any parsed origin, merges artccs
+            if (firOrigin) {
+                routeData.origin = firOrigin;
+                routeData.origin_artccs = unique(csvSplit(routeData.origin_artccs).concat(firArtccs)).join(',');
+            }
+
             // Post-classify explicit origin/dest for TRACON/ARTCC codes
-            var origClass = classifyOriginDest(routeData.origin);
+            // (skip for FIR origins — already expanded above)
+            if (!firOrigin) {
+                var origClass = classifyOriginDest(routeData.origin);
+                routeData.origin_tracons = unique(csvSplit(routeData.origin_tracons).concat(origClass.tracons)).join(',');
+                routeData.origin_artccs = unique(csvSplit(routeData.origin_artccs).concat(origClass.artccs)).join(',');
+            }
             var destClass = classifyOriginDest(routeData.dest);
-            routeData.origin_tracons = unique(csvSplit(routeData.origin_tracons).concat(origClass.tracons)).join(',');
-            routeData.origin_artccs = unique(csvSplit(routeData.origin_artccs).concat(origClass.artccs)).join(',');
             routeData.dest_tracons = unique(csvSplit(routeData.dest_tracons).concat(destClass.tracons)).join(',');
             routeData.dest_artccs = unique(csvSplit(routeData.dest_artccs).concat(destClass.artccs)).join(',');
 
