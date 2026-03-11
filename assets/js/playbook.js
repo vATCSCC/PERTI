@@ -48,6 +48,9 @@
     var routeGroups = [];           // Array of { group_name, group_color, route_ids: Set, sort_order }
     var groupEditingIdx = -1;       // Index of group being edited (-1 = none)
 
+    // Route view mode: 'standard' | 'consolidated' | 'compact'
+    var routeViewMode = 'standard';
+
     var GROUP_COLORS = [
         '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12',
         '#1abc9c', '#e91e63', '#00bcd4', '#ff5722', '#607d8b',
@@ -1208,89 +1211,26 @@
         html += '<div id="pb_group_toolbar"></div>';
 
         if (routes.length) {
-            // Select All row + route count
+            // Select All row + route count + view toggle
             html += '<div class="d-flex justify-content-between align-items-center mb-1">';
             html += '<span class="pb-select-all" id="pb_select_all">' + t('playbook.selectAll') + '</span>';
+            html += '<div class="d-flex align-items-center">';
             html += '<span style="font-size:0.68rem;color:#999;">' + routes.length + ' ' + t('playbook.routes').toLowerCase() + '</span>';
+            html += '<div class="pb-view-toggle" id="pb_view_toggle">';
+            html += '<button data-view="standard" class="' + (routeViewMode === 'standard' ? 'active' : '') + '" title="' + t('playbook.standardView') + '"><i class="fas fa-list"></i></button>';
+            html += '<button data-view="consolidated" class="' + (routeViewMode === 'consolidated' ? 'active' : '') + '" title="' + t('playbook.consolidateRoutes') + '"><i class="fas fa-compress-arrows-alt"></i></button>';
+            html += '<button data-view="compact" class="' + (routeViewMode === 'compact' ? 'active' : '') + '" title="' + t('playbook.compactView') + '"><i class="fas fa-columns"></i></button>';
+            html += '</div>';
+            html += '</div>';
             html += '</div>';
 
-            // Sort routes: grouped first (by group order), ungrouped last
-            var sortedRoutes = routes.slice();
-            if (hasGroups) {
-                sortedRoutes.sort(function(a, b) {
-                    var ga = getRouteGroupIndex(a.route_id);
-                    var gb = getRouteGroupIndex(b.route_id);
-                    if (ga === -1 && gb === -1) return 0;
-                    if (ga === -1) return 1;
-                    if (gb === -1) return -1;
-                    return ga - gb;
-                });
+            if (routeViewMode === 'compact') {
+                html += renderCompactViewHtml(routes);
+            } else if (routeViewMode === 'consolidated') {
+                html += renderConsolidatedTableHtml(routes);
+            } else {
+                html += renderStandardTableHtml(routes, hasSearch, hasGroups);
             }
-
-            html += '<div class="pb-route-table-wrap">';
-            html += '<table class="pb-route-table"><thead><tr>';
-            html += '<th class="pb-route-check"><input type="checkbox" id="pb_check_all"></th>';
-            if (hasGroups) html += '<th style="width:6px;padding:0;"></th>';
-            html += '<th>Origin</th>';
-            html += '<th>TRACON</th>';
-            html += '<th>ARTCC</th>';
-            html += '<th>' + t('playbook.routeString') + '</th>';
-            html += '<th>Dest</th>';
-            html += '<th>TRACON</th>';
-            html += '<th>ARTCC</th>';
-            html += '<th>Traversed</th>';
-            html += '<th>Remarks</th>';
-            html += '</tr></thead><tbody>';
-
-            sortedRoutes.forEach(function(r) {
-                var origApt = r.origin_airports || r.origin || '-';
-                var origTracon = r.origin_tracons || '-';
-                var origArtcc = r.origin_artccs || '-';
-                var destApt = r.dest_airports || r.dest || '-';
-                var destTracon = r.dest_tracons || '-';
-                var destArtcc = r.dest_artccs || '-';
-
-                // If origin has unclassified TRACONs, resolve on the fly
-                if (origTracon === '-' && r.origin && /^[A-Z][0-9]{2}/.test(r.origin)) {
-                    var cls = classifyOriginDest(r.origin);
-                    if (cls.tracons.length) origTracon = cls.tracons.join(',');
-                    if (cls.artccs.length && origArtcc === '-') origArtcc = cls.artccs.join(',');
-                }
-                if (destTracon === '-' && r.dest && /^[A-Z][0-9]{2}/.test(r.dest)) {
-                    var cls = classifyOriginDest(r.dest);
-                    if (cls.tracons.length) destTracon = cls.tracons.join(',');
-                    if (cls.artccs.length && destArtcc === '-') destArtcc = cls.artccs.join(',');
-                }
-
-                // Search emphasis classes
-                var searchMatch = !hasSearch || routeMatchesSearchClauses(r, currentSearchClauses);
-                var rowClasses = [];
-                if (hasSearch) rowClasses.push(searchMatch ? 'pb-route-emphasized' : 'pb-route-dimmed');
-
-                // Group indicator
-                var groupColor = getRouteGroupColor(r.route_id);
-                if (groupColor) rowClasses.push('pb-route-grouped');
-
-                var rowClass = rowClasses.join(' ');
-
-                html += '<tr data-route-id="' + r.route_id + '"' + (rowClass ? ' class="' + rowClass + '"' : '') + (groupColor ? ' style="border-left:4px solid ' + groupColor + ';"' : '') + '>';
-                html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb" value="' + r.route_id + '"' + (selectedRouteIds.has(r.route_id) ? ' checked' : '') + '></td>';
-                if (hasGroups) {
-                    html += '<td style="padding:0 2px;">' + (groupColor ? '<span class="pb-group-dot-inline" style="background:' + groupColor + ';"></span>' : '') + '</td>';
-                }
-                html += '<td>' + escHtml(origApt) + (r.origin_filter ? ' <small class="text-muted">' + escHtml(r.origin_filter) + '</small>' : '') + '</td>';
-                html += '<td>' + renderFacilityCodes(origTracon, ',') + '</td>';
-                html += '<td>' + renderFacilityCodes(origArtcc, ',') + '</td>';
-                html += '<td>' + escHtml(r.route_string) + '</td>';
-                html += '<td>' + escHtml(destApt) + (r.dest_filter ? ' <small class="text-muted">' + escHtml(r.dest_filter) + '</small>' : '') + '</td>';
-                html += '<td>' + renderFacilityCodes(destTracon, ',') + '</td>';
-                html += '<td>' + renderFacilityCodes(destArtcc, ',') + '</td>';
-                html += '<td>' + renderFacilityCodes(r.traversed_artccs || '-', ',') + '</td>';
-                html += '<td style="white-space:pre-wrap;">' + escHtml(r.remarks || '') + '</td>';
-                html += '</tr>';
-            });
-
-            html += '</tbody></table></div>';
         } else {
             html += '<div class="pb-empty-state"><i class="fas fa-route"></i>' + t('playbook.noRoutes') + '</div>';
         }
@@ -1304,6 +1244,338 @@
         $('#pb_detail_content').html(html);
         renderGroupToolbar();
         updateToolbarVisibility();
+    }
+
+    // ── Standard route table (original view) ──
+    function renderStandardTableHtml(routes, hasSearch, hasGroups) {
+        var html = '';
+        var sortedRoutes = routes.slice();
+        if (hasGroups) {
+            sortedRoutes.sort(function(a, b) {
+                var ga = getRouteGroupIndex(a.route_id);
+                var gb = getRouteGroupIndex(b.route_id);
+                if (ga === -1 && gb === -1) return 0;
+                if (ga === -1) return 1;
+                if (gb === -1) return -1;
+                return ga - gb;
+            });
+        }
+
+        html += '<div class="pb-route-table-wrap">';
+        html += '<table class="pb-route-table"><thead><tr>';
+        html += '<th class="pb-route-check" style="width:28px"><input type="checkbox" id="pb_check_all"></th>';
+        if (hasGroups) html += '<th style="width:10px;padding:0;"></th>';
+        html += '<th style="width:13%">Origin</th>';
+        html += '<th style="width:5%">TRACON</th>';
+        html += '<th style="width:5%">ARTCC</th>';
+        html += '<th>' + t('playbook.routeString') + '</th>';
+        html += '<th style="width:13%">Dest</th>';
+        html += '<th style="width:5%">TRACON</th>';
+        html += '<th style="width:5%">ARTCC</th>';
+        html += '<th style="width:7%">Traversed</th>';
+        html += '<th style="width:5%">Remarks</th>';
+        html += '</tr></thead><tbody>';
+
+        sortedRoutes.forEach(function(r) {
+            var origApt = r.origin_airports || r.origin || '-';
+            var origTracon = r.origin_tracons || '-';
+            var origArtcc = r.origin_artccs || '-';
+            var destApt = r.dest_airports || r.dest || '-';
+            var destTracon = r.dest_tracons || '-';
+            var destArtcc = r.dest_artccs || '-';
+
+            // Space-delimit airports for route-advisory style display
+            var origDisplay = origApt !== '-' ? origApt.replace(/,\s*/g, ' ') : '-';
+            var destDisplay = destApt !== '-' ? destApt.replace(/,\s*/g, ' ') : '-';
+
+            if (origTracon === '-' && r.origin && /^[A-Z][0-9]{2}/.test(r.origin)) {
+                var cls = classifyOriginDest(r.origin);
+                if (cls.tracons.length) origTracon = cls.tracons.join(',');
+                if (cls.artccs.length && origArtcc === '-') origArtcc = cls.artccs.join(',');
+            }
+            if (destTracon === '-' && r.dest && /^[A-Z][0-9]{2}/.test(r.dest)) {
+                var cls = classifyOriginDest(r.dest);
+                if (cls.tracons.length) destTracon = cls.tracons.join(',');
+                if (cls.artccs.length && destArtcc === '-') destArtcc = cls.artccs.join(',');
+            }
+
+            var searchMatch = !hasSearch || routeMatchesSearchClauses(r, currentSearchClauses);
+            var rowClasses = [];
+            if (hasSearch) rowClasses.push(searchMatch ? 'pb-route-emphasized' : 'pb-route-dimmed');
+            var groupColor = getRouteGroupColor(r.route_id);
+            if (groupColor) rowClasses.push('pb-route-grouped');
+            var rowClass = rowClasses.join(' ');
+
+            html += '<tr data-route-id="' + r.route_id + '"' + (rowClass ? ' class="' + rowClass + '"' : '') + (groupColor ? ' style="border-left:4px solid ' + groupColor + ';"' : '') + '>';
+            html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb" value="' + r.route_id + '"' + (selectedRouteIds.has(r.route_id) ? ' checked' : '') + '></td>';
+            if (hasGroups) {
+                html += '<td style="padding:0 2px;">' + (groupColor ? '<span class="pb-group-dot-inline" style="background:' + groupColor + ';"></span>' : '') + '</td>';
+            }
+            html += '<td class="pb-rt-airports">' + escHtml(origDisplay) + (r.origin_filter ? ' <small class="text-muted">' + escHtml(r.origin_filter) + '</small>' : '') + '</td>';
+            html += '<td>' + renderFacilityCodes(origTracon, ',') + '</td>';
+            html += '<td>' + renderFacilityCodes(origArtcc, ',') + '</td>';
+            html += '<td>' + escHtml(r.route_string) + '</td>';
+            html += '<td class="pb-rt-airports">' + escHtml(destDisplay) + (r.dest_filter ? ' <small class="text-muted">' + escHtml(r.dest_filter) + '</small>' : '') + '</td>';
+            html += '<td>' + renderFacilityCodes(destTracon, ',') + '</td>';
+            html += '<td>' + renderFacilityCodes(destArtcc, ',') + '</td>';
+            html += '<td>' + renderFacilityCodes(r.traversed_artccs || '-', ',') + '</td>';
+            html += '<td style="white-space:pre-wrap;">' + escHtml(r.remarks || '') + '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    // ── Consolidated route table (merge rows with identical route strings) ──
+    function consolidateRoutes(routes) {
+        var groups = {};
+        routes.forEach(function(r) {
+            var key = (r.route_string || '').trim().toUpperCase();
+            if (!groups[key]) {
+                groups[key] = {
+                    route_string: r.route_string,
+                    origins: new Set(),
+                    dests: new Set(),
+                    origin_filters: new Set(),
+                    dest_filters: new Set(),
+                    origin_artccs: new Set(),
+                    dest_artccs: new Set(),
+                    traversed_artccs: new Set(),
+                    route_ids: [],
+                    remarks: []
+                };
+            }
+            var g = groups[key];
+            g.route_ids.push(r.route_id);
+            var origLabel = r.origin_airports || r.origin || '';
+            if (origLabel) origLabel.split(',').forEach(function(o) { if (o.trim()) g.origins.add(o.trim()); });
+            var destLabel = r.dest_airports || r.dest || '';
+            if (destLabel) destLabel.split(',').forEach(function(d) { if (d.trim()) g.dests.add(d.trim()); });
+            if (r.origin_filter) r.origin_filter.split(/\s+/).forEach(function(f) { if (f) g.origin_filters.add(f); });
+            if (r.dest_filter) r.dest_filter.split(/\s+/).forEach(function(f) { if (f) g.dest_filters.add(f); });
+            csvSplit(r.origin_artccs).forEach(function(a) { g.origin_artccs.add(a); });
+            csvSplit(r.dest_artccs).forEach(function(a) { g.dest_artccs.add(a); });
+            csvSplit(r.traversed_artccs).forEach(function(a) { g.traversed_artccs.add(a); });
+            if (r.remarks && r.remarks.trim()) g.remarks.push(r.remarks.trim());
+        });
+        return Object.values(groups);
+    }
+
+    function renderConsolidatedTableHtml(routes) {
+        var groups = consolidateRoutes(routes);
+        var html = '';
+
+        html += '<div class="pb-route-table-wrap">';
+        html += '<table class="pb-route-table"><thead><tr>';
+        html += '<th class="pb-route-check" style="width:28px"><input type="checkbox" id="pb_check_all"></th>';
+        html += '<th style="width:15%">Origin</th>';
+        html += '<th style="width:7%">ARTCC</th>';
+        html += '<th>' + t('playbook.routeString') + '</th>';
+        html += '<th style="width:15%">Dest</th>';
+        html += '<th style="width:7%">ARTCC</th>';
+        html += '<th style="width:8%">Traversed</th>';
+        html += '</tr></thead><tbody>';
+
+        groups.forEach(function(g) {
+            var origStr = Array.from(g.origins).sort().join(' ');
+            var destStr = Array.from(g.dests).sort().join(' ');
+            var origFilterStr = Array.from(g.origin_filters).sort().join(' ');
+            var destFilterStr = Array.from(g.dest_filters).sort().join(' ');
+            var origArtccStr = Array.from(g.origin_artccs).sort().join(',');
+            var destArtccStr = Array.from(g.dest_artccs).sort().join(',');
+            var travStr = Array.from(g.traversed_artccs).sort().join(',');
+            var allSelected = g.route_ids.every(function(rid) { return selectedRouteIds.has(rid); });
+            var badge = g.route_ids.length > 1 ? ' <span class="pb-consolidated-badge">' + t('playbook.consolidatedBadge', { count: g.route_ids.length }) + '</span>' : '';
+
+            html += '<tr data-route-ids="' + g.route_ids.join(',') + '">';
+            html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb-group" data-ids="' + g.route_ids.join(',') + '"' + (allSelected ? ' checked' : '') + '></td>';
+            html += '<td class="pb-rt-airports">' + escHtml(origStr || '-') + (origFilterStr ? ' <small class="text-muted">' + escHtml(origFilterStr) + '</small>' : '') + '</td>';
+            html += '<td>' + renderFacilityCodes(origArtccStr || '-', ',') + '</td>';
+            html += '<td>' + escHtml(g.route_string) + badge + '</td>';
+            html += '<td class="pb-rt-airports">' + escHtml(destStr || '-') + (destFilterStr ? ' <small class="text-muted">' + escHtml(destFilterStr) + '</small>' : '') + '</td>';
+            html += '<td>' + renderFacilityCodes(destArtccStr || '-', ',') + '</td>';
+            html += '<td>' + renderFacilityCodes(travStr || '-', ',') + '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        return html;
+    }
+
+    // ── Compact view (FROM / TO pivot-based display) ──
+    function findPivotWaypoints(routes) {
+        var fixCounts = {};
+        var fixPositions = {};
+        var totalRoutes = 0;
+
+        routes.forEach(function(r) {
+            var tokens = (r.route_string || '').toUpperCase().split(/\s+/).filter(Boolean);
+            if (!tokens.length) return;
+            totalRoutes++;
+            var routeLen = tokens.length;
+            var seen = {};
+            tokens.forEach(function(tok, idx) {
+                if (/^[A-Z]{2,5}$/.test(tok) && tok !== 'DCT') {
+                    if (!seen[tok]) {
+                        seen[tok] = true;
+                        fixCounts[tok] = (fixCounts[tok] || 0) + 1;
+                        if (!fixPositions[tok]) fixPositions[tok] = [];
+                        fixPositions[tok].push(routeLen > 1 ? idx / (routeLen - 1) : 0.5);
+                    }
+                }
+            });
+        });
+
+        if (totalRoutes < 2) return [];
+
+        var threshold = Math.max(2, Math.floor(totalRoutes * 0.25));
+        return Object.keys(fixCounts)
+            .filter(function(fix) { return fixCounts[fix] >= threshold && fixCounts[fix] < totalRoutes; })
+            .map(function(fix) {
+                var positions = fixPositions[fix];
+                var avgPos = positions.reduce(function(a, b) { return a + b; }, 0) / positions.length;
+                var centrality = 1 - Math.abs(avgPos - 0.5) * 2;
+                var matchPct = fixCounts[fix] / totalRoutes;
+                return { fix: fix, count: fixCounts[fix], avgPos: avgPos, score: centrality * 0.7 + matchPct * 0.3 };
+            })
+            .sort(function(a, b) { return b.score - a.score; });
+    }
+
+    function renderCompactViewHtml(routes) {
+        var pivots = findPivotWaypoints(routes);
+        if (!pivots.length) {
+            // No pivots — fall back to consolidated
+            return renderConsolidatedTableHtml(routes);
+        }
+
+        // Assign each route to its best pivot
+        var pivotGroups = {};     // pivotFix -> { fromEntries, toEntries }
+        var unmatched = [];
+
+        routes.forEach(function(r) {
+            var tokens = (r.route_string || '').toUpperCase().split(/\s+/).filter(Boolean);
+            var bestPivot = null;
+            var bestPivotIdx = -1;
+            for (var p = 0; p < pivots.length; p++) {
+                var pi = tokens.indexOf(pivots[p].fix);
+                if (pi !== -1) {
+                    bestPivot = pivots[p].fix;
+                    bestPivotIdx = pi;
+                    break;
+                }
+            }
+            if (!bestPivot) {
+                unmatched.push(r);
+                return;
+            }
+            if (!pivotGroups[bestPivot]) pivotGroups[bestPivot] = { fromEntries: [], toEntries: [] };
+
+            var fromSegment = tokens.slice(0, bestPivotIdx + 1).join(' ');
+            var toSegment = tokens.slice(bestPivotIdx).join(' ');
+            var origLabel = r.origin_airports || r.origin || '';
+            var destLabel = r.dest_airports || r.dest || '';
+
+            pivotGroups[bestPivot].fromEntries.push({
+                origin: origLabel,
+                origin_filter: r.origin_filter || '',
+                segment: fromSegment,
+                route_id: r.route_id
+            });
+            pivotGroups[bestPivot].toEntries.push({
+                dest: destLabel,
+                dest_filter: r.dest_filter || '',
+                segment: toSegment,
+                route_id: r.route_id
+            });
+        });
+
+        var html = '<div class="pb-compact-wrap">';
+
+        // Render each pivot group
+        pivots.forEach(function(p) {
+            var group = pivotGroups[p.fix];
+            if (!group) return;
+
+            html += '<div class="pb-compact-pivot">';
+            html += '<span>' + t('playbook.pivotFix') + ':</span> ';
+            html += '<span class="pb-compact-pivot-fix">' + escHtml(p.fix) + '</span>';
+            html += '<span class="pb-compact-pivot-count">' + t('playbook.routesVia', { count: group.fromEntries.length, total: routes.length, fix: p.fix }) + '</span>';
+            html += '</div>';
+
+            // Consolidate FROM entries by segment
+            var fromGroups = {};
+            group.fromEntries.forEach(function(e) {
+                var key = e.segment;
+                if (!fromGroups[key]) fromGroups[key] = { origins: new Set(), filters: new Set(), segment: e.segment, ids: [] };
+                if (e.origin) e.origin.split(',').forEach(function(o) { if (o.trim()) fromGroups[key].origins.add(o.trim()); });
+                if (e.origin_filter) e.origin_filter.split(/\s+/).forEach(function(f) { if (f) fromGroups[key].filters.add(f); });
+                fromGroups[key].ids.push(e.route_id);
+            });
+
+            html += '<div class="pb-compact-section-label">' + t('playbook.fromRoutes') + ':</div>';
+            html += '<table class="pb-compact-table"><thead><tr>';
+            html += '<th style="width:30%;">Origin</th>';
+            html += '<th>' + t('playbook.routeString') + '</th>';
+            html += '</tr></thead><tbody>';
+            Object.values(fromGroups).forEach(function(fg) {
+                var origStr = Array.from(fg.origins).sort().join(' / ');
+                var filterStr = Array.from(fg.filters).sort().join(' ');
+                html += '<tr data-route-ids="' + fg.ids.join(',') + '">';
+                html += '<td>' + escHtml(origStr || '-') + (filterStr ? ' <small class="text-muted">' + escHtml(filterStr) + '</small>' : '') + '</td>';
+                html += '<td>' + escHtml(fg.segment) + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+
+            // Consolidate TO entries by segment
+            var toGroups = {};
+            group.toEntries.forEach(function(e) {
+                var key = e.segment;
+                if (!toGroups[key]) toGroups[key] = { dests: new Set(), filters: new Set(), segment: e.segment, ids: [] };
+                if (e.dest) e.dest.split(',').forEach(function(d) { if (d.trim()) toGroups[key].dests.add(d.trim()); });
+                if (e.dest_filter) e.dest_filter.split(/\s+/).forEach(function(f) { if (f) toGroups[key].filters.add(f); });
+                toGroups[key].ids.push(e.route_id);
+            });
+
+            html += '<div class="pb-compact-section-label">' + t('playbook.toRoutes') + ':</div>';
+            html += '<table class="pb-compact-table"><thead><tr>';
+            html += '<th style="width:30%;">Dest</th>';
+            html += '<th>' + t('playbook.routeString') + '</th>';
+            html += '</tr></thead><tbody>';
+            Object.values(toGroups).forEach(function(tg) {
+                var destStr = Array.from(tg.dests).sort().join(' / ');
+                var filterStr = Array.from(tg.filters).sort().join(' ');
+                html += '<tr data-route-ids="' + tg.ids.join(',') + '">';
+                html += '<td>' + escHtml(destStr || '-') + (filterStr ? ' <small class="text-muted">' + escHtml(filterStr) + '</small>' : '') + '</td>';
+                html += '<td>' + escHtml(tg.segment) + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+        });
+
+        // Unmatched routes
+        if (unmatched.length) {
+            html += '<div class="pb-compact-unmatched">';
+            html += '<div class="pb-compact-section-label" style="color:#666;">' + t('playbook.groups.other') + ' (' + unmatched.length + ')</div>';
+            html += '<table class="pb-compact-table"><thead><tr>';
+            html += '<th style="width:20%;">Origin</th>';
+            html += '<th>' + t('playbook.routeString') + '</th>';
+            html += '<th style="width:20%;">Dest</th>';
+            html += '</tr></thead><tbody>';
+            unmatched.forEach(function(r) {
+                html += '<tr data-route-id="' + r.route_id + '">';
+                html += '<td>' + escHtml(r.origin_airports || r.origin || '-') + '</td>';
+                html += '<td>' + escHtml(r.route_string) + '</td>';
+                html += '<td>' + escHtml(r.dest_airports || r.dest || '-') + '</td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
     }
 
     function renderDetailPanel(play, routes) {
@@ -1322,6 +1594,7 @@
         activePlayData = null;
         selectedRouteIds.clear();
         routeGroups = [];
+        routeViewMode = 'standard';
         updateUrl(null);
         $('.pb-play-row').removeClass('active');
         $('#pb_info_overlay').hide();
@@ -1383,9 +1656,15 @@
 
     function updateCheckboxes() {
         var routes = (activePlayData && activePlayData.routes) || [];
+        // Standard view
         $('.pb-route-cb').each(function() {
             var rid = parseInt($(this).val());
             this.checked = selectedRouteIds.has(rid);
+        });
+        // Consolidated view
+        $('.pb-route-cb-group').each(function() {
+            var ids = $(this).data('ids').toString().split(',').map(Number);
+            this.checked = ids.every(function(rid) { return selectedRouteIds.has(rid); });
         });
         $('#pb_check_all').prop('checked', selectedRouteIds.size > 0 && selectedRouteIds.size === routes.length);
         updateToolbarVisibility();
@@ -1749,6 +2028,14 @@
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dcc_region_dest">' + t('playbook.groups.byDestDCCRegion') + '</div>';
         html += '<div style="border-top:1px solid #3a3a4e;margin:2px 0;"></div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="common_segment">' + t('playbook.groups.byCommonSegment') + '</div>';
+        html += '</div></div>';
+
+        // Route Tools dropdown
+        html += '<div class="pb-cb-dropdown" id="pb_route_tools_dd">';
+        html += '<button type="button" class="btn btn-xs btn-outline-warning pb-cb-trigger"><i class="fas fa-tools mr-1"></i>' + t('playbook.routeTools') + ' <i class="fas fa-caret-down ml-1"></i></button>';
+        html += '<div class="pb-cb-menu" style="min-width:180px;">';
+        html += '<div class="pb-cb-item pb-route-tool-opt" data-tool="consolidate"><i class="fas fa-compress-arrows-alt mr-1" style="width:14px;"></i>' + t('playbook.consolidateRoutes') + '</div>';
+        html += '<div class="pb-cb-item pb-route-tool-opt" data-tool="compact"><i class="fas fa-columns mr-1" style="width:14px;"></i>' + t('playbook.compactView') + '</div>';
         html += '</div></div>';
 
         if (routeGroups.length) {
@@ -2416,6 +2703,135 @@
 
     // ── End Route Advisory Parser ──────────────────────────────────
 
+    // ── Auto-Filter Detection ──
+    function autoDetectEditFilters() {
+        var FH = (typeof FacilityHierarchy !== 'undefined') ? FacilityHierarchy : null;
+        if (!FH || !FH.isArtcc || !FH.getChildren) {
+            PERTIDialog.toast(t('playbook.autoFiltersNone'), 'info');
+            return;
+        }
+
+        // Collect routes from the edit form
+        var routes = [];
+        $('#pb_route_edit_body tr').each(function() {
+            var $tr = $(this);
+            routes.push({
+                $tr: $tr,
+                origin: ($tr.find('.pb-re-origin').val() || '').toUpperCase().trim(),
+                dest: ($tr.find('.pb-re-dest').val() || '').toUpperCase().trim(),
+                originFilter: ($tr.find('.pb-re-origin-filter').val() || '').toUpperCase().trim(),
+                destFilter: ($tr.find('.pb-re-dest-filter').val() || '').toUpperCase().trim(),
+                route: ($tr.find('.pb-re-route').val() || '').toUpperCase().trim()
+            });
+        });
+        if (routes.length < 2) {
+            PERTIDialog.toast(t('playbook.autoFiltersNone'), 'info');
+            return;
+        }
+
+        // Build lookup: dest -> [{ orig, routeIdx, routeStr }]
+        var destToOrigins = {};
+        var origToDests = {};
+        routes.forEach(function(r, idx) {
+            var origins = r.origin.split(/[\s\/,]+/).filter(Boolean);
+            var dests = r.dest.split(/[\s\/,]+/).filter(Boolean);
+            var routeNorm = r.route;
+            origins.forEach(function(orig) {
+                dests.forEach(function(dest) {
+                    if (!destToOrigins[dest]) destToOrigins[dest] = [];
+                    destToOrigins[dest].push({ orig: orig, routeIdx: idx, routeStr: routeNorm });
+                    if (!origToDests[orig]) origToDests[orig] = [];
+                    origToDests[orig].push({ dest: dest, routeIdx: idx, routeStr: routeNorm });
+                });
+            });
+        });
+
+        var proposals = []; // { idx, side, filters }
+
+        routes.forEach(function(r, idx) {
+            var origins = r.origin.split(/[\s\/,]+/).filter(Boolean);
+            var dests = r.dest.split(/[\s\/,]+/).filter(Boolean);
+
+            // Check origin side
+            origins.forEach(function(orig) {
+                if (!FH.isArtcc(orig)) return;
+                var children = FH.getChildren(orig);
+                dests.forEach(function(dest) {
+                    var artccEntries = (destToOrigins[dest] || []).filter(function(e) { return e.orig === orig && e.routeIdx === idx; });
+                    if (!artccEntries.length) return;
+                    var toExclude = [];
+                    (destToOrigins[dest] || []).forEach(function(entry) {
+                        if (entry.routeIdx === idx) return;
+                        var parentArtcc = FH.AIRPORT_TO_ARTCC ? FH.AIRPORT_TO_ARTCC[entry.orig] : null;
+                        if ((parentArtcc === orig || children.indexOf(entry.orig) !== -1) && entry.routeStr !== artccEntries[0].routeStr) {
+                            toExclude.push('-' + entry.orig);
+                        }
+                    });
+                    if (toExclude.length) {
+                        proposals.push({ idx: idx, side: 'origin', filters: toExclude });
+                    }
+                });
+            });
+
+            // Check dest side
+            dests.forEach(function(dest) {
+                if (!FH.isArtcc(dest)) return;
+                var children = FH.getChildren(dest);
+                origins.forEach(function(orig) {
+                    var artccEntries = (origToDests[orig] || []).filter(function(e) { return e.dest === dest && e.routeIdx === idx; });
+                    if (!artccEntries.length) return;
+                    var toExclude = [];
+                    (origToDests[orig] || []).forEach(function(entry) {
+                        if (entry.routeIdx === idx) return;
+                        var parentArtcc = FH.AIRPORT_TO_ARTCC ? FH.AIRPORT_TO_ARTCC[entry.dest] : null;
+                        if ((parentArtcc === dest || children.indexOf(entry.dest) !== -1) && entry.routeStr !== artccEntries[0].routeStr) {
+                            toExclude.push('-' + entry.dest);
+                        }
+                    });
+                    if (toExclude.length) {
+                        proposals.push({ idx: idx, side: 'dest', filters: toExclude });
+                    }
+                });
+            });
+        });
+
+        if (!proposals.length) {
+            PERTIDialog.toast(t('playbook.autoFiltersNone'), 'info');
+            return;
+        }
+
+        // Build summary
+        var summaryLines = [];
+        proposals.forEach(function(p) {
+            var r = routes[p.idx];
+            var label = p.side === 'origin' ? (r.origin || '?') : (r.dest || '?');
+            summaryLines.push('<li>' + escHtml(label) + ' (' + p.side + '): <code>' + escHtml(p.filters.join(' ')) + '</code></li>');
+        });
+
+        Swal.fire({
+            icon: 'question',
+            title: t('playbook.autoFiltersConfirm', { count: proposals.length }),
+            html: '<p>' + t('playbook.autoFiltersDesc') + '</p><ul style="text-align:left;font-size:0.85rem;">' + summaryLines.join('') + '</ul>',
+            confirmButtonText: t('common.apply'),
+            showCancelButton: true,
+            cancelButtonText: t('playbook.groups.cancel')
+        }).then(function(result) {
+            if (!result.isConfirmed) return;
+
+            proposals.forEach(function(p) {
+                var $tr = routes[p.idx].$tr;
+                var selector = p.side === 'origin' ? '.pb-re-origin-filter' : '.pb-re-dest-filter';
+                var $input = $tr.find(selector);
+                var existing = ($input.val() || '').toUpperCase().split(/\s+/).filter(Boolean);
+                var merged = existing.slice();
+                p.filters.forEach(function(f) { if (merged.indexOf(f) === -1) merged.push(f); });
+                $input.val(merged.sort().join(' '));
+            });
+
+            PERTIDialog.toast(t('playbook.autoFiltersApplied', { count: proposals.length }), 'success');
+        });
+    }
+
     async function savePlay() {
         var playId = parseInt($('#pb_edit_play_id').val()) || 0;
         var playName = $('#pb_edit_play_name').val().trim();
@@ -2725,14 +3141,25 @@
         $(document).on('change', '#pb_check_all', function() {
             var checked = this.checked;
             selectedRouteIds.clear();
+            // Standard view checkboxes
             $('.pb-route-cb').each(function() {
                 this.checked = checked;
                 if (checked) selectedRouteIds.add(parseInt($(this).val()));
             });
+            // Consolidated view group checkboxes
+            $('.pb-route-cb-group').each(function() {
+                this.checked = checked;
+                if (checked) {
+                    $(this).data('ids').toString().split(',').forEach(function(id) {
+                        selectedRouteIds.add(parseInt(id));
+                    });
+                }
+            });
             updateToolbarVisibility();
         });
         $(document).on('click', '#pb_select_all', function() {
-            var allChecked = selectedRouteIds.size === $('.pb-route-cb').length;
+            var totalCbs = $('.pb-route-cb').length + $('.pb-route-cb-group').length;
+            var allChecked = totalCbs > 0 && selectedRouteIds.size >= totalCbs;
             $('#pb_check_all').prop('checked', !allChecked).trigger('change');
         });
 
@@ -3041,6 +3468,9 @@
         });
         $('#pb_bulk_paste_apply').on('click', applyBulkPaste);
 
+        // Auto-filter detection
+        $('#pb_auto_filters_btn').on('click', autoDetectEditFilters);
+
         // Advisory parse toggle
         $('#pb_parse_advisory_btn').on('click', function() {
             $('#pb_bulk_paste_area').slideUp(150);
@@ -3078,7 +3508,7 @@
         });
 
         // Re-plot when route selection changes
-        $(document).on('change', '.pb-route-cb, #pb_check_all', function() {
+        $(document).on('change', '.pb-route-cb, .pb-route-cb-group, #pb_check_all', function() {
             if (activePlayData) plotOnMap();
         });
 
@@ -3227,6 +3657,39 @@
             } else {
                 doIt();
             }
+        });
+
+        // Route Tools dropdown option click
+        $(document).on('click', '.pb-route-tool-opt', function() {
+            var tool = $(this).data('tool');
+            $('.pb-cb-dropdown').removeClass('open');
+            if (tool === 'consolidate') {
+                routeViewMode = (routeViewMode === 'consolidated') ? 'standard' : 'consolidated';
+                if (activePlayData) renderRouteTable(activePlayData, activePlayData.routes || []);
+            } else if (tool === 'compact') {
+                routeViewMode = (routeViewMode === 'compact') ? 'standard' : 'compact';
+                if (activePlayData) renderRouteTable(activePlayData, activePlayData.routes || []);
+            }
+        });
+
+        // View toggle buttons
+        $(document).on('click', '#pb_view_toggle button', function() {
+            var mode = $(this).data('view');
+            if (mode === routeViewMode) return;
+            routeViewMode = mode;
+            if (activePlayData) renderRouteTable(activePlayData, activePlayData.routes || []);
+        });
+
+        // Consolidated view: group checkbox selects/deselects all constituent routes
+        $(document).on('change', '.pb-route-cb-group', function() {
+            var ids = $(this).data('ids').toString().split(',').map(Number);
+            var checked = this.checked;
+            ids.forEach(function(rid) {
+                if (checked) selectedRouteIds.add(rid);
+                else selectedRouteIds.delete(rid);
+            });
+            updateToolbarVisibility();
+            plotOnMap();
         });
 
         // Click group name to scroll to those routes

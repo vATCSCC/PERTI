@@ -279,6 +279,9 @@ include("load/nav.php");
                                 <button class="btn btn-sm btn-outline-info mr-1" id="pb_bulk_paste_btn">
                                     <i class="fas fa-paste mr-1"></i><?= __('playbook.bulkPaste') ?>
                                 </button>
+                                <button class="btn btn-sm btn-outline-secondary mr-1" id="pb_auto_filters_btn" title="<?= __('playbook.autoFiltersDesc') ?>">
+                                    <i class="fas fa-filter mr-1"></i><?= __('playbook.autoFilters') ?>
+                                </button>
                                 <button class="btn btn-sm btn-outline-success" id="pb_add_route_btn">
                                     <i class="fas fa-plus mr-1"></i><?= __('playbook.addRoute') ?>
                                 </button>

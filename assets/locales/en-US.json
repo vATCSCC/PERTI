@@ -3597,7 +3597,25 @@
       "groupDeleted": "Group deleted",
       "saveFailed": "Failed to save groups",
       "loadFailed": "Failed to load groups"
-    }
+    },
+    "routeTools": "Route Tools",
+    "consolidateRoutes": "Consolidate Routes",
+    "consolidateCount": "{count} routes consolidated into {groups} groups",
+    "noConsolidation": "No duplicate route strings found",
+    "consolidatedBadge": "{count} routes",
+    "standardView": "Standard",
+    "compactView": "Compact",
+    "pivotFix": "PIVOT",
+    "fromRoutes": "FROM",
+    "toRoutes": "TO",
+    "routesVia": "{count} of {total} routes via {fix}",
+    "noPivots": "No pivot waypoints found — showing consolidated view",
+    "autoFilters": "Auto Filters",
+    "autoFiltersCount": "{count} filters suggested",
+    "autoFiltersNone": "No hierarchy overlaps found",
+    "autoFiltersApplied": "{count} filters applied",
+    "autoFiltersConfirm": "Apply {count} auto-detected filters?",
+    "autoFiltersDesc": "The following exclusion filters were detected from ARTCC/airport hierarchy overlaps:"
   },
   "privacy": {
     "changesText": "vATCSCC must ensure to notify all members affected of any changes to this policy. All information collected prior to the date of a new policy are subject to the old policy's material, and can not be changed in any way of share without proper consent.",

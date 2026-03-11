@@ -525,6 +525,7 @@
     width: 100%;
     font-size: 0.75rem;
     border-collapse: collapse;
+    table-layout: fixed;
 }
 
 .pb-route-table th {
@@ -547,6 +548,8 @@
     border-bottom: 1px solid #f0f0f0;
     font-family: 'Inconsolata', monospace;
     vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .pb-route-table tr:hover td {
@@ -569,9 +572,10 @@
     text-align: center;
 }
 
-.pb-route-table td:nth-child(5) {
-    word-break: keep-all;
-    overflow-wrap: break-word;
+/* Airport cells: space-separated codes wrap naturally */
+.pb-route-table td.pb-rt-airports {
+    font-size: 0.7rem;
+    line-height: 1.35;
 }
 
 /* ── Action Buttons ──────────────────────────────────────────────── */
@@ -875,6 +879,100 @@
     line-height: 1 !important;
     border-width: 1px !important;
     margin-top: 3px;
+}
+
+/* ── View Toggle (Standard / Compact) ────────────────────────────── */
+.pb-view-toggle {
+    display: inline-flex;
+    border: 1px solid #444;
+    border-radius: 3px;
+    overflow: hidden;
+    font-size: 0.68rem;
+    margin-left: 8px;
+}
+.pb-view-toggle button {
+    background: transparent;
+    border: none;
+    color: #aaa;
+    padding: 1px 8px;
+    cursor: pointer;
+    font-size: inherit;
+    line-height: 1.6;
+}
+.pb-view-toggle button:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.pb-view-toggle button.active { color: #fff; background: #239BCD; }
+
+/* ── Consolidated Route Badge ────────────────────────────────────── */
+.pb-consolidated-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    color: #999;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 0 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+    line-height: 1.4;
+}
+
+/* ── Compact View (FROM/TO pivot tables) ─────────────────────────── */
+.pb-compact-wrap { margin-top: 0.3rem; }
+
+.pb-compact-pivot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    margin-bottom: 4px;
+    background: rgba(35,155,205,0.08);
+    border-left: 3px solid #239BCD;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #239BCD;
+}
+.pb-compact-pivot .pb-compact-pivot-fix { font-family: 'Inconsolata', monospace; }
+.pb-compact-pivot .pb-compact-pivot-count {
+    font-weight: 400;
+    font-size: 0.65rem;
+    color: #888;
+}
+
+.pb-compact-section-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #aaa;
+    text-transform: uppercase;
+    padding: 2px 4px;
+    margin-top: 4px;
+}
+
+.pb-compact-table {
+    width: 100%;
+    font-size: 0.72rem;
+    font-family: 'Inconsolata', monospace;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+}
+.pb-compact-table th {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    color: #888;
+    padding: 2px 4px;
+    border-bottom: 1px solid #333;
+    font-weight: 600;
+}
+.pb-compact-table td {
+    padding: 2px 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: top;
+}
+.pb-compact-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+.pb-compact-unmatched {
+    margin-top: 8px;
+    padding-top: 6px;
+    border-top: 1px dashed #444;
 }
 
 /* ── Edit Modal Collapsible Sections ─────────────────────────────── */
