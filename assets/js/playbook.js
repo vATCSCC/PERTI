@@ -2242,25 +2242,48 @@
      * Returns { origin: 'FIR:EB..,ED..', artccs: ['EBBU','EDGG',...], rest: 'remaining line' }
      * or null if no FIR pattern found.
      */
-    function extractFirOrigin(line) {
-        // Match FIR:XX.+[,YY.+[,...]] at the start, followed by whitespace
-        // Single dot OK (e.g. LIC. = 3-letter prefix), two dots also OK (e.g. LS.. = 2-letter prefix)
-        var m = line.match(/^(FIR:[A-Z0-9]{1,4}\.+(?:,[A-Z0-9]{1,4}\.+)*)\s+/i);
-        if (!m) return null;
-        var firStr = m[1];
-        var rest = line.substring(m[0].length);
-        var artccs = [];
+    /**
+     * Expand a FIR: pattern string (e.g. "FIR:LS..,LIC.,LIR.") into individual ARTCC codes.
+     * Returns array of codes like ['LSAG','LSAZ','LICC','LIRR',...] or empty array if unavailable.
+     */
+    function expandFirPattern(firStr) {
+        var codes = [];
         if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.expandFirPattern) {
             var raw = firStr.replace(/^FIR:/i, '');
             raw.split(',').forEach(function(pat) {
                 pat = pat.trim();
                 if (!pat) return;
-                var codes = FacilityHierarchy.expandFirPattern('FIR:' + pat);
-                artccs = artccs.concat(codes);
+                codes = codes.concat(FacilityHierarchy.expandFirPattern('FIR:' + pat));
             });
-            artccs = unique(artccs);
+            codes = unique(codes);
         }
-        return { origin: firStr, artccs: artccs, rest: rest };
+        return codes;
+    }
+
+    /**
+     * Extract FIR: patterns from start (origin) and/or end (dest) of a route line.
+     * Returns { origins: ['KZOA','KZOB'], dests: ['EBBU','EDGG'], rest: 'route tokens' }
+     * or null if no FIR patterns found.
+     */
+    function extractFirPatterns(line) {
+        var origins = [], dests = [], rest = line;
+
+        // Check for FIR: at the start
+        var startMatch = line.match(/^(FIR:[A-Z0-9]{1,4}\.+(?:,[A-Z0-9]{1,4}\.+)*)\s+/i);
+        if (startMatch) {
+            origins = expandFirPattern(startMatch[1]);
+            rest = line.substring(startMatch[0].length);
+        }
+
+        // Check for FIR: at the end of remaining text
+        var endMatch = rest.match(/\s+(FIR:[A-Z0-9]{1,4}\.+(?:,[A-Z0-9]{1,4}\.+)*)$/i);
+        if (endMatch) {
+            dests = expandFirPattern(endMatch[1]);
+            rest = rest.substring(0, rest.length - endMatch[0].length);
+        }
+
+        if (!origins.length && !dests.length) return null;
+        return { origins: origins, dests: dests, rest: rest };
     }
 
     /**
@@ -2290,12 +2313,12 @@
         lines.forEach(function(line) {
             var trimmed = line.trim();
 
-            // Detect FIR: pattern at the start as origin
-            var fir = extractFirOrigin(trimmed);
-            var firOrigin = '', firArtccs = [];
+            // Extract FIR: patterns from start (origins) and/or end (dests) — expand to ARTCC codes
+            var fir = extractFirPatterns(trimmed);
+            var firOrigins = [], firDests = [];
             if (fir) {
-                firOrigin = fir.origin;
-                firArtccs = fir.artccs;
+                firOrigins = fir.origins;
+                firDests = fir.dests;
                 trimmed = fir.rest;
             }
 
@@ -2304,7 +2327,7 @@
                 .replace(/[><]/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
-            if (!cleaned) return;
+            if (!cleaned && !firOrigins.length) return;
 
             // Strip trailing UNKN (unknown destination placeholder in advisories)
             if (/\s+UNKN$/i.test(cleaned)) {
@@ -2312,28 +2335,30 @@
             }
 
             // Split tokens into leading airports (origins), route body, trailing airports (dests)
-            var tokens = cleaned.split(/\s+/);
+            var tokens = cleaned ? cleaned.split(/\s+/) : [];
             var split = splitOriginRouteDest(tokens);
 
+            // Merge FIR-expanded codes with token-detected airports
+            var allOrigins = firOrigins.concat(split.origins);
+            var allDests = firDests.concat(split.dests);
+
             var routeData = {
-                origin: firOrigin || split.origins.join(' '),
+                origin: allOrigins.join(' '),
                 route_string: split.route.join(' '),
-                dest: split.dests.join(' ')
+                dest: allDests.join(' ')
             };
 
             // If no route body found (all tokens were airports), treat as plain route
             if (!routeData.route_string && cleaned) {
                 routeData.route_string = cleaned;
-                routeData.origin = '';
-                routeData.dest = '';
+                routeData.origin = firOrigins.join(' ');
+                routeData.dest = firDests.join(' ');
             }
 
-            // Classify origin facilities
-            if (firOrigin) {
-                routeData.origin_artccs = firArtccs.join(',');
-            } else if (split.origins.length) {
+            // Classify origin facilities (FIR-expanded codes are ARTCC codes, classifyOriginDest handles them)
+            if (allOrigins.length) {
                 var oTracons = [], oArtccs = [];
-                split.origins.forEach(function(c) {
+                allOrigins.forEach(function(c) {
                     var cls = classifyOriginDest(c);
                     oTracons = oTracons.concat(cls.tracons);
                     oArtccs = oArtccs.concat(cls.artccs);
@@ -2343,9 +2368,9 @@
             }
 
             // Classify destination facilities
-            if (split.dests.length) {
+            if (allDests.length) {
                 var dTracons = [], dArtccs = [];
-                split.dests.forEach(function(c) {
+                allDests.forEach(function(c) {
                     var cls = classifyOriginDest(c);
                     dTracons = dTracons.concat(cls.tracons);
                     dArtccs = dArtccs.concat(cls.artccs);
