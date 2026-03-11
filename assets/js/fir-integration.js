@@ -20,9 +20,26 @@
 
     // Store current FIR patterns when in international mode
     let currentFirPatterns = [];
+    // Store current ARTCC member codes (for member-based groups like USA, CANE, etc.)
+    let currentArtccMembers = [];
 
     /**
-     * Check if a departure airport matches any FIR pattern
+     * Get FIR exclusion list for a given ICAO prefix from fir_tiers.json.
+     * Returns array of excluded ICAO prefixes (e.g. ["EGYP"] for EG).
+     * @param {string} prefix - ICAO prefix (e.g. "EG")
+     * @returns {string[]}
+     */
+    function getFirExclusions(prefix) {
+        if (!window.FIR_SCOPE || typeof window.FIR_SCOPE.getTierData !== 'function') {return [];}
+        var data = window.FIR_SCOPE.getTierData();
+        if (!data || !data.byIcaoPrefix) {return [];}
+        var entry = data.byIcaoPrefix[prefix];
+        return (entry && Array.isArray(entry.exclude)) ? entry.exclude : [];
+    }
+
+    /**
+     * Check if a departure airport matches any FIR pattern,
+     * respecting exclusions from fir_tiers.json (e.g. EGYP excluded from EG).
      * @param {string} depIcao - Departure ICAO code (e.g., "EGLL")
      * @param {string[]} patterns - FIR patterns (e.g., ["EG*", "LF*"])
      * @returns {boolean}
@@ -36,7 +53,18 @@
         for (let i = 0; i < patterns.length; i++) {
             const pattern = patterns[i].toUpperCase().replace(/\*+$/, '');
             if (pattern === '' || pattern === '*') {return true;}
-            if (depIcao.indexOf(pattern) === 0) {return true;}
+            if (depIcao.indexOf(pattern) === 0) {
+                // Check exclusions for this pattern prefix
+                var exclusions = getFirExclusions(pattern);
+                var excluded = false;
+                for (var e = 0; e < exclusions.length; e++) {
+                    if (depIcao.indexOf(exclusions[e].toUpperCase()) === 0) {
+                        excluded = true;
+                        break;
+                    }
+                }
+                if (!excluded) {return true;}
+            }
         }
 
         return false;
@@ -59,7 +87,11 @@
     }
 
     /**
-     * Enhanced scope recomputation that handles FIR mode
+     * Enhanced scope recomputation that handles FIR mode.
+     * Supports two scope types from fir_tiers.json regional entries:
+     *   - "artcc" (data-scope-type="artcc"): explicit L1 ARTCC member lists,
+     *     sent as plain ARTCC codes the SP already understands
+     *   - pattern-based: ICAO prefix patterns sent with FIR: prefix
      */
     function enhancedRecomputeScope() {
         const sel = document.getElementById('gs_scope_select');
@@ -68,61 +100,80 @@
         const isFirMode = window.FIR_SCOPE && window.FIR_SCOPE.isActive();
 
         if (!isFirMode) {
-            // Use original ARTCC logic - clear FIR patterns
             currentFirPatterns = [];
+            currentArtccMembers = [];
 
-            // Call original if available, otherwise do nothing (original will handle it)
             if (typeof window._originalRecomputeScopeFromSelector === 'function') {
                 window._originalRecomputeScopeFromSelector();
             }
             return;
         }
 
-        // FIR mode - extract patterns from selected options
+        // FIR mode - extract patterns and/or ARTCC members from selected options
         const selected = Array.prototype.slice.call(sel.selectedOptions || []);
         let patterns = [];
+        let artccMembers = [];
         const scopeLabels = [];
 
         selected.forEach(function(opt) {
             const type = opt.dataset.type || '';
-            if (type.indexOf('fir-') === 0) {
+            if (type.indexOf('fir-') !== 0) {return;}
+
+            scopeLabels.push(opt.textContent || opt.value);
+
+            // ARTCC member-based group (e.g., USA, CANE, GULF)
+            if (opt.dataset.scopeType === 'artcc' && opt.dataset.members) {
                 try {
-                    const optPatterns = JSON.parse(opt.dataset.patterns || '[]');
-                    patterns = patterns.concat(optPatterns);
-                    scopeLabels.push(opt.textContent || opt.value);
+                    var members = JSON.parse(opt.dataset.members);
+                    artccMembers = artccMembers.concat(members);
                 } catch (e) {
-                    console.warn('Error parsing FIR patterns:', e);
+                    console.warn('Error parsing ARTCC members:', e);
                 }
+                return;
+            }
+
+            // FIR pattern-based group (e.g., EUR, AFR, individual FIRs)
+            try {
+                var optPatterns = JSON.parse(opt.dataset.patterns || '[]');
+                patterns = patterns.concat(optPatterns);
+            } catch (e) {
+                console.warn('Error parsing FIR patterns:', e);
             }
         });
 
-        // Store current patterns
+        // Deduplicate
         currentFirPatterns = patterns;
+        currentArtccMembers = artccMembers.filter(function(v, i, a) { return a.indexOf(v) === i; });
 
         // Update form fields
         const originCentersField = document.getElementById('gs_origin_centers');
         const depFacilitiesField = document.getElementById('gs_dep_facilities');
 
         if (originCentersField) {
-            // Store human-readable scope description
             originCentersField.value = scopeLabels.join(', ') || ((typeof PERTII18n !== 'undefined') ? PERTII18n.t('fir.international') : 'International');
         }
 
         if (depFacilitiesField) {
-            // Store FIR patterns in the format backend expects
-            depFacilitiesField.value = patternsToDepFacilities(patterns);
+            // Build dep_facilities: ARTCC members as plain codes + FIR patterns with FIR: prefix
+            var parts = [];
+            if (currentArtccMembers.length > 0) {
+                parts.push(currentArtccMembers.join(' '));
+            }
+            if (patterns.length > 0) {
+                parts.push(patternsToDepFacilities(patterns));
+            }
+            depFacilitiesField.value = parts.join(' ');
         }
 
-        // Trigger advisory rebuild if function exists
         if (typeof buildAdvisory === 'function') {
             buildAdvisory();
         }
 
-        console.log('FIR scope updated:', patterns.length, 'patterns');
+        console.log('FIR scope updated:', patterns.length, 'patterns,', currentArtccMembers.length, 'ARTCC members');
     }
 
     /**
-     * Flight filter wrapper that checks FIR patterns
+     * Flight filter wrapper that checks FIR patterns and/or ARTCC membership.
      * @param {Object} flight - Flight object
      * @returns {boolean} - True if flight matches scope
      */
@@ -131,14 +182,33 @@
             return true; // Not in FIR mode, don't filter here
         }
 
-        if (currentFirPatterns.length === 0) {
-            return true; // No patterns = match all
+        var hasPatterns = currentFirPatterns.length > 0;
+        var hasMembers = currentArtccMembers.length > 0;
+
+        if (!hasPatterns && !hasMembers) {
+            return true; // No scope constraints = match all
         }
 
-        const dep = (flight.dep || flight.fp_dept_icao || flight.orig ||
-                   flight.departure || flight.origin || '').toUpperCase();
+        // Check ARTCC membership (for groups like USA, CANE, GULF)
+        if (hasMembers) {
+            var depArtcc = (flight.fp_dept_artcc || flight.dep_artcc ||
+                           flight.dep_center || flight.departure_artcc || '').toUpperCase();
+            if (depArtcc && currentArtccMembers.indexOf(depArtcc) !== -1) {
+                return true;
+            }
+        }
 
-        return matchesFirPatterns(dep, currentFirPatterns);
+        // Check FIR pattern matching (for groups like EUR, AFR, individual FIRs)
+        if (hasPatterns) {
+            var dep = (flight.dep || flight.fp_dept_icao || flight.orig ||
+                       flight.departure || flight.origin || '').toUpperCase();
+            if (matchesFirPatterns(dep, currentFirPatterns)) {
+                return true;
+            }
+        }
+
+        // If we had constraints but nothing matched, flight is out of scope
+        return false;
     }
 
     /**
@@ -149,12 +219,12 @@
     }
 
     /**
-     * Check if currently in FIR mode with patterns set
+     * Check if currently in FIR mode with patterns or ARTCC members set
      */
     function hasFirScope() {
         return window.FIR_SCOPE &&
                window.FIR_SCOPE.isActive() &&
-               currentFirPatterns.length > 0;
+               (currentFirPatterns.length > 0 || currentArtccMembers.length > 0);
     }
 
     /**
@@ -191,6 +261,7 @@
         window.FIR_INTEGRATION = window.FIR_INTEGRATION || {};
         window.FIR_INTEGRATION.matchesScope = flightMatchesScope;
         window.FIR_INTEGRATION.getPatterns = getCurrentFirPatterns;
+        window.FIR_INTEGRATION.getArtccMembers = function() { return currentArtccMembers.slice(); };
         window.FIR_INTEGRATION.hasFirScope = hasFirScope;
         window.FIR_INTEGRATION.enhancedRecomputeScope = enhancedRecomputeScope;
         window.FIR_INTEGRATION.matchesFirPatterns = matchesFirPatterns;
@@ -225,8 +296,9 @@
 
         if (domesticBtn) {
             domesticBtn.addEventListener('click', function() {
-                // Clear FIR patterns when switching to domestic
+                // Clear FIR patterns and ARTCC members when switching to domestic
                 currentFirPatterns = [];
+                currentArtccMembers = [];
             });
         }
 
