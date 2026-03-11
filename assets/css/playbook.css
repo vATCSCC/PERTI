@@ -795,13 +795,15 @@
 .pb-route-edit-table .pb-re-th-remarks { width: 28px; text-align: center; }
 .pb-route-edit-table .pb-re-th-action { width: 24px; text-align: center; }
 
-.pb-route-edit-table td.pb-re-cell { padding: 2px; }
+.pb-route-edit-table td.pb-re-cell { padding: 2px; vertical-align: top; }
 
 .pb-route-edit-table input,
 .pb-route-edit-table textarea {
     font-family: 'Inconsolata', monospace;
     font-size: 0.72rem;
     padding: 0.15rem 0.25rem;
+    height: 26px;
+    line-height: 1.3;
 }
 
 /* Airport fields — compact monospace */
@@ -812,18 +814,20 @@
     resize: none;
     overflow: hidden;
     min-height: 26px;
+    height: auto !important;
     width: 100%;
 }
 
-/* Route remarks icon button */
+/* Route remarks icon button — match input height */
 .pb-re-remarks-btn {
     background: none;
     border: none;
     color: #999;
     cursor: pointer;
-    padding: 2px 4px;
+    padding: 0;
     font-size: 0.7rem;
-    line-height: 1;
+    line-height: 26px;
+    height: 26px;
 }
 .pb-re-remarks-btn:hover { color: #239BCD; }
 .pb-re-remarks-btn.has-remarks { color: #239BCD; }
@@ -856,12 +860,49 @@
     outline: none;
 }
 
-/* Delete button — compact */
+/* Delete button — compact, aligned to row */
 .pb-re-delete {
-    padding: 1px 4px !important;
+    padding: 2px 5px !important;
     font-size: 0.6rem !important;
     line-height: 1 !important;
     border-width: 1px !important;
+    margin-top: 3px;
+}
+
+/* ── Edit Modal Collapsible Sections ─────────────────────────────── */
+.pb-edit-section { margin-bottom: 0.5rem; }
+
+.pb-edit-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #239BCD;
+    cursor: pointer;
+    padding: 4px 0;
+    border-bottom: 1px solid #dee2e6;
+    margin-bottom: 0.4rem;
+    user-select: none;
+}
+.pb-edit-section-header:hover { color: #1a7aa3; }
+
+.pb-edit-section-header .pb-section-icon {
+    transition: transform 0.2s;
+    font-size: 0.65rem;
+}
+.pb-edit-section-header[aria-expanded="false"] .pb-section-icon {
+    transform: rotate(-90deg);
+}
+
+.pb-edit-section-body { padding: 0.25rem 0; }
+
+/* ── Advisory Parse Area ─────────────────────────────────────────── */
+#pb_advisory_parse_text {
+    font-size: 0.68rem;
+    line-height: 1.35;
+    tab-size: 4;
+    overflow-x: auto;
 }
 
 /* ── Changelog ───────────────────────────────────────────────────── */

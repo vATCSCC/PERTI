@@ -2116,6 +2116,7 @@
         $('#pb_edit_source').val('DCC').prop('disabled', false);
         $('#pb_route_edit_body').empty();
         $('#pb_bulk_paste_area').hide();
+        $('#pb_advisory_parse_area').hide();
         addEditRouteRow();
         $('#pb_play_modal').modal('show');
     }
@@ -2139,6 +2140,7 @@
         });
 
         $('#pb_bulk_paste_area').hide();
+        $('#pb_advisory_parse_area').hide();
         $('#pb_play_modal').modal('show');
     }
 
@@ -2162,6 +2164,7 @@
         });
 
         $('#pb_bulk_paste_area').hide();
+        $('#pb_advisory_parse_area').hide();
         $('#pb_play_modal').modal('show');
     }
 
@@ -2288,6 +2291,35 @@
         $('#pb_bulk_paste_text').val('');
         $('#pb_bulk_paste_area').slideUp(150);
     }
+
+    // ── Route Advisory Parser (delegates to shared RouteAdvisoryParser) ────
+
+    function applyAdvisoryParse() {
+        var text = $('#pb_advisory_parse_text').val().trim();
+        if (!text) return;
+
+        // Detect NATOTS format
+        if (/NATOTS|NORTH ATLANTIC DEPARTURES|TODAYS TRACKS/i.test(text)) {
+            PERTIDialog.toast('playbook.advisoryNatotsUnsupported', 'warning');
+            return;
+        }
+
+        var routes = RouteAdvisoryParser.parse(text);
+        if (!routes.length) {
+            PERTIDialog.toast('playbook.advisoryNoRoutes', 'warning');
+            return;
+        }
+
+        // Add parsed routes as edit rows
+        routes.forEach(function(r) { addEditRouteRow(r); });
+
+        var msg = t('playbook.advisoryParsed', { count: routes.length });
+        PERTIDialog.toast(msg, 'success');
+        $('#pb_advisory_parse_text').val('');
+        $('#pb_advisory_parse_area').slideUp(150);
+    }
+
+    // ── End Route Advisory Parser ──────────────────────────────────
 
     async function savePlay() {
         var playId = parseInt($('#pb_edit_play_id').val()) || 0;
@@ -2909,9 +2941,17 @@
 
         // Bulk paste toggle
         $('#pb_bulk_paste_btn').on('click', function() {
+            $('#pb_advisory_parse_area').slideUp(150);
             $('#pb_bulk_paste_area').slideToggle(150);
         });
         $('#pb_bulk_paste_apply').on('click', applyBulkPaste);
+
+        // Advisory parse toggle
+        $('#pb_parse_advisory_btn').on('click', function() {
+            $('#pb_bulk_paste_area').slideUp(150);
+            $('#pb_advisory_parse_area').slideToggle(150);
+        });
+        $('#pb_advisory_parse_apply').on('click', applyAdvisoryParse);
 
         // Changelog toggle
         // Traversed facilities toggle
