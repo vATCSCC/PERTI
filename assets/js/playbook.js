@@ -2136,19 +2136,16 @@
                 return routeStr;
             }).join('\n');
         } else {
-            // No search, no groups: use PB directive or manual routes (default colors)
-            var usePB = canUsePBDirective(selected, allRoutes);
-            if (usePB) {
-                text = buildCurrentPBDirective();
-            } else {
-                text = selected.map(function(r) {
-                    var parts = [];
-                    if (r.origin) parts.push(r.origin);
-                    parts.push(r.route_string);
-                    if (r.dest) parts.push(r.dest);
-                    return parts.join(' ');
-                }).join('\n');
-            }
+            // No search, no groups: assemble routes with origin/dest directly.
+            // Always use DB route data (which includes origin/dest FIR codes)
+            // rather than PB directive expansion (CSV data lacks origin/dest).
+            text = selected.map(function(r) {
+                var parts = [];
+                if (r.origin) parts.push(r.origin);
+                parts.push(r.route_string);
+                if (r.dest) parts.push(r.dest);
+                return parts.join(' ');
+            }).join('\n');
         }
 
         // Wrap each route line with mandatory markers so playbook routes render as solid lines.
@@ -2210,18 +2207,14 @@
                 return routeStr;
             }).join('\n');
         } else {
-            var usePB = canUsePBDirective(selected, allRoutes);
-            if (usePB) {
-                text = buildCurrentPBDirective();
-            } else {
-                text = selected.map(function(r) {
-                    var parts = [];
-                    if (r.origin) parts.push(r.origin);
-                    parts.push(r.route_string);
-                    if (r.dest) parts.push(r.dest);
-                    return parts.join(' ');
-                }).join('\n');
-            }
+            // Always assemble with origin/dest from DB data (PB directive loses FIR codes)
+            text = selected.map(function(r) {
+                var parts = [];
+                if (r.origin) parts.push(r.origin);
+                parts.push(r.route_string);
+                if (r.dest) parts.push(r.dest);
+                return parts.join(' ');
+            }).join('\n');
         }
 
         var encoded = btoa(text);
@@ -2582,10 +2575,10 @@
     function splitOriginRouteDest(tokens) {
         // Walk from left: consecutive 4-letter alpha codes = origins
         var oi = 0;
-        while (oi < tokens.length && /^[A-Z]{4}$/.test(tokens[oi]) && tokens[oi] !== 'UNKN') oi++;
+        while (oi < tokens.length && /^[A-Z]{4}$/.test(tokens[oi])) oi++;
         // Walk from right: consecutive 4-letter alpha codes = destinations
         var di = tokens.length;
-        while (di > oi && /^[A-Z]{4}$/.test(tokens[di - 1]) && tokens[di - 1] !== 'UNKN') di--;
+        while (di > oi && /^[A-Z]{4}$/.test(tokens[di - 1])) di--;
         return {
             origins: tokens.slice(0, oi),
             route: tokens.slice(oi, di),
@@ -2617,10 +2610,7 @@
                 .trim();
             if (!cleaned && !firOrigins.length) return;
 
-            // Strip trailing UNKN (unknown destination placeholder in advisories)
-            if (/\s+UNKN$/i.test(cleaned)) {
-                cleaned = cleaned.replace(/\s+UNKN$/i, '').trim();
-            }
+            // UNKN is a valid origin/dest placeholder — let it pass through to token parsing
 
             // Split tokens into leading airports (origins), route body, trailing airports (dests)
             var tokens = cleaned ? cleaned.split(/\s+/) : [];
