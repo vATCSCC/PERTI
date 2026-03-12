@@ -362,10 +362,40 @@ include("load/connect.php");
             </div>
         </div>
 
-        <!-- Audit Log -->
-        <div class="mt-3" id="ctp_sidebar_audit">
-            <label class="small font-weight-bold"><?= __('ctp.audit.recentActions') ?></label>
-            <div id="ctp_audit_list" class="small text-muted"></div>
+        <!-- Enhanced Audit Log -->
+        <div class="mt-3 border-top pt-2" id="ctp_sidebar_audit">
+            <div class="d-flex align-items-center justify-content-between cursor-pointer" id="ctp_audit_toggle">
+                <label class="small font-weight-bold mb-0"><i class="fas fa-history mr-1"></i> <?= __('ctp.audit.recentActions') ?></label>
+                <i class="fas fa-chevron-down small"></i>
+            </div>
+            <div id="ctp_audit_body">
+                <div id="ctp_audit_list" class="small text-muted mt-1"></div>
+                <button class="btn btn-sm btn-link btn-block mt-1" id="ctp_audit_load_more" style="display:none;">
+                    <?= __('ctp.changelog.loadMore') ?>
+                </button>
+            </div>
+        </div>
+
+        <!-- NAT Tracks Reference -->
+        <div class="mt-3 border-top pt-2" id="ctp_nat_section">
+            <div class="d-flex align-items-center justify-content-between cursor-pointer" id="ctp_nat_toggle">
+                <label class="small font-weight-bold mb-0"><i class="fas fa-ship mr-1"></i> <?= __('ctp.nat.tracks') ?></label>
+                <i class="fas fa-chevron-down small"></i>
+            </div>
+            <div id="ctp_nat_body" style="display:none;">
+                <div class="small text-muted mt-1 mb-1"><?= __('ctp.nat.description') ?></div>
+                <table class="table table-sm table-bordered mb-0" style="font-size:0.7rem;">
+                    <thead>
+                        <tr class="text-uppercase">
+                            <th style="width:60px;"><?= __('ctp.nat.name') ?></th>
+                            <th><?= __('ctp.nat.routeString') ?></th>
+                        </tr>
+                    </thead>
+                    <tbody id="ctp_nat_tbody">
+                        <tr><td colspan="2" class="text-center text-muted py-2"><?= __('ctp.nat.loading') ?></td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

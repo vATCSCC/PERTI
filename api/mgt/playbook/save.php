@@ -346,7 +346,11 @@ if ($play_id > 0) {
     $stmt->execute();
     $stmt->close();
 
-    // Log field-level changes
+    // Log field-level changes with enhanced detail (name, IP, context)
+    $changed_by_name = $_SESSION['VATSIM_NAME'] ?? $_SESSION['VATSIM_FNAME'] ?? null;
+    $client_ip = !empty($_SERVER['HTTP_X_FORWARDED_FOR'])
+        ? trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0])
+        : ($_SERVER['REMOTE_ADDR'] ?? null);
     $fields = [
         'play_name' => $play_name, 'display_name' => $display_name,
         'description' => $description, 'category' => $category,
@@ -355,11 +359,11 @@ if ($play_id > 0) {
         'impacted_area' => $impacted_area, 'remarks' => $remarks,
         'visibility' => $visibility,
     ];
-    $cl_stmt = $conn_sqli->prepare("INSERT INTO playbook_changelog (play_id, action, field_name, old_value, new_value, airac_cycle, changed_by) VALUES (?, 'play_updated', ?, ?, ?, ?, ?)");
+    $cl_stmt = $conn_sqli->prepare("INSERT INTO playbook_changelog (play_id, action, field_name, old_value, new_value, airac_cycle, changed_by, changed_by_name, ip_address) VALUES (?, 'play_updated', ?, ?, ?, ?, ?, ?, ?)");
     foreach ($fields as $fname => $new_val) {
         $old_val = $old[$fname] ?? '';
         if ((string)$old_val !== (string)$new_val) {
-            $cl_stmt->bind_param('isssss', $play_id, $fname, $old_val, $new_val, $airac_cycle, $changed_by);
+            $cl_stmt->bind_param('isssssss', $play_id, $fname, $old_val, $new_val, $airac_cycle, $changed_by, $changed_by_name, $client_ip);
             $cl_stmt->execute();
         }
     }
@@ -388,9 +392,13 @@ if ($play_id > 0) {
     $play_id = (int)$conn_sqli->insert_id;
     $stmt->close();
 
-    // Log creation
-    $cl_stmt = $conn_sqli->prepare("INSERT INTO playbook_changelog (play_id, action, airac_cycle, changed_by) VALUES (?, 'play_created', ?, ?)");
-    $cl_stmt->bind_param('iss', $play_id, $airac_cycle, $changed_by);
+    // Log creation with enhanced detail
+    $changed_by_name = $_SESSION['VATSIM_NAME'] ?? $_SESSION['VATSIM_FNAME'] ?? null;
+    $client_ip = !empty($_SERVER['HTTP_X_FORWARDED_FOR'])
+        ? trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0])
+        : ($_SERVER['REMOTE_ADDR'] ?? null);
+    $cl_stmt = $conn_sqli->prepare("INSERT INTO playbook_changelog (play_id, action, airac_cycle, changed_by, changed_by_name, ip_address) VALUES (?, 'play_created', ?, ?, ?, ?)");
+    $cl_stmt->bind_param('issss', $play_id, $airac_cycle, $changed_by, $changed_by_name, $client_ip);
     $cl_stmt->execute();
     $cl_stmt->close();
 }

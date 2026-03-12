@@ -422,20 +422,30 @@ function ctp_get_session($conn, $session_id) {
 }
 
 /**
- * Insert an audit log entry
+ * Insert an audit log entry with enhanced detail (name, IP).
  */
 function ctp_audit_log($conn, $session_id, $ctp_control_id, $action_type, $detail, $performed_by, $segment = null) {
     $detail_json = is_array($detail) ? json_encode($detail, JSON_UNESCAPED_UNICODE) : $detail;
+    $performed_by_name = $_SESSION['VATSIM_NAME'] ?? $_SESSION['VATSIM_FNAME'] ?? null;
+    $ip_address = null;
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ip_address = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+    } elseif (!empty($_SERVER['REMOTE_ADDR'])) {
+        $ip_address = $_SERVER['REMOTE_ADDR'];
+    }
+
     return ctp_execute($conn,
-        "INSERT INTO dbo.ctp_audit_log (session_id, ctp_control_id, action_type, segment, action_detail_json, performed_by)
-         VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO dbo.ctp_audit_log (session_id, ctp_control_id, action_type, segment, action_detail_json, performed_by, performed_by_name, ip_address)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
             (int)$session_id,
             $ctp_control_id !== null ? (int)$ctp_control_id : null,
             $action_type,
             $segment,
             $detail_json,
-            $performed_by
+            $performed_by,
+            $performed_by_name,
+            $ip_address
         ]
     );
 }

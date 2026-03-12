@@ -317,6 +317,38 @@
       "error": "Erreur",
       "unknownError": "Une erreur inconnue s'est produite.",
       "networkError": "Erreur r\u00e9seau. Veuillez r\u00e9essayer."
+    },
+    "changelog": {
+      "title": "Journal d'audit",
+      "time": "Heure",
+      "author": "Auteur",
+      "action": "Action",
+      "segment": "Segment",
+      "detail": "D\u00e9tail",
+      "noEntries": "Aucune entr\u00e9e dans le journal.",
+      "loadMore": "Charger plus",
+      "filterBySegment": "Filtrer par segment",
+      "filterByAction": "Filtrer par action",
+      "allSegments": "Tous les segments",
+      "allActions": "Toutes les actions"
+    },
+    "nat": {
+      "title": "Pistes NAT",
+      "name": "Nom de piste",
+      "routeString": "Route",
+      "altitudeRange": "Plage d'altitude",
+      "priority": "Priorit\u00e9",
+      "create": "Cr\u00e9er une piste NAT",
+      "edit": "Modifier la piste NAT",
+      "delete": "Supprimer la piste NAT",
+      "confirmDelete": "Supprimer cette piste NAT ?",
+      "created": "Piste NAT cr\u00e9\u00e9e.",
+      "updated": "Piste NAT mise \u00e0 jour.",
+      "deleted": "Piste NAT supprim\u00e9e.",
+      "noTracks": "Aucune piste NAT d\u00e9finie pour cette session.",
+      "resolving": "R\u00e9solution de la piste NAT...",
+      "resolved": "Piste NAT {name} r\u00e9solue",
+      "notFound": "Piste NAT {name} introuvable"
     }
   },
   "deeplink": {
@@ -3793,6 +3825,33 @@
   "playbook": {
     "activateReroute": "Activer comme déroutement",
     "addRoute": "Ajouter une route",
+    "analysis": {
+      "title": "Analyse de route",
+      "speedConfig": "Vitesse et vent",
+      "climbSpeed": "Mont\u00e9e (kts)",
+      "cruiseSpeed": "Croisi\u00e8re (kts)",
+      "descentSpeed": "Descente (kts)",
+      "windComponent": "Vent (kts)",
+      "facilityType": "Type",
+      "facilityId": "ID",
+      "facilityName": "Nom",
+      "distWithin": "Dist (nm)",
+      "timeWithin": "Temps (min)",
+      "entryDist": "Entr\u00e9e (nm)",
+      "exitDist": "Sortie (nm)",
+      "fixDetail": "D\u00e9tail des fixes",
+      "fix": "Fix",
+      "distFromOrig": "Depuis orig.",
+      "distToDest": "Vers dest.",
+      "timeFromOrig": "Temps+",
+      "timeToDest": "Temps-",
+      "facility": "Installation",
+      "totalDistance": "Total : {dist} nm",
+      "totalTime": "Est : {time} min",
+      "noData": "Aucune donn\u00e9e d'analyse disponible.",
+      "loading": "Analyse de la route...",
+      "error": "\u00c9chec de l'analyse : {message}"
+    },
     "advisoryNatotsUnsupported": "Le format NATOTS n'est pas pris en charge par cet analyseur",
     "advisoryNoRoutes": "Aucune route trouvée dans le texte de l'avis",
     "advisoryParseHelp": "Prend en charge les formats standard (ORIG/DEST/ROUTE) et divisé (FROM/TO). Les motifs FIR: (ex. FIR:LS..) sont auto-expandés en codes ARTCC.",
@@ -3807,7 +3866,22 @@
     "bulkPasteHint": "Une route par ligne: ORIG ROUTE DEST\nLes motifs FIR: sont auto-expandés (ex. FIR:KZO. → ZOA ZOB)\nLes codes OACI sont normalisés (ex. KZAB → ZAB)",
     "category": "Catégorie",
     "categoryPlaceholder": "ex. EAST_GATE",
-    "changelog": "Historique des modifications",
+    "changelog": {
+      "title": "Historique des modifications",
+      "time": "Heure",
+      "author": "Auteur",
+      "action": "Action",
+      "field": "Champ",
+      "oldValue": "Ancien",
+      "newValue": "Nouveau",
+      "noEntries": "Aucune modification enregistr\u00e9e.",
+      "loadMore": "Charger plus",
+      "created": "Cr\u00e9\u00e9",
+      "updated": "Mis \u00e0 jour",
+      "deleted": "Supprim\u00e9",
+      "archived": "Archiv\u00e9",
+      "restored": "Restaur\u00e9"
+    },
     "clearFilters": "Effacer les filtres",
     "confirmArchive": "Archiver le jeu?",
     "confirmArchiveText": "Ce jeu sera masqué du catalogue actif.",
@@ -3993,6 +4067,16 @@
       "bulkAddPlaceholder": "Entrer les CIDs s\u00e9par\u00e9s par des virgules",
       "loadFailed": "\u00c9chec du chargement de la liste d'acc\u00e8s",
       "saveFailed": "\u00c9chec de la mise \u00e0 jour de l'acc\u00e8s"
+    },
+    "throughput": {
+      "title": "D\u00e9bit des routes",
+      "toggle": "Afficher le d\u00e9bit",
+      "plannedCount": "Planifi\u00e9",
+      "slotCount": "Cr\u00e9neaux",
+      "peakRate": "Pointe/h",
+      "avgRate": "Moy/h",
+      "noData": "Aucune donn\u00e9e de d\u00e9bit disponible.",
+      "source": "Source"
     }
   },
   "privacy": {
@@ -4402,6 +4486,15 @@
       "mapNotInitialized": "Veuillez attendre l'initialisation de la carte.",
       "shown": "{count} affichés",
       "total": "{count} au total"
+    },
+    "analysis": {
+      "title": "Analyse de route",
+      "analyze": "Analyser",
+      "loading": "Analyse de la route...",
+      "error": "\u00c9chec de l'analyse",
+      "natResolved": "NAT {name} r\u00e9solue en route",
+      "natNotFound": "Piste NAT {name} introuvable",
+      "natResolving": "R\u00e9solution de la piste NAT..."
     },
     "advisory": {
       "noRoutesFound": "Aucune route trouvée pour créer un avis.",

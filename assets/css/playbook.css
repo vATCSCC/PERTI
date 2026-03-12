@@ -1399,3 +1399,110 @@
 .pb-config-opt:hover .pb-config-delete-btn {
     opacity: 1;
 }
+
+/* ── Route Analysis Panel ─────────────────────────────────────────── */
+#route-analysis-panel .card-header {
+    background: #1a1a2e;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+#route-analysis-panel .card-body {
+    background: #16213e;
+}
+
+#route-analysis-panel .table th {
+    position: sticky;
+    top: 0;
+    background: #1a1a2e;
+    z-index: 1;
+    font-weight: 600;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+#route-analysis-panel .table td {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+#analysis-route-info {
+    color: #a8b2c1;
+}
+
+#analysis-route-info .route-label {
+    color: #e0e0e0;
+    font-weight: 600;
+}
+
+/* Facility type badges in traversal table */
+.facility-badge {
+    display: inline-block;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.facility-badge-artcc { background: #2d5a8e; color: #fff; }
+.facility-badge-fir   { background: #5a2d8e; color: #fff; }
+.facility-badge-tracon { background: #8e5a2d; color: #fff; }
+
+/* ── Changelog Panel ──────────────────────────────────────────────── */
+#play-changelog-panel .card-header {
+    background: #1a1a2e;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+#play-changelog-panel .card-body {
+    background: #16213e;
+}
+
+#play-changelog-panel .table th {
+    position: sticky;
+    top: 0;
+    background: #1a1a2e;
+    z-index: 1;
+    font-weight: 600;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+/* Changelog diff styling */
+.cl-old {
+    color: #e57373;
+    text-decoration: line-through;
+    font-size: 0.75rem;
+}
+.cl-new {
+    color: #81c784;
+    font-size: 0.75rem;
+}
+.cl-action {
+    font-weight: 600;
+    text-transform: capitalize;
+}
+.cl-action-created { color: #81c784; }
+.cl-action-updated { color: #64b5f6; }
+.cl-action-deleted { color: #e57373; }
+.cl-action-archived { color: #ffb74d; }
+
+/* ── Throughput Labels on Map ─────────────────────────────────────── */
+.throughput-label {
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* Throughput toggle active state */
+#btn-throughput-toggle.active {
+    background: #2196f3 !important;
+    color: #fff !important;
+    border-color: #2196f3 !important;
+}
+
+/* ── Cursor pointer utility ───────────────────────────────────────── */
+.cursor-pointer { cursor: pointer; }

@@ -4,8 +4,10 @@
  * Returns changelog entries for audit/AIRAC cycle review.
  *
  * GET ?play_id=123           - Filter by play
+ * GET ?route_id=456          - Filter by route
  * GET ?airac=2601            - Filter by AIRAC cycle
  * GET ?action=route_updated  - Filter by action type
+ * GET ?since=2026-03-12T00:00:00Z - Changes since timestamp
  * GET ?page=1&per_page=50    - Pagination
  */
 
@@ -43,8 +45,10 @@ if (!$perm) {
 }
 
 $play_id  = get_int('play_id');
+$route_id = get_int('route_id');
 $airac    = get_input('airac');
 $action   = get_input('action');
+$since    = get_input('since');
 $page     = max(1, get_int('page', 1));
 $per_page = min(200, max(1, get_int('per_page', 50)));
 $offset   = ($page - 1) * $per_page;
@@ -59,6 +63,12 @@ if ($play_id > 0) {
     $types .= 'i';
 }
 
+if ($route_id > 0) {
+    $where[] = "c.route_id = ?";
+    $params[] = $route_id;
+    $types .= 'i';
+}
+
 if ($airac !== '') {
     $where[] = "c.airac_cycle = ?";
     $params[] = $airac;
@@ -68,6 +78,12 @@ if ($airac !== '') {
 if ($action !== '') {
     $where[] = "c.action = ?";
     $params[] = $action;
+    $types .= 's';
+}
+
+if ($since !== '') {
+    $where[] = "c.changed_at >= ?";
+    $params[] = $since;
     $types .= 's';
 }
 
@@ -103,6 +119,9 @@ while ($row = $result->fetch_assoc()) {
     $row['changelog_id'] = (int)$row['changelog_id'];
     $row['play_id'] = (int)$row['play_id'];
     if ($row['route_id'] !== null) $row['route_id'] = (int)$row['route_id'];
+    if (isset($row['session_context']) && $row['session_context']) {
+        $row['session_context'] = json_decode($row['session_context'], true);
+    }
     $rows[] = $row;
 }
 $data_stmt->close();

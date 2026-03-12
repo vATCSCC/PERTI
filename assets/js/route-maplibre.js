@@ -158,6 +158,72 @@ $(document).ready(function() {
     const awyIndexMap = {};
     let awyIndexBuilt = false;
 
+    // NAT (North Atlantic Track) cache for CTP oceanic route expansion
+    let natTrackCache = null;
+    const natTokenPattern = /^(?:NAT|TRACK|TRK)-?[A-Z]$/;
+
+    /**
+     * Load all NAT tracks from the API into cache (synchronous, called once on first use).
+     * Populates natTrackCache with all alias variations (NATA, NAT-A, TRACKA, TRKA, etc.)
+     */
+    function loadNATTracks() {
+        if (natTrackCache !== null) return;
+        natTrackCache = {};
+        $.ajax({
+            url: 'api/data/playbook/nat_tracks.php',
+            dataType: 'json',
+            async: false,
+            success: function(resp) {
+                if (resp && resp.tracks) {
+                    resp.tracks.forEach(function(trk) {
+                        var name = (trk.name || '').toUpperCase();
+                        var routeStr = trk.route_string || '';
+                        natTrackCache[name] = routeStr;
+                        // Add alias variations so NATA, NAT-A, TRACKA, TRKA, etc. all resolve
+                        var m = name.match(/^NAT([A-Z])$/);
+                        if (m) {
+                            natTrackCache['NAT-' + m[1]] = routeStr;
+                            natTrackCache['TRACK' + m[1]] = routeStr;
+                            natTrackCache['TRK' + m[1]] = routeStr;
+                            natTrackCache['TRACK-' + m[1]] = routeStr;
+                            natTrackCache['TRK-' + m[1]] = routeStr;
+                        }
+                    });
+                }
+                console.log('[MAPLIBRE] Loaded NAT tracks:', Object.keys(natTrackCache).length, 'entries');
+            },
+            error: function() {
+                console.warn('[MAPLIBRE] NAT tracks unavailable');
+            }
+        });
+    }
+
+    /**
+     * Expand NAT tokens in a token array, returning a new array with track waypoints substituted.
+     * @param {string[]} tokens - Route tokens to check for NAT references
+     * @returns {{ tokens: string[], expanded: boolean }} Expanded tokens and whether any NAT was found
+     */
+    function expandNATTokens(tokens) {
+        var anyExpanded = false;
+        var result = [];
+        tokens.forEach(function(tok) {
+            var clean = tok.replace(/[<>]/g, '').toUpperCase();
+            if (natTokenPattern.test(clean)) {
+                loadNATTracks();
+                if (natTrackCache && natTrackCache[clean]) {
+                    var trackWaypoints = natTrackCache[clean].split(/\s+/).filter(function(t) { return t; });
+                    result.push.apply(result, trackWaypoints);
+                    anyExpanded = true;
+                } else {
+                    result.push(tok);
+                }
+            } else {
+                result.push(tok);
+            }
+        });
+        return { tokens: result, expanded: anyExpanded };
+    }
+
     // Departure procedure datasets (DPs)
     const dpByComputerCode = {};
     const dpPatternIndex = {};
@@ -2452,9 +2518,16 @@ $(document).ready(function() {
                 routeText = expandedTokens.join(' ');
             }
 
-            console.log('[MAPLIBRE] After CDR expansion, routeText:', (routeText || '').substring(0, 80));
+            // NAT token expansion (e.g. NATA -> CYMON 51N050W 52N040W ...)
+            const natMainResult = expandNATTokens(routeText.split(/\s+/).filter(t => t !== ''));
+            if (natMainResult.expanded) {
+                routeText = natMainResult.tokens.join(' ');
+                console.log('[MAPLIBRE] NAT expanded, routeText:', (routeText || '').substring(0, 80));
+            }
 
-            // Collect expanded route for public routes feature (includes CDR expansion with airports)
+            console.log('[MAPLIBRE] After CDR/NAT expansion, routeText:', (routeText || '').substring(0, 80));
+
+            // Collect expanded route for public routes feature (includes CDR+NAT expansion with airports)
             expandedRoutesCollector.push(routeText);
 
             // Parse solid/dashed markers
@@ -3093,10 +3166,16 @@ $(document).ready(function() {
                             <i class="fas fa-paint-brush"></i> ${PERTII18n.t('route.styleBtn')}
                         </button>
                         ` : ''}
-                        <button class="btn btn-sm btn-outline-secondary route-popup-labels-btn" 
-                                data-route-id="${routeId}" 
+                        <button class="btn btn-sm btn-outline-secondary route-popup-labels-btn"
+                                data-route-id="${routeId}"
                                 style="flex: 1; font-size: 10px; padding: 2px 6px;">
                             <i class="fas fa-tag"></i> ${isVisible ? PERTII18n.t('route.hideBtn') : PERTII18n.t('route.showBtn')}
+                        </button>
+                        <button class="btn btn-sm btn-outline-info route-popup-analyze-btn"
+                                data-route-id="${routeId}"
+                                data-route-string="${(props.routeString || '').replace(/"/g, '&quot;')}"
+                                style="flex: 1; font-size: 10px; padding: 2px 6px;">
+                            <i class="fas fa-chart-line"></i> ${PERTII18n.t('route.analysis.analyze')}
                         </button>
                     </div>
                 </div>
@@ -3137,6 +3216,19 @@ $(document).ready(function() {
                         const rId = parseInt(this.dataset.routeId);
                         if (rId && routeFixesByRouteId[rId]) {
                             toggleRouteLabelsForRoute(rId, props.color);
+                        }
+                    });
+                }
+
+                const analyzeBtn = document.querySelector('.route-popup-analyze-btn');
+                if (analyzeBtn) {
+                    analyzeBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        popup.remove();
+                        const rId = parseInt(this.dataset.routeId);
+                        const rStr = this.dataset.routeString || '';
+                        if (typeof window.showRouteAnalysis === 'function') {
+                            window.showRouteAnalysis(rId, rStr, null, null);
                         }
                     });
                 }
@@ -6580,6 +6672,23 @@ $(document).ready(function() {
             routeText = advCorrectMandatoryProcedures(routeText);
             return routeText;
         });
+        // NAT token expansion (after CDR expansion, before returning)
+        routeStrings = routeStrings.map(rte => {
+            if (!rte) return rte;
+            let routeText = rte;
+            let colorSuffix = '';
+            const semiIdx = routeText.indexOf(';');
+            if (semiIdx !== -1) {
+                colorSuffix = routeText.slice(semiIdx);
+                routeText = routeText.slice(0, semiIdx).trim();
+            }
+            const natTokens = routeText.split(/\s+/).filter(t => t !== '');
+            const natRes = expandNATTokens(natTokens);
+            if (natRes.expanded) {
+                routeText = natRes.tokens.join(' ');
+            }
+            return colorSuffix ? routeText + colorSuffix : routeText;
+        });
         return {
             routes: routeStrings.filter(r => r && r.trim().length),
             procedures: Array.from(usedProcedures),
@@ -7756,6 +7865,8 @@ $(document).ready(function() {
         getPointByName,
         getPoints: () => points,
         getCdrMap: () => cdrMap,
+        getNatTrackCache: () => natTrackCache,
+        loadNATTracks: loadNATTracks,
         getPlaybookRoutes: () => playbookRoutes,
         getLastExpandedRoutes: () => lastExpandedRoutes, // For public routes feature
         // Export current route features for public routes capture
@@ -8065,6 +8176,14 @@ $(document).ready(function() {
             cleanRoute = cdrExpanded;
         }
 
+        // NAT token expansion (e.g. NATA -> CYMON 51N050W 52N040W ...)
+        let natExpanded = null;
+        const natResult = expandNATTokens(cleanRoute.split(/\s+/).filter(t => t));
+        if (natResult.expanded) {
+            natExpanded = natResult.tokens.join(' ');
+            cleanRoute = natExpanded;
+        }
+
         // Parse tokens
         const tokens = cleanRoute.split(/\s+/).filter(t => t);
 
@@ -8162,6 +8281,7 @@ $(document).ready(function() {
             playbookOrigins: null,
             playbookDests: null,
             cdrCode: null,
+            natExpanded: natExpanded,
             isMandatory: false,
         };
     }
@@ -8217,6 +8337,12 @@ $(document).ready(function() {
                     }
                 });
                 lineTrimmed = expandedCdr.join(' ');
+            }
+
+            // NAT token expansion (e.g. NATA -> CYMON 51N050W 52N040W ...)
+            const natGeoResult = expandNATTokens(lineTrimmed.split(/\s+/).filter(function(t) { return t; }));
+            if (natGeoResult.expanded) {
+                lineTrimmed = natGeoResult.tokens.join(' ');
             }
 
             // Expand airways

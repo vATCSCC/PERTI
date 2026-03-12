@@ -15,6 +15,9 @@
     var API_GROUPS_SAVE = 'api/mgt/playbook/groups.php';
     var API_ACL         = 'api/data/playbook/acl.php';
     var API_ACL_MGT     = 'api/mgt/playbook/acl.php';
+    var API_ANALYSIS    = 'api/data/playbook/analysis.php';
+    var API_THROUGHPUT  = 'api/swim/v1/playbook/throughput';
+    var API_NAT_TRACKS  = 'api/data/playbook/nat_tracks.php';
 
     var t = typeof PERTII18n !== 'undefined' ? PERTII18n.t.bind(PERTII18n) : function(k) { return k; };
     var hasPerm = window.PERTI_PLAYBOOK_PERM === true;
@@ -54,6 +57,16 @@
 
     // Route view mode: 'standard' | 'consolidated' | 'compact'
     var routeViewMode = 'standard';
+
+    // Route analysis state
+    var activeAnalysisRouteId = null;
+
+    // Throughput toggle state
+    var throughputEnabled = false;
+    var throughputData = null;
+
+    // NAT track cache: { 'NATA': 'FIX1 FIX2 ...', ... }
+    var natTrackCache = {};
 
     var GROUP_COLORS = [
         '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12',
@@ -1266,15 +1279,38 @@
             html += '<div class="pb-empty-state"><i class="fas fa-route"></i>' + t('playbook.noRoutes') + '</div>';
         }
 
-        // Changelog toggle
+        // Route Analysis panel (populated on route row click)
+        html += '<div id="route-analysis-panel" class="pb-analysis-panel card card-body p-2 mt-2" style="display:none;font-size:0.75rem;"></div>';
+
+        // Throughput toggle button
+        html += '<div class="mt-2 mb-1">';
+        html += '<button class="btn btn-sm btn-outline-info" id="btn-throughput-toggle">';
+        html += '<i class="fas fa-chart-bar mr-1"></i>' + t('playbook.throughput.toggle');
+        html += '</button>';
+        html += '</div>';
+
+        // Changelog toggle (inline, legacy)
         html += '<div class="pb-changelog">';
         html += '<div class="pb-changelog-header" id="pb_changelog_toggle"><i class="fas fa-chevron-right"></i> ' + t('playbook.changelog') + '</div>';
         html += '<div id="pb_changelog_content" style="display:none;"></div>';
         html += '</div>';
 
+        // Changelog tab (detailed view)
+        html += '<div class="mt-1">';
+        html += '<div class="pb-changelog-tab-header" id="pb_changelog_tab_toggle" style="cursor:pointer;font-size:0.72rem;">';
+        html += '<i class="fas fa-chevron-right mr-1"></i>' + t('playbook.changelogTab.title');
+        html += '</div>';
+        html += '<div id="play-changelog-panel" style="display:none;"></div>';
+        html += '</div>';
+
         $('#pb_detail_content').html(html);
         renderGroupToolbar();
         updateToolbarVisibility();
+
+        // Reset throughput button state on re-render
+        if (throughputEnabled) {
+            $('#btn-throughput-toggle').removeClass('btn-outline-info').addClass('active btn-info');
+        }
     }
 
     // ── Standard route table (original view) ──
@@ -1626,6 +1662,9 @@
         selectedRouteIds.clear();
         routeGroups = [];
         routeViewMode = 'standard';
+        activeAnalysisRouteId = null;
+        throughputEnabled = false;
+        throughputData = null;
         updateUrl(null);
         $('.pb-play-row').removeClass('active');
         $('#pb_info_overlay').hide();
@@ -2134,6 +2173,12 @@
         var selected = getSelectedRoutes();
         if (!selected.length) { return; }
 
+        // If throughput mode is active, delegate to throughput renderer
+        if (throughputEnabled && throughputData) {
+            applyThroughputToMap();
+            return;
+        }
+
         var hasSearch = currentSearchClauses.length > 0;
         var hasGroups = routeGroups.length > 0;
         var text;
@@ -2208,11 +2253,49 @@
             return tokens.join(' ') + colorSuffix;
         }).join('\n');
 
-        var textarea = document.getElementById('routeSearch');
-        var plotBtn = document.getElementById('plot_r');
-        if (textarea && plotBtn) {
-            textarea.value = text;
-            plotBtn.click();
+        // Check for NAT track tokens and expand before plotting
+        var hasNat = text.split('\n').some(function(line) {
+            return findNatTokens(line).length > 0;
+        });
+
+        if (hasNat) {
+            var lines = text.split('\n');
+            var expandPromises = lines.map(function(line) {
+                // Separate color suffix before expanding
+                var colorSuffix = '';
+                var lineForExpand = line;
+                var semiIdx = line.indexOf(';');
+                if (semiIdx !== -1 && line.indexOf('>') === -1) {
+                    // Avoid splitting mandatory markers
+                    colorSuffix = line.slice(semiIdx);
+                    lineForExpand = line.slice(0, semiIdx);
+                }
+                if (findNatTokens(lineForExpand).length > 0) {
+                    return expandNatTracks(lineForExpand).then(function(expanded) {
+                        return expanded + colorSuffix;
+                    });
+                }
+                return $.Deferred().resolve(line).promise();
+            });
+            $.when.apply($, expandPromises).then(function() {
+                var expandedLines = expandPromises.length === 1
+                    ? [arguments[0]]
+                    : Array.prototype.slice.call(arguments);
+                var expandedText = expandedLines.join('\n');
+                var textarea = document.getElementById('routeSearch');
+                var plotBtn = document.getElementById('plot_r');
+                if (textarea && plotBtn) {
+                    textarea.value = expandedText;
+                    plotBtn.click();
+                }
+            });
+        } else {
+            var textarea = document.getElementById('routeSearch');
+            var plotBtn = document.getElementById('plot_r');
+            if (textarea && plotBtn) {
+                textarea.value = text;
+                plotBtn.click();
+            }
         }
     }
 
@@ -3146,6 +3229,478 @@
     }
 
     // =========================================================================
+    // ROUTE ANALYSIS PANEL
+    // =========================================================================
+
+    /**
+     * Load and display route analysis data in the collapsible panel.
+     * Fetches facility traversal, fix analysis, and distance/time data.
+     */
+    function loadRouteAnalysis(routeId, opts) {
+        var panel = $('#route-analysis-panel');
+        if (!panel.length) return;
+
+        // If clicking the same route, toggle the panel closed
+        if (activeAnalysisRouteId === routeId && panel.is(':visible')) {
+            panel.slideUp(150);
+            activeAnalysisRouteId = null;
+            return;
+        }
+        activeAnalysisRouteId = routeId;
+
+        var speed = (opts && opts.speed) ? opts.speed : '';
+        var wind = (opts && opts.wind) ? opts.wind : '';
+
+        var params = 'route_id=' + encodeURIComponent(routeId);
+        if (speed) params += '&speed_kts=' + encodeURIComponent(speed);
+        if (wind) params += '&wind_component=' + encodeURIComponent(wind);
+
+        panel.html(
+            '<div class="pb-loading py-2"><div class="spinner-border spinner-border-sm text-primary"></div> ' +
+            '<span class="small text-muted">' + t('playbook.analysis.loading') + '</span></div>'
+        ).slideDown(150);
+
+        $.getJSON(API_ANALYSIS + '?' + params, function(data) {
+            if (!data || data.status !== 'success') {
+                panel.html(
+                    '<div class="small text-danger py-1"><i class="fas fa-exclamation-triangle mr-1"></i>' +
+                    t('playbook.analysis.loadFailed') + '</div>'
+                );
+                return;
+            }
+
+            var html = '';
+
+            // Speed/Wind config inputs
+            html += '<div class="pb-analysis-config d-flex align-items-center mb-2" style="gap:0.5rem;">';
+            html += '<label class="small mb-0">' + t('playbook.analysis.speed') + ':</label>';
+            var spProfile = data.speed_profile || {};
+            html += '<input type="number" class="form-control form-control-sm" id="pb_analysis_speed" style="width:80px;" placeholder="450" value="' + escHtml(String(spProfile.cruise_kts || '')) + '">';
+            html += '<label class="small mb-0">' + t('playbook.analysis.wind') + ':</label>';
+            var wProfile = data.wind_profile || {};
+            html += '<input type="number" class="form-control form-control-sm" id="pb_analysis_wind" style="width:80px;" placeholder="0" value="' + escHtml(String(wProfile.component_kts || '')) + '">';
+            html += '<button class="btn btn-xs btn-outline-primary" id="pb_analysis_refresh"><i class="fas fa-sync-alt mr-1"></i>' + t('playbook.analysis.recalculate') + '</button>';
+            html += '</div>';
+
+            // Route info header
+            html += '<div class="pb-analysis-header d-flex flex-wrap mb-2" style="gap:0.75rem;font-size:0.75rem;">';
+            if (data.origin) {
+                html += '<span><strong>' + t('playbook.origin') + ':</strong> ' + escHtml(data.origin) + '</span>';
+            }
+            if (data.dest) {
+                html += '<span><strong>' + t('playbook.destination') + ':</strong> ' + escHtml(data.dest) + '</span>';
+            }
+            if (data.total_distance_nm) {
+                html += '<span><strong>' + t('playbook.analysis.totalDistance') + ':</strong> ' + escHtml(String(data.total_distance_nm)) + ' nm</span>';
+            }
+            if (data.total_time_min) {
+                html += '<span><strong>' + t('playbook.analysis.totalTime') + ':</strong> ' + escHtml(String(data.total_time_min)) + ' min</span>';
+            }
+            html += '</div>';
+
+            // Facility traversal table
+            var facilities = data.facility_traversal || [];
+            if (facilities.length) {
+                html += '<div class="pb-analysis-section mb-2">';
+                html += '<div class="small font-weight-bold mb-1">' + t('playbook.analysis.facilityTraversal') + '</div>';
+                html += '<table class="table table-sm table-bordered mb-0" style="font-size:0.7rem;">';
+                html += '<thead><tr>';
+                html += '<th style="width:5%;">#</th>';
+                html += '<th style="width:25%;">' + t('playbook.analysis.facility') + '</th>';
+                html += '<th style="width:15%;">' + t('playbook.analysis.type') + '</th>';
+                html += '<th style="width:20%;">' + t('playbook.analysis.distance') + '</th>';
+                html += '<th style="width:15%;">' + t('playbook.analysis.time') + '</th>';
+                html += '<th style="width:20%;">' + t('playbook.analysis.entryFix') + '</th>';
+                html += '</tr></thead><tbody>';
+                facilities.forEach(function(fac, idx) {
+                    html += '<tr>';
+                    html += '<td>' + (idx + 1) + '</td>';
+                    html += '<td>' + regionColorWrap(fac.name || '') + '</td>';
+                    html += '<td><span class="badge badge-secondary" style="font-size:0.6rem;">' + escHtml(fac.type || '') + '</span></td>';
+                    html += '<td>' + escHtml(String(fac.distance_nm || '-')) + ' nm</td>';
+                    html += '<td>' + escHtml(String(fac.time_min || '-')) + ' min</td>';
+                    html += '<td>' + escHtml(fac.entry_fix || '-') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                html += '</div>';
+            }
+
+            // Fix analysis table (expandable)
+            var fixes = data.fix_analysis || [];
+            if (fixes.length) {
+                html += '<div class="pb-analysis-section">';
+                html += '<div class="pb-analysis-fix-toggle small font-weight-bold mb-1" id="pb_fix_analysis_toggle" style="cursor:pointer;">';
+                html += '<i class="fas fa-chevron-right"></i> ' + t('playbook.analysis.fixAnalysis') + ' (' + fixes.length + ' ' + t('playbook.analysis.fixes') + ')';
+                html += '</div>';
+                html += '<div id="pb_fix_analysis_body" style="display:none;">';
+                html += '<table class="table table-sm table-bordered mb-0" style="font-size:0.7rem;">';
+                html += '<thead><tr>';
+                html += '<th style="width:5%;">#</th>';
+                html += '<th style="width:20%;">' + t('playbook.analysis.fixName') + '</th>';
+                html += '<th style="width:20%;">' + t('playbook.analysis.cumDistance') + '</th>';
+                html += '<th style="width:15%;">' + t('playbook.analysis.cumTime') + '</th>';
+                html += '<th style="width:15%;">' + t('playbook.analysis.distToDest') + '</th>';
+                html += '<th style="width:15%;">' + t('playbook.analysis.timeToDest') + '</th>';
+                html += '<th style="width:10%;">' + t('playbook.analysis.facility') + '</th>';
+                html += '</tr></thead><tbody>';
+                fixes.forEach(function(fix, idx) {
+                    html += '<tr>';
+                    html += '<td>' + (idx + 1) + '</td>';
+                    html += '<td><strong>' + escHtml(fix.fix || '') + '</strong></td>';
+                    html += '<td>' + escHtml(String(fix.dist_from_origin_nm || '-')) + ' nm</td>';
+                    html += '<td>' + escHtml(String(fix.time_from_origin_min || '-')) + ' min</td>';
+                    html += '<td>' + escHtml(String(fix.dist_to_dest_nm || '-')) + ' nm</td>';
+                    html += '<td>' + escHtml(String(fix.time_to_dest_min || '-')) + ' min</td>';
+                    html += '<td>' + regionColorWrap(fix.facility || '') + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table>';
+                html += '</div></div>';
+            }
+
+            if (!facilities.length && !fixes.length) {
+                html += '<div class="small text-muted py-1">' + t('playbook.analysis.noData') + '</div>';
+            }
+
+            panel.html(html);
+        }).fail(function() {
+            panel.html(
+                '<div class="small text-danger py-1"><i class="fas fa-exclamation-triangle mr-1"></i>' +
+                t('playbook.analysis.loadFailed') + '</div>'
+            );
+        });
+    }
+
+    // =========================================================================
+    // THROUGHPUT TOGGLE
+    // =========================================================================
+
+    /**
+     * Toggle throughput data display on route lines.
+     * Fetches from SWIM API and applies color-coded styling to map routes.
+     */
+    function toggleThroughput() {
+        var btn = $('#btn-throughput-toggle');
+        if (!activePlayData) {
+            if (typeof PERTIDialog !== 'undefined') {
+                PERTIDialog.toast(t('playbook.throughput.noPlay'), 'info');
+            }
+            return;
+        }
+
+        if (throughputEnabled) {
+            // Disable throughput overlay
+            throughputEnabled = false;
+            throughputData = null;
+            btn.removeClass('active btn-info').addClass('btn-outline-info');
+            // Re-plot without throughput colors
+            plotOnMap();
+            return;
+        }
+
+        // Fetch throughput data
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>' + t('playbook.throughput.loading'));
+
+        $.getJSON(API_THROUGHPUT + '?play_id=' + activePlayData.play_id, function(data) {
+            btn.prop('disabled', false);
+
+            if (!data || !data.success) {
+                btn.html('<i class="fas fa-chart-bar mr-1"></i>' + t('playbook.throughput.toggle'));
+                if (typeof PERTIDialog !== 'undefined') {
+                    PERTIDialog.toast(data && data.error ? data.error : t('playbook.throughput.loadFailed'), 'error');
+                }
+                return;
+            }
+
+            throughputEnabled = true;
+            throughputData = data.throughput || {};
+            btn.removeClass('btn-outline-info').addClass('active btn-info');
+            btn.html('<i class="fas fa-chart-bar mr-1"></i>' + t('playbook.throughput.toggle'));
+
+            applyThroughputToMap();
+        }).fail(function() {
+            btn.prop('disabled', false);
+            btn.html('<i class="fas fa-chart-bar mr-1"></i>' + t('playbook.throughput.toggle'));
+            if (typeof PERTIDialog !== 'undefined') {
+                PERTIDialog.toast(t('playbook.throughput.loadFailed'), 'error');
+            }
+        });
+    }
+
+    /**
+     * Apply throughput color coding to currently plotted map routes.
+     * Colors: green (low) -> yellow (medium) -> red (high) based on flight count.
+     */
+    function applyThroughputToMap() {
+        if (!throughputEnabled || !throughputData || !activePlayData) return;
+
+        var routes = activePlayData.routes || [];
+        var maxCount = 0;
+
+        // Find max throughput for normalization
+        routes.forEach(function(r) {
+            var key = String(r.route_id);
+            var count = (throughputData[key] && throughputData[key].count) ? throughputData[key].count : 0;
+            if (count > maxCount) maxCount = count;
+        });
+
+        if (maxCount === 0) {
+            if (typeof PERTIDialog !== 'undefined') {
+                PERTIDialog.toast(t('playbook.throughput.noData'), 'info');
+            }
+            return;
+        }
+
+        // Build color-coded route text for map plotting
+        var selected = getSelectedRoutes();
+        var text = selected.map(function(r) {
+            var parts = [];
+            if (r.origin) parts.push(r.origin);
+            parts.push(r.route_string);
+            if (r.dest) parts.push(r.dest);
+            var routeStr = parts.join(' ');
+
+            var key = String(r.route_id);
+            var count = (throughputData[key] && throughputData[key].count) ? throughputData[key].count : 0;
+            var ratio = maxCount > 0 ? count / maxCount : 0;
+            var color = throughputRatioToColor(ratio);
+            return routeStr + ';' + color;
+        }).join('\n');
+
+        // Apply mandatory markers
+        text = text.split('\n').map(function(line) {
+            var trimmed = line.trim();
+            if (!trimmed) return line;
+            if (trimmed.indexOf('>') !== -1) return line;
+            var colorSuffix = '';
+            var semiIdx = trimmed.indexOf(';');
+            if (semiIdx !== -1) {
+                colorSuffix = trimmed.slice(semiIdx);
+                trimmed = trimmed.slice(0, semiIdx).trim();
+            }
+            var tokens = trimmed.split(/\s+/).filter(Boolean);
+            if (tokens.length > 2) {
+                tokens[1] = '>' + tokens[1];
+                tokens[tokens.length - 2] = tokens[tokens.length - 2] + '<';
+            } else {
+                return '>' + trimmed + '<' + colorSuffix;
+            }
+            return tokens.join(' ') + colorSuffix;
+        }).join('\n');
+
+        var textarea = document.getElementById('routeSearch');
+        var plotBtn = document.getElementById('plot_r');
+        if (textarea && plotBtn) {
+            textarea.value = text;
+            plotBtn.click();
+        }
+    }
+
+    /**
+     * Map a 0-1 ratio to a green->yellow->red color string.
+     */
+    function throughputRatioToColor(ratio) {
+        if (ratio <= 0) return '#28a745';
+        if (ratio >= 1) return '#dc3545';
+        // Green (0) -> Yellow (0.5) -> Red (1.0)
+        var r, g, b;
+        if (ratio < 0.5) {
+            var t2 = ratio * 2;
+            r = Math.round(40 + 215 * t2);
+            g = Math.round(167 + 88 * t2);
+            b = Math.round(69 - 69 * t2);
+        } else {
+            var t2 = (ratio - 0.5) * 2;
+            r = Math.round(255 - 35 * t2);
+            g = Math.round(255 - 202 * t2);
+            b = Math.round(0 + 69 * t2);
+        }
+        return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    // =========================================================================
+    // PLAY CHANGELOG TAB
+    // =========================================================================
+
+    /**
+     * Load and render detailed change history for a play in the changelog panel.
+     * Shows timestamp, author, action, field, and color-coded old/new values.
+     */
+    function loadPlayChangelog(playId) {
+        var panel = $('#play-changelog-panel');
+        if (!panel.length) return;
+
+        panel.html(
+            '<div class="pb-loading py-2"><div class="spinner-border spinner-border-sm text-primary"></div> ' +
+            '<span class="small text-muted">' + t('playbook.changelogTab.loading') + '</span></div>'
+        ).slideDown(150);
+
+        $.getJSON(API_LOG + '?play_id=' + playId + '&per_page=50', function(data) {
+            if (!data || !data.success || !data.data || !data.data.length) {
+                panel.html(
+                    '<div class="small text-muted py-2"><i class="fas fa-history mr-1"></i>' +
+                    t('playbook.noChanges') + '</div>'
+                );
+                return;
+            }
+
+            var entries = data.data;
+            var html = '';
+            html += '<div class="pb-changelog-tab-header small font-weight-bold mb-1">';
+            html += '<i class="fas fa-history mr-1"></i>' + t('playbook.changelogTab.title') + ' (' + entries.length + ')';
+            html += '</div>';
+
+            html += '<div class="table-responsive">';
+            html += '<table class="table table-sm table-bordered mb-0" style="font-size:0.7rem;">';
+            html += '<thead><tr>';
+            html += '<th style="width:18%;">' + t('playbook.changelogTab.timestamp') + '</th>';
+            html += '<th style="width:12%;">' + t('playbook.changelogTab.author') + '</th>';
+            html += '<th style="width:12%;">' + t('playbook.changelogTab.action') + '</th>';
+            html += '<th style="width:12%;">' + t('playbook.changelogTab.field') + '</th>';
+            html += '<th>' + t('playbook.changelogTab.changes') + '</th>';
+            html += '</tr></thead><tbody>';
+
+            entries.forEach(function(entry) {
+                var actionCls = 'badge-secondary';
+                var actionText = entry.action || '';
+                var actionLower = actionText.toLowerCase();
+                if (actionLower === 'create' || actionLower === 'add') {
+                    actionCls = 'badge-success';
+                } else if (actionLower === 'update' || actionLower === 'edit') {
+                    actionCls = 'badge-warning';
+                } else if (actionLower === 'delete' || actionLower === 'remove') {
+                    actionCls = 'badge-danger';
+                }
+
+                html += '<tr>';
+                html += '<td class="text-muted">' + escHtml(entry.changed_at || '') + '</td>';
+                html += '<td>' + escHtml(entry.changed_by || '-') + '</td>';
+                html += '<td><span class="badge ' + actionCls + '" style="font-size:0.6rem;">' + escHtml(actionText) + '</span></td>';
+                html += '<td>' + escHtml(entry.field_name || '-') + '</td>';
+                html += '<td>';
+                if (entry.old_value || entry.new_value) {
+                    if (entry.old_value) {
+                        html += '<span class="pb-changelog-diff-old" style="background:#f8d7da;padding:1px 4px;border-radius:2px;text-decoration:line-through;">';
+                        html += escHtml(entry.old_value.substring(0, 120));
+                        html += '</span>';
+                    }
+                    html += ' <i class="fas fa-arrow-right" style="font-size:0.55rem;color:#999;margin:0 3px;"></i> ';
+                    if (entry.new_value) {
+                        html += '<span class="pb-changelog-diff-new" style="background:#d4edda;padding:1px 4px;border-radius:2px;">';
+                        html += escHtml(entry.new_value.substring(0, 120));
+                        html += '</span>';
+                    }
+                } else {
+                    html += '<span class="text-muted">-</span>';
+                }
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table></div>';
+            panel.html(html);
+        }).fail(function() {
+            panel.html(
+                '<div class="small text-danger py-1"><i class="fas fa-exclamation-triangle mr-1"></i>' +
+                t('playbook.changelogTab.loadFailed') + '</div>'
+            );
+        });
+    }
+
+    // =========================================================================
+    // NAT TRACK RESOLUTION
+    // =========================================================================
+
+    /**
+     * Check if a route string contains a NAT track token (NATA through NATZ).
+     * Returns an array of NAT tokens found, or empty array if none.
+     */
+    function findNatTokens(routeString) {
+        if (!routeString) return [];
+        var tokens = routeString.toUpperCase().split(/\s+/);
+        return tokens.filter(function(tok) {
+            return /^NAT[A-Z]$/.test(tok);
+        });
+    }
+
+    /**
+     * Resolve a NAT track token to its expanded fix string.
+     * Uses a cache to avoid redundant API calls.
+     * Returns a jQuery Deferred that resolves with the expanded string.
+     */
+    function resolveNatTrack(natToken) {
+        var deferred = $.Deferred();
+        var upper = natToken.toUpperCase();
+
+        if (natTrackCache[upper] !== undefined) {
+            deferred.resolve(natTrackCache[upper]);
+            return deferred.promise();
+        }
+
+        $.getJSON(API_NAT_TRACKS + '?name=' + encodeURIComponent(upper), function(data) {
+            if (data && data.success && data.track) {
+                var expanded = data.track.route || '';
+                natTrackCache[upper] = expanded;
+                deferred.resolve(expanded);
+            } else {
+                // Cache empty to avoid re-fetching
+                natTrackCache[upper] = '';
+                deferred.resolve('');
+            }
+        }).fail(function() {
+            natTrackCache[upper] = '';
+            deferred.resolve('');
+        });
+
+        return deferred.promise();
+    }
+
+    /**
+     * Expand all NAT track tokens in a route string.
+     * Returns a jQuery Deferred that resolves with the expanded route string.
+     */
+    function expandNatTracks(routeString) {
+        var deferred = $.Deferred();
+        var natTokens = findNatTokens(routeString);
+
+        if (!natTokens.length) {
+            deferred.resolve(routeString);
+            return deferred.promise();
+        }
+
+        // Resolve all unique NAT tokens in parallel
+        var uniqueTokens = [];
+        var seen = {};
+        natTokens.forEach(function(tok) {
+            if (!seen[tok]) {
+                seen[tok] = true;
+                uniqueTokens.push(tok);
+            }
+        });
+
+        var promises = uniqueTokens.map(function(tok) {
+            return resolveNatTrack(tok);
+        });
+
+        $.when.apply($, promises).then(function() {
+            var results = uniqueTokens.length === 1 ? [arguments[0]] : Array.prototype.slice.call(arguments);
+            var expanded = routeString;
+            uniqueTokens.forEach(function(tok, idx) {
+                var replacement = results[idx] || tok;
+                if (replacement) {
+                    // Replace the NAT token with its expanded route (global replace)
+                    var regex = new RegExp('\\b' + tok + '\\b', 'gi');
+                    expanded = expanded.replace(regex, replacement);
+                }
+            });
+            deferred.resolve(expanded);
+        });
+
+        return deferred.promise();
+    }
+
+    // =========================================================================
     // EVENT HANDLERS
     // =========================================================================
 
@@ -3634,6 +4189,63 @@
                 $this.addClass('expanded');
                 if (activePlayId && !content.find('.pb-changelog-list').length) {
                     loadChangelog(activePlayId);
+                }
+            }
+        });
+
+        // ── Route analysis panel: click route row to load analysis ──
+        $(document).on('click', '.pb-route-table tbody tr', function(e) {
+            // Skip if clicking a checkbox
+            if ($(e.target).is('input[type="checkbox"]') || $(e.target).closest('.pb-route-check').length) return;
+            var rid = parseInt($(this).attr('data-route-id'));
+            if (!rid) return;
+            // Highlight the clicked row
+            $('.pb-route-table tbody tr').removeClass('pb-route-analysis-active');
+            if (activeAnalysisRouteId !== rid) {
+                $(this).addClass('pb-route-analysis-active');
+            }
+            loadRouteAnalysis(rid);
+        });
+
+        // Route analysis: speed/wind recalculate
+        $(document).on('click', '#pb_analysis_refresh', function() {
+            if (!activeAnalysisRouteId) return;
+            var speed = $('#pb_analysis_speed').val() || '';
+            var wind = $('#pb_analysis_wind').val() || '';
+            // Force re-fetch by clearing the active ID comparison
+            var rid = activeAnalysisRouteId;
+            activeAnalysisRouteId = null;
+            loadRouteAnalysis(rid, { speed: speed, wind: wind });
+        });
+
+        // Route analysis: fix analysis toggle
+        $(document).on('click', '#pb_fix_analysis_toggle', function() {
+            var body = $('#pb_fix_analysis_body');
+            if (body.is(':visible')) {
+                body.slideUp(150);
+                $(this).find('i').removeClass('fa-chevron-down').addClass('fa-chevron-right');
+            } else {
+                body.slideDown(150);
+                $(this).find('i').removeClass('fa-chevron-right').addClass('fa-chevron-down');
+            }
+        });
+
+        // ── Throughput toggle ──
+        $(document).on('click', '#btn-throughput-toggle', function() {
+            toggleThroughput();
+        });
+
+        // ── Changelog tab ──
+        $(document).on('click', '#pb_changelog_tab_toggle', function() {
+            var panel = $('#play-changelog-panel');
+            var $this = $(this);
+            if (panel.is(':visible')) {
+                panel.slideUp(150);
+                $this.removeClass('expanded');
+            } else {
+                $this.addClass('expanded');
+                if (activePlayId) {
+                    loadPlayChangelog(activePlayId);
                 }
             }
         });
