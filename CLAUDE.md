@@ -128,355 +128,78 @@ This skips `$conn_adl`, `$conn_swim`, `$conn_tmi`, `$conn_ref`, and `$conn_gis` 
 - `api/mgt/sua/` — uses `$conn_adl`
 - `api/data/configs.php`, `api/data/tmi/reroute.php`, `api/data/sua/`, `api/data/rate_history.php`, `api/data/weather_impacts.php` — uses `$conn_adl`
 
-### Key Database Tables by Database
-
-Column format: `column_name (type)` — PK = primary key, FK = foreign key reference.
-
-#### perti_site (MySQL) - Main web app
-
-**`users`** - VATSIM-authenticated users
-`id PK, cid, first_name, last_name, last_session_ip, last_selfcookie, updated_at, created_at`
-
-**`admin_users`** - Admin-level users (same columns as users)
-
-**`p_plans`** - PERTI event plans
-`id PK, event_name, event_date, event_start, event_banner, oplevel (int), hotline, event_end_date, event_end_time, updated_at, created_at`
-
-**`p_configs`** - Airport configs per plan
-`id PK, p_id FK→p_plans, airport, weather (int), arrive, depart, aar, adr, comments, updated_at, created_at`
-
-**`config_data`** - Default airport rate configs
-`id PK, airport, arr, dep, vmc_aar, lvmc_aar, imc_aar, limc_aar, vmc_adr, imc_adr, updated_at, created_at`
-
-**`p_terminal_staffing`** / **`p_enroute_staffing`** - Staffing per plan
-`id PK, p_id FK, facility_name, staffing_status (int), staffing_quantity (int), comments, updated_at, created_at`
-
-**`p_dcc_staffing`** - DCC staffing per plan
-`id PK, p_id FK, position_name, position_facility, personnel_name, personnel_ois, updated_at, created_at`
-
-**`p_terminal_constraints`** / **`p_enroute_constraints`** - Operational constraints
-`id PK, p_id FK, location, context, date, impact, updated_at, created_at`
-
-**`p_terminal_init`** / **`p_enroute_init`** - Initiative entries
-`id PK, p_id FK, title, context, updated_at, created_at`
-
-**`p_terminal_init_timeline`** / **`p_enroute_init_timeline`** - Initiative timelines
-`id PK, p_id FK, facility, area, tmi_type, tmi_type_other, cause, start_datetime, end_datetime, level, notes (text), is_global (tinyint), advzy_number, created_by, created_at, updated_at`
-
-**`p_terminal_init_times`** / **`p_enroute_init_times`** - Initiative time entries
-`id PK, init_id FK, time, probability (int), updated_at, created_at`
-
-**`p_terminal_planning`** / **`p_enroute_planning`** - Planning comments
-`id PK, p_id FK, facility_name, comments (text), updated_at, created_at`
-
-**`p_op_goals`** - Planning goals
-`id PK, p_id FK, comments (text), updated_at, created_at`
-
-**`p_forecast`** - Demand forecasts
-`id PK, p_id FK, date, summary (text), image_url, updated_at, created_at`
-
-**`p_historical`** - Historical reference data
-`id PK, p_id FK, title, date, summary (text), image_url, source_url, updated_at, created_at`
-
-**`p_group_flights`** - Group flight entries
-`id PK, p_id FK, entity, dep, arr, etd, eta, pilot_quantity (int), route, updated_at, created_at`
-
-**`r_scores`** / **`r_comments`** / **`r_data`** / **`r_ops_data`** - Post-event review data
-
-**`assigned`** - PERTI role assignments
-`id PK, e_id, e_title, e_date, p_cid, e_cid, r_cid, t_cid, i_cid, updated_at, created_at`
-
-**`route_cdr`** - Coded Departure Routes
-`fid PK, cdr_id, cdr_code, rte_orig, rte_dest, rte_dep_fix, rte_string, rte_dep_artcc, rte_arr_artcc, rte_t_artcc, rte_coord_rqd, pb_name, rte_nav_eqpt, rte_string_perti`
-
-**`route_playbook`** - Playbook routes
-`fid PK, pb_id, pb_name, pb_category, pb_route_advisory, pb_route_advisory_fca`
-
-**`tmi_ground_stops`** - Legacy ground stop records
-`id PK, status, name, ctl_element, element_type, airports, start_utc, end_utc, prob_ext, origin_centers, origin_airports, comments, adv_number, advisory_text`
-
-#### VATSIM_ADL (Azure SQL) - Flight Data
-
-**Core 8-table normalized flight architecture** (all keyed on `flight_uid bigint`):
-
-**`adl_flight_core`** - Main flight record
-`flight_uid PK, flight_key, cid, callsign, flight_id, phase, last_source, is_active, first_seen_utc, last_seen_utc, logon_time_utc, adl_date, adl_time, snapshot_utc, flight_phase, last_trajectory_tier, is_relevant, current_zone, current_zone_airport, current_artcc, current_artcc_id, current_tracon, current_tracon_id, boundary_updated_at, current_sector_low, current_sector_high, current_sector_superhigh, crossing_tier, crossing_last_calc_utc, crossing_needs_recalc, level_flight_confirmed`
-
-**`adl_flight_plan`** - Filed flight plan
-`flight_uid FK, fp_rule, fp_dept_icao, fp_dest_icao, fp_alt_icao, fp_dept_tracon, fp_dept_artcc, dfix, dp_name, dtrsn, fp_dest_tracon, fp_dest_artcc, afix, star_name, strsn, approach, runway, fp_route, fp_route_expanded, route_geometry (geography), waypoints_json, waypoint_count, parse_status, parse_tier, dep_runway, arr_runway, is_simbrief, fp_altitude_ft, fp_tas_kts, gcd_nm, aircraft_type, aircraft_equip, artccs_traversed, tracons_traversed, route_total_nm, route_dist_nm`
-
-**`adl_flight_position`** - Current position data
-`flight_uid FK, lat, lon, altitude_ft, altitude_assigned, altitude_cleared, groundspeed_kts, true_airspeed_kts, mach, vertical_rate_fpm, heading_deg, track_deg, dist_to_dest_nm, dist_flown_nm, pct_complete, position_updated_utc, position_geo (geography), route_dist_to_dest_nm, next_waypoint_seq, next_waypoint_name`
-
-**`adl_flight_times`** - All timing data (50+ time columns)
-`flight_uid FK, std_utc, etd_utc, etd_runway_utc, etd_source, atd_utc, atd_runway_utc, ctd_utc, edct_utc, sta_utc, eta_utc, eta_runway_utc, eta_source, eta_tfms_utc, ata_utc, ata_runway_utc, cta_utc, etd_dfix_utc, eta_afix_utc, eta_meterfix_utc, center_entry_utc, center_exit_utc, arrival_bucket_utc, departure_bucket_utc, ete_minutes, delay_minutes, out_utc, off_utc, on_utc, in_utc, eta_confidence, tod_dist_nm, tod_eta_utc, toc_eta_utc, eta_method, eta_wind_adj_kts, actual_off_block_time, actual_time_of_departure, actual_landing_time, actual_in_block_time, estimated_time_of_arrival, estimated_off_block_time, estimated_runway_arrival_time, controlled_time_of_departure, controlled_time_of_arrival, ...`
-
-**`adl_flight_tmi`** - TMI control assignments
-`flight_uid FK, ctl_type, ctl_element, delay_status, delay_minutes, delay_source, ctd_utc, cta_utc, edct_utc, slot_time_utc, slot_status, is_exempt, exempt_reason, reroute_status, reroute_id, program_id, slot_id, ctl_prgm, program_delay_min, delay_capped, gs_held, gs_release_utc, is_popup, is_recontrol, ecr_pending`
-
-**`adl_flight_aircraft`** - Aircraft performance data
-`flight_uid FK, aircraft_icao, aircraft_faa, weight_class, engine_type, engine_count, wake_category, cruise_tas_kts, ceiling_ft, airline_icao, airline_name, aircraft_updated_utc`
-
-**`adl_flight_trajectory`** - Position history
-`trajectory_id PK, flight_uid FK, recorded_utc, lat, lon, altitude_ft, groundspeed_kts, vertical_rate_fpm, heading_deg, source, tier, flight_phase, dist_to_dest_nm`
-
-**`adl_flight_waypoints`** - Parsed route waypoints
-`waypoint_id PK, flight_uid FK, sequence_num, fix_name, lat, lon, fix_type, source, on_airway, planned_alt_ft, is_toc, is_tod, eta_utc, on_dp, on_star, leg_type, alt_restriction, cum_dist_nm, segment_dist_nm`
-
-**`adl_flight_planned_crossings`** - Boundary crossing predictions
-`crossing_id PK, flight_uid FK, crossing_source, boundary_id, boundary_code, boundary_type, crossing_type, crossing_order, entry_fix_name, exit_fix_name, planned_entry_utc, planned_exit_utc, entry_lat, entry_lon`
-
-**Legacy tables** (pre-normalization, still used by some features):
-- `adl_flights` - Legacy monolithic flight table (150+ columns)
-- `adl_flights_gdp` - GDP-scoped legacy flight copy
-- `adl_flights_gs` - Ground stop-scoped legacy flight copy
-
-**Supporting ADL tables:**
-
-- `adl_boundary` - ARTCC/TRACON/sector boundary polygons with geography columns
-- `adl_boundary_grid` - Pre-computed lat/lon grid → boundary lookup for fast detection
-- `adl_flight_changelog` - Field-level change history (flight_uid, field_name, old_value, new_value)
-- `adl_flight_archive` - Archived completed flights
-- `adl_flight_legs` - Multi-leg itinerary linking
-- `adl_flight_stepclimbs` - Step climb waypoints
-- `adl_flight_boundary_log` - Boundary entry/exit events
-- `adl_flight_weather_impact` - Weather impact detections
-- `adl_parse_queue` - Route parsing queue (flight_uid, parse_tier, status, attempts)
-- `adl_edct_overrides` - Manual EDCT overrides (flight_key, ctd_utc, ctl_type, ctl_element)
-- `adl_staging_pilots` / `adl_staging_prefiles` - Ingest staging tables
-- `adl_slots_gdp` - Legacy GDP slot table
-- `adl_refresh_perf` - Ingest performance metrics
-- `adl_zone_events` - Airport zone entry/exit events
-- `adl_region_group` / `adl_region_group_members` / `adl_region_airports` - Region grouping
-
-**Reference data in ADL:**
-
-- `airlines` (airline_id PK, icao, iata, name, callsign, country, is_virtual, is_active)
-- `apts` - Legacy airport table (ARPT_ID, ICAO_ID, ARPT_NAME, LAT_DECIMAL, LONG_DECIMAL, RESP_ARTCC_ID, etc.)
-- `nav_fixes` (fix_id PK, fix_name, fix_type, lat, lon, artcc_id, position_geo)
-- `nav_procedures` (procedure_id PK, procedure_type, airport_icao, procedure_name, computer_code, transition_name, full_route, runways)
-- `nav_procedure_legs` (leg_id PK, procedure_id FK, sequence_num, fix_name, leg_type, alt_restriction, altitude_1_ft)
-- `airways` / `airway_segments` - Airway definitions with segments
-- `area_centers` - ARTCC/TRACON center points
-- `coded_departure_routes` / `playbook_routes` - CDR and playbook routes
-- `oceanic_fir_bounds` - FIR bounding boxes for oceanic tier filtering
-- `fir_boundaries` / `fir_reference` - FIR boundary polygons and reference data
-- `ACD_Data` - FAA Aircraft Characteristics Database (40+ columns: ICAO_Code, weight, speed, wingspan, etc.)
-- `aircraft_performance_profiles` / `aircraft_performance_opf` / `aircraft_performance_apf` / `aircraft_performance_ptf` - BADA performance data
-- `cifp_legs_staging` / `cifp_procedures_staging` - CIFP import staging
-- `eta_citypair_lookup` - City-pair ETA lookup table
-
-**Airport configuration:**
-
-- `airport_config` (config_id PK, airport_faa, airport_icao, config_name, config_code, is_active)
-- `airport_config_runway` (config_id FK, runway_id, runway_use, priority, approach_type)
-- `airport_config_rate` (config_id FK, source, weather, rate_type, rate_value)
-- `airport_config_history` / `airport_config_rate_history` - Change history
-- `airport_geometry` - Airport zones (runways, taxiways, parking from OSM)
-- `airport_grouping` / `airport_grouping_member` - Airport grouping definitions
-- `airport_weather_impact` - Weather impact thresholds per airport
-- `detected_runway_config` - Auto-detected runway configurations
-- `runway_in_use` - Current runway-in-use from ATIS
-- `runway_heading_ref` - Runway heading reference
-- `manual_rate_override` - Manual AAR/ADR overrides
-- `atis_config_history` - ATIS-derived runway config history
-- `config_modifier` / `modifier_type` / `modifier_category` - Config modifier framework
-
-**ARTCC/facility structure:**
-
-- `artcc_facilities` (facility_id PK, facility_code, facility_name, facility_type, center_lat, center_lon)
-- `artcc_adjacencies` - Adjacent facility relationships
-- `artcc_tier_types` / `artcc_tier_groups` / `artcc_tier_group_members` - Tier hierarchy
-- `facility_tier_configs` / `facility_tier_config_members` - Per-facility tier configurations
-- `sector_boundaries` - Sector boundary polygons with geography
-- `major_tracon` - Major TRACON reference
-
-**Statistics (in ADL):**
-
-- `flight_stats_daily` / `flight_stats_hourly` / `flight_stats_weekly` / `flight_stats_monthly_summary` / `flight_stats_yearly_summary`
-- `flight_stats_airport` / `flight_stats_artcc` / `flight_stats_carrier` / `flight_stats_citypair` / `flight_stats_aircraft` / `flight_stats_tmi`
-- `flight_stats_hourly_patterns` / `flight_stats_monthly_airport`
-- `flight_stats_retention_tiers` / `flight_stats_run_log` / `flight_stats_job_config`
-- `flight_phase_snapshot` - Periodic phase count snapshots
-
-**Events:**
-
-- `division_events` (event_id PK, source, external_id, event_name, start_utc, end_utc, airports_json, routes_json)
-- `perti_events` (event_id PK, event_name, event_type, start_utc, end_utc, featured_airports, logging_enabled, status)
-- `event_position_log` - Controller position captures during events
-
-**Discord integration:**
-
-- `discord_channels` / `discord_messages` / `discord_reactions` / `discord_sent_messages` / `discord_webhook_log` / `discord_rate_limits`
-- `dcc_advisories` / `dcc_advisory_sequences` / `dcc_discord_tmi` - DCC advisory system
-
-**Other ADL tables:**
-
-- `splits_configs` / `splits_positions` / `splits_areas` / `splits_presets` / `splits_preset_positions` - Sector split management
-- `sua_definitions` / `sua_activations` / `sua_aggregate_members` - SUA data
-- `swim_api_keys` - SWIM API key management (copy in ADL)
-- `public_routes` - Publicly visible reroute routes
-- `demand_monitors` - Fix/segment demand monitor definitions
-- `scheduler_state` - Daemon scheduler state
-- `gdp_log` - Legacy GDP program log
-- `ntml` / `ntml_slots` / `ntml_info` - NTML program records (legacy)
-- `r_airport_totals` / `r_hourly_rates` - Review ops data
-- `ref_artcc_adjacency` / `ref_major_airports` - Reference lookups
-- `sim_ref_route_patterns` / `sim_ref_airport_demand` / `sim_ref_carrier_lookup` / `sim_ref_import_log` - Statistical simulation reference
-- `jatoc_incidents` / `jatoc_reports` / `jatoc_updates` / `jatoc_personnel` / `jatoc_ops_level` / `jatoc_daily_ops` / `jatoc_special_emphasis` / `jatoc_user_roles` / `jatoc_sequences` - JATOC incident management
-- `adl_archive_config` / `adl_archive_log` - Archival system config
-- `adl_tmi_state` / `adl_tmi_trajectory` - TMI-specific state and trajectory
-- `adl_trajectory_archive` / `adl_trajectory_compressed` - Trajectory storage tiers
-- `adl_changelog_batch` / `adl_changelog_change_types` - Changelog batching
-- `bada_import_log` / `bada_import_staging` - BADA data import
-- `military_ownership_codes` / `military_service_codes` - Military reference codes
-
-#### VATSIM_TMI (Azure SQL) - Traffic Management
-
-**`tmi_programs`** - TMI programs (GDP, GS, AFP, reroutes)
-`program_id PK, program_guid, ctl_element, element_type, program_type, program_name, adv_number, start_utc, end_utc, status, is_proposed, is_active, program_rate, reserve_rate, delay_limit_min, rates_hourly_json, scope_json, exemptions_json, impacting_condition, cause_text, total_flights, controlled_flights, exempt_flights, avg_delay_min, max_delay_min, total_delay_min, compression_enabled, scope_type, scope_tier, flt_incl_carrier, flt_incl_type, proposal_id, proposal_status, coordination_deadline_utc, created_by, created_at, updated_at, activated_at, purged_at, cancelled_by, cancelled_at`
-
-**`tmi_slots`** - GDP time slots
-`slot_id PK, program_id FK, slot_name, slot_index, slot_time_utc, slot_type, slot_status, bin_hour, bin_quarter, assigned_flight_uid, assigned_callsign, assigned_carrier, assigned_origin, assigned_at, ctd_utc, cta_utc, sl_hold, subbable, bridge_from_slot_id, bridge_to_slot_id, original_eta_utc, slot_delay_min, is_popup_slot, is_archived`
-
-**`tmi_flight_control`** - Per-flight TMI control records
-`control_id PK, flight_uid, callsign, program_id, slot_id, ctd_utc, cta_utc, octd_utc, octa_utc, ctl_elem, ctl_prgm, ctl_type, ctl_exempt, program_delay_min, delay_capped, sl_hold, subbable, gs_held, gs_release_utc, is_popup, is_recontrol, ecr_pending, compliance_status, actual_dep_utc, actual_arr_utc, compliance_delta_min, dep_airport, arr_airport, dep_center, arr_center`
-
-**`tmi_flight_list`** - Flight lists for programs
-`list_id PK, program_id FK, flight_gufi, callsign, flight_uid, dep_airport, arr_airport, original_etd_utc, original_eta_utc, edct_utc, cta_utc, delay_minutes, slot_id, is_exempt, compliance_status`
-
-**`tmi_advisories`** - TMI advisory messages
-`advisory_id PK, advisory_guid, advisory_number, advisory_type, ctl_element, element_type, scope_facilities, program_id, program_rate, delay_cap, effective_from, effective_until, subject, body_text, reason_code, reroute_id, reroute_name, reroute_string, mit_miles, mit_type, mit_fix, status, source_type, discord_message_id, created_by, created_at`
-
-**`tmi_events`** - TMI event log
-`event_id PK, entity_type, entity_id, entity_guid, program_id, flight_uid, slot_id, event_type, event_detail, field_name, old_value, new_value, event_data_json, source_type, actor_id, event_utc`
-
-**`tmi_proposals`** - Coordination proposals
-`proposal_id PK, proposal_guid, entry_id, entry_type, requesting_facility, providing_facility, ctl_element, entry_data_json, approval_deadline_utc, status, requires_unanimous, facilities_approved, facilities_denied, discord_channel_id, discord_message_id, program_id`
-
-**`tmi_proposal_facilities`** / **`tmi_proposal_reactions`** - Proposal approval tracking
-
-**`tmi_entries`** - TMI log entries (MIT, AFP, restrictions)
-`entry_id PK, entry_guid, determinant_code, protocol_type, entry_type, ctl_element, requesting_facility, providing_facility, restriction_value, restriction_unit, reason_code, valid_from, valid_until, status, source_type, discord_message_id`
-
-**`tmi_reroutes`** - Active reroute definitions
-`reroute_id PK, reroute_guid, status, name, adv_number, start_utc, end_utc, protected_segment, protected_fixes, avoid_fixes, route_type, origin_airports/tracons/centers, dest_airports/tracons/centers, departure_fix, arrival_fix, comments, total_assigned, compliant_count, compliance_rate`
-
-**`tmi_reroute_routes`** - Reroute route strings per O/D pair
-`route_id PK, reroute_id FK, origin, destination, route_string, origin_filter, dest_filter`
-
-**`tmi_reroute_flights`** / **`tmi_reroute_compliance_log`** - Reroute flight tracking & compliance
-
-**`tmi_reroute_drafts`** - User reroute drafts
-
-**`tmi_public_routes`** - Published public route visualizations
-`route_id PK, route_guid, status, name, adv_number, route_string, advisory_text, color, line_weight, line_style, valid_start_utc, valid_end_utc, route_geojson, coordination_status`
-
-**`tmi_airport_configs`** - TMI airport config snapshots
-`config_id PK, config_guid, airport, timestamp_utc, conditions, arrival_runways, departure_runways, aar, adr, source_type, event_id`
-
-**`tmi_delay_entries`** - Delay reports
-`delay_id PK, delay_guid, delay_type, airport, facility, timestamp_utc, delay_minutes, delay_trend, holding_status, holding_fix, reason, program_id`
-
-**`tmi_discord_posts`** - Discord message posting queue
-`post_id PK, entity_type, entity_id, org_code, channel_purpose, channel_id, message_id, status, retry_count, direction, approval_status`
-
-**`tmi_popup_queue`** - Popup flight detection queue
-
-**`tmi_program_coordination_log`** - Multi-facility coordination log
-
-**`tmi_flow_providers`** / **`tmi_flow_measures`** / **`tmi_flow_events`** / **`tmi_flow_event_participants`** - External flow control integration (ECFMP etc.)
-
-**Views:** `vw_tmi_active_advisories`, `vw_tmi_active_entries`, `vw_reroute_drafts_active`
-
-#### VATSIM_REF (Azure SQL) - Reference Data
-
-- `nav_fixes` (fix_id PK, fix_name, fix_type, lat, lon, artcc_id, position_geo)
-- `nav_procedures` (procedure_id PK, procedure_type, airport_icao, procedure_name, computer_code, transition_name, full_route, runways)
-- `airways` (airway_id PK, airway_name, airway_type, fix_sequence, fix_count, start_fix, end_fix)
-- `airway_segments` (segment_id PK, airway_id FK, airway_name, from_fix, to_fix, from_lat, from_lon, to_lat, to_lon, distance_nm, segment_geo)
-- `area_centers` (center_id PK, center_code, center_type, center_name, lat, lon, parent_artcc, position_geo)
-- `coded_departure_routes` (cdr_id PK, cdr_code, full_route, origin_icao, dest_icao, direction, is_active)
-- `playbook_routes` (playbook_id PK, play_name, full_route, origin_airports, dest_airports, origin_artccs, dest_artccs)
-- `oceanic_fir_bounds` (fir_id PK, fir_code, fir_name, fir_type, min_lat, max_lat, min_lon, max_lon)
-- `ref_sync_log` - Sync tracking
-
-#### SWIM_API (Azure SQL) - Public FIXM-aligned API
-
-**`swim_flights`** - Denormalized flight snapshot for API consumers (120+ columns)
-Key columns: `flight_uid, flight_key, gufi, callsign, cid, lat, lon, altitude_ft, groundspeed_kts, fp_dept_icao, fp_dest_icao, fp_route, phase, is_active, eta_utc, eta_runway_utc, etd_utc, out_utc, off_utc, on_utc, in_utc, edct_utc, gs_held, ctl_type, ctl_prgm, aircraft_type, weight_class, current_artcc, current_tracon, metering_point, metering_time, metering_status, sequence_number, arrival_stream`
-
-**`swim_api_keys`** - API key management
-`id PK, api_key, tier, owner_name, owner_email, source_id, can_write, allowed_sources, ip_whitelist, expires_at, is_active, owner_cid`
-
-**`swim_audit_log`** - API request audit log
-`id PK, api_key_id FK, endpoint, method, ip_address, request_time, response_code, response_time_ms`
-
-**`swim_ground_stops`** - Ground stop data for API consumers
-
-**Views:** `vw_swim_active_flights`, `vw_swim_flights_oooi_compat`, `vw_swim_tmi_controlled`
-
-#### VATSIM_GIS (PostgreSQL/PostGIS) - Spatial
-
-**`artcc_boundaries`** - ARTCC boundary polygons
-`boundary_id PK, artcc_code, fir_name, icao_code, vatsim_region, vatsim_division, floor_altitude, ceiling_altitude, is_oceanic, label_lat, label_lon, geom (geometry NOT NULL), sector`
-
-**`tracon_boundaries`** - TRACON boundary polygons
-`tracon_id PK, tracon_code, tracon_name, parent_artcc, sector_code, floor_altitude, ceiling_altitude, geom (geometry NOT NULL)`
-
-**`sector_boundaries`** - Sector boundary polygons
-`sector_id PK, sector_code, sector_name, parent_artcc, sector_type, floor_altitude, ceiling_altitude, geom (geometry NOT NULL)`
-
-**`airports`** - Airport points with PostGIS geometry
-`airport_id PK, arpt_id, icao_id, arpt_name, lat, lon, elev, resp_artcc_id, computer_id, artcc_name, twr_type_code, dcc_region, aspm82, opsnet45, oep35, core30, tower, approach, departure, approach_id, geom (geometry)`
-
-**Reference data (mirrored from REF):**
-
-- `nav_fixes` (fix_id, fix_name, fix_type, lat, lon, geom)
-- `nav_procedures` (procedure_id, procedure_type, airport_icao, procedure_name)
-- `airways` / `airway_segments` - With segment_geom geometry columns
-- `area_centers` - With geom geometry
-- `coded_departure_routes` / `playbook_routes`
-
-**Spatial utilities:**
-
-- `boundary_adjacency` - Pre-computed boundary adjacency relationships
-- `facility_reference` - ARTCC reference with tier1/tier2 artccs and major airports
-- `tmi_density_cache` - Cached spatial TMI analysis results
-
-**Views:** `airports_by_artcc`, `airports_by_tracon`, `major_airports`, `military_airports`, `towered_airports`, `artcc_code_mapping`, `boundary_stats`
-
-#### VATSIM_STATS (Azure SQL) - Statistics & Analytics
-
-*Note: Database may be paused on free tier. Resume via Azure Portal if needed.*
-
-Statistics tables are primarily located in VATSIM_ADL under the `flight_stats_*` prefix (see ADL section above). The VATSIM_STATS database contains additional analytics views and aggregations.
+### Key Tables (Quick Reference)
+
+**For full schema details**, query the database directly or see `wiki/Database-Schema.md`.
+
+#### perti_site (MySQL) — Planning & Users
+- `p_plans` (239 records) — Event plans: id, event_name, event_date, event_start, oplevel, etc.
+- `p_configs` — Airport configs per plan (airport, weather, aar, adr)
+- `p_terminal_staffing` / `p_enroute_staffing` — Staffing per plan
+- `p_terminal_init` / `p_enroute_init` — TMI initiative definitions
+- `p_terminal_init_timeline` / `p_enroute_init_timeline` — Initiative timelines
+- `config_data` — Default airport rate configs
+- `users` (25 records) / `admin_users` — User accounts
+- `route_playbook` / `route_cdr` — Playbook and CDR routes
+- `r_tmr_reports` — Traffic Management Review reports
+- `r_scores` / `r_comments` / `r_data` — Post-event review data
+
+#### VATSIM_ADL (Azure SQL) — Flight Data (1.6M+ flights)
+
+**Core 8-table normalized architecture** (keyed on `flight_uid bigint`):
+
+- `adl_flight_core` — flight identity, phase, active status, current position zone/ARTCC/sector
+- `adl_flight_plan` — filed route, aircraft type, parse status, route geometry, waypoint count
+- `adl_flight_position` — lat/lon, altitude, speed, heading, distance to dest, position_geo
+- `adl_flight_times` — 50+ time columns: STD/ETD/ATD/ETA/ATA, OOOI, EDCT, bucket times, confidence
+- `adl_flight_tmi` — TMI control: program_id, slot_id, delay, compliance, reroute status
+- `adl_flight_aircraft` — ICAO/FAA type, weight class, engine, wake category, airline
+- `adl_flight_trajectory` — position history (1M+ records): lat/lon/alt/speed/heading per timestamp
+- `adl_flight_waypoints` — parsed route waypoints (9.3M records): fix_name, lat/lon, ETAs, distances
+- `adl_flight_planned_crossings` — boundary crossing predictions (20.5M records): boundary/entry/exit times
+- Legacy: `adl_flights` (monolithic, 150+ cols), `adl_flights_gdp`, `adl_flights_gs`
+- Supporting: `adl_boundary` (3,033 polygons), `adl_parse_queue`, `adl_edct_overrides`, `adl_flight_changelog`, `adl_flight_archive`, staging tables
+- Reference: `airlines` (228), `apts`, `nav_fixes` (269K), `nav_procedures` (10K), `airways` (1,515), `ACD_Data`, BADA performance tables
+- Airport config: `airport_config`/`_runway`/`_rate`/`_history`, `airport_taxi_reference`, `airport_connect_reference`, `airport_geometry`
+- ARTCC: `artcc_facilities`, `artcc_adjacencies`, tier tables, `sector_boundaries`
+- Stats: `flight_stats_daily/hourly/weekly/monthly/yearly/airport/artcc/carrier/citypair`
+- Events: `division_events`, `perti_events`, `event_position_log`
+- Discord: `discord_channels/messages/reactions`, `dcc_advisories`
+- Other: `splits_*`, `sua_*`, `jatoc_*`, `scheduler_state`, `demand_monitors`
+
+#### VATSIM_TMI (Azure SQL) — Traffic Management (172 programs, 1,020 advisories, 268 reroutes)
+- `tmi_programs` — GDP/GS/AFP programs: rates, scope, delays, status, coordination
+- `tmi_slots` — GDP time slots: slot_time_utc, assigned flight, CTD/CTA, delay
+- `tmi_flight_control` / `tmi_flight_list` — per-flight TMI control and program membership
+- `tmi_advisories` — NTML advisory messages with Discord integration
+- `tmi_entries` — MIT, AFP, restriction log entries
+- `tmi_reroutes` / `tmi_reroute_routes` / `tmi_reroute_flights` — reroute definitions and compliance
+- `tmi_proposals` / `tmi_proposal_facilities` — multi-facility coordination
+- `tmi_public_routes` — published route visualizations
+- `tmi_events` — event audit log
+- `tmi_discord_posts`, `tmi_popup_queue`, `tmi_flow_*` (ECFMP integration)
+
+#### VATSIM_REF (Azure SQL) — Reference Data (269K fixes, 10K procedures, 41K CDRs, 56K playbook routes)
+- `nav_fixes`, `nav_procedures`, `airways`, `airway_segments`, `area_centers`
+- `coded_departure_routes`, `playbook_routes`, `oceanic_fir_bounds`
+
+#### SWIM_API (Azure SQL) — Public FIXM-aligned API
+- `swim_flights` — denormalized flight snapshot (120+ columns) for API consumers
+- `swim_api_keys`, `swim_audit_log`, `swim_ground_stops`
+- Views: `vw_swim_active_flights`, `vw_swim_flights_oooi_compat`, `vw_swim_tmi_controlled`
+
+#### VATSIM_GIS (PostgreSQL/PostGIS) — Spatial (1,004 ARTCC + 1,023 TRACON + 37K airports + 535K fixes)
+- `artcc_boundaries`, `tracon_boundaries`, `sector_boundaries` — polygons with `geom` geometry
+- `airports` — airport points with PostGIS geometry
+- Mirrored REF data: `nav_fixes`, `nav_procedures`, `airways`, `area_centers`, CDRs, playbook routes
+- Utilities: `boundary_adjacency`, `facility_reference`, `tmi_density_cache`
+
+#### VATSIM_STATS (Azure SQL) — may be paused (free tier). Stats tables live in VATSIM_ADL under `flight_stats_*`.
 
 ### Migration Files
 
-Migrations are organized under `database/migrations/` by feature area:
-- `tmi/` - TMI schema (programs, slots, procedures, views)
-- `swim/` - SWIM API schema (FIXM tables, telemetry, keys)
-- `schema/` - ADL schema changes, splits, ACD data
-- `postgis/` - PostGIS boundary tables
-- `gdp/` - GDP-specific tables
-- `initiatives/` - Plan initiative timeline
-- `jatoc/` - Incident reporting
-- `reroute/` - Reroute tables
-- `sua/` - Special Use Airspace
-- `advisories/` - DCC/NOD advisories
-- `vatsim_stats/` - Statistics schema
-- `adl/` - ADL event tables
-
-Additional ADL-specific migrations in `adl/migrations/` organized by:
-- `core/` - Core 8-table flight schema
-- `boundaries/` - Boundary detection
-- `crossings/` - Boundary crossing predictions
-- `demand/` - Fix/segment demand functions
-- `eta/` - ETA trajectory calculation
-- `navdata/` - Waypoint/procedure imports
-- `changelog/` - Flight change tracking triggers
-- `cifp/` - CIFP procedure legs
+Migrations under `database/migrations/` by area: `tmi/`, `swim/`, `schema/`, `postgis/`, `gdp/`, `initiatives/`, `jatoc/`, `reroute/`, `sua/`, `advisories/`, `vatsim_stats/`, `adl/`.
+ADL-specific in `adl/migrations/`: `core/`, `boundaries/`, `crossings/`, `demand/`, `eta/`, `navdata/`, `changelog/`, `cifp/`.
 
 ## Project Structure
 
@@ -510,289 +233,58 @@ Additional ADL-specific migrations in `adl/migrations/` organized by:
 
 ### Top-Level PHP Pages
 
-| File | Purpose |
-|------|---------|
-| `index.php` | Home page - PERTI plan listing and management |
-| `plan.php` | Individual PERTI plan detail (terminal/enroute staffing, constraints, initiatives) |
-| `schedule.php` | Event schedule viewer |
-| `demand.php` | ADL demand charts (fix/segment demand visualization) |
-| `splits.php` | Sector split configuration tool |
-| `route.php` | Route visualization with MapLibre |
-| `review.php` | Post-event review/scoring |
-| `sheet.php` | Planning sheet view |
-| `gdt.php` | Ground Delay Table display |
-| `nod.php` | NAS Operations Dashboard |
-| `status.php` | System status page |
-| `swim.php` | SWIM API info page |
-| `swim-doc.php` | SWIM API documentation viewer |
-| `swim-docs.php` | VATSWIM API technical documentation hub |
-| `swim-keys.php` | SWIM API key self-service management portal |
-| `jatoc.php` | Joint Air Traffic Operations Center (incident management) |
-| `tmi-publish.php` | TMI publishing to Discord (NTML/advisories) |
-| `sua.php` | Special Use Airspace display |
-| `event-aar.php` | Event-specific AAR configuration |
-| `airport_config.php` | Airport configuration editor |
-| `fmds-comparison.php` | FMDS vs PERTI comparison document viewer |
-| `logout.php` | Session destroy and cookie cleanup |
-| `data.php` | Data API router |
-| `simulator.php` | ATC simulator interface |
-| `transparency.php` | Transparency/about page |
-| `privacy.php` | Privacy policy |
-| `healthcheck.php` | Azure health check endpoint |
+**Planning**: `index.php` (plan listing), `plan.php` (plan detail), `schedule.php`, `sheet.php`, `review.php`
+**Operations**: `demand.php` (demand charts), `splits.php` (sector splits), `route.php` (MapLibre map), `gdt.php` (GDP table), `nod.php` (NAS dashboard), `playbook.php` (route plays)
+**TMI**: `tmi-publish.php` (Discord publishing), `sua.php` (SUA display), `airport_config.php`, `event-aar.php`
+**JATOC**: `jatoc.php` (incident management)
+**SWIM**: `swim.php`, `swim-doc.php`, `swim-docs.php`, `swim-keys.php`
+**System**: `status.php`, `simulator.php`, `healthcheck.php`, `data.php`, `login/`, `logout.php`
+**Static**: `transparency.php`, `privacy.php`, `fmds-comparison.php`, `hibernation.php`
 
 ### API Endpoints (`/api/`)
 
-**ADL (Flight Data)** - `/api/adl/`:
-- `current.php` - Get current active flights
-- `flight.php` - Individual flight details
-- `ingest.php` - Flight data ingestion endpoint
-- `waypoints.php` - Flight waypoint data
-- `boundaries.php` - Boundary detection data
-- `import_boundaries.php` - Boundary import trigger
-- `snapshot_history.php` - Historical ADL snapshots
-- `cleanup-queue.php` - Parse queue cleanup
-- `atis-debug.php` - ATIS debugging
-- `diagnose.php`, `diagnostic.php` - Diagnostic endpoints
-- `timing-analysis.php` - ETA timing analysis
-- `demand/fix.php` - Fix-based demand
-- `demand/segment.php` - Route segment demand
-- `demand/airway.php` - Airway demand
-- `demand/details.php` - Demand detail drill-down
-- `demand/debug.php` - Demand debugging
-
-**Data (Reference/Planning)** - `/api/data/`:
-- `plans.l.php` - List all plans
-- `plans/configs.php` - Airport configs for a plan
-- `plans/forecast.php` - Demand forecasts
-- `plans/goals.php` - Planning goals
-- `plans/historical.php` - Historical data
-- `plans/outlook.php` - Traffic outlook
-- `plans/term_inits.php`, `enroute_inits.php` - Terminal/enroute initiatives
-- `plans/term_inits_timeline.php`, `enroute_inits_timeline.php` - Initiative timelines
-- `plans/term_planning.php`, `enroute_planning.php` - Planning data
-- `plans/term_staffing.php`, `enroute_staffing.php`, `dcc_staffing.php` - Staffing data
-- `plans/term_constraints.php`, `enroute_constraints.php` - Constraints
-- `plans/group_flights.php` - Flight grouping data
-- `fixes.php` - Navigation fix lookup
-- `routes.php` - Route data
-- `reroutes.php` - Reroute reference data
-- `schedule.php` - Schedule data
-- `weather.php` - Weather data
-- `weather_impacts.php` - Weather impact analysis
-- `sua.php` - SUA data, `sua/activations.php` - SUA activations
-- `sigmets.php` - SIGMET data
-- `tfr.php` - TFR data
-- `personnel.php` - Personnel data
-- `rate_history.php` - Rate change history
-- `review/data.php`, `review/scores.php`, `review/comments.php` - Review data
-- `sheet/configs.php`, `sheet/term_staffing.php`, etc. - Sheet view data
-- `crossings/forecast.php` - Boundary crossing forecasts
-
-**TMI (Traffic Management)** - `/api/tmi/`:
-- `index.php` - TMI overview/status
-- `active.php` - Active TMI programs
-- `programs.php` - Program CRUD
-- `advisories.php` - Advisory management
-- `AdvisoryNumber.php` - Advisory number generation
-- `entries.php` - TMI log entries (MIT, AFP, restrictions)
-- `helpers.php` - Shared TMI utilities
-- `public-routes.php` - Public route management
-- `reroutes.php` - Reroute management
-- `simtraffic_flight.php` - SimTraffic integration
-- GDP: `gdp_preview.php`, `gdp_apply.php`, `gdp_simulate.php`, `gdp_purge.php`, `gdp_purge_local.php`
-- GS preview: `gs_preview.php`, `gs_simulate.php`, `gs_apply.php`, `gs_apply_ctd.php`, `gs_purge_all.php`, `gs_purge_local.php`
-- `gs/` subdirectory (full Ground Stop lifecycle): `create.php`, `activate.php`, `extend.php`, `purge.php`, `get.php`, `list.php`, `flights.php`, `demand.php`, `model.php`, `common.php`
-
-**Management API** - `/api/mgt/`:
-- `perti/` - PERTI plan CRUD (configs, staffing, constraints, initiatives, schedule, goals, forecast, historical, group flights)
-- `tmi/` - TMI management: `active.php`, `cancel.php`, `coordinate.php`, `edit.php`, `promote.php`, `publish.php`, `queue.php`, `staged.php`, `advisory-number.php`, `airport_configs.php`, `configs.php`, `reroute-drafts.php`
-- `tmi/reroutes/` - Reroute management including `bulk.php`
-- `tmi/ground_stops/` - Ground stop management
-
-**Splits** - `/api/splits/`:
-- `index.php` - List split configs
-- `config.php` - CRUD for split configurations
-- `sectors.php` - Sector data
-- `maps.php` - Sector map data
-- `scheduler.php` - Split scheduling
-- `sample.php`, `debug.php`, `test.php` - Development/debug
-
-**Stats** - `/api/stats/`:
-- `realtime.php` - Real-time statistics
-- `hourly.php` - Hourly aggregates
-- `daily.php` - Daily aggregates
-- `flight_phase_history.php` - Phase transition history
-- `status.php` - Stats system status
-- `StatsHelper.php` - Shared stats utilities
-
-**SWIM API** - `/api/swim/v1/`:
-- REST: `auth.php`, `flight.php`, `flights.php`, `health.php`, `metering.php`, `positions.php`
-- `ingest/` - Data ingestion: `acars.php`, `adl.php`, `metering.php`, `simtraffic.php`, `track.php`, `vnas/`
-- `keys/` - API key management: `provision.php`, `revoke.php`
-- `reference/` - Reference data: `taxi-times.php`
-- `tmi/` - TMI data: `advisories.php`, `controlled.php`, `entries.php`, `measures.php`, `programs.php`, `reroutes.php`, `routes.php`
-- `tmi/flow/` - External flow control: `events.php`, `measures.php`, `providers.php`
-- `ws/` - WebSocket: `WebSocketServer.php`, `ClientConnection.php`, `SubscriptionManager.php`
-
-**Other**:
-- `api/jatoc/` - JATOC auth, config, datetime, validators, vatusa_events, faa_ops_plan
-- `api/event-aar/list.php` - Event AAR listing
-- `api/nod/tracks.php` - NAT track data
-- `api/simulator/navdata.php` - Simulator navdata
-- `api/weather/refresh.php` - Weather data refresh
-- `api/mgt/tmi/reroutes/bulk.php` - Bulk reroute management
-- `api/cron.php` - Cron trigger endpoint
+| Path | Purpose |
+|------|---------|
+| `/api/adl/` | Flight data: `current`, `flight`, `ingest`, `waypoints`, `boundaries`, `demand/*`, diagnostics |
+| `/api/data/` | Reference/planning: `plans/*` (configs, staffing, initiatives, timelines), fixes, routes, weather, SUA, reroutes, review, crossings |
+| `/api/tmi/` | TMI programs: GDP (`gdp_preview/apply/simulate/purge`), GS (`gs/*` lifecycle), advisories, entries, reroutes, public-routes |
+| `/api/mgt/` | Management: `perti/` (plan CRUD), `tmi/` (TMI management, coordination, reroute drafts, ground stops) |
+| `/api/splits/` | Sector splits: config CRUD, sectors, maps, scheduler |
+| `/api/stats/` | Statistics: realtime, hourly, daily, flight phase history |
+| `/api/swim/v1/` | SWIM API: REST flights/positions/metering, `ingest/*`, `keys/*`, `tmi/*`, `ws/` WebSocket |
+| `/api/jatoc/` | Incident management: auth, config, validators |
+| Other | `event-aar/`, `nod/tracks`, `simulator/navdata`, `weather/refresh`, `cron.php` |
 
 ### Frontend Architecture
 
 **Stack**: Vanilla JS + jQuery 2.2.4 + Bootstrap 4.5 + Chart.js + MapLibre GL
 
-**CSS** (`assets/css/`):
-- `theme.css` - Base theme
-- `perti_theme.css` - PERTI-specific overrides
-- `perti-colors.css` - Color variables
-- `mobile.css` - Responsive styles
-- `weather_radar.css`, `weather_impact.css`, `weather_hazards.css` - Weather displays
-- `initiative_timeline.css` - Timeline component
-- `tmi-publish.css` - TMI publisher styles
-- `tmi-compliance.css` - Compliance report styles
-- `info-bar.css` - Info bar component
+**CSS** (`assets/css/`): `theme.css`, `perti_theme.css`, `perti-colors.css`, `mobile.css`, weather (`weather_radar/impact/hazards.css`), `initiative_timeline.css`, `tmi-publish.css`, `tmi-compliance.css`, `info-bar.css`, `playbook.css`
 
-**JavaScript** (`assets/js/`):
+**JavaScript** (`assets/js/`) — 65 modules, 45 using i18n:
+- Core: `lib/datetime.js`, `lib/logger.js`, `lib/colors.js`, `lib/dialog.js`, `lib/i18n.js`, `config/constants.js`, `config/rate-colors.js`, `config/phase-colors.js`
+- Feature: `adl-service.js`, `demand.js`, `gdp.js`, `tmi-gdp.js`, `tmi-publish.js`, `tmi_compliance.js`, `splits.js`, `schedule.js`, `review.js`, `plan.js`, `gdt.js`, `nod.js`, `playbook.js`
+- Map: `route-maplibre.js`, `route-symbology.js`, `fir-scope.js`, `fir-integration.js`, `sua.js`
+- Data: `facility-hierarchy.js`, `procs.js`, `cycle.js`, `awys.js`, `reroute.js`, `playbook-cdr-search.js`
+- Weather: `weather_radar.js`, `weather_impact.js`, `weather_hazards.js`
 
-Core utilities:
-- `lib/datetime.js` - Date/time utilities (Zulu time handling)
-- `lib/logger.js` - Client-side logging
-- `lib/colors.js` - Color utilities
-- `lib/dialog.js` - Modal dialog utilities
-- `lib/i18n.js` - Internationalization support
-- `config/constants.js` - Shared constants
-- `config/rate-colors.js` - Rate color scales
-- `config/phase-colors.js` - Flight phase colors
-- `config/filter-colors.js` - Filter color mapping
-
-Feature modules:
-- `adl-service.js` - ADL data fetching service
-- `adl-refresh-utils.js` - ADL auto-refresh logic
-- `demand.js` - Demand chart visualization
-- `gdp.js` - GDP interface logic
-- `tmi-gdp.js` - TMI GDP management
-- `tmi-active-display.js` - Active TMI display
-- `tmi-publish.js` - TMI Discord publishing
-- `tmi_compliance.js` - TMI compliance analysis
-- `advisory-builder.js` - Advisory message builder
-- `advisory-config.js` - Advisory configuration
-- `splits.js` - Sector split management
-- `schedule.js` - Event schedule
-- `review.js` - Post-event review
-- `sheet.js` - Planning sheet
-- `plan.js` - PERTI plan page logic
-- `gdt.js` - Ground Delay Table
-- `nod.js` - North Atlantic display
-- `nod-demand-layer.js` - NOD demand overlay
-
-Map/spatial:
-- `route-maplibre.js` - MapLibre GL route visualization
-- `route-symbology.js` - Route display symbols
-- `fir-scope.js` - FIR boundary scope
-- `fir-integration.js` - FIR data integration
-- `sua.js` - SUA display
-
-Data/reference:
-- `facility-hierarchy.js` - ARTCC/TRACON/Tower hierarchy data
-- `procs.js`, `procs_enhanced.js` - DP/STAR procedure display
-- `cycle.js` - AIRAC cycle utilities
-- `awys.js` - Airway data
-- `reroute.js` - Reroute display
-- `public-routes.js` - Public routes management
-- `playbook-cdr-search.js` - Playbook/CDR search
-- `statsim_rates.js` - Statistical simulation rates
-
-Weather:
-- `weather_radar.js` - Weather radar overlay
-- `weather_radar_integration.js` - Radar data integration
-- `weather_impact.js` - Weather impact visualization
-- `weather_hazards.js` - Weather hazard display
-
-Other:
-- `jatoc.js`, `jatoc-facility-patch.js` - JATOC interface
-- `initiative_timeline.js` - Initiative timeline display
-- `theme.min.js` - Theme utilities
-- `plugins/datetimepicker.js` - Date/time picker plugin
-- `plugins/snow.js` - Seasonal snow effect
-
-**Third-party libraries** (CDN):
-- jQuery 2.2.4, jQuery UI 1.12.1
-- Bootstrap 4.5.0
-- SweetAlert2 (Swal) - Toast notifications
-- Select2 - Enhanced dropdowns
-- Summernote - Rich text editor
-- FontAwesome 5.15.4 - Icons
-- Chart.js (loaded per-page) - Charts
-- MapLibre GL JS (loaded per-page) - Maps
+**Third-party** (CDN): jQuery 2.2.4, Bootstrap 4.5, SweetAlert2, Select2, Summernote, FontAwesome 5.15.4, Chart.js, MapLibre GL JS
 
 ### PHP Utility Classes
 
-**`lib/`**:
-- `Database.php` (`PERTI\Lib\Database`) - Parameterized query helpers for MySQLi and sqlsrv
-- `Response.php` (`PERTI\Lib\Response`) - JSON API response helpers
-- `Session.php` (`PERTI\Lib\Session`) - Session management
-- `DateTime.php` (`PERTI\Lib\DateTime`) - Date/time utilities
+**`lib/`**: `Database.php` (parameterized queries for MySQLi/sqlsrv), `Response.php` (JSON API helpers), `Session.php`, `DateTime.php`
 
-**`load/`** (shared includes):
-- `config.php` - Environment config (gitignored, see `config.example.php`)
-- `connect.php` - Database connections (lazy-loaded getters)
-- `input.php` - Safe input handling for PHP 8.2+
-- `header.php` - HTML head (CSS/JS CDN includes)
-- `nav.php` - Navigation bar
-- `nav_public.php` - Public navigation (non-authenticated)
-- `footer.php` - Page footer
-- `breadcrumb.php` - Breadcrumb navigation
-- `gdp_section.php` - GDP section partial
-- `swim_config.php` - SWIM configuration
-- `coordination_log.php` - Coordination logging
-- `azure_config.json` - Azure resource configuration
-- `azure_perti_config.json` - PERTI-specific Azure config
-
-**`load/discord/`**:
-- `DiscordAPI.php` - Single-server Discord API client
-- `MultiDiscordAPI.php` - Multi-organization Discord posting
-- `TMIDiscord.php` - TMI-specific Discord logic
-- `DiscordMessageParser.php` - Discord message formatting
-- `DiscordWebhookHandler.php` - Webhook processing
-
-**`load/services/`**:
-- `GISService.php` - PostGIS spatial query service
+**`load/`**: `config.php` (env config, gitignored), `connect.php` (DB connections), `input.php` (PHP 8.2+ input), `header.php`/`nav.php`/`footer.php` (layout), `swim_config.php`, `azure_perti_config.json`
+**`load/discord/`**: `DiscordAPI.php`, `MultiDiscordAPI.php`, `TMIDiscord.php`, `DiscordMessageParser.php`
+**`load/services/`**: `GISService.php` (PostGIS spatial queries)
 
 ### Discord Bot (`discord-bot/`)
 
-Node.js Gateway bot for real-time reaction processing on TMI coordination threads.
-
-- `bot.js` - Main bot (Discord.js, listens for reactions in coordination channel threads)
-- `cleanup-coordination.js` - Coordination thread cleanup utility
-- Calls `api/mgt/tmi/coordinate.php` via REST when reactions are added
-- Multi-org Discord support via `DISCORD_ORGANIZATIONS` config
+Node.js Gateway bot (`bot.js`) for TMI coordination reactions. Calls `api/mgt/tmi/coordinate.php` via REST. Multi-org support via `DISCORD_ORGANIZATIONS` config.
 
 ### Integrations (`integrations/`)
 
-**Flight Simulator Plugins** (`integrations/flight-sim/`):
-- `msfs/` - Microsoft Flight Simulator plugin (C++, SimConnect)
-- `xplane/` - X-Plane plugin (C, DataRefs)
-- `p3d/` - Prepar3D plugin (C++, SimConnect)
-
-**Virtual Airline Modules** (`integrations/virtual-airlines/`):
-- `phpvms7/` - phpVMS 7 module (Laravel service provider)
-- `smartcars/` - smartCARS webhook integration
-- `vam/` - Virtual Airlines Manager integration
-
-**Pilot Client Plugins** (`integrations/pilot-clients/`):
-- `vpilot/` - vPilot plugin (C#, SimBrief import)
-- `xpilot/` - xPilot plugin (Python)
-
-**ATC Integrations**:
-- `hoppie-cpdlc/` - Hoppie ACARS/CPDLC bridge
-- `vatis/` - vATIS ATIS monitoring (runway correlation, weather extraction)
-- `vfds/` - Virtual FDS integration (EDST, TDLS, departure sequencing)
+Flight sim plugins (MSFS/X-Plane/P3D), virtual airline modules (phpVMS7/smartCARS/VAM), pilot client plugins (vPilot/xPilot), ATC integrations (Hoppie CPDLC, vATIS, vFDS).
 
 ## Background Jobs & Daemons
 
@@ -876,71 +368,27 @@ Several daemons use tiered intervals based on flight priority:
 
 ## Internationalization (i18n)
 
-### Architecture
-
-**JavaScript**: Full i18n system with translation module, locale loader, and dialog wrapper.
-**PHP**: No i18n layer yet — all API error messages are hardcoded English.
-
-### Key Files
+**All new user-facing JS strings MUST use `PERTII18n.t()`** — never hardcode English. PHP API responses remain English-only.
 
 | File | Purpose |
 |------|---------|
-| `assets/js/lib/i18n.js` | Core translation module (`PERTII18n`) — `t()`, `tp()`, `formatNumber()`, `formatDate()` |
-| `assets/locales/index.js` | Locale loader — auto-detects locale, initializes translations on page load |
-| `assets/locales/en-US.json` | English translation dictionary (450+ keys) |
-| `assets/js/lib/dialog.js` | SweetAlert2 wrapper (`PERTIDialog`) with i18n key resolution |
-
-### How to Use (JavaScript)
-
-**All new user-facing strings MUST use `PERTII18n.t()`** — never hardcode English strings in JS.
+| `assets/js/lib/i18n.js` | Core: `t()`, `tp()`, `formatNumber()`, `formatDate()` |
+| `assets/locales/index.js` | Locale loader (auto-detect, init on page load) |
+| `assets/locales/en-US.json` | 7,276 translation keys |
+| `assets/js/lib/dialog.js` | `PERTIDialog` wrapper with i18n key resolution |
 
 ```javascript
-// Simple translation
-PERTII18n.t('common.save')                           // "Save"
-PERTII18n.t('error.loadFailed', { resource: 'flights' }) // "Failed to load flights"
-
-// Pluralization
-PERTII18n.tp('flight', count)  // "1 flight" or "5 flights"
-
-// Dialogs (automatically resolves i18n keys)
-PERTIDialog.success('dialog.success.saved');
-PERTIDialog.error('common.error', 'error.loadFailed', { resource: 'flights' });
-PERTIDialog.confirm('dialog.confirmDelete.title', 'dialog.confirmDelete.text');
-PERTIDialog.confirmDanger('dialog.confirmDelete.title', 'dialog.confirmDelete.text');
-PERTIDialog.loading('common.loading');
-PERTIDialog.toast('common.copied', 'success');
+PERTII18n.t('common.save')                                // Simple
+PERTII18n.t('error.loadFailed', { resource: 'flights' })   // Interpolation
+PERTII18n.tp('flight', count)                              // Pluralization
+PERTIDialog.success('dialog.success.saved');                // Dialog with i18n
 ```
 
-### Adding New Translation Keys
+Add keys to `en-US.json` as nested objects — auto-flattened to dot notation.
 
-Add keys to `assets/locales/en-US.json` using nested structure:
-
-```json
-{
-  "myFeature": {
-    "title": "Feature Title",
-    "error": {
-      "loadFailed": "Failed to load {resource}"
-    }
-  }
-}
-```
-
-Keys are auto-flattened to dot notation: `myFeature.title`, `myFeature.error.loadFailed`.
-
-### Current Coverage
-
-- **JS modules fully using i18n**: `demand.js`, `jatoc.js`, `splits.js`, `reroute.js`, `schedule.js`, `review.js`, `sua.js`, `weather_impact.js`, `weather_hazards.js`, `tmi-publish.js`, `dialog.js`, `phase-colors.js`, `filter-colors.js`
-- **JS modules mostly using i18n** (minor gaps): `gdt.js`, `nod.js`, `route-maplibre.js`, `tmi_compliance.js`, `weather_radar.js`
-- **PHP pages using i18n**: `index.php`, `plan.php`, `sheet.php`, `route.php`, `review.php`, `schedule.php`, `demand.php`, `splits.php`, `gdt.php`, `nod.php`, `jatoc.php`, `sua.php`, `swim.php`, `tmi-publish.php`, `nav.php`, `footer.php` (28 files total)
-- **Supported locales**: `en-US` (full), `fr-CA` (near-complete), `en-CA` (overlay), `en-EU` (overlay)
-
-### Locale Detection Priority
-
-1. URL parameter (`?locale=en-US`)
-2. localStorage (`PERTI_LOCALE`)
-3. Browser language (`navigator.language`)
-4. Fallback: `en-US`
+**Coverage**: 45/65 JS modules (69%), all 30 PHP pages (via `header.php`), zero hardcoded strings in modern modules.
+**Locales**: `en-US` (7,276 keys), `fr-CA` (7,560), `en-CA` (557 overlay), `en-EU` (509 overlay).
+**Detection**: URL param → localStorage `PERTI_LOCALE` → `navigator.language` → `en-US`.
 
 ## Git Worktrees
 
@@ -972,24 +420,10 @@ Several utilities use Python 3.x:
 
 ## Hibernation Mode
 
-**Status**: Inactive (exited 2026-03-07). Was active March 2026 - March 7, 2026.
+**Status**: ACTIVE since 2026-03-09. See MEMORY.md for current state, backfill progress, and Azure resource levels.
 
-The hibernation system allows pausing downstream processing to reduce costs. When `HIBERNATION_MODE` is enabled (`load/config.php` + Azure App Setting), only core ADL ingest runs, pages redirect to `/hibernation`, SWIM API returns 503, and Azure resources are downscaled.
+When `HIBERNATION_MODE` is enabled (`load/config.php` default `true` + Azure App Setting `1`), only ADL ingest daemon runs, pages redirect to `/hibernation`, SWIM API returns 503, Azure resources downscaled.
 
-### Key Files
-
-| File | Role |
-|------|------|
-| `load/config.php` | Defines `HIBERNATION_MODE` constant (default: `false`) |
-| `load/hibernation.php` | Centralized page redirect + SWIM API 503 |
-| `hibernation.php` | Public info page |
-| `load/nav.php` / `load/nav_public.php` | Nav items with `hibernated` flag |
-| `scripts/startup.sh` | Conditional daemon startup + FPM tuning |
-
-### Gotcha: Azure App Setting Values
-
-The PHP `env()` function returns string values. The string `"false"` is **truthy** in PHP. Use `HIBERNATION_MODE=0` (not `false`) as the Azure App Setting, or delete it entirely and rely on the config.php default.
-
-### To Enter/Exit Hibernation
-
-See `docs/HIBERNATION_RUNBOOK.md` for full step-by-step procedures.
+**Key files**: `load/config.php`, `load/hibernation.php`, `hibernation.php`, `scripts/startup.sh`
+**Gotcha**: Azure App Setting `HIBERNATION_MODE=false` (string) is truthy in PHP — use `0` or delete the setting.
+**Procedures**: See `docs/HIBERNATION_RUNBOOK.md`.

@@ -1,5 +1,7 @@
 # PERTI Computational Reference
 
+> **System Status: HIBERNATED** (since March 9, 2026) — See `HIBERNATION_RUNBOOK.md` for exit procedure.
+
 Detailed technical reference for every computational system, algorithm, formula, and data pipeline in PERTI. This document supplements `DEPLOYMENT_GUIDE.md` with the implementation details needed to understand, maintain, and extend each subsystem.
 
 ---
@@ -30,6 +32,7 @@ Detailed technical reference for every computational system, algorithm, formula,
 **Interval**: Every 15 seconds
 **Data source**: `https://data.vatsim.net/v3/vatsim-data.json`
 **Peak load**: 3,000-6,000 flights per cycle
+**Current SP version**: V9.4.0 (with Route Distance V2.2)
 
 ### 1.1 Main Loop Architecture
 
@@ -539,7 +542,9 @@ effective_groundspeed = true_airspeed - headwind_component
 ## 6. GDP/Ground Delay Program System
 
 **Database**: VATSIM_TMI
-**Key stored procedures**: `sp_TMI_CreateProgram`, `sp_TMI_GenerateSlots`, `sp_TMI_AssignFlightsRBS`
+**Algorithm**: CASA-FPFS + RBD hybrid (all 4 phases complete, migrations 037-041)
+**Current SP version**: V9.4.0 (with Route Distance V2.2)
+**Key stored procedures**: `sp_TMI_CreateProgram`, `sp_TMI_GenerateSlots`, `sp_TMI_AssignFlightsRBS`, `sp_TMI_CompressProgram`, `sp_TMI_ReoptimizeProgram`
 
 ### 6.1 GDP Lifecycle
 
@@ -1393,6 +1398,15 @@ Based on actual VATSIM network traffic patterns:
 | Stats aggregates | 500-2,000 rows/day | 15-60K/month | Permanent | ~5MB/mo |
 | TMI control records | 0-5,000/day (event only) | 0-30K/month | Per-program lifetime | ~1MB/mo |
 
+**Cumulative data totals** (as of March 2026):
+
+| Table | Total Rows | Notes |
+|-------|-----------|-------|
+| `adl_flight_core` (total flights) | 1,625,115 | All-time tracked flights |
+| `adl_flight_waypoints` (total waypoints) | 9,295,153 | Parsed route waypoints |
+| `adl_flight_planned_crossings` (total crossings) | 20,548,518 | Boundary crossing predictions |
+| `nav_fixes` (reference fixes) | 268,998 | Global navigation fix database |
+
 ### 15.5 Scaling Decision Matrix
 
 | Concurrent Flights | ADL Tier | App Service | PostGIS | Total Monthly | Notes |
@@ -1411,7 +1425,7 @@ Based on actual VATSIM network traffic patterns:
 
 ### 15.6 Cost Optimization Techniques Already Implemented
 
-1. **V9.0 Staged Refresh**: PHP-side JSON parsing shifted ~50% of SP compute to fixed-cost App Service PHP, reducing DTU pressure on Azure SQL. Saved ~5 DTU continuous load on ADL.
+1. **V9.0 Staged Refresh** (current: V9.4.0 with Route Distance V2.2): PHP-side JSON parsing shifted ~50% of SP compute to fixed-cost App Service PHP, reducing DTU pressure on Azure SQL. Saved ~5 DTU continuous load on ADL.
 
 2. **Delta Detection Bitmask**: Skips unchanged data in SP steps 1b/2/3/4/6, reducing compute by ~30-40%. This translates to ~1-2 fewer vCores of sustained demand, saving ~$100-200/mo on serverless billing.
 

@@ -1,6 +1,8 @@
 # PERTI Quick Reference Index
 
-Quick lookup for common codebase elements. Last updated: 2026-02-25
+Quick lookup for common codebase elements. Last updated: 2026-03-12
+
+> **SYSTEM STATUS: HIBERNATED** (since March 9, 2026). Only the ADL ingest daemon runs (15s cycle). All other daemons suspended. Azure resources downscaled. SWIM API returns 503. See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
 
 ---
 
@@ -41,7 +43,7 @@ Quick lookup for common codebase elements. Last updated: 2026-02-25
 | `/api/tmi/gs/flights.php` | GET | Get affected flights |
 | `/api/tmi/gdp/create.php` | POST | Create GDP |
 
-### TMI Database API (v17 - VATSIM_TMI)
+### TMI Database API (v18 - VATSIM_TMI)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -172,7 +174,7 @@ Quick lookup for common codebase elements. Last updated: 2026-02-25
 
 ## Daemons & Scripts Index
 
-### PHP Daemons (15 total, all started via startup.sh)
+### PHP Daemons (15 total, started via startup.sh -- only ADL Ingest active during hibernation)
 
 | Daemon | File | Interval | Purpose |
 |--------|------|----------|---------|
@@ -349,8 +351,13 @@ Quick lookup for common codebase elements. Last updated: 2026-02-25
 |------|---------|
 | `assets/js/lib/i18n.js` | Core translation module (PERTII18n) |
 | `assets/js/lib/dialog.js` | SweetAlert2 wrapper with i18n (PERTIDialog) |
-| `assets/locales/en-US.json` | 450+ translation keys |
+| `assets/locales/en-US.json` | 7,276 translation keys |
+| `assets/locales/fr-CA.json` | 7,560 keys (full French Canadian locale) |
+| `assets/locales/en-CA.json` | 557 keys (Canadian English overlay) |
+| `assets/locales/en-EU.json` | 509 keys (European English overlay) |
 | `assets/locales/index.js` | Locale auto-detection loader |
+
+*45 of 65 JS modules (69%) use i18n. All 30 PHP pages auto-include via header.php.*
 
 ### Configuration
 
@@ -440,9 +447,34 @@ Quick lookup for common codebase elements. Last updated: 2026-02-25
 
 ---
 
+## Database Scale (as of March 2026)
+
+| Metric | Count |
+|--------|-------|
+| Total flights tracked | 1,625,115 |
+| Flight plans parsed | 1,620,920 |
+| Route waypoints extracted | 9,295,153 |
+| Boundary crossings predicted | 20,548,518 |
+| Navigation fixes | 268,998 |
+| Airports (ADL / GIS) | 27,231 / 37,527 |
+| Airlines | 228 |
+| Boundaries (ADL) / ARTCC+TRACON (GIS) | 3,033 / 1,004+1,023 |
+| Airways | 1,515 |
+| DPs/STARs | 10,314 |
+| Coded Departure Routes | 41,138 |
+| Playbook routes | 55,682 |
+| TMI programs (GDP/GS/AFP) | 172 (139/29/4) |
+| Advisories | 1,020 |
+| Reroutes | 268 |
+| PERTI plans | 239 |
+| Registered users | 25 |
+
+---
+
 ## See Also
 
 - [STATUS.md](STATUS.md) - Component status tracking
+- [I18N_TRACKING.md](I18N_TRACKING.md) - Internationalization progress
 - [wiki/API-Reference.md](../wiki/API-Reference.md) - Full API documentation
 - [wiki/Database-Schema.md](../wiki/Database-Schema.md) - Schema reference
 - [wiki/Changelog.md](../wiki/Changelog.md) - Version history

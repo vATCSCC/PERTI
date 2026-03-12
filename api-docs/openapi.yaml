@@ -7,6 +7,10 @@ info:
     This API provides access to flight data, traffic management initiatives,
     sector configurations, and operational planning tools for the VATSIM network.
 
+    > **System Status: HIBERNATED** (since March 9, 2026) — Most API endpoints
+    > return reduced data or are unavailable. Only ADL ingest daemon is active.
+    > See [Hibernation Runbook](../docs/HIBERNATION_RUNBOOK.md) for details.
+
     ## Authentication
     Most read-only endpoints are public. Management (POST/PUT/DELETE) endpoints
     require VATSIM session authentication via cookie.

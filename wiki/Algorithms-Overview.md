@@ -65,6 +65,43 @@ VATSIM API (every 15 seconds)
 
 ---
 
+## GDP Algorithm Redesign (CASA-FPFS + RBD Hybrid)
+
+The Ground Delay Program algorithm was redesigned across four phases to implement a CASA-FPFS + RBD hybrid approach.
+
+### Algorithm Overview
+
+| Component | Description |
+|-----------|-------------|
+| **CASA** | Compression After Slot Assignment -- assigns slots first, then compresses to minimize total delay |
+| **FPFS** | First Planned First Served -- allocates slots in order of original estimated arrival time |
+| **RBD** | Ration By Distance -- distributes delay proportionally based on flight distance from destination |
+
+### Implementation Phases
+
+| Phase | Migration | Key Deliverables |
+|-------|-----------|------------------|
+| **Phase 1** | Migration 037 | Bug fixes, `compress.php` endpoint, batch optimization |
+| **Phase 2** | Migration 038 | FPFS+RBD algorithm, adaptive reserves, FlightListType TVP rebuild |
+| **Phase 3** | Migration 039 | `sp_TMI_ReoptimizeProgram` orchestrator, `reoptimize.php` endpoint |
+| **Phase 4** | Migration 041 | Reversal metrics, anti-gaming flags, GDT UI observability |
+
+### Key Stored Procedures (GDP)
+
+| Procedure | Function |
+|-----------|----------|
+| `sp_TMI_AssignSlots` | FPFS+RBD slot assignment with adaptive reserves |
+| `sp_TMI_CompressProgram` | CASA compression to fill unused slots |
+| `sp_TMI_ReoptimizeProgram` | Orchestrator combining compression + reassignment |
+
+### TMI-to-ADL Sync
+
+The `executeDeferredTMISync()` function in the ADL daemon synchronizes TMI control data back to the ADL flight tables on a 60-second cycle. Multi-program precedence rules apply: Ground Stops take priority, followed by the maximum CTD across active GDPs.
+
+> **Note:** The automatic daemon reoptimization cycle (2-5 minute intervals) is pending implementation post-hibernation.
+
+---
+
 ## Quick Reference
 
 ### Key Stored Procedures
@@ -76,6 +113,9 @@ VATSIM API (every 15 seconds)
 | `sp_ProcessTrajectoryBatch` | Trajectory logging with tier evaluation |
 | `sp_ProcessZoneDetectionBatch` | OOOI zone detection |
 | `sp_ParseRoute` | Route parsing and GIS resolution |
+| `sp_TMI_AssignSlots` | GDP FPFS+RBD slot assignment |
+| `sp_TMI_CompressProgram` | GDP CASA compression |
+| `sp_TMI_ReoptimizeProgram` | GDP reoptimization orchestrator |
 
 ### Key Functions
 

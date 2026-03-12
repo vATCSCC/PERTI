@@ -1,5 +1,7 @@
 # NOD Dashboard
 
+> **Hibernation Notice:** The NOD Dashboard is redirected to `/hibernation` during hibernation mode. TMI and flow configuration data is preserved and will be accessible when hibernation is exited.
+
 The NAS Operations Dashboard provides consolidated monitoring of active TMIs, facility flow configurations, and system status.
 
 **URL:** `/nod.php`

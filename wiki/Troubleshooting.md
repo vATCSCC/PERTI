@@ -1,5 +1,7 @@
 # Troubleshooting
 
+*Last updated: March 12, 2026*
+
 Common issues and solutions for PERTI.
 
 ---
@@ -294,6 +296,57 @@ Full daemon list and their intervals are documented in [[Daemons and Scripts]].
 - For missing NAT tracks, check the `api/nod/tracks.php` endpoint directly to confirm data is being returned
 - Verify `nod.js` and `nod-demand-layer.js` are loaded on the page
 - Check that MapLibre GL JS is loaded from CDN without errors
+
+---
+
+## Hibernation Issues
+
+### Pages redirect to /hibernation
+
+**Symptoms:** All authenticated pages redirect to `/hibernation` instead of loading normally. Public pages also redirect.
+
+**Cause:** The system is in hibernation mode. This is intentional behavior when `HIBERNATION_MODE` is enabled.
+
+**Solutions:**
+- Check `HIBERNATION_MODE` in `load/config.php` -- if set to `true`, the system is hibernated
+- Check the `HIBERNATION_MODE` Azure App Setting -- must be set to `0` (not `"false"`) to disable
+- **Important:** The string `"false"` is truthy in PHP. Use `0` or delete the App Setting entirely to exit hibernation
+- Follow the full exit procedure in `docs/HIBERNATION_RUNBOOK.md` to properly restore all services
+- Note that `review.php` is exempted from the redirect and remains accessible during hibernation
+
+---
+
+### SWIM API returns 503
+
+**Symptoms:** All SWIM API endpoints return HTTP 503 (Service Unavailable). API consumers report connection failures.
+
+**Cause:** The SWIM API intentionally returns 503 during hibernation mode. This is expected behavior, not an error.
+
+**Solutions:**
+- Confirm the system is in hibernation mode (check `HIBERNATION_MODE` config)
+- Exit hibernation to restore API access -- follow `docs/HIBERNATION_RUNBOOK.md`
+- Notify API consumers that the service is temporarily suspended
+- After exiting hibernation, verify API access at `/api/swim/v1/health.php`
+
+---
+
+### Backfill script not progressing
+
+**Symptoms:** The hibernation recovery backfill script (`_backfill_full.php`) appears stuck on a phase. Status URL shows no progress over extended periods.
+
+**Solutions:**
+- Verify the restart loop is running. The backfill requires periodic HTTP requests to advance:
+  ```bash
+  for i in $(seq 1 24000); do
+    curl -s --max-time 120 "https://perti.vatcscc.org/_backfill_full.php?action=run" -o /dev/null
+    sleep 5
+  done
+  ```
+- Check the current phase and progress via the status URL: `https://perti.vatcscc.org/_backfill_full.php?action=status`
+- PostGIS on B1ms tier processes approximately 108 flights/minute -- phases with large flight counts take time
+- After uploading a new script version via VFS API, OPcache revalidates every 60 seconds -- wait at least 65 seconds before hitting the updated script
+- Check the log URL for error messages: `https://perti.vatcscc.org/_backfill_full.php?action=log`
+- Backfill state is stored in MySQL (`backfill_state` / `backfill_log` tables), not in `/tmp`, so it persists across PHP-FPM restarts
 
 ---
 

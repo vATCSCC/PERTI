@@ -1,6 +1,6 @@
 # Architecture
 
-> **Version:** v18 | **Last Updated:** February 10, 2026
+> **Version:** v18 (Hibernated) | **Last Updated:** March 11, 2026
 
 PERTI is a multi-tier web application that processes real-time VATSIM flight data and provides traffic flow management tools. The system uses 7 databases across 3 database engines (MySQL, Azure SQL, PostgreSQL/PostGIS) and runs on Azure App Service with PHP 8.2.
 
@@ -274,7 +274,7 @@ PERTI includes a full client-side internationalization system for user-facing st
 |------|--------|---------|
 | `assets/js/lib/i18n.js` | `PERTII18n` | Core translation module with `t()`, `tp()`, `formatNumber()`, `formatDate()` |
 | `assets/locales/index.js` | Locale Loader | Auto-detects locale on page load, initializes translations |
-| `assets/locales/en-US.json` | Translation Dictionary | 450+ keys in nested JSON, auto-flattened to dot notation |
+| `assets/locales/en-US.json` | Translation Dictionary | 7,276 translation keys in nested JSON, auto-flattened to dot notation |
 | `assets/js/lib/dialog.js` | `PERTIDialog` | SweetAlert2 wrapper with automatic i18n key resolution |
 
 ### Translation API
@@ -303,11 +303,11 @@ PERTIDialog.toast('common.copied', 'success');
 
 ### Coverage
 
-The i18n system is integrated across 28 PHP pages and 13+ JavaScript modules:
+The i18n system is integrated across 30 PHP pages and 45 JavaScript modules (69% of all JS modules):
 
-- **JS modules fully using i18n**: `demand.js`, `jatoc.js`, `splits.js`, `reroute.js`, `schedule.js`, `review.js`, `sua.js`, `weather_impact.js`, `weather_hazards.js`, `tmi-publish.js`, `dialog.js`, `phase-colors.js`, `filter-colors.js`
-- **JS modules mostly using i18n** (minor gaps): `gdt.js`, `nod.js`, `route-maplibre.js`, `tmi_compliance.js`, `weather_radar.js`
-- **PHP pages**: `index.php`, `plan.php`, `sheet.php`, `route.php`, `review.php`, `schedule.php`, `demand.php`, `splits.php`, `gdt.php`, `nod.php`, `jatoc.php`, `sua.php`, `swim.php`, `tmi-publish.php`, `nav.php`, `footer.php` (28 files total)
+- **JS modules fully using i18n (45 modules)**: `gdt.js` (1,800+ keys), `demand.js` (450+ keys), `splits.js`, `jatoc.js`, `schedule.js`, `review.js`, `sua.js`, `weather_impact.js`, `weather_hazards.js`, `tmi-publish.js`, `dialog.js`, `phase-colors.js`, `filter-colors.js`, `playbook.js`, `fir-scope.js`, `fir-integration.js`, `route-maplibre.js`, `nod.js`, `tmi_compliance.js`, `gdp.js`, `cdm.js`, `plan.js`, `sheet.js`, `reroute.js`, `public-routes.js`, and 20+ more
+- **JS modules with no i18n (20 modules)**: Data-only modules (`awys.js`, `cycle.js`, `procs.js`, `facility-hierarchy.js`, etc.) - no user-facing strings
+- **PHP pages**: All 30 pages auto-include i18n via `load/header.php`
 
 **Supported locales**: `en-US` (full), `fr-CA` (near-complete French Canadian), `en-CA` (overlay), `en-EU` (overlay)
 
@@ -452,6 +452,34 @@ This reduces perceived load time significantly on pages that fetch data from man
 | **Total** | | **~$3,500/mo** |
 
 The largest cost driver is the VATSIM_ADL Hyperscale Serverless database, which scales between 3 and 16 vCores based on demand. The PostgreSQL GIS database was added to offload spatial queries (boundary intersection, route geometry) from Azure SQL.
+
+---
+
+## Hibernation Mode
+
+> **Status:** ACTIVE since March 9, 2026
+
+During hibernation, the system operates in reduced capacity:
+
+| Component | Normal | Hibernated |
+|-----------|--------|------------|
+| ADL Ingest Daemon | Active (15s cycle) | Active (core only) |
+| Route Parsing | Active | Suspended |
+| Boundary Detection | Active | Suspended |
+| Crossing Calculation | Active | Suspended |
+| Waypoint ETA | Active | Suspended |
+| SWIM Sync | Active (2min) | Suspended |
+| Web Pages | Full access | Redirect to /hibernation |
+| SWIM API | Active | Returns 503 |
+| Azure SQL (ADL) | Hyperscale 3-16 vCores | Min 1, Max 4 |
+| MySQL | D2ds_v4 | B1ms (downscaled) |
+| PostgreSQL/PostGIS | B2s | B1ms (downscaled) |
+
+**Monthly cost during hibernation:** ~$50-80 (vs ~$3,500 normal)
+
+**Backfill status:** Phase 3 of 6 in progress (crossing calculations for 705K flights)
+
+See `docs/HIBERNATION_RUNBOOK.md` for entry/exit procedures.
 
 ---
 
