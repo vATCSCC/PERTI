@@ -783,6 +783,14 @@ $(document).ready(function() {
 
     function expandPlaybookDirective(bodyUpper, isMandatory, color) {
         if (!bodyUpper) {return [];}
+        // Pre-expand FIR:XX.. patterns before dot-splitting to avoid conflicts
+        // with PB dot-separator syntax (e.g., RR1GNOR.FIR:ED.. → RR1GNOR.EDGG EDMM EDUU EDWW)
+        if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.expandFirPattern) {
+            bodyUpper = bodyUpper.replace(/FIR:([A-Z]{1,3})\.{2,}/gi, function(match) {
+                const codes = FacilityHierarchy.expandFirPattern(match);
+                return codes.length ? codes.join(' ') : match;
+            });
+        }
         const parts = bodyUpper.split('.');
         const playPart = (parts[0] || '').trim();
         if (!playPart) {return [];}
