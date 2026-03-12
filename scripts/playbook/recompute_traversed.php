@@ -50,16 +50,26 @@ $gis_sql = "WITH route AS (
                 SELECT artccs_traversed, route_geometry AS geom
                 FROM expand_route_with_artccs(?)
             )
-            SELECT 'artcc' AS btype, unnest(route.artccs_traversed) AS code
-            FROM route WHERE route.geom IS NOT NULL
-            UNION ALL
-            SELECT 'tracon', t.tracon_code
-            FROM route JOIN tracon_boundaries t ON ST_Intersects(route.geom, t.geom)
-            WHERE route.geom IS NOT NULL
-            UNION ALL
-            SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code
-            FROM route JOIN sector_boundaries s ON ST_Intersects(route.geom, s.geom)
-            WHERE route.geom IS NOT NULL";
+            SELECT sub.btype, sub.code FROM (
+                SELECT 'artcc' AS btype, u.code, u.ord AS trav_order
+                FROM route, unnest(route.artccs_traversed) WITH ORDINALITY AS u(code, ord)
+                WHERE route.geom IS NOT NULL
+                UNION ALL
+                SELECT 'tracon', t.tracon_code,
+                    ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, t.geom)))
+                FROM route JOIN tracon_boundaries t ON ST_Intersects(route.geom, t.geom)
+                WHERE route.geom IS NOT NULL
+                UNION ALL
+                SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code,
+                    ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, s.geom)))
+                FROM route JOIN sector_boundaries s ON ST_Intersects(route.geom, s.geom)
+                WHERE route.geom IS NOT NULL
+            ) sub
+            ORDER BY
+                CASE WHEN sub.btype = 'artcc' THEN 1
+                     WHEN sub.btype = 'tracon' THEN 2
+                     ELSE 3 END,
+                sub.trav_order";
 $gis_stmt = $conn_gis->prepare($gis_sql);
 
 $processed = 0;

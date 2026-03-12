@@ -1172,11 +1172,13 @@
             }
 
             // Traversed facilities summary (collapsible)
-            var travArtccArr = Array.from(travArtccs).sort();
-            var travTraconArr = Array.from(travTracons).sort();
-            var travSecLowArr = Array.from(travSecLow).sort();
-            var travSecHighArr = Array.from(travSecHigh).sort();
-            var travSecSuperArr = Array.from(travSecSuper).sort();
+            // Preserve route-of-flight order: JS Sets maintain insertion order,
+            // so iterating routes in sort_order gives first-seen = traversal order.
+            var travArtccArr = Array.from(travArtccs);
+            var travTraconArr = Array.from(travTracons);
+            var travSecLowArr = Array.from(travSecLow);
+            var travSecHighArr = Array.from(travSecHigh);
+            var travSecSuperArr = Array.from(travSecSuper);
             var hasTrav = travArtccArr.length || travTraconArr.length || travSecLowArr.length || travSecHighArr.length || travSecSuperArr.length;
             if (hasTrav) {
                 html += '<div class="pb-play-traversed">';
@@ -1413,7 +1415,7 @@
             var destFilterStr = Array.from(g.dest_filters).sort().join(' ');
             var origArtccStr = Array.from(g.origin_artccs).sort().join(',');
             var destArtccStr = Array.from(g.dest_artccs).sort().join(',');
-            var travStr = Array.from(g.traversed_artccs).sort().join(',');
+            var travStr = Array.from(g.traversed_artccs).join(','); // preserve traversal order
             var allSelected = g.route_ids.every(function(rid) { return selectedRouteIds.has(rid); });
             var badge = g.route_ids.length > 1 ? ' <span class="pb-consolidated-badge">' + t('playbook.consolidatedBadge', { count: g.route_ids.length }) + '</span>' : '';
 
