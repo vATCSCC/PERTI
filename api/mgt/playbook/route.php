@@ -9,6 +9,7 @@ include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
 // handler.php already includes config.php and input.php via include_once
 define('PERTI_MYSQL_ONLY', true);
 include_once(dirname(__DIR__, 3) . '/load/connect.php');
+include_once(dirname(__DIR__, 3) . '/load/playbook_visibility.php');
 
 header('Content-Type: application/json');
 
@@ -51,16 +52,24 @@ if ($play_id <= 0) {
     exit;
 }
 
-// Verify play exists
-$ps = $conn_sqli->prepare("SELECT play_id FROM playbook_plays WHERE play_id = ?");
-$ps->bind_param('i', $play_id);
-$ps->execute();
-if (!$ps->get_result()->fetch_assoc()) {
+// Verify play exists and check edit permission
+$play_check = $conn_sqli->prepare("SELECT play_id, visibility, created_by, org_code FROM playbook_plays WHERE play_id = ?");
+$play_check->bind_param('i', $play_id);
+$play_check->execute();
+$play_data = $play_check->get_result()->fetch_assoc();
+$play_check->close();
+
+if (!$play_data) {
     http_response_code(404);
     echo json_encode(['error' => 'Play not found']);
     exit;
 }
-$ps->close();
+
+if (!can_edit_play($play_data, $conn_sqli)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'You do not have permission to edit this play']);
+    exit;
+}
 
 if ($action === 'add') {
     $rs = trim($body['route_string'] ?? '');

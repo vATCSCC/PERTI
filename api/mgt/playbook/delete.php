@@ -9,6 +9,7 @@ include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
 // handler.php already includes config.php and input.php via include_once
 define('PERTI_MYSQL_ONLY', true);
 include_once(dirname(__DIR__, 3) . '/load/connect.php');
+include_once(dirname(__DIR__, 3) . '/load/playbook_visibility.php');
 
 header('Content-Type: application/json');
 
@@ -51,7 +52,7 @@ if ($play_id <= 0) {
 }
 
 // Verify play exists
-$stmt = $conn_sqli->prepare("SELECT play_id, status, source FROM playbook_plays WHERE play_id = ?");
+$stmt = $conn_sqli->prepare("SELECT play_id, status, source, visibility, created_by, org_code FROM playbook_plays WHERE play_id = ?");
 $stmt->bind_param('i', $play_id);
 $stmt->execute();
 $play = $stmt->get_result()->fetch_assoc();
@@ -60,6 +61,12 @@ $stmt->close();
 if (!$play) {
     http_response_code(404);
     echo json_encode(['error' => 'Play not found']);
+    exit;
+}
+
+if (!can_edit_play($play, $conn_sqli)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'You do not have permission to modify this play']);
     exit;
 }
 

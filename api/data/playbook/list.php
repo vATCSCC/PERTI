@@ -23,6 +23,7 @@ include("../../../load/config.php");
 include("../../../load/input.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
+include("../../../load/playbook_visibility.php");
 
 $category    = get_input('category');
 $status      = get_input('status');
@@ -37,6 +38,16 @@ $offset      = ($page - 1) * $per_page;
 $where = [];
 $params = [];
 $types  = '';
+
+// Visibility filtering
+$vis_cid = isset($_SESSION['VATSIM_CID']) ? (int)$_SESSION['VATSIM_CID'] : null;
+$vis_admin = $vis_cid !== null ? is_playbook_admin($conn_sqli) : false;
+$vis = build_visibility_where($vis_cid, $vis_admin);
+if ($vis['sql'] !== '') {
+    $where[] = preg_replace('/^\s*AND\s+/', '', $vis['sql']);
+    $params = array_merge($params, $vis['params']);
+    $types .= $vis['types'];
+}
 
 if ($status !== '') {
     $where[] = "p.status = ?";
@@ -132,7 +143,7 @@ if (!empty($play_ids)) {
         $data_sql = "SELECT play_id, play_name, play_name_norm, display_name,
                             description, category, impacted_area, facilities_involved,
                             scenario_type, route_format, source, status,
-                            airac_cycle, route_count, org_code,
+                            airac_cycle, route_count, org_code, visibility,
                             created_by, updated_by, updated_at, created_at,
                             NULL AS agg_origin_airports, NULL AS agg_origin_tracons,
                             NULL AS agg_origin_artccs, NULL AS agg_dest_airports,
@@ -154,7 +165,7 @@ if (!empty($play_ids)) {
         $data_sql = "SELECT p.play_id, p.play_name, p.play_name_norm, p.display_name,
                             p.description, p.category, p.impacted_area, p.facilities_involved,
                             p.scenario_type, p.route_format, p.source, p.status,
-                            p.airac_cycle, p.route_count, p.org_code,
+                            p.airac_cycle, p.route_count, p.org_code, p.visibility,
                             p.created_by, p.updated_by, p.updated_at, p.created_at,
                             ra.agg_origin_airports, ra.agg_origin_tracons, ra.agg_origin_artccs,
                             ra.agg_dest_airports, ra.agg_dest_tracons, ra.agg_dest_artccs,
@@ -190,11 +201,29 @@ if (!empty($play_ids)) {
     }
 }
 
+// Post-filter visibility and annotate can_edit
+$filtered_rows = [];
+foreach ($rows as $row) {
+    // private_org rows may pass the SQL filter but fail the org-membership check
+    if (($row['visibility'] ?? 'public') === 'private_org' && !$vis_admin) {
+        if (!can_view_play($row, $conn_sqli)) continue;
+    }
+    $row['can_edit'] = can_edit_play($row, $conn_sqli);
+    $filtered_rows[] = $row;
+}
+$rows = $filtered_rows;
+
+// Adjust total if rows were removed by post-filter
+$filtered_count = count($rows);
+if ($filtered_count < count($play_ids ?? [])) {
+    $total = max(0, $total - (count($play_ids) - $filtered_count));
+}
+
 echo json_encode([
     'success' => true,
     'total' => (int)$total,
     'page' => $page,
     'per_page' => $per_page,
-    'pages' => ceil($total / $per_page),
+    'pages' => max(1, ceil($total / $per_page)),
     'data' => $rows
 ]);

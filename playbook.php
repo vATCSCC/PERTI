@@ -11,20 +11,27 @@ include("sessions/handler.php");
     include("load/config.php");
     define('PERTI_MYSQL_ONLY', true);
     include("load/connect.php");
+    include("load/playbook_visibility.php");
 
     // Check Perms
     $perm = false;
+    $pb_cid = null;
+    $pb_admin = false;
     if (!defined('DEV')) {
         if (isset($_SESSION['VATSIM_CID'])) {
             $cid = session_get('VATSIM_CID', '');
             $p_check = $conn_sqli->query("SELECT * FROM users WHERE cid='$cid'");
             if ($p_check) {
                 $perm = true;
+                $pb_cid = (int)$cid;
+                $pb_admin = is_playbook_admin($conn_sqli);
             }
         }
     } else {
         $perm = true;
+        $pb_admin = true;
         $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
+        $pb_cid = 0;
     }
 ?>
 <!DOCTYPE html>
@@ -259,6 +266,46 @@ include("load/nav.php");
                                         </select>
                                     </div>
                                 </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label><?= __('playbook.visibility.label') ?></label>
+                                        <select id="pb_edit_visibility" class="form-control form-control-sm">
+                                            <option value="public"><?= __('playbook.visibility.public') ?></option>
+                                            <option value="local"><?= __('playbook.visibility.local') ?></option>
+                                            <option value="private_users"><?= __('playbook.visibility.privateUsers') ?></option>
+                                            <option value="private_org"><?= __('playbook.visibility.privateOrg') ?></option>
+                                        </select>
+                                        <small class="form-text text-muted pb-visibility-desc" id="pb_visibility_desc"></small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ACL Management (shown for private visibility modes) -->
+                            <div id="pb_acl_section" style="display:none;">
+                                <div class="pb-acl-panel">
+                                    <div class="pb-acl-header">
+                                        <strong><?= __('playbook.acl.title') ?></strong>
+                                        <small class="text-muted ml-2"><?= __('playbook.acl.ownerNote') ?></small>
+                                    </div>
+                                    <div class="pb-acl-add-row">
+                                        <input type="text" id="pb_acl_add_cid" class="form-control form-control-sm"
+                                               placeholder="<?= __('playbook.acl.addUserPlaceholder') ?>" style="max-width:120px;">
+                                        <button class="btn btn-sm btn-outline-primary" id="pb_acl_add_btn">
+                                            <i class="fas fa-plus mr-1"></i><?= __('playbook.acl.addUserBtn') ?>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" id="pb_acl_bulk_btn">
+                                            <i class="fas fa-users mr-1"></i><?= __('playbook.acl.bulkAdd') ?>
+                                        </button>
+                                    </div>
+                                    <div id="pb_acl_bulk_area" style="display:none;" class="mb-2">
+                                        <input type="text" id="pb_acl_bulk_input" class="form-control form-control-sm"
+                                               placeholder="<?= __('playbook.acl.bulkAddPlaceholder') ?>">
+                                        <button class="btn btn-sm btn-primary mt-1" id="pb_acl_bulk_apply">
+                                            <i class="fas fa-check mr-1"></i><?= __('common.apply') ?>
+                                        </button>
+                                    </div>
+                                    <div id="pb_acl_list" class="pb-acl-list"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -352,6 +399,8 @@ include('load/footer.php');
 <!-- Playbook Module -->
 <script>
 window.PERTI_PLAYBOOK_PERM = <?= $perm ? 'true' : 'false' ?>;
+window.PERTI_PLAYBOOK_CID = <?= $pb_cid !== null ? $pb_cid : 'null' ?>;
+window.PERTI_PLAYBOOK_ADMIN = <?= $pb_admin ? 'true' : 'false' ?>;
 </script>
 <script src="assets/js/playbook.js<?= _v('assets/js/playbook.js') ?>"></script>
 

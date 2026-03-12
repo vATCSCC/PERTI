@@ -266,7 +266,12 @@
     "displayName": "ECFMP",
     "facilityType": "ACC & FIR",
     "facilityTypePlural": "ACCs & FIRs",
-    "name": "European Collaboration and Flow Management Project"
+    "name": "European Collaboration and Flow Management Project",
+    "ctp": {
+      "commandCenter": "Cross the Pond",
+      "name": "CTP",
+      "fullName": "Cross the Pond"
+    }
   },
   "plan": {
     "advisory": {
