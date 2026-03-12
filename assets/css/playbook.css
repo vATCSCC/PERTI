@@ -1329,6 +1329,62 @@
     50% { background: rgba(35, 155, 205, 0.15); }
 }
 
+/* ── Visibility Badges ─────────────────────────────────────────── */
+.pb-visibility-badge {
+    font-size: 0.5rem;
+    padding: 1px 4px;
+}
+.pb-vis-local { background: #fff3e0; color: #e65100; }
+.pb-vis-private { background: #e8eaf6; color: #283593; }
+.pb-vis-org { background: #e0f2f1; color: #00695c; }
+
+/* ── ACL Management Panel ──────────────────────────────────────── */
+.pb-acl-panel {
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 0.5rem;
+    background: #fafbfc;
+}
+.pb-acl-header {
+    font-size: 0.78rem;
+    margin-bottom: 0.4rem;
+    display: flex;
+    align-items: center;
+}
+.pb-acl-add-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 0.4rem;
+    flex-wrap: wrap;
+}
+.pb-acl-add-row .btn { font-size: 0.72rem; padding: 2px 8px; }
+.pb-acl-list { margin-top: 0.25rem; }
+
+.pb-acl-table {
+    width: 100%;
+    font-size: 0.72rem;
+    border-collapse: collapse;
+}
+.pb-acl-table th {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    background: #f0f0f0;
+    border-bottom: 1px solid #dee2e6;
+    font-weight: 600;
+    color: #666;
+    white-space: nowrap;
+}
+.pb-acl-table td {
+    padding: 3px 6px;
+    border-bottom: 1px solid #f0f0f0;
+    font-family: 'Inconsolata', monospace;
+    text-align: center;
+}
+.pb-acl-table td:first-child { text-align: left; }
+.pb-acl-table .btn-xs { font-size: 0.58rem; padding: 1px 4px; }
+
 /* ── Config dropdown items ──────────────────────────────────────── */
 .pb-config-opt {
     display: flex;

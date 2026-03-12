@@ -9,6 +9,7 @@ include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
 // handler.php already includes config.php and input.php via include_once
 define('PERTI_MYSQL_ONLY', true);
 include_once(dirname(__DIR__, 3) . '/load/connect.php');
+include_once(dirname(__DIR__, 3) . '/load/playbook_visibility.php');
 
 header('Content-Type: application/json');
 
@@ -52,6 +53,7 @@ $airac_cycle   = trim($body['airac_cycle'] ?? '');
 $facilities_involved = normalizeCanadianArtccCsv(trim($body['facilities_involved'] ?? ''));
 $impacted_area = trim($body['impacted_area'] ?? '');
 $source        = in_array($body['source'] ?? '', ['DCC', 'ECFMP', 'CANOC', 'CADENA']) ? $body['source'] : 'DCC';
+$visibility    = in_array($body['visibility'] ?? '', ['public', 'local', 'private_users', 'private_org']) ? $body['visibility'] : 'public';
 $remarks       = trim($body['remarks'] ?? '');
 $org_code      = isset($body['org_code']) && $body['org_code'] !== '' ? $body['org_code'] : null;
 $routes        = isset($body['routes']) && is_array($body['routes']) ? $body['routes'] : [];
@@ -291,6 +293,19 @@ if ($play_id > 0) {
         exit;
     }
 
+    if (!can_edit_play($old, $conn_sqli)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'You do not have permission to edit this play']);
+        exit;
+    }
+
+    // Reject visibility changes for FAA-imported plays
+    if (in_array($old['source'] ?? '', ['FAA', 'FAA_HISTORICAL']) && $visibility !== ($old['visibility'] ?? 'public')) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Cannot change visibility on FAA-imported plays']);
+        exit;
+    }
+
     // Check for duplicate play name (same normalized name + source, different play_id)
     if ($play_name_norm !== ($old['play_name_norm'] ?? '')) {
         $dup_stmt = $conn_sqli->prepare("SELECT play_id FROM playbook_plays WHERE play_name_norm = ? AND source = ? AND play_id != ?");
@@ -311,13 +326,13 @@ if ($play_id > 0) {
         play_name=?, play_name_norm=?, display_name=?, description=?, category=?,
         scenario_type=?, route_format=?, status=?, airac_cycle=?,
         facilities_involved=?, impacted_area=?, remarks=?, route_count=?,
-        org_code=?, updated_by=?
+        org_code=?, visibility=?, updated_by=?
         WHERE play_id=?");
-    $stmt->bind_param('ssssssssssssissi',
+    $stmt->bind_param('sssssssssssssissi',
         $play_name, $play_name_norm, $display_name, $description, $category,
         $scenario_type, $route_format, $status, $airac_cycle,
         $facilities_involved, $impacted_area, $remarks, $route_count,
-        $org_code, $changed_by, $play_id);
+        $org_code, $visibility, $changed_by, $play_id);
     $stmt->execute();
     $stmt->close();
 
@@ -328,6 +343,7 @@ if ($play_id > 0) {
         'scenario_type' => $scenario_type, 'route_format' => $route_format,
         'status' => $status, 'facilities_involved' => $facilities_involved,
         'impacted_area' => $impacted_area, 'remarks' => $remarks,
+        'visibility' => $visibility,
     ];
     $cl_stmt = $conn_sqli->prepare("INSERT INTO playbook_changelog (play_id, action, field_name, old_value, new_value, airac_cycle, changed_by) VALUES (?, 'play_updated', ?, ?, ?, ?, ?)");
     foreach ($fields as $fname => $new_val) {
@@ -351,13 +367,13 @@ if ($play_id > 0) {
         (play_name, play_name_norm, display_name, description, category,
          scenario_type, route_format, source, status, airac_cycle,
          facilities_involved, impacted_area, remarks, route_count,
-         org_code, created_by)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-    $stmt->bind_param('sssssssssssssiss',
+         org_code, visibility, created_by)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    $stmt->bind_param('sssssssssssssisss',
         $play_name, $play_name_norm, $display_name, $description, $category,
         $scenario_type, $route_format, $source, $status, $airac_cycle,
         $facilities_involved, $impacted_area, $remarks, $route_count,
-        $org_code, $changed_by);
+        $org_code, $visibility, $changed_by);
     $stmt->execute();
     $play_id = (int)$conn_sqli->insert_id;
     $stmt->close();

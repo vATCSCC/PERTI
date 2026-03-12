@@ -81,6 +81,7 @@ $nav_config = [
             ['label' => __('nav.jatoc'), 'path' => './jatoc'],
             ['label' => __('nav.eventAar'), 'path' => './event-aar', 'hibernated' => $_h],
             ['label' => __('nav.tmiPublisher'), 'path' => './tmi-publish'],
+            ['label' => __('nav.ctpOceanic'), 'path' => './ctp'],
             ['label' => __('nav.status'), 'path' => './status'],
         ]
     ],
@@ -226,7 +227,7 @@ if (!function_exists('render_dropdown')) {
                     while ($r = $all_orgs_result->fetch_assoc()) { $org_all[] = $r['org_code']; }
                 }
             }
-            $org_colors = ['vatcscc' => '#1a73e8', 'canoc' => '#d32f2f', 'ecfmp' => '#7b1fa2', 'global' => '#f9a825'];
+            $org_colors = ['vatcscc' => '#1a73e8', 'canoc' => '#d32f2f', 'ecfmp' => '#7b1fa2', 'ctp' => '#2e7d32', 'global' => '#f9a825'];
             $org_color = $org_colors[$org_code] ?? '#555';
             $multi_org = count($org_all) > 1;
         ?>

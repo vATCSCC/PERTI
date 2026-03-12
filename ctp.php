@@ -1,0 +1,381 @@
+<?php
+include("sessions/handler.php");
+include("load/config.php");
+include("load/i18n.php");
+include("load/connect.php");
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <?php $page_title = __('ctp.page.title'); include("load/header.php"); ?>
+
+    <!-- MapLibre GL JS -->
+    <script>window.PERTI_USE_MAPLIBRE = true;</script>
+    <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+    <!-- Info Bar Shared Styles -->
+    <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">
+    <!-- CTP Styles -->
+    <link rel="stylesheet" href="assets/css/ctp.css<?= _v('assets/css/ctp.css') ?>">
+</head>
+
+<body>
+
+<?php include("load/nav.php"); ?>
+
+<!-- CTP Container -->
+<div class="ctp-container" id="ctp_container">
+
+    <!-- Top Bar: Session Selector + Stats -->
+    <div class="ctp-top-bar">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <!-- Session Selector -->
+            <div class="ctp-session-selector mr-3">
+                <select class="form-control form-control-sm" id="ctp_session_select" title="<?= __('ctp.session.select') ?>">
+                    <option value=""><?= __('ctp.session.selectPlaceholder') ?></option>
+                </select>
+            </div>
+
+            <!-- Status Badge -->
+            <span class="badge badge-secondary ctp-status-badge" id="ctp_status_badge"><?= __('ctp.session.noSession') ?></span>
+
+            <!-- Direction Badge -->
+            <span class="badge badge-outline-info ctp-direction-badge d-none" id="ctp_direction_badge"></span>
+
+            <!-- Session Actions -->
+            <div class="btn-group btn-group-sm ml-2" id="ctp_session_actions" style="display:none;">
+                <button class="btn btn-outline-primary btn-sm" id="ctp_btn_detect" title="<?= __('ctp.flights.detectTooltip') ?>">
+                    <i class="fas fa-satellite-dish"></i> <?= __('ctp.flights.detect') ?>
+                </button>
+                <button class="btn btn-outline-success btn-sm" id="ctp_btn_bulk_edct" title="<?= __('ctp.edct.bulkAssignTooltip') ?>">
+                    <i class="fas fa-clock"></i> <?= __('ctp.edct.bulkAssign') ?>
+                </button>
+                <button class="btn btn-outline-warning btn-sm" id="ctp_btn_auto_assign" title="<?= __('ctp.edct.autoAssignTooltip') ?>">
+                    <i class="fas fa-magic"></i> <?= __('ctp.edct.autoAssign') ?>
+                </button>
+                <button class="btn btn-outline-info btn-sm" id="ctp_btn_check_compliance" title="<?= __('ctp.compliance.checkTooltip') ?>">
+                    <i class="fas fa-check-double"></i> <?= __('ctp.compliance.check') ?>
+                </button>
+                <button class="btn btn-outline-danger btn-sm" id="ctp_btn_exclude" title="<?= __('ctp.exclude.excludeTooltip') ?>">
+                    <i class="fas fa-ban"></i> <?= __('ctp.exclude.exclude') ?>
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="ctp_btn_include" title="<?= __('ctp.exclude.includeTooltip') ?>">
+                    <i class="fas fa-undo"></i> <?= __('ctp.exclude.include') ?>
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="ctp_btn_session_settings" title="<?= __('ctp.session.settings') ?>">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="btn btn-outline-dark btn-sm" id="ctp_btn_complete_session" title="<?= __('ctp.session.completeTooltip') ?>">
+                    <i class="fas fa-flag-checkered"></i> <?= __('ctp.session.complete') ?>
+                </button>
+            </div>
+            <span class="badge badge-success ml-1" id="ctp_compliance_badge" style="display:none;"></span>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="ctp-stats-bar" id="ctp_stats_bar" style="display:none;">
+            <span class="ctp-stat" id="ctp_stat_total" title="<?= __('ctp.stats.totalTooltip') ?>">
+                <i class="fas fa-plane"></i> <span class="ctp-stat-value">0</span> <?= __('ctp.stats.total') ?>
+            </span>
+            <span class="ctp-stat ctp-stat-slotted" id="ctp_stat_slotted" title="<?= __('ctp.stats.slottedTooltip') ?>">
+                <i class="fas fa-clock"></i> <span class="ctp-stat-value">0</span> <?= __('ctp.stats.slotted') ?>
+            </span>
+            <span class="ctp-stat ctp-stat-modified" id="ctp_stat_modified" title="<?= __('ctp.stats.modifiedTooltip') ?>">
+                <i class="fas fa-route"></i> <span class="ctp-stat-value">0</span> <?= __('ctp.stats.modified') ?>
+            </span>
+            <span class="ctp-stat ctp-stat-excluded" id="ctp_stat_excluded" title="<?= __('ctp.stats.excludedTooltip') ?>">
+                <i class="fas fa-ban"></i> <span class="ctp-stat-value">0</span> <?= __('ctp.stats.excluded') ?>
+            </span>
+        </div>
+    </div>
+
+    <!-- Map Section -->
+    <div class="ctp-map-section" id="ctp_map_section">
+        <div id="ctp_map" class="ctp-map"></div>
+        <div class="ctp-map-placeholder" id="ctp_map_placeholder">
+            <i class="fas fa-globe-americas fa-3x text-muted mb-2"></i>
+            <div class="text-muted"><?= __('ctp.map.placeholder') ?></div>
+        </div>
+    </div>
+
+    <!-- Resize Handle -->
+    <div class="ctp-resize-handle" id="ctp_resize_handle" title="<?= __('ctp.layout.resizeHandle') ?>">
+        <i class="fas fa-grip-lines"></i>
+    </div>
+
+    <!-- Table Section -->
+    <div class="ctp-table-section" id="ctp_table_section">
+        <!-- Filter Bar -->
+        <div class="ctp-filter-bar">
+            <div class="input-group input-group-sm ctp-search-group">
+                <div class="input-group-prepend">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                </div>
+                <input type="text" class="form-control" id="ctp_search"
+                       placeholder="<?= __('ctp.search.placeholder') ?>"
+                       title="<?= __('ctp.search.help') ?>">
+            </div>
+
+            <div class="btn-group btn-group-sm ml-2">
+                <button class="btn btn-outline-secondary dropdown-toggle" data-toggle="dropdown" id="ctp_filter_btn">
+                    <i class="fas fa-filter"></i> <?= __('ctp.search.filters') ?>
+                </button>
+                <div class="dropdown-menu dropdown-menu-right ctp-filter-dropdown p-3" id="ctp_filter_dropdown">
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold"><?= __('ctp.search.edctStatus') ?></label>
+                        <div class="ctp-filter-checks" id="ctp_filter_edct_status">
+                            <label class="ctp-filter-check"><input type="checkbox" value="NONE" checked> <?= __('ctp.edct.none') ?></label>
+                            <label class="ctp-filter-check"><input type="checkbox" value="ASSIGNED" checked> <?= __('ctp.edct.assigned') ?></label>
+                            <label class="ctp-filter-check"><input type="checkbox" value="DELIVERED" checked> <?= __('ctp.edct.delivered') ?></label>
+                            <label class="ctp-filter-check"><input type="checkbox" value="COMPLIANT" checked> <?= __('ctp.edct.compliant') ?></label>
+                            <label class="ctp-filter-check"><input type="checkbox" value="NON_COMPLIANT" checked> <?= __('ctp.edct.nonCompliant') ?></label>
+                        </div>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label class="small font-weight-bold"><?= __('ctp.search.routeStatus') ?></label>
+                        <div class="ctp-filter-checks" id="ctp_filter_route_status">
+                            <label class="ctp-filter-check"><input type="checkbox" value="FILED" checked> <?= __('ctp.route.filed') ?></label>
+                            <label class="ctp-filter-check"><input type="checkbox" value="MODIFIED" checked> <?= __('ctp.route.modified') ?></label>
+                            <label class="ctp-filter-check"><input type="checkbox" value="VALIDATED" checked> <?= __('ctp.route.validated') ?></label>
+                            <label class="ctp-filter-check"><input type="checkbox" value="REJECTED" checked> <?= __('ctp.route.rejected') ?></label>
+                        </div>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="ctp-filter-check">
+                            <input type="checkbox" id="ctp_filter_hide_excluded"> <?= __('ctp.search.hideExcluded') ?>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Perspective Tabs -->
+            <div class="btn-group btn-group-sm ml-2" id="ctp_perspective_tabs">
+                <button class="btn btn-outline-info btn-sm active" data-perspective="ALL"><?= __('ctp.perspective.all') ?></button>
+                <button class="btn btn-outline-info btn-sm" data-perspective="NA"><?= __('ctp.perspective.na') ?></button>
+                <button class="btn btn-outline-info btn-sm" data-perspective="OCEANIC"><?= __('ctp.perspective.oceanic') ?></button>
+                <button class="btn btn-outline-info btn-sm" data-perspective="EU"><?= __('ctp.perspective.eu') ?></button>
+            </div>
+
+            <div class="ml-auto ctp-page-info small text-muted" id="ctp_page_info"></div>
+        </div>
+
+        <!-- Flight Table -->
+        <div class="ctp-table-wrapper">
+            <table class="table table-sm table-striped table-hover ctp-flight-table" id="ctp_flight_table">
+                <thead>
+                    <tr>
+                        <th class="ctp-col-check"><input type="checkbox" id="ctp_check_all" title="<?= __('ctp.flights.selectAll') ?>"></th>
+                        <th class="ctp-col-cs ctp-sortable" data-sort="callsign"><?= __('ctp.flights.callsign') ?></th>
+                        <th class="ctp-col-apt ctp-sortable" data-sort="dep_airport"><?= __('ctp.flights.dep') ?></th>
+                        <th class="ctp-col-apt ctp-sortable" data-sort="arr_airport"><?= __('ctp.flights.arr') ?></th>
+                        <th class="ctp-col-type ctp-sortable" data-sort="aircraft_type"><?= __('ctp.flights.type') ?></th>
+                        <th class="ctp-col-fix"><?= __('ctp.flights.entryFix') ?></th>
+                        <th class="ctp-col-time ctp-sortable" data-sort="oceanic_entry_utc"><?= __('ctp.flights.entryUtc') ?></th>
+                        <th class="ctp-col-time ctp-sortable" data-sort="edct_utc"><?= __('ctp.flights.edct') ?></th>
+                        <th class="ctp-col-seg"><?= __('ctp.perspective.naShort') ?></th>
+                        <th class="ctp-col-seg"><?= __('ctp.perspective.ocaShort') ?></th>
+                        <th class="ctp-col-seg"><?= __('ctp.perspective.euShort') ?></th>
+                        <th class="ctp-col-status ctp-sortable" data-sort="route_status"><?= __('ctp.flights.overall') ?></th>
+                    </tr>
+                </thead>
+                <tbody id="ctp_flight_tbody">
+                    <tr class="ctp-empty-row">
+                        <td colspan="12" class="text-center text-muted py-4">
+                            <i class="fas fa-plane-slash fa-2x mb-2 d-block"></i>
+                            <?= __('ctp.flights.noData') ?>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="ctp-pagination" id="ctp_pagination">
+            <button class="btn btn-sm btn-outline-secondary" id="ctp_page_prev" disabled>
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <span class="ctp-page-label mx-2" id="ctp_page_label"></span>
+            <button class="btn btn-sm btn-outline-secondary" id="ctp_page_next" disabled>
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <!-- Demand Chart (collapsible) -->
+        <div class="ctp-demand-section" id="ctp_demand_section" style="display:none;">
+            <div class="d-flex align-items-center justify-content-between px-3 py-1 border-top">
+                <span class="small font-weight-bold"><?= __('ctp.demand.title') ?></span>
+                <button class="btn btn-sm btn-link" id="ctp_demand_toggle" title="<?= __('ctp.demand.toggleTooltip') ?>">
+                    <i class="fas fa-chart-bar"></i>
+                </button>
+            </div>
+            <div class="ctp-demand-chart-wrapper" id="ctp_demand_chart_wrapper">
+                <canvas id="ctp_demand_chart" height="140"></canvas>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Create Session Modal -->
+<div class="modal fade" id="ctpCreateSessionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plus-circle mr-2"></i><?= __('ctp.session.createTitle') ?></h5>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label><?= __('ctp.session.name') ?></label>
+                        <input type="text" class="form-control" id="ctp_create_name" placeholder="CTP2026W-NON-EVENT">
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label><?= __('ctp.session.direction') ?></label>
+                        <select class="form-control" id="ctp_create_direction">
+                            <option value="WESTBOUND"><?= __('ctp.session.westbound') ?></option>
+                            <option value="EASTBOUND"><?= __('ctp.session.eastbound') ?></option>
+                            <option value="BOTH"><?= __('ctp.session.both') ?></option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label><?= __('ctp.session.windowStart') ?></label>
+                        <input type="datetime-local" class="form-control" id="ctp_create_start">
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label><?= __('ctp.session.windowEnd') ?></label>
+                        <input type="datetime-local" class="form-control" id="ctp_create_end">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><?= __('ctp.session.constrainedFirs') ?></label>
+                    <input type="text" class="form-control" id="ctp_create_firs" placeholder="CZQX, BIRD, EGGX, LPPO">
+                    <small class="text-muted"><?= __('ctp.session.constrainedFirsHelp') ?></small>
+                </div>
+                <div class="form-row">
+                    <div class="form-group col-md-4">
+                        <label><?= __('ctp.session.slotInterval') ?></label>
+                        <input type="number" class="form-control" id="ctp_create_interval" value="5" min="1" max="60">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label><?= __('ctp.session.maxSlotsPerHour') ?></label>
+                        <input type="number" class="form-control" id="ctp_create_max_slots" placeholder="<?= __('ctp.session.unlimited') ?>">
+                    </div>
+                    <div class="form-group col-md-4">
+                        <label><?= __('ctp.session.flowEvent') ?></label>
+                        <select class="form-control" id="ctp_create_event">
+                            <option value=""><?= __('common.none') ?></option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal"><?= __('common.cancel') ?></button>
+                <button type="button" class="btn btn-primary" id="ctp_create_submit">
+                    <i class="fas fa-plus-circle mr-1"></i><?= __('ctp.session.create') ?>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flight Detail Sidebar -->
+<div class="ctp-sidebar d-none" id="ctp_sidebar">
+    <div class="ctp-sidebar-header">
+        <h6 class="mb-0" id="ctp_sidebar_title"></h6>
+        <button class="btn btn-sm btn-link" id="ctp_sidebar_close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="ctp-sidebar-body" id="ctp_sidebar_body">
+        <!-- Flight Info Summary -->
+        <div class="mb-3" id="ctp_sidebar_flight_info"></div>
+
+        <!-- Route Editor Tabs -->
+        <ul class="nav nav-tabs nav-sm mb-2" id="ctp_route_tabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-segment="NA" href="#"><?= __('ctp.perspective.naShort') ?></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-segment="OCEANIC" href="#"><?= __('ctp.perspective.ocaShort') ?></a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-segment="EU" href="#"><?= __('ctp.perspective.euShort') ?></a>
+            </li>
+        </ul>
+
+        <!-- Segment Editor Panel -->
+        <div id="ctp_route_editor_panel">
+            <div class="mb-2">
+                <label class="small font-weight-bold"><?= __('ctp.route.segmentStatus') ?></label>
+                <span class="badge ctp-badge ml-1" id="ctp_seg_status_badge"></span>
+            </div>
+
+            <div class="mb-2">
+                <label class="small font-weight-bold"><?= __('ctp.route.original') ?></label>
+                <div class="form-control form-control-sm bg-light" id="ctp_seg_original" style="font-family:'Inconsolata',monospace;font-size:0.75rem;min-height:36px;word-break:break-all;"></div>
+            </div>
+
+            <div class="mb-2">
+                <label class="small font-weight-bold"><?= __('ctp.route.modified') ?></label>
+                <textarea class="form-control form-control-sm" id="ctp_seg_route_input" rows="2"
+                          style="font-family:'Inconsolata',monospace;font-size:0.75rem;"
+                          placeholder="<?= __('ctp.route.enterRoute') ?>"></textarea>
+            </div>
+
+            <!-- Suggestions -->
+            <div class="mb-2" id="ctp_route_suggestions_wrapper" style="display:none;">
+                <label class="small font-weight-bold"><?= __('ctp.route.suggestions') ?></label>
+                <div id="ctp_route_suggestions" class="ctp-route-suggestions"></div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2 mb-3" id="ctp_seg_actions">
+                <button class="btn btn-sm btn-outline-info" id="ctp_btn_suggest">
+                    <i class="fas fa-lightbulb"></i> <?= __('ctp.route.suggest') ?>
+                </button>
+                <button class="btn btn-sm btn-outline-warning" id="ctp_btn_validate">
+                    <i class="fas fa-check-circle"></i> <?= __('ctp.route.validate') ?>
+                </button>
+                <button class="btn btn-sm btn-primary" id="ctp_btn_save_segment">
+                    <i class="fas fa-save"></i> <?= __('ctp.route.saveSegment') ?>
+                </button>
+            </div>
+
+            <!-- Validation Result -->
+            <div id="ctp_validation_result" style="display:none;" class="mb-2"></div>
+
+            <!-- Altitude -->
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold"><?= __('ctp.route.altitude') ?></label>
+                <input type="number" class="form-control form-control-sm" id="ctp_seg_altitude"
+                       placeholder="FL370" min="100" max="600" step="10">
+            </div>
+
+            <!-- Notes -->
+            <div class="form-group mb-2">
+                <label class="small font-weight-bold"><?= __('ctp.flights.notes') ?></label>
+                <textarea class="form-control form-control-sm" id="ctp_seg_notes" rows="2"
+                          placeholder="<?= __('ctp.route.notesPlaceholder') ?>"></textarea>
+            </div>
+        </div>
+
+        <!-- Audit Log -->
+        <div class="mt-3" id="ctp_sidebar_audit">
+            <label class="small font-weight-bold"><?= __('ctp.audit.recentActions') ?></label>
+            <div id="ctp_audit_list" class="small text-muted"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Locales -->
+<script src="assets/locales/index.js<?= _v('assets/locales/index.js') ?>"></script>
+
+<!-- CTP Module -->
+<script src="assets/js/ctp.js<?= _v('assets/js/ctp.js') ?>"></script>
+
+<?php include("load/footer.php"); ?>
+</body>
+</html>

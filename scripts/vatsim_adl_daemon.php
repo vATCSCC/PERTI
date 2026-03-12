@@ -79,6 +79,10 @@ $config = [
     // Automatically disabled in hibernation mode (no active TMI programs)
     'tmi_sync_enabled'  => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
     'tmi_sync_interval' => 4,  // every 4 cycles = 60s
+
+    // CTP Oceanic compliance check (runs alongside TMI sync, every 8 cycles = 120s)
+    'ctp_compliance_enabled' => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
+    'ctp_compliance_interval' => 8,
     'tmi_db_server'     => defined('TMI_SQL_HOST') ? TMI_SQL_HOST : null,
     'tmi_db_name'       => defined('TMI_SQL_DATABASE') ? TMI_SQL_DATABASE : null,
     'tmi_db_user'       => defined('TMI_SQL_USERNAME') ? TMI_SQL_USERNAME : null,
@@ -2150,6 +2154,144 @@ function formatDatetimeParam($value): ?string {
 }
 
 /**
+ * CTP Oceanic: Update compliance status for flights with EDCTs in active sessions.
+ * Runs every ~120s alongside TMI sync. Lightweight: single batch query + update.
+ *
+ * @param resource $conn_adl  VATSIM_ADL connection
+ * @param resource $conn_tmi  VATSIM_TMI connection (read-write for ctp_flight_control)
+ * @return array{updated: int, sessions: int, ms: int}|null
+ */
+function executeCtpComplianceCheck($conn_adl, $conn_tmi): ?array {
+    $start = microtime(true);
+
+    // 1. Find active CTP sessions with assigned EDCTs
+    $sessionSql = "SELECT session_id FROM dbo.ctp_sessions WHERE status IN ('ACTIVE', 'MONITORING')";
+    $sessionResult = sqlsrv_query($conn_tmi, $sessionSql);
+    if (!$sessionResult) return null;
+
+    $sessionIds = [];
+    while ($row = sqlsrv_fetch_array($sessionResult, SQLSRV_FETCH_ASSOC)) {
+        $sessionIds[] = (int)$row['session_id'];
+    }
+    sqlsrv_free_stmt($sessionResult);
+
+    if (empty($sessionIds)) {
+        return ['updated' => 0, 'sessions' => 0, 'ms' => round((microtime(true) - $start) * 1000)];
+    }
+
+    $updated = 0;
+
+    foreach ($sessionIds as $sid) {
+        // 2. Get flights needing compliance check
+        $flightSql = "
+            SELECT ctp_control_id, flight_uid, edct_utc, compliance_status
+            FROM dbo.ctp_flight_control
+            WHERE session_id = ? AND edct_status = 'ASSIGNED' AND is_excluded = 0 AND edct_utc IS NOT NULL
+        ";
+        $flightResult = sqlsrv_query($conn_tmi, $flightSql, [$sid]);
+        if (!$flightResult) continue;
+
+        $flights = [];
+        $fuids = [];
+        while ($f = sqlsrv_fetch_array($flightResult, SQLSRV_FETCH_ASSOC)) {
+            $uid = (int)$f['flight_uid'];
+            $flights[$uid] = $f;
+            $fuids[] = $uid;
+        }
+        sqlsrv_free_stmt($flightResult);
+
+        if (empty($fuids)) continue;
+
+        // 3. Batch fetch departure times from ADL (chunks of 500)
+        $depTimes = [];
+        foreach (array_chunk($fuids, 500) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $adlSql = "
+                SELECT t.flight_uid, t.off_utc, t.out_utc, c.flight_phase
+                FROM dbo.adl_flight_times t
+                JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
+                WHERE t.flight_uid IN ($placeholders)
+            ";
+            $adlResult = sqlsrv_query($conn_adl, $adlSql, $chunk);
+            if (!$adlResult) continue;
+            while ($row = sqlsrv_fetch_array($adlResult, SQLSRV_FETCH_ASSOC)) {
+                $depTimes[(int)$row['flight_uid']] = $row;
+            }
+            sqlsrv_free_stmt($adlResult);
+        }
+
+        // 4. Calculate compliance and update
+        $nowTs = time();
+        foreach ($flights as $uid => $f) {
+            $edctVal = $f['edct_utc'];
+            $edctStr = formatDatetimeParam($edctVal);
+            if (!$edctStr) continue;
+            $edctTs = strtotime($edctStr);
+            if (!$edctTs) continue;
+
+            $complianceStatus = 'PENDING';
+            $deltaMin = null;
+            $actualDep = null;
+
+            if (isset($depTimes[$uid])) {
+                $adl = $depTimes[$uid];
+                $depVal = $adl['off_utc'] ?? $adl['out_utc'] ?? null;
+                if ($depVal) {
+                    $depStr = formatDatetimeParam($depVal);
+                    $depTs = $depStr ? strtotime($depStr) : false;
+                    if ($depTs) {
+                        $actualDep = $depStr;
+                        $deltaMin = (int)round(($depTs - $edctTs) / 60);
+                        if ($deltaMin < -5) {
+                            $complianceStatus = 'EARLY';
+                        } elseif ($deltaMin <= 15) {
+                            $complianceStatus = 'ON_TIME';
+                        } else {
+                            $complianceStatus = 'LATE';
+                        }
+                    }
+                }
+
+                if (!$actualDep && $edctTs && ($nowTs - $edctTs) > 1800) {
+                    $phase = $adl['flight_phase'] ?? '';
+                    if (in_array($phase, ['COMPLETED', 'CANCELLED'])) {
+                        $complianceStatus = 'NO_SHOW';
+                    } elseif ($phase !== 'ACTIVE' && $phase !== 'PREFILED') {
+                        $complianceStatus = 'LATE';
+                    }
+                }
+            }
+
+            $oldStatus = $f['compliance_status'] ?? 'PENDING';
+            if ($complianceStatus !== $oldStatus) {
+                $edctStatusNew = in_array($complianceStatus, ['ON_TIME', 'EARLY']) ? 'COMPLIANT'
+                    : (in_array($complianceStatus, ['LATE', 'NO_SHOW']) ? 'NON_COMPLIANT' : null);
+
+                $updateSql = "UPDATE dbo.ctp_flight_control SET compliance_status = ?, compliance_delta_min = ?, actual_dep_utc = ?"
+                    . ($edctStatusNew ? ", edct_status = '$edctStatusNew'" : "")
+                    . " WHERE ctp_control_id = ?";
+                $upResult = sqlsrv_query($conn_tmi, $updateSql, [
+                    $complianceStatus,
+                    $deltaMin,
+                    $actualDep,
+                    (int)$f['ctp_control_id']
+                ]);
+                if ($upResult) {
+                    $updated++;
+                    sqlsrv_free_stmt($upResult);
+                }
+            }
+        }
+    }
+
+    return [
+        'updated' => $updated,
+        'sessions' => count($sessionIds),
+        'ms' => round((microtime(true) - $start) * 1000)
+    ];
+}
+
+/**
  * Clear TMI columns for flights no longer in any active program.
  *
  * @param resource $conn_adl ADL connection
@@ -2627,6 +2769,21 @@ function runDaemon(array $config): void {
                 }
             }
 
+            // 4b. CTP Oceanic compliance check (runs every ctp_compliance_interval cycles)
+            $ctpResult = null;
+            if ($config['ctp_compliance_enabled'] && ($stats['runs'] % $config['ctp_compliance_interval'] === 0)) {
+                if ($conn_tmi) {
+                    try {
+                        $ctpResult = executeCtpComplianceCheck($conn, $conn_tmi);
+                        if ($ctpResult !== null && $ctpResult['updated'] > 0) {
+                            logInfo("CTP compliance: {$ctpResult['updated']} updated across {$ctpResult['sessions']} session(s) ({$ctpResult['ms']}ms)");
+                        }
+                    } catch (Throwable $e) {
+                        logWarn("CTP compliance error: " . $e->getMessage());
+                    }
+                }
+            }
+
             // 5. Process ATIS (with dynamic tiered intervals)
             $atisImported = 0;
             $atisParsed = 0;
@@ -2925,6 +3082,11 @@ function runDaemon(array $config): void {
                 $logContext['tmi'] = $tmiSyncResult['synced'];
                 $logContext['tmi_clean'] = $tmiSyncResult['cleaned'];
                 $logContext['tmi_ms'] = $tmiSyncResult['ms'];
+            }
+
+            if ($ctpResult !== null && $ctpResult['updated'] > 0) {
+                $logContext['ctp'] = $ctpResult['updated'];
+                $logContext['ctp_ms'] = $ctpResult['ms'];
             }
 
             logMessage($logLevel, "Refresh #{$stats['runs']}{$perfNote}", $logContext);

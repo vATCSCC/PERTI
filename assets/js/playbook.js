@@ -13,9 +13,13 @@
     var API_DELETE  = 'api/mgt/playbook/delete.php';
     var API_GROUPS      = 'api/data/playbook/groups.php';
     var API_GROUPS_SAVE = 'api/mgt/playbook/groups.php';
+    var API_ACL         = 'api/data/playbook/acl.php';
+    var API_ACL_MGT     = 'api/mgt/playbook/acl.php';
 
     var t = typeof PERTII18n !== 'undefined' ? PERTII18n.t.bind(PERTII18n) : function(k) { return k; };
     var hasPerm = window.PERTI_PLAYBOOK_PERM === true;
+    var sessionCid = window.PERTI_PLAYBOOK_CID || null;
+    var isAdmin = window.PERTI_PLAYBOOK_ADMIN === true;
 
     // FAA National Playbook category display order
     var FAA_CATEGORY_ORDER = [
@@ -76,6 +80,27 @@
         var yy = String(now.getUTCFullYear()).slice(-2);
         var mm = String(now.getUTCMonth() + 1).padStart(2, '0');
         return yy + mm;
+    }
+
+    function visibilityBadge(vis) {
+        if (!vis || vis === 'public') return '';
+        var icon, label, cls;
+        switch (vis) {
+            case 'local':
+                icon = 'fa-lock'; label = t('playbook.visibility.local'); cls = 'pb-vis-local'; break;
+            case 'private_users':
+                icon = 'fa-users'; label = t('playbook.visibility.privateUsers'); cls = 'pb-vis-private'; break;
+            case 'private_org':
+                icon = 'fa-building'; label = t('playbook.visibility.privateOrg'); cls = 'pb-vis-org'; break;
+            default: return '';
+        }
+        return '<span class="pb-badge pb-visibility-badge ' + cls + '" title="' + escHtml(label) + '"><i class="fas ' + icon + '"></i></span>';
+    }
+
+    function canEditPlay(play) {
+        if (isAdmin) return true;
+        if (play.can_edit !== undefined) return !!play.can_edit;
+        return hasPerm;
     }
 
     function normalizePlayName(name) {
@@ -885,6 +910,7 @@
             html += '<li class="pb-play-row' + (isActive ? ' active' : '') + '" data-play-id="' + p.play_id + '">';
             html += '<span class="pb-play-row-name">' + escHtml(p.play_name) + '</span>';
             html += '<span class="pb-play-row-meta">';
+            html += visibilityBadge(p.visibility);
             if (p.category) html += '<span class="pb-badge pb-badge-category">' + escHtml(p.category) + '</span>';
             html += '<span class="pb-badge pb-badge-routes">' + (p.route_count || 0) + '</span>';
             var srcLabel = p.source === 'FAA_HISTORICAL' ? 'Legacy' : (p.source || 'DCC');
@@ -1052,17 +1078,18 @@
 
         var html = '';
 
-        // Action buttons
+        // Action buttons — use per-play can_edit from API
+        var playEditable = canEditPlay(play);
         html += '<div class="pb-actions mb-1" style="flex-wrap:wrap;">';
         html += '<button class="btn btn-outline-info btn-sm" id="pb_copy_link_btn"><i class="fas fa-link mr-1"></i>Copy Link</button>';
         html += '<button class="btn btn-warning btn-sm" id="pb_activate_btn"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.activateReroute') + '</button>';
         if (hasPerm) {
             html += '<button class="btn btn-outline-primary btn-sm" id="pb_duplicate_btn"><i class="fas fa-copy mr-1"></i>Duplicate</button>';
         }
-        if (hasPerm && play.source !== 'FAA' && play.source !== 'FAA_HISTORICAL') {
+        if (playEditable && play.source !== 'FAA' && play.source !== 'FAA_HISTORICAL') {
             html += '<button class="btn btn-outline-secondary btn-sm" id="pb_edit_btn"><i class="fas fa-edit mr-1"></i>' + t('common.edit') + '</button>';
         }
-        if (hasPerm) {
+        if (playEditable) {
             if (play.status === 'active' || play.status === 'draft') {
                 html += '<button class="btn btn-outline-danger btn-sm" id="pb_archive_btn"><i class="fas fa-archive mr-1"></i>' + t('playbook.archive') + '</button>';
             } else if (play.status === 'archived') {
@@ -1073,6 +1100,8 @@
 
         // Metadata badges
         var metaParts = [];
+        var visBadge = visibilityBadge(play.visibility);
+        if (visBadge) metaParts.push(visBadge);
         if (play.category) metaParts.push('<span class="pb-badge pb-badge-category">' + escHtml(play.category) + '</span>');
         if (play.scenario_type) metaParts.push('<span class="badge badge-secondary" style="font-size:0.65rem;">' + escHtml(play.scenario_type) + '</span>');
         if (play.source) {
@@ -1099,7 +1128,7 @@
         html += '<div class="pb-play-facilities">';
         html += '<strong>' + t('playbook.legendTitle') + ':</strong> ';
         html += '<span class="pb-fac-display" id="pb_fac_display">' + (facStr ? renderFacilityCodes(facStr, '/') : '<span class="text-muted">' + t('common.none') + '</span>') + '</span>';
-        if (hasPerm && play.source !== 'FAA' && play.source !== 'FAA_HISTORICAL') {
+        if (playEditable && play.source !== 'FAA' && play.source !== 'FAA_HISTORICAL') {
             html += ' <button class="btn btn-xs pb-inline-edit-btn" id="pb_fac_edit_btn" title="' + t('playbook.editFacilities') + '"><i class="fas fa-pencil-alt"></i></button>';
             html += '<div class="pb-fac-edit-wrap" id="pb_fac_edit_wrap" style="display:none;">';
             html += '<input type="text" class="form-control form-control-sm pb-fac-input" id="pb_fac_input" value="' + escHtml(facStr) + '" placeholder="ZNY/ZOB/ZAU...">';
@@ -2395,6 +2424,7 @@
         $('#pb_edit_remarks').val('');
         $('#pb_edit_status').val('active');
         $('#pb_edit_source').val('DCC').prop('disabled', false);
+        setVisibilityDropdown('public', false);
         $('#pb_route_edit_body').empty();
         $('#pb_bulk_paste_area').hide();
         $('#pb_advisory_parse_area').hide();
@@ -2413,6 +2443,12 @@
         $('#pb_edit_remarks').val(play.remarks || '');
         $('#pb_edit_status').val(play.status || 'active');
         $('#pb_edit_source').val(play.source || 'DCC').prop('disabled', true);
+
+        var isFAA = play.source === 'FAA' || play.source === 'FAA_HISTORICAL';
+        setVisibilityDropdown(play.visibility || 'public', isFAA);
+        if (!isFAA && (play.visibility === 'private_users' || play.visibility === 'private_org')) {
+            loadAclList(play.play_id);
+        }
 
         var tbody = $('#pb_route_edit_body');
         tbody.empty();
@@ -2437,6 +2473,7 @@
         $('#pb_edit_remarks').val(play.remarks || '');
         $('#pb_edit_status').val('draft');
         $('#pb_edit_source').val('DCC').prop('disabled', false);
+        setVisibilityDropdown('public', false);
 
         var tbody = $('#pb_route_edit_body');
         tbody.empty();
@@ -2874,6 +2911,8 @@
         var sourceVal = $srcSel.val() || 'DCC';
         if (srcDisabled) $srcSel.prop('disabled', true);
 
+        var visVal = $('#pb_edit_visibility').val() || 'public';
+
         var body = {
             play_id: playId,
             play_name: playName,
@@ -2882,6 +2921,7 @@
             category: ($('#pb_edit_category').val() || '').replace('__custom__', '').trim(),
             scenario_type: $('#pb_edit_scenario_type').val(),
             status: $('#pb_edit_status').val(),
+            visibility: visVal,
             source: sourceVal,
             airac_cycle: getAiracCycle(),
             facilities_involved: playFields.facilities_involved,
@@ -2964,6 +3004,105 @@
             },
             error: function() {
                 if (typeof Swal !== 'undefined') Swal.fire({ icon: 'error', title: t('common.error') });
+            }
+        });
+    }
+
+    // =========================================================================
+    // VISIBILITY & ACL
+    // =========================================================================
+
+    var VISIBILITY_DESCS = {
+        'public': 'playbook.visibility.publicDesc',
+        'local': 'playbook.visibility.localDesc',
+        'private_users': 'playbook.visibility.privateUsersDesc',
+        'private_org': 'playbook.visibility.privateOrgDesc'
+    };
+
+    function setVisibilityDropdown(value, disabled) {
+        var $sel = $('#pb_edit_visibility');
+        $sel.val(value || 'public').prop('disabled', !!disabled);
+        updateVisibilityUI(value || 'public');
+    }
+
+    function updateVisibilityUI(vis) {
+        var descKey = VISIBILITY_DESCS[vis] || '';
+        $('#pb_visibility_desc').text(descKey ? t(descKey) : '');
+        var showAcl = (vis === 'private_users' || vis === 'private_org');
+        if (showAcl) {
+            $('#pb_acl_section').slideDown(150);
+        } else {
+            $('#pb_acl_section').slideUp(150);
+        }
+    }
+
+    function loadAclList(playId) {
+        var $list = $('#pb_acl_list');
+        $list.html('<div class="pb-loading py-1"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
+
+        $.getJSON(API_ACL + '?play_id=' + playId, function(data) {
+            if (!data || !data.success) {
+                $list.html('<div class="small text-muted">' + t('playbook.acl.loadFailed') + '</div>');
+                return;
+            }
+            renderAclList(data.acl || [], playId);
+        }).fail(function() {
+            $list.html('<div class="small text-muted">' + t('playbook.acl.loadFailed') + '</div>');
+        });
+    }
+
+    function renderAclList(aclEntries, playId) {
+        var $list = $('#pb_acl_list');
+        if (!aclEntries.length) {
+            $list.html('<div class="small text-muted py-1">' + t('playbook.acl.ownerNote') + '</div>');
+            return;
+        }
+        var html = '<table class="pb-acl-table"><thead><tr>';
+        html += '<th>CID</th>';
+        html += '<th>' + t('playbook.acl.canView') + '</th>';
+        html += '<th>' + t('playbook.acl.canManage') + '</th>';
+        html += '<th>' + t('playbook.acl.canManageAcl') + '</th>';
+        html += '<th></th>';
+        html += '</tr></thead><tbody>';
+        aclEntries.forEach(function(entry) {
+            html += '<tr data-acl-cid="' + entry.cid + '">';
+            html += '<td>' + escHtml(String(entry.cid)) + '</td>';
+            html += '<td><input type="checkbox" class="pb-acl-perm" data-perm="can_view"' + (entry.can_view ? ' checked' : '') + '></td>';
+            html += '<td><input type="checkbox" class="pb-acl-perm" data-perm="can_manage"' + (entry.can_manage ? ' checked' : '') + '></td>';
+            html += '<td><input type="checkbox" class="pb-acl-perm" data-perm="can_manage_acl"' + (entry.can_manage_acl ? ' checked' : '') + '></td>';
+            html += '<td><button class="btn btn-xs btn-outline-danger pb-acl-remove" title="' + t('playbook.acl.removeUser') + '"><i class="fas fa-times"></i></button></td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+        $list.html(html);
+    }
+
+    function aclAction(action, data) {
+        var playId = parseInt($('#pb_edit_play_id').val()) || 0;
+        if (!playId) return;
+
+        data.play_id = playId;
+        data.action = action;
+
+        $.ajax({
+            url: API_ACL_MGT,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            dataType: 'json',
+            success: function(resp) {
+                if (resp && resp.success) {
+                    loadAclList(playId);
+                    var msg = action === 'add' ? t('playbook.acl.userAdded') :
+                              action === 'remove' ? t('playbook.acl.userRemoved') :
+                              t('playbook.acl.userUpdated');
+                    PERTIDialog.toast(msg, 'success');
+                } else {
+                    PERTIDialog.toast(resp.error || t('playbook.acl.saveFailed'), 'error');
+                }
+            },
+            error: function() {
+                PERTIDialog.toast(t('playbook.acl.saveFailed'), 'error');
             }
         });
     }
@@ -3695,6 +3834,58 @@
                     setTimeout(function() { $row.removeClass('pb-route-flash'); }, 1500);
                 }
             }
+        });
+
+        // ── Visibility & ACL event handlers ──
+        $('#pb_edit_visibility').on('change', function() {
+            updateVisibilityUI($(this).val());
+            var playId = parseInt($('#pb_edit_play_id').val()) || 0;
+            if (playId && ($(this).val() === 'private_users' || $(this).val() === 'private_org')) {
+                loadAclList(playId);
+            }
+        });
+
+        $(document).on('click', '#pb_acl_add_btn', function() {
+            var cid = $('#pb_acl_add_cid').val().trim();
+            if (!cid || !/^\d+$/.test(cid)) {
+                PERTIDialog.toast(t('playbook.acl.invalidCid'), 'warning');
+                return;
+            }
+            aclAction('add', { cid: parseInt(cid) });
+            $('#pb_acl_add_cid').val('');
+        });
+
+        $(document).on('click', '#pb_acl_bulk_btn', function() {
+            $('#pb_acl_bulk_area').slideToggle(150);
+        });
+
+        $(document).on('click', '#pb_acl_bulk_apply', function() {
+            var raw = $('#pb_acl_bulk_input').val().trim();
+            if (!raw) return;
+            var cids = raw.split(/[,\s]+/).map(function(s) { return parseInt(s); }).filter(function(n) { return n > 0; });
+            if (!cids.length) {
+                PERTIDialog.toast(t('playbook.acl.invalidCid'), 'warning');
+                return;
+            }
+            aclAction('bulk_add', { cids: cids });
+            $('#pb_acl_bulk_input').val('');
+            $('#pb_acl_bulk_area').slideUp(150);
+        });
+
+        $(document).on('click', '.pb-acl-remove', function() {
+            var cid = parseInt($(this).closest('tr').data('acl-cid'));
+            if (!cid) return;
+            aclAction('remove', { cid: cid });
+        });
+
+        $(document).on('change', '.pb-acl-perm', function() {
+            var $tr = $(this).closest('tr');
+            var cid = parseInt($tr.data('acl-cid'));
+            var perm = $(this).data('perm');
+            var val = this.checked ? 1 : 0;
+            var data = { cid: cid };
+            data[perm] = val;
+            aclAction('update', data);
         });
     });
 

@@ -18,6 +18,7 @@ include("../../../load/config.php");
 include("../../../load/input.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
+include("../../../load/playbook_visibility.php");
 
 $play_id = get_int('id');
 if ($play_id <= 0) {
@@ -39,6 +40,13 @@ if (!$play) {
     exit;
 }
 
+// Visibility check
+if (!can_view_play($play, $conn_sqli)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Access denied', 'error_code' => 'playbook.visibility.accessDenied']);
+    exit;
+}
+
 $play['play_id'] = (int)$play['play_id'];
 $play['route_count'] = (int)$play['route_count'];
 
@@ -56,6 +64,11 @@ while ($row = $result->fetch_assoc()) {
     $routes[] = $row;
 }
 $stmt->close();
+
+// Annotate with permission flags
+$session_cid = isset($_SESSION['VATSIM_CID']) ? (int)$_SESSION['VATSIM_CID'] : null;
+$play['can_edit'] = can_edit_play($play, $conn_sqli);
+$play['is_owner'] = $session_cid !== null && (string)($play['created_by'] ?? '') === (string)$session_cid;
 
 echo json_encode([
     'success' => true,
