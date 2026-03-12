@@ -1,5 +1,7 @@
 # Acronyms & Terminology
 
+*Last updated: March 12, 2026*
+
 This reference defines acronyms and terminology used throughout PERTI and VATSIM traffic management.
 
 ---
@@ -21,6 +23,10 @@ This reference defines acronyms and terminology used throughout PERTI and VATSIM
 | **FEA** | Flow Evaluation Area - airspace element for traffic demand analysis |
 | **OpLevel** | Operational Level 1-4 (traffic impact severity) |
 | **RBS** | Ration By Schedule - GDP slot assignment algorithm |
+| **RBD** | Ration By Distance - GDP variant distributing delay by flight distance |
+| **CASA** | Compression After Slot Assignment - GDP compression algorithm |
+| **FPFS** | First Planned First Served - GDP slot allocation by original ETA order |
+| **TVP** | Table-Valued Parameter - SQL Server bulk data passing mechanism |
 | **ASPM82** | FAA Aviation System Performance Metrics 82-airport set |
 | **OPSNET45** | FAA Operations Network 45-airport performance metric set |
 | **CID** | VATSIM Certificate ID (user identifier) |

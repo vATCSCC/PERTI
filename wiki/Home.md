@@ -63,6 +63,34 @@ These in-depth documents cover everything needed to deploy and understand PERTI:
 
 ---
 
+## System Scale (as of March 2026)
+
+| Metric | Count |
+|--------|-------|
+| Total flights tracked | 1,625,115 |
+| Flight plans parsed | 1,620,920 |
+| Route waypoints extracted | 9,295,153 |
+| Boundary crossings predicted | 20,548,518 |
+| Navigation fixes | 268,998 |
+| Airports in database | 27,231 (ADL) / 37,527 (GIS) |
+| Airlines tracked | 228 |
+| ARTCC/sector boundaries | 3,033 (ADL) / 1,004 ARTCC + 1,023 TRACON (GIS) |
+| Airways | 1,515 |
+| DPs/STARs | 10,314 |
+| Coded Departure Routes | 41,138 |
+| Playbook routes | 55,682 |
+| TMI programs issued | 172 (139 GDP, 29 GS, 4 AFP) |
+| TMI advisories published | 1,020 |
+| Reroutes defined | 268 |
+| PERTI plans created | 239 |
+| Registered users | 25 |
+| Translation keys | 7,276 (en-US) |
+| Supported locales | 4 (en-US, fr-CA, en-CA, en-EU) |
+
+*Data reflects cumulative totals. System hibernated since March 9, 2026.*
+
+---
+
 ## Technology Stack
 
 | Component | Technology |
@@ -80,15 +108,21 @@ These in-depth documents cover everything needed to deploy and understand PERTI:
 
 ## Current Version
 
-**v18** - Includes:
-- **vATCSCC Playbook** - Pre-coordinated route play catalog with CRUD, map visualization, and shareable links
+**v18** (with ongoing enhancements through March 2026) - Includes:
+
+> **System Status: HIBERNATED** (since March 9, 2026) - Core daemons only, pages redirect to `/hibernation`, Azure resources downscaled. See `docs/HIBERNATION_RUNBOOK.md` for exit procedure.
+
+- **GDP Algorithm Redesign** (Phases 1-4 complete) - CASA-FPFS + RBD hybrid slot assignment, compression, reoptimization, reversal metrics, anti-gaming flags
+- **vATCSCC Playbook** - Pre-coordinated route play catalog with CRUD, route grouping/coloring, consolidation, compaction, auto-filters, FIR pattern expansion, and shareable links
 - **Canadian FIR Sectors** - 377 sector boundaries across 7 Canadian FIRs (CZYZ, CZWG, CZEG, CZUL, CZVR, CZQM, CZQX)
+- **FIR Pattern Expansion** - International ICAO prefix matching, FIR-to-ARTCC code expansion, pseudo-fix audit
+- **Route Analysis Tools** - Route consolidation, compaction, auto-filters for playbook management
+- **ARTCC Code Normalization** - US ICAO codes (KZAB→ZAB, PAZA→ZAN) normalized sitewide
 - **Splits Enhancements** - Scheduled splits layer with low/high/superhigh strata filtering, sector map on plan pages
-- **Ops Plan** - Structured FAA-format Ops Plan with plan page sortable columns and ARTCC grouping
 - **Multi-Organization Support** - Org-scoped TMI/JATOC authorization, multi-org Discord posting, CANOC/ECFMP integration
 - **Traffic Management Review (TMR)** - Guided NTMO-style post-event review reports
 - **NOD TMI Enhancements** - Rich TMI sidebar cards, map status layer, facility flow configs, FEA integration
-- **Internationalization (i18n)** - 450+ translation keys across 4 locales (en-US, fr-CA, en-CA, en-EU), 28 PHP pages, 13+ JS modules
+- **Internationalization (i18n)** - 7,276 translation keys across 4 locales (en-US, fr-CA, en-CA, en-EU), 30 PHP pages, 45 JS modules
 - **PERTI_MYSQL_ONLY Optimization** - ~98 endpoints skip Azure SQL connections (~500-1000ms faster)
 
 See [[Changelog]] for full version history.
@@ -103,4 +137,4 @@ See [[Changelog]] for full version history.
 
 ---
 
-*Last updated: 2026-02-25*
+*Last updated: 2026-03-11*

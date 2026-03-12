@@ -8,6 +8,42 @@ This document tracks significant changes to PERTI across versions.
 
 *Released: February 2026*
 
+> **Note:** System entered hibernation mode on March 9, 2026. All features below are deployed but many are inactive during hibernation. A backfill pipeline is processing historical data (Phase 3 of 6 in progress as of March 11, 2026).
+
+### Recent Enhancements (February-March 2026, PRs #142-163)
+
+#### GDP Algorithm Redesign (Phases 1-4 Complete)
+- **Phase 1** (Migration 037): Bug fixes, compression endpoint, batch optimization
+- **Phase 2** (Migration 038): FPFS+RBD slot assignment algorithm, adaptive reserves, FlightListType TVP rebuild
+- **Phase 3** (Migration 039): `sp_TMI_ReoptimizeProgram` orchestrator, reoptimize.php endpoint
+- **Phase 4** (Migration 041): Reversal metrics, anti-gaming flags, GDT UI (compress/reopt/observability)
+- TMI→ADL sync via `executeDeferredTMISync()` in ADL daemon (60s cycle)
+
+#### Playbook Route Enhancements (PRs #143-163)
+- **Route Grouping & Coloring** (#143) - Auto-group by DCC Region with canonical colors
+- **Facility Filter Dropdowns** (#144) - Playbook list optimization
+- **ATC-Zero Import + Daily Backup Daemon** (#146) - Automated playbook backup
+- **Forward Group Colors to Route Page** (#147) - Consistent coloring
+- **Multi-line Remarks & Descriptions** (#150) - Rich text support
+- **ICAO Prefix FIR Pattern Expansion** (#151) - International facility matching
+- **Route Editor UX Polish** (#152) - Editor improvements
+- **FIR Pattern Expansion in Route Rendering** (#153) - Dynamic areaCenters from GeoJSON
+- **Collapsible Edit Sections + Advisory Parser** (#154) - UX improvements
+- **FIR Pattern Expansion in Playbook** (#155) - Global FIR code registry
+- **Token-Type Splitting for Route Detection** (#157) - Improved origin/route/dest detection
+- **Expand FIR Patterns in Bulk Paste** (#159) - Individual ARTCC code expansion
+- **Normalize US ICAO ARTCC Codes** (#160) - KZAB→ZAB, PAZA→ZAN sitewide
+- **FIR Exclusions + Pseudo-Fix Audit + ARTCC Scope** (#162) - Member-based scope filtering
+- **Route Analysis Tools** (#163) - Consolidation, compaction, auto-filters
+
+#### PostGIS Boundary Fix (#142)
+- Added `is_subsector` filter to 11 PostGIS ARTCC boundary functions
+- Prevents subsector boundaries from contaminating ARTCC-level queries
+
+#### TRACON Pseudo-Fixes
+- Added 218 TRACON pseudo-fixes (205 US + 13 Canadian)
+- Enables TRACON-level route filtering in playbook and demand analysis
+
 ### New Features
 
 #### Traffic Management Review (TMR) Report System (PR #18)
@@ -442,14 +478,15 @@ This document tracks significant changes to PERTI across versions.
 
 ## Upcoming (Planned)
 
-### v19 (Planned)
+### v19 (Planned - Post-Hibernation)
 
-- ATFM Simulator Phase 2 (Enhanced GDP slot management, AFP support)
-- TMI Historical Import (NTML compact parser, ADVZY parser)
+- CDM Adaptation (hybrid FAA/EUROCONTROL/AMNAC model, 6 phases)
+- Daemon reoptimization cycle for GDP (2-5 min automatic reopt)
+- TMI Historical Import (NTML compact + ADVZY parsers)
 - Reroute compliance automation
 - StatSim v2 integration
-- Airspace demand visualization UI enhancements
 - Additional i18n locale support
+- Hibernation recovery backfill completion
 
 ---
 

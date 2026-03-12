@@ -4,9 +4,12 @@ info:
   description: |
     VATSWIM (System Wide Information Management) API for VATSIM.
 
+    > **System Status: HIBERNATED** (since March 9, 2026) — SWIM API returns 503
+    > during hibernation. Only ADL ingest daemon is active. See Hibernation Runbook for details.
+
     VATSWIM provides a centralized data exchange hub enabling real-time flight information
-    sharing across the VATSIM ecosystem. It serves as a single source of truth for flight 
-    data, enabling consistent Traffic Management Initiative (TMI) implementation, 
+    sharing across the VATSIM ecosystem. It serves as a single source of truth for flight
+    data, enabling consistent Traffic Management Initiative (TMI) implementation,
     synchronized arrival/departure times, and seamless data exchange between VATSIM systems.
     
     ## Authentication

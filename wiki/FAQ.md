@@ -1,5 +1,7 @@
 # Frequently Asked Questions
 
+*Last updated: March 12, 2026*
+
 This page addresses common questions about PERTI from various user perspectives.
 
 ---
@@ -85,10 +87,6 @@ Ground Stops use tiers to define affected traffic:
 - **Tier 1**: Flights within a certain distance/time
 - **Tier 2**: Extended scope
 - **Tier 3**: All flights to the destination
-
-### What is Adaptive Compression?
-
-Adaptive Compression (ADPT) automatically moves flights up to fill slots that would otherwise be wasted (e.g., when a flight cancels or substitutes). It helps maximize efficiency during GDPs and AFPs.
 
 ---
 
@@ -190,21 +188,6 @@ TMR reports include per-airport demand charts (DemandChartCore) that visualize a
 
 ---
 
-## Internationalization (i18n) - NEW v18
-
-### Is PERTI available in other languages?
-
-PERTI has a full i18n infrastructure with 450+ translation keys. Supported locales: `en-US` (full), `fr-CA` (near-complete), `en-CA` (overlay), `en-EU` (overlay). Overlay locales inherit from `en-US` and only override specific keys (e.g., terminology differences).
-
-### How does locale detection work?
-
-1. URL parameter (`?locale=en-US`)
-2. localStorage (`PERTI_LOCALE`)
-3. Browser language (`navigator.language`)
-4. Fallback: `en-US`
-
----
-
 ## Playbook - NEW v18
 
 ### What is the Playbook?
@@ -250,6 +233,61 @@ Strata filtering lets you view sectors by altitude stratum: **low** (surface to 
 Yes. Scheduled splits have start/end times (UTC) and are automatically activated/deactivated by the `scheduler_daemon.php`.
 
 See [[Splits]] for full documentation.
+
+---
+
+## Hibernation & Operations
+
+### What is hibernation mode?
+
+Hibernation mode is a cost-saving operational state that suspends most processing daemons, redirects web pages to `/hibernation`, and downscales Azure resources. Only the core ADL ingest daemon continues running during hibernation, maintaining basic flight data ingestion. Monthly infrastructure costs drop from approximately $3,500 to $150-170. Enter and exit procedures are documented in `docs/HIBERNATION_RUNBOOK.md`.
+
+### How much data does PERTI process?
+
+As of March 2026, PERTI has processed:
+- **1.6M+** flights tracked
+- **9.3M+** waypoints extracted from flight plans
+- **20.5M+** boundary crossings predicted
+- **269K** navigation fixes in reference data
+- **27K+** airports worldwide
+- **10K+** DPs/STARs (departure/arrival procedures)
+- **41K+** Coded Departure Routes (CDRs)
+- **56K+** playbook routes
+
+---
+
+## GDP Algorithm & Slot Assignment
+
+### What is the GDP algorithm?
+
+PERTI uses a CASA-FPFS + RBD hybrid algorithm for Ground Delay Programs. CASA (Compression After Slot Assignment) assigns slots first, then compresses to minimize total delay. FPFS (First Planned First Served) allocates slots based on original estimated arrival time. RBD (Ration By Distance) distributes delay proportionally based on flight distance from the destination.
+
+The algorithm was redesigned in four phases:
+- **Phase 1** -- Bug fixes, `compress.php` endpoint, batch optimization
+- **Phase 2** -- FPFS+RBD algorithm implementation, adaptive reserves, FlightListType TVP rebuild
+- **Phase 3** -- `sp_TMI_ReoptimizeProgram` orchestrator, `reoptimize.php` endpoint
+- **Phase 4** -- Reversal metrics, anti-gaming flags, GDT UI observability (compress/reopt controls)
+
+The automatic daemon reoptimization cycle (2-5 minute intervals) is pending implementation post-hibernation.
+
+### What is Adaptive Compression?
+
+Adaptive Compression (ADPT) automatically moves flights up to fill slots that would otherwise be wasted (e.g., when a flight cancels or substitutes). It helps maximize efficiency during GDPs and AFPs.
+
+---
+
+## Internationalization (i18n) - NEW v18
+
+### Is PERTI available in other languages?
+
+PERTI has a full i18n infrastructure with 7,276 translation keys in `en-US.json`. Supported locales: `en-US` (full), `fr-CA` (near-complete with 7,560 keys), `en-CA` (overlay), `en-EU` (overlay). Overlay locales inherit from `en-US` and only override specific keys (e.g., terminology differences). Currently, 45 of 65 JS modules (69%) use the i18n system, and all 30 PHP pages auto-include the i18n system via `load/header.php`.
+
+### How does locale detection work?
+
+1. URL parameter (`?locale=en-US`)
+2. localStorage (`PERTI_LOCALE`)
+3. Browser language (`navigator.language`)
+4. Fallback: `en-US`
 
 ---
 

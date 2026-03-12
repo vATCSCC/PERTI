@@ -1,5 +1,7 @@
 # PERTI Deployment Guide
 
+> **System Status: HIBERNATED** (since March 9, 2026) — See `HIBERNATION_RUNBOOK.md` for exit procedure.
+
 Complete guide for deploying and operating your own PERTI (Plan, Execute, Review, Train, Improve) instance — a web-based air traffic flow management platform for the VATSIM virtual ATC network.
 
 This guide covers everything a TMU organization needs to go from zero to a fully operational PERTI system: Azure infrastructure provisioning, database schema deployment (7 databases across 3 engines), stored procedure installation, reference data import, application configuration, background daemon setup, and day-to-day operational procedures including GDP/GS lifecycle, TMI publishing, demand monitoring, and AIRAC cycle maintenance.
@@ -1796,10 +1798,12 @@ PERTI implements a dual-layer i18n system with shared JSON locale files:
 
 | Locale | File | Lines | Coverage |
 |--------|------|-------|----------|
-| `en-US` | `en-US.json` | 7,500+ | **Complete** — all domains |
+| `en-US` | `en-US.json` | 7,276 | **Complete** — all domains |
 | `fr-CA` | `fr-CA.json` | 7,900+ | **Near-complete** — French translations |
 | `en-CA` | `en-CA.json` | 670+ | **Overlay** — Canadian English overrides |
 | `en-EU` | `en-EU.json` | 620+ | **Overlay** — European English overrides |
+
+**Current coverage**: 7,276 keys across 4 locales, 45/65 JS modules using i18n, 30 PHP pages.
 
 Supported locale list is defined in `assets/locales/index.js`. Add new locale codes there.
 

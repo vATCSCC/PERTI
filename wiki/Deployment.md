@@ -2,6 +2,8 @@
 
 > **Looking for the full deployment guide?** See [docs/DEPLOYMENT_GUIDE.md](../blob/main/docs/DEPLOYMENT_GUIDE.md) for comprehensive end-to-end deployment instructions including Azure provisioning, all 7 databases, stored procedures, reference data import, i18n, multi-org setup, code standards, and operational procedures.
 
+*Last updated: March 12, 2026*
+
 This page covers the operational basics of deploying PERTI to Azure App Service.
 
 ---
@@ -374,6 +376,49 @@ Azure SQL Database firewall must allow:
 - Azure services (for App Service)
 - Daemon host IPs
 - Developer IPs (for migrations)
+
+---
+
+## Hibernation Mode
+
+> **Current Status:** Hibernation active since March 9, 2026.
+
+Hibernation mode is a cost-saving operational state that suspends most processing while preserving core data ingestion. During hibernation:
+
+### Resource Downscaling
+
+| Resource | Normal Tier | Hibernation Tier |
+|----------|-------------|------------------|
+| Azure SQL (ADL) | Hyperscale Serverless 3/16 vCores | Min 1 / Max 4 vCores |
+| MySQL (perti_site) | General Purpose D2ds_v4 | Burstable B1ms |
+| PostgreSQL (GIS) | Burstable B2s | Burstable B1ms |
+
+### Daemon Status During Hibernation
+
+Only the core **ADL Ingest daemon** (`scripts/vatsim_adl_daemon.php`) continues running. All other 14 daemons are suspended:
+
+- Parse Queue, Boundary Detection, Crossing Calculation, Waypoint ETA -- all stopped
+- SWIM WebSocket, SWIM Sync, SimTraffic Poll, Reverse Sync -- all stopped
+- Scheduler, Archival, Monitoring, Discord Queue, Event Sync, ADL Archive -- all stopped
+
+### Web Application Behavior
+
+- Most authenticated pages redirect to `/hibernation` (info page)
+- SWIM API returns HTTP 503 (Service Unavailable)
+- `review.php` is exempted from the redirect (remains accessible)
+- Public pages (JATOC, NOD) are redirected
+
+### Configuration
+
+Hibernation is controlled by:
+- `HIBERNATION_MODE` constant in `load/config.php` (set to `true`)
+- `HIBERNATION_MODE` Azure App Setting (set to `1`, not `"false"` -- the string `"false"` is truthy in PHP)
+
+### Enter/Exit Procedures
+
+Full step-by-step procedures for entering and exiting hibernation are documented in `docs/HIBERNATION_RUNBOOK.md`. The exit procedure includes resource upscaling, daemon restart, and an optional backfill pipeline (`scripts/backfill/hibernation_recovery.php`) to recover data missed during the hibernation period.
+
+Monthly costs during hibernation drop from approximately $3,500 to $150-170.
 
 ---
 

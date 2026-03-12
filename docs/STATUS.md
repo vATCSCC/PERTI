@@ -1,45 +1,52 @@
 # PERTI System Status Dashboard
 
-> **Last Updated:** 2026-02-25
+> **Last Updated:** 2026-03-12
 > **System Version:** v18 - Main Branch
+> **System Mode:** HIBERNATED (since March 9, 2026)
 
 ---
+
+> **HIBERNATION MODE ACTIVE**: Core ADL ingest daemon only. Web pages redirect to `/hibernation`. SWIM API returns 503. Azure resources downscaled. See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
+>
+> **Backfill Pipeline**: Phase 3 of 6 in progress (crossing calculations for 705K flights, ~108 flights/min on B1ms tier).
 
 ## Quick Health Overview
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| ADL Flight Processing | [OK] Active | Core flight data pipeline |
-| Route Parsing | [OK] Active | Route expansion and waypoint extraction |
-| ETA Calculation | [OK] Active | Trajectory prediction system |
-| Zone Detection | [OK] Active | OOOI airport zone monitoring |
-| Boundary Detection | [OK] Active | ARTCC/sector crossing detection |
-| Weather Integration | [OK] Active | SIGMET/AIRMET monitoring |
-| ATIS Import | [OK] Active | Runway assignment parsing with weather extraction |
-| Event Statistics | [OK] Active | VATUSA event tracking |
-| Demand Analysis | [OK] Active | Airport demand/capacity visualization |
-| Airport Config | [OK] Active | Runway configuration & rate management |
-| Rate Suggestions | [OK] Active | Weather-aware AAR/ADR recommendations |
+| ADL Flight Processing | [OK] Active | Core flight data pipeline (only daemon running) |
+| Route Parsing | [HIB] Suspended | Route expansion and waypoint extraction |
+| ETA Calculation | [HIB] Suspended | Trajectory prediction system |
+| Zone Detection | [HIB] Suspended | OOOI airport zone monitoring |
+| Boundary Detection | [HIB] Suspended | ARTCC/sector crossing detection |
+| Weather Integration | [HIB] Suspended | SIGMET/AIRMET monitoring |
+| ATIS Import | [HIB] Suspended | Runway assignment parsing with weather extraction |
+| Event Statistics | [HIB] Suspended | VATUSA event tracking |
+| Demand Analysis | [HIB] Suspended | Airport demand/capacity visualization |
+| Airport Config | [HIB] Suspended | Runway configuration & rate management |
+| Rate Suggestions | [HIB] Suspended | Weather-aware AAR/ADR recommendations |
 | ATFM Simulator | [DEV] Phase 0 | TMU training simulator with Node.js flight engine |
-| SWIM API | [OK] Active | System Wide Information Management API |
+| SWIM API | [HIB] 503 | System Wide Information Management API |
 | TMI Database | [OK] Deployed | Unified TMI database (VATSIM_TMI) |
-| TMI Publisher | [OK] v1.6.0 | Unified NTML/Advisory publishing with multi-Discord |
-| **TMR Reports (NEW v18)** | [OK] Active | NTMO Guide-style post-event review reports |
-| **NOD TMI Cards (NEW v18)** | [OK] Active | Rich TMI sidebar cards with map status layer |
-| **NOD Facility Flows (NEW v18)** | [OK] Active | Facility flow configs, elements, gates, FEA |
-| **i18n System (NEW v18)** | [OK] Active | 450+ keys, 13 JS modules, locale auto-detection |
-| **PERTI_MYSQL_ONLY (NEW v18)** | [OK] Active | ~98 endpoints skip Azure SQL (~500-1000ms faster) |
-| **PostgreSQL GIS (NEW v18)** | [OK] Active | PostGIS spatial queries (boundaries, routes) |
-| **Playbook (NEW v18)** | [OK] Active | Route play catalog (FAA/DCC/ECFMP/CANOC) with shareable links |
-| **Canadian FIRs (NEW v18)** | [OK] Active | 7 FIRs (CZYZ/CZWG/CZEG/CZUL/CZVR/CZQM/CZQX), 1,379 sector boundaries |
-| **Scheduled Splits (NEW v18)** | [OK] Active | Auto-activate/deactivate with strata filtering (low/high/superhigh) |
+| TMI Publisher | [HIB] Suspended | Unified NTML/Advisory publishing with multi-Discord |
+| TMR Reports | [OK] Available | NTMO Guide-style post-event review reports |
+| NOD TMI Cards | [HIB] Suspended | Rich TMI sidebar cards with map status layer |
+| NOD Facility Flows | [HIB] Suspended | Facility flow configs, elements, gates, FEA |
+| i18n System | [OK] Deployed | 7,276 keys, 45 JS modules, locale auto-detection |
+| PERTI_MYSQL_ONLY | [OK] Active | ~98 endpoints skip Azure SQL (~500-1000ms faster) |
+| PostgreSQL GIS | [HIB] Downscaled | PostGIS spatial queries (B1ms tier) |
+| Playbook | [HIB] Suspended | Route play catalog with FIR expansion, grouping, analysis tools |
+| Canadian FIRs | [OK] Deployed | 7 FIRs, 1,379 sector boundaries |
+| Scheduled Splits | [HIB] Suspended | Auto-activate/deactivate with strata filtering |
+| **GDP Algorithm** | [OK] Deployed | FPFS+RBD hybrid, compression, reoptimization (Phases 1-4) |
+| **Backfill Pipeline** | [WARN] Phase 3/6 | Hibernation recovery: crossing calculations in progress |
 
 ---
 
 ## SWIM API Subsystem
 
 > **Documentation:** [docs/swim/](./swim/)
-> **Status:** ✅ Active - Infrastructure Deployed
+> **Status:** [HIB] Suspended - Returns 503 during hibernation
 
 SWIM (System Wide Information Management) provides centralized flight data exchange across the VATSIM ecosystem.
 
@@ -60,8 +67,8 @@ SWIM (System Wide Information Management) provides centralized flight data excha
 | Create Azure SQL Basic `SWIM_API` | [OK] Deployed | $5/mo fixed cost |
 | Run `002_swim_api_database.sql` | [OK] Deployed | swim_flights table created |
 | Add `$conn_swim` to config | [OK] Deployed | Connection string configured |
-| SWIM sync daemon | [OK] Active | `scripts/swim_sync_daemon.php` (2min interval) |
-| WebSocket server | [OK] Active | `scripts/swim_ws_server.php` (port 8090) |
+| SWIM sync daemon | [HIB] Suspended | `scripts/swim_sync_daemon.php` (2min interval) |
+| WebSocket server | [HIB] Suspended | `scripts/swim_ws_server.php` (port 8090) |
 
 ### API Endpoints
 
@@ -88,11 +95,11 @@ SWIM (System Wide Information Management) provides centralized flight data excha
 
 ### SWIM Database Architecture
 
-| Database | Purpose | Tier | Cost | API Access |
-|----------|---------|------|------|------------|
-| **VATSIM_ADL** | Internal ADL processing | Hyperscale Serverless | ~$3,200/mo | ❌ No (internal only) |
-| **SWIM_API** | Public API queries | Basic | $5/mo fixed | ✅ Yes |
-| **MySQL (PERTI)** | Ground stops, site data | General Purpose | ~$134/mo | ✅ Yes |
+| Database | Purpose | Tier | Cost (Hibernated) | API Access |
+|----------|---------|------|-------------------|------------|
+| **VATSIM_ADL** | Internal ADL processing | Serverless min 1/max 4 | ~$30-50/mo | ❌ No (internal only) |
+| **SWIM_API** | Public API queries | Basic | $5/mo fixed | ❌ 503 (hibernated) |
+| **MySQL (PERTI)** | Ground stops, site data | B1ms Burstable | ~$7/mo | ✅ Yes |
 
 ---
 
@@ -112,24 +119,34 @@ Unified Traffic Management Initiative database consolidating NTML entries, Advis
 | **Tier** | Basic (5 DTU, 2 GB) |
 | **Cost** | ~$5/month |
 
-### Full Database Architecture (February 2026)
+### Full Database Architecture (March 2026 - Hibernation-Downscaled)
 
 ```
 Azure SQL Server: vatsim.database.windows.net
-├── VATSIM_ADL   (~$3,200/mo)  - Flight data (Hyperscale Serverless 3/16 vCores)
+├── VATSIM_ADL   (~$30-50/mo)  - Flight data (Serverless min 1/max 4 vCores) [DOWNSCALED]
 ├── SWIM_API     ($5/mo)       - Public API (Basic)
 ├── VATSIM_REF   ($5/mo)       - Reference data (Basic)
 ├── VATSIM_TMI   ($5/mo)       - TMI data (Basic)
 └── VATSIM_STATS ($0 paused)   - Statistics (GP Serverless, paused)
 
 MySQL Server: vatcscc-perti.mysql.database.azure.com
-└── perti_site   (~$134/mo)    - Web app data (General Purpose D2ds_v4)
+└── perti_site   (~$7/mo)      - Web app data (B1ms Burstable) [DOWNSCALED]
 
 PostgreSQL Server: vatcscc-gis.postgres.database.azure.com
-└── vatcscc_gis  (~$58/mo)     - Spatial data (Burstable B2s, PostGIS)
+└── vatcscc_gis  (~$7/mo)      - Spatial data (B1ms Burstable, PostGIS) [DOWNSCALED]
                  ───────────
-                 Total: ~$3,500/mo (7 databases, 3 engines)
+                 Total: ~$150-170/mo (7 databases, 3 engines) [was ~$3,500/mo]
 ```
+
+### Azure Resources (Hibernation-Downscaled)
+
+| Resource | Normal Tier | Hibernated Tier | Normal Cost | Hibernated Cost |
+|----------|-------------|-----------------|-------------|-----------------|
+| `VATSIM_ADL` (Azure SQL) | Hyperscale 3/16 vCores | Serverless min 1/max 4 | ~$3,200/mo | ~$30-50/mo |
+| `perti_site` (MySQL) | D2ds_v4 General Purpose | B1ms Burstable | ~$134/mo | ~$7/mo |
+| `VATSIM_GIS` (PostgreSQL) | B2s Burstable | B1ms Burstable | ~$58/mo | ~$7/mo |
+| Azure App Service | P1v2 (3.5GB RAM) | P1v2 (unchanged) | ~$108/mo | ~$108/mo |
+| **Total** | | | **~$3,500/mo** | **~$150-170/mo** |
 
 ### Database Objects
 
@@ -236,7 +253,7 @@ PostgreSQL Server: vatcscc-gis.postgres.database.azure.com
 
 | Procedure | Status | Location | Description |
 |-----------|--------|----------|-------------|
-| `sp_Adl_RefreshFromVatsim_Staged` | [OK] Deployed (V9.3.0) | [sp_Adl_RefreshFromVatsim_Staged.sql](../adl/procedures/sp_Adl_RefreshFromVatsim_Staged.sql) | VATSIM flight data sync (delta detection + deferred ETA) |
+| `sp_Adl_RefreshFromVatsim_Staged` | [OK] Deployed (V9.4.0) | [sp_Adl_RefreshFromVatsim_Staged.sql](../adl/procedures/sp_Adl_RefreshFromVatsim_Staged.sql) | VATSIM flight data sync (delta detection + deferred ETA) |
 | `fn_IsFlightRelevant` | [OK] Deployed | [fn_IsFlightRelevant.sql](../adl/procedures/fn_IsFlightRelevant.sql) | Flight relevance filter |
 | `diagnostic_check` | [OK] Deployed | [diagnostic_check.sql](../adl/procedures/diagnostic_check.sql) | Health check queries |
 
@@ -290,20 +307,20 @@ PostgreSQL Server: vatcscc-gis.postgres.database.azure.com
 | Daemon | Status | Location | Interval | Purpose |
 |--------|--------|----------|----------|---------|
 | ADL Ingest | [OK] Active | `scripts/vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS |
-| Parse Queue (GIS) | [OK] Active | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS |
-| Boundary (GIS) | [OK] Active | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection |
-| Crossing Calc | [OK] Active | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction |
-| Waypoint ETA | [OK] Active | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation |
-| SWIM WebSocket | [OK] Active | `scripts/swim_ws_server.php` | Persistent | Real-time events (port 8090) |
-| SWIM Sync | [OK] Active | `scripts/swim_sync_daemon.php` | 2min | Sync ADL → SWIM_API |
-| SimTraffic Poll | [OK] Active | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data |
-| Reverse Sync | [OK] Active | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic → ADL |
-| Scheduler | [OK] Active | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activation |
-| Archival | [OK] Active | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge |
-| Monitoring | [OK] Active | `scripts/monitoring_daemon.php` | 60s | System metrics collection |
-| Discord Queue | [OK] Active | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting |
-| Event Sync | [OK] Active | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync |
-| ADL Archive | [OK] Conditional | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival (requires `ADL_ARCHIVE_STORAGE_CONN`) |
+| Parse Queue (GIS) | [HIB] Suspended | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS |
+| Boundary (GIS) | [HIB] Suspended | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection |
+| Crossing Calc | [HIB] Suspended | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction |
+| Waypoint ETA | [HIB] Suspended | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation |
+| SWIM WebSocket | [HIB] Suspended | `scripts/swim_ws_server.php` | Persistent | Real-time events (port 8090) |
+| SWIM Sync | [HIB] Suspended | `scripts/swim_sync_daemon.php` | 2min | Sync ADL → SWIM_API |
+| SimTraffic Poll | [HIB] Suspended | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data |
+| Reverse Sync | [HIB] Suspended | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic → ADL |
+| Scheduler | [HIB] Suspended | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activation |
+| Archival | [HIB] Suspended | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge |
+| Monitoring | [HIB] Suspended | `scripts/monitoring_daemon.php` | 60s | System metrics collection |
+| Discord Queue | [HIB] Suspended | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting |
+| Event Sync | [HIB] Suspended | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync |
+| ADL Archive | [HIB] Suspended | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival (requires `ADL_ARCHIVE_STORAGE_CONN`) |
 
 **Parse Queue Usage:**
 ```bash
@@ -553,7 +570,7 @@ python atis_daemon.py
             v                      v                      v
 +---------------------+ +--------------------+ +-------------------+
 | Azure SQL           | | PostgreSQL/PostGIS | | MySQL             |
-| VATSIM_ADL (~$3.2K) | | VATSIM_GIS (~$58)  | | perti_site (~$134)|
+| VATSIM_ADL (~$30-50)| | VATSIM_GIS (~$7)   | | perti_site (~$7)  |
 | VATSIM_TMI ($5)     | | Boundary detection | | Plans, users      |
 | SWIM_API ($5)       | | Route geometry     | | TMR reports       |
 | VATSIM_REF ($5)     | | Fix spatial lookup | | NOD flow configs  |
@@ -567,7 +584,7 @@ python atis_daemon.py
 +-------------------------------------------------------------------------+
 |  PostGIS spatial queries  |  Azure SQL stored procs |  PHP processing |
 |  Boundary intersection    |  sp_CalculateETA*       |  Route parsing  |
-|  Route geometry           |  sp_ProcessZone*        |  i18n (450+ keys)|
+|  Route geometry           |  sp_ProcessZone*        |  i18n (7,276 keys)|
 +-------------------------------------------------------------------------+
                                    |
                                    v
@@ -597,7 +614,7 @@ python atis_daemon.py
 |------|--------|-------|
 | `assets/js/lib/i18n.js` | [OK] Deployed | Core i18n translation module (PERTII18n) |
 | `assets/js/lib/dialog.js` | [OK] Deployed | SweetAlert2 wrapper with i18n (PERTIDialog) |
-| `assets/locales/en-US.json` | [OK] Deployed | 450+ translation keys |
+| `assets/locales/en-US.json` | [OK] Deployed | 7,276 translation keys |
 | `assets/locales/index.js` | [OK] Deployed | Locale auto-detection loader |
 | `assets/js/nod-demand-layer.js` | [OK] Deployed | NOD demand overlay rendering |
 | `api/data/review/tmr_report.php` | [OK] Deployed | TMR report CRUD with auto-save |
@@ -635,12 +652,47 @@ python atis_daemon.py
 
 ---
 
+## Database Scale (as of March 2026)
+
+| Database | Key Table | Record Count |
+|----------|-----------|-------------|
+| VATSIM_ADL | `adl_flight_core` | 1,625,115 |
+| VATSIM_ADL | `adl_flight_plan` | 1,620,920 |
+| VATSIM_ADL | `adl_flight_waypoints` | 9,295,153 |
+| VATSIM_ADL | `adl_flight_planned_crossings` | 20,548,518 |
+| VATSIM_ADL | `adl_flight_trajectory` | ~1,048,016 |
+| VATSIM_ADL | `nav_fixes` | 268,998 |
+| VATSIM_ADL | `apts` | 27,231 |
+| VATSIM_ADL | `airlines` | 228 |
+| VATSIM_ADL | `adl_boundary` | 3,033 |
+| VATSIM_TMI | `tmi_programs` | 172 (139 GDP, 29 GS, 4 AFP) |
+| VATSIM_TMI | `tmi_advisories` | 1,020 |
+| VATSIM_TMI | `tmi_reroutes` | 268 |
+| VATSIM_REF | `nav_fixes` | 268,987 |
+| VATSIM_REF | `nav_procedures` | 10,314 |
+| VATSIM_REF | `coded_departure_routes` | 41,138 |
+| VATSIM_REF | `playbook_routes` | 55,682 |
+| perti_site | `p_plans` | 239 |
+| perti_site | `users` | 25 |
+| VATSIM_GIS | `artcc_boundaries` | 1,004 |
+| VATSIM_GIS | `tracon_boundaries` | 1,023 |
+| VATSIM_GIS | `airports` | 37,527 |
+| VATSIM_GIS | `nav_fixes` | 535,023 |
+| VATSIM_ADL | `airways` | 1,515 |
+| i18n | `en-US.json` keys | 7,276 (4 locales) |
+
+*Last queried: March 12, 2026. Flight archive table empty (archival suspended during hibernation).*
+
+---
+
 ## Legend
 
 | Icon | Meaning |
 |------|---------|
 | [OK] | Active / Deployed / Healthy |
+| [HIB] | Suspended / Downscaled (Hibernation) |
 | [WARN] | Modified / Pending / Warning |
+| [DEV] | In Development |
 | [ERR] | Error / Failed / Critical |
 | [X] | Removed / Deprecated |
 | [?] | Unknown / Not Monitored |
@@ -676,4 +728,4 @@ EXEC diagnostic_check;
 
 ---
 
-*Generated by PERTI System Documentation — Last Updated February 25, 2026*
+*Generated by PERTI System Documentation -- Last Updated March 12, 2026*

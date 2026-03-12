@@ -1,28 +1,30 @@
 # Daemons and Scripts
 
+> **HIBERNATION MODE ACTIVE** (since March 9, 2026): Only the ADL Ingest daemon runs during hibernation. All other daemons are suspended. See `docs/HIBERNATION_RUNBOOK.md` for re-activation procedures.
+
 Background processes that keep PERTI data current. All 15 daemons are started at App Service boot via `scripts/startup.sh` and run continuously (ADL Archive is conditional on `ADL_ARCHIVE_STORAGE_CONN`).
 
 ---
 
 ## Daemon Overview
 
-| Daemon | Script | Interval | Purpose |
-|--------|--------|----------|---------|
-| ADL Ingest | `scripts/vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS processing |
-| Parse Queue (GIS) | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS |
-| Boundary Detection (GIS) | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection |
-| Crossing Calculation | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction |
-| Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation |
-| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events on port 8090 |
-| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | Sync ADL to SWIM_API database |
-| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data polling |
-| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL |
-| Scheduler | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activation |
-| Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge |
-| Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics collection |
-| Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting |
-| Event Sync | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync |
-| ADL Archive | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage (conditional) |
+| Daemon | Script | Interval | Purpose | Hibernation |
+|--------|--------|----------|---------|-------------|
+| ADL Ingest | `scripts/vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS processing | **ACTIVE** |
+| Parse Queue (GIS) | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS | Suspended |
+| Boundary Detection (GIS) | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection | Suspended |
+| Crossing Calculation | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction | Suspended |
+| Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation | Suspended |
+| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events on port 8090 | Suspended |
+| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | Sync ADL to SWIM_API database | Suspended |
+| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data polling | Suspended |
+| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL | Suspended |
+| Scheduler | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activation | Suspended |
+| Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge | Suspended |
+| Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics collection | Suspended |
+| Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting | Suspended |
+| Event Sync | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync | Suspended |
+| ADL Archive | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage (conditional) | Suspended |
 
 ---
 
@@ -30,14 +32,14 @@ Background processes that keep PERTI data current. All 15 daemons are started at
 
 ### vatsim_adl_daemon.php
 
-Refreshes flight data from VATSIM API and processes ATIS data. Uses `sp_Adl_RefreshFromVatsim_Staged` (V9.3.0) with delta detection and optional deferred processing.
+Refreshes flight data from VATSIM API and processes ATIS data. Uses `sp_Adl_RefreshFromVatsim_Staged` (V9.4.0) with delta detection and optional deferred processing.
 
 | Setting | Value |
 |---------|-------|
 | Location | `scripts/vatsim_adl_daemon.php` |
 | Interval | ~15 seconds |
 | Language | PHP |
-| SP Version | V9.3.0 |
+| SP Version | V9.4.0 |
 
 **Key config options:**
 
@@ -47,7 +49,7 @@ Refreshes flight data from VATSIM API and processes ATIS data. Uses `sp_Adl_Refr
 | `deferred_eta_interval` | `2` | Run wind-adjusted batch ETA every N cycles when budget allows |
 | `zone_daemon_enabled` | `false` | Skip zone detection in SP (use separate zone_daemon.php) |
 
-**Delta detection (V9.3.0):** Each cycle, the daemon compares pilot data against the previous cycle in memory via `computeChangeFlags()`. Unchanged flights get `change_flags=0` (heartbeat), which tells the SP to skip geography, position, plan, and aircraft processing — only timestamps are updated. This reduces SP time by ~30-40%. The `hb=N` value in log output shows how many heartbeat flights were detected.
+**Delta detection (V9.4.0):** Each cycle, the daemon compares pilot data against the previous cycle in memory via `computeChangeFlags()`. Unchanged flights get `change_flags=0` (heartbeat), which tells the SP to skip geography, position, plan, and aircraft processing — only timestamps are updated. This reduces SP time by ~30-40%. The `hb=N` value in log output shows how many heartbeat flights were detected.
 
 When `defer_expensive` is enabled, the SP captures trajectory points on every cycle but defers ETA calculations. After the SP returns, the daemon checks remaining time budget and runs deferred ETA steps if time permits (with a 2s safety margin). This ensures data ingestion always completes within the 15s VATSIM API window.
 
@@ -273,6 +275,25 @@ scripts/startup.sh
 ```
 
 Logs are written to `/home/LogFiles/<daemon>.log`.
+
+---
+
+## Backfill System (Hibernation Recovery)
+
+During hibernation recovery, a dedicated backfill pipeline processes accumulated flight data through the offline processing stages.
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | Route parsing queue (185K flights) | Complete |
+| Phase 2 | Boundary detection (166K flights) | Complete |
+| Phase 3 | Crossing calculations (705K flights) | **In Progress** (~108 flights/min) |
+| Phase 4 | Waypoint ETA calculations | Pending |
+| Phase 5 | SWIM sync | Pending |
+| Phase 6 | Archival | Pending |
+
+**Script:** `_backfill_full.php` (deployed on production)
+**Status URL:** `https://perti.vatcscc.org/_backfill_full.php?action=status`
+**State storage:** MySQL `backfill_state` / `backfill_log` tables
 
 ---
 

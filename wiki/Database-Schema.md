@@ -1,8 +1,11 @@
 # Database Schema
 
-> **Last updated:** February 10, 2026 (v18)
+> **Last updated:** March 11, 2026 (v18)
+> **System Mode:** HIBERNATED (since March 9, 2026) -- Azure resources downscaled
 
 PERTI uses multiple databases across three engines: MySQL for application data, Azure SQL for flight/ADL and TMI data, and PostgreSQL/PostGIS for spatial queries.
+
+> **Note:** During hibernation, VATSIM_ADL is downscaled to Serverless min 1/max 4 vCores (~$30-50/mo), MySQL to B1ms (~$7/mo), and PostgreSQL to B1ms (~$7/mo). Total cost reduced from ~$3,500/mo to ~$150-170/mo. A backfill pipeline is processing accumulated data through offline stages (Phase 3/6 in progress as of March 11, 2026).
 
 ---
 
@@ -10,12 +13,12 @@ PERTI uses multiple databases across three engines: MySQL for application data, 
 
 ### Core Tables
 
-| Table | Purpose |
-|-------|---------|
-| `users` | User preferences and settings |
-| `plans` | Planning worksheets |
-| `schedules` | Staff scheduling |
-| `comments` | Plan review comments |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `users` | User preferences and settings | 25 |
+| `plans` | Planning worksheets | 239 |
+| `schedules` | Staff scheduling | -- |
+| `comments` | Plan review comments | -- |
 
 ### TMI Tables
 
@@ -120,13 +123,16 @@ PERTI uses multiple databases across three engines: MySQL for application data, 
 
 ### Flight Tables
 
-| Table | Purpose |
-|-------|---------|
-| `adl_flights` | Current flight state |
-| `adl_flights_history` | Historical snapshots |
-| `adl_trajectories` | Position history |
-| `adl_parse_queue` | Routes awaiting parsing |
-| `adl_parsed_routes` | Expanded route waypoints |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `adl_flights` | Current flight state (legacy) | -- |
+| `adl_flight_core` | Core flight record (normalized) | 1,625,115 |
+| `adl_flight_plan` | Flight plan data (normalized) | 1,620,920 |
+| `adl_flight_waypoints` | Parsed route waypoints | 9,295,153 |
+| `adl_flight_planned_crossings` | Boundary crossing predictions | 20,548,518 |
+| `adl_flight_trajectory` | Position history | 1,048,016 |
+| `adl_parse_queue` | Routes awaiting parsing | -- |
+| `adl_boundary` | ARTCC/TRACON boundary polygons | 3,033 |
 
 ### TMI Tables (NTML) - v17
 
@@ -269,14 +275,13 @@ PERTI uses multiple databases across three engines: MySQL for application data, 
 
 ### Reference Tables
 
-| Table | Purpose |
-|-------|---------|
-| `airports` | Airport data |
-| `navaids` | Navigation aids |
-| `waypoints` | Fix/waypoint data |
-| `airways` | Airway definitions |
-| `sids` | Standard Instrument Departures |
-| `stars` | Standard Terminal Arrivals |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `apts` | Airport data | 27,231 |
+| `nav_fixes` | Navigation fixes/waypoints | 268,998 |
+| `airlines` | Airline reference | 228 |
+| `airways` | Airway definitions | -- |
+| `nav_procedures` | SIDs and STARs | -- |
 
 ### Boundary Tables
 
@@ -444,13 +449,13 @@ Dedicated database for unified TMI (Traffic Management Initiative) operations.
 
 ### TMI Program Tables
 
-| Table | Purpose |
-|-------|---------|
-| `tmi_programs` | Program registry - GS, GDP, AFP (replaces VATSIM_ADL.ntml) |
-| `tmi_slots` | Arrival slot allocation with FSM-format naming |
-| `tmi_flight_control` | Per-flight TMI control assignments (EDCTs, slots) |
-| `tmi_events` | Audit/event history log |
-| `tmi_popup_queue` | Pop-up flight detection queue |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `tmi_programs` | Program registry - GS, GDP, AFP (replaces VATSIM_ADL.ntml) | 172 (139 GDP, 29 GS, 4 AFP) |
+| `tmi_slots` | Arrival slot allocation with FSM-format naming | -- |
+| `tmi_flight_control` | Per-flight TMI control assignments (EDCTs, slots) | -- |
+| `tmi_events` | Audit/event history log | -- |
+| `tmi_popup_queue` | Pop-up flight detection queue | -- |
 
 #### tmi_programs (Program Registry)
 
@@ -611,12 +616,12 @@ FSM-format slot naming: `ccc[c].ddddddL` (e.g., KJFK.091530A)
 
 ### TMI Advisory & Entry Tables (v18)
 
-| Table | Purpose |
-|-------|---------|
-| `tmi_advisories` | TMI advisory messages (ADVZY, NTML postings) |
-| `tmi_entries` | TMI log entries (MIT, AFP, restrictions) |
-| `tmi_flight_list` | Flight lists for programs (per-program flight roster) |
-| `tmi_public_routes` | Published public route visualizations |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `tmi_advisories` | TMI advisory messages (ADVZY, NTML postings) | 1,020 |
+| `tmi_entries` | TMI log entries (MIT, AFP, restrictions) | -- |
+| `tmi_flight_list` | Flight lists for programs (per-program flight roster) | -- |
+| `tmi_public_routes` | Published public route visualizations | -- |
 
 #### tmi_advisories
 
@@ -763,10 +768,11 @@ FSM-format slot naming: `ccc[c].ddddddL` (e.g., KJFK.091530A)
 
 ### TMI Reroute Support Tables (v18)
 
-| Table | Purpose |
-|-------|---------|
-| `tmi_reroute_routes` | Reroute route strings per origin/destination pair |
-| `tmi_reroute_drafts` | User-saved reroute drafts |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `tmi_reroutes` | Reroute definitions with scope/filters | 268 |
+| `tmi_reroute_routes` | Reroute route strings per origin/destination pair | -- |
+| `tmi_reroute_drafts` | User-saved reroute drafts | -- |
 
 #### tmi_reroute_routes
 
@@ -860,17 +866,17 @@ Reference data database for navigation and airspace definitions.
 
 ### Navigation Reference Tables
 
-| Table | Purpose |
-|-------|---------|
-| `nav_fixes` | Navigation fixes/waypoints (VORs, NDBs, RNAV fixes) |
-| `airways` | Airway definitions (J, Q, V, T routes) |
-| `airway_segments` | Airway segment waypoints with sequence |
-| `nav_procedures` | SIDs and STARs |
-| `coded_departure_routes` | CDRs for traffic management |
-| `playbook_routes` | Playbook route definitions |
-| `area_centers` | ARTCC center reference points |
-| `oceanic_fir_bounds` | Oceanic FIR boundaries |
-| `ref_sync_log` | AIRAC update synchronization log |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `nav_fixes` | Navigation fixes/waypoints (VORs, NDBs, RNAV fixes) | 268,987 |
+| `airways` | Airway definitions (J, Q, V, T routes) | -- |
+| `airway_segments` | Airway segment waypoints with sequence | -- |
+| `nav_procedures` | SIDs and STARs | 10,314 |
+| `coded_departure_routes` | CDRs for traffic management | 41,138 |
+| `playbook_routes` | Playbook route definitions | 55,682 |
+| `area_centers` | ARTCC center reference points | -- |
+| `oceanic_fir_bounds` | Oceanic FIR boundaries | -- |
+| `ref_sync_log` | AIRAC update synchronization log | -- |
 
 #### nav_fixes
 
@@ -928,14 +934,14 @@ Dedicated PostGIS-enabled database for spatial route analysis and boundary queri
 
 ### Navigation Data Tables
 
-| Table | Purpose |
-|-------|---------|
-| `nav_fixes` | Navigation fixes/waypoints with coordinates |
-| `airways` | Airway definitions (J, Q, V, T routes) |
-| `airway_segments` | Airway segment waypoints with sequence |
-| `airports` | Airport data with ICAO/IATA codes |
-| `area_centers` | ARTCC/TRACON center reference points |
-| `playbook_routes` | CDR/Playbook route definitions |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `nav_fixes` | Navigation fixes/waypoints with coordinates | 535,023 |
+| `airways` | Airway definitions (J, Q, V, T routes) | -- |
+| `airway_segments` | Airway segment waypoints with sequence | -- |
+| `airports` | Airport data with ICAO/IATA codes | 37,527 |
+| `area_centers` | ARTCC/TRACON center reference points | -- |
+| `playbook_routes` | CDR/Playbook route definitions | -- |
 
 #### nav_fixes
 
@@ -959,11 +965,11 @@ Dedicated PostGIS-enabled database for spatial route analysis and boundary queri
 
 ### Boundary Tables (PostGIS Geometry)
 
-| Table | Purpose |
-|-------|---------|
-| `artcc_boundaries` | ARTCC/FIR geographic boundaries |
-| `sector_boundaries` | Sector boundaries (LOW, HIGH, SUPERHIGH) |
-| `tracon_boundaries` | TRACON approach control boundaries |
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `artcc_boundaries` | ARTCC/FIR geographic boundaries | 1,004 |
+| `sector_boundaries` | Sector boundaries (LOW, HIGH, SUPERHIGH) | -- |
+| `tracon_boundaries` | TRACON approach control boundaries | 1,023 |
 
 #### artcc_boundaries
 

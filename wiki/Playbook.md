@@ -1,5 +1,7 @@
 # Playbook
 
+> **Hibernation Notice:** The Playbook feature is suspended during hibernation mode. Route data remains intact but real-time route expansion via the GIS API is unavailable while system resources are downscaled. The feature will resume normal operation when hibernation is exited.
+
 The vATCSCC Playbook is a pre-coordinated route play catalog for traffic management. It stores collections of routes organized by scenario (weather, volume, construction) that can be quickly activated during events. Plays originate from multiple sources including FAA playbook data, DCC-authored routes, ECFMP flow measures, and CANOC advisories.
 
 **URL:** `/playbook.php`
@@ -18,6 +20,13 @@ The Playbook page provides:
 - **Bulk Paste** — Parse ECFMP/CANOC-format route blocks into structured play routes
 - **Shareable Links** — Deep links to specific plays via `?play=NAME` URL parameter
 - **Changelog** — Full audit trail of play modifications
+- **Route Grouping & Coloring** — DCC Region auto-grouping with canonical color assignments
+- **Facility Filter Dropdowns** — Optimized play list loading with ARTCC/TRACON facility filtering
+- **Collapsible Edit Sections** — Streamlined edit modal with collapsible metadata sections
+- **Advisory Parser** — Parse advisory text to extract route definitions
+- **Route Analysis Tools** — Consolidation, compaction, and auto-filter generation
+- **FIR Pattern Expansion** — International facility matching via ICAO prefix patterns
+- **US ICAO ARTCC Normalization** — Automatic conversion of ICAO codes (KZAB to ZAB, PAZA to ZAN)
 
 ---
 
@@ -101,6 +110,12 @@ The "Show Legacy" checkbox includes archived plays in the list. By default, arch
 3. Click **Apply** — routes are parsed and added to the routes table
 4. Source is auto-detected from the paste format
 
+**FIR Pattern Expansion in Bulk Paste:** When pasting routes with FIR-scoped origin or destination patterns (e.g., `CZEG`), the bulk paste parser expands them to individual ARTCC codes based on FIR membership. For example, `CZEG` expands to `CZEG CZVR` and similar grouped patterns. ICAO prefix patterns (e.g., `K*` for US domestic, `C*` for Canadian) are also detected and expanded using the global FIR code registry.
+
+**Token-Type Splitting:** The parser uses token-type analysis to distinguish between origin filters, route strings, and destination filters in pasted text. This handles mixed-format input from ECFMP, CANOC, and advisory text sources.
+
+**US ICAO ARTCC Code Normalization:** US ICAO-format ARTCC codes are automatically normalized throughout the system. For example, `KZAB` becomes `ZAB`, `KZNY` becomes `ZNY`, and Alaska/Pacific codes like `PAZA` become `ZAN`. This normalization applies to bulk paste, filtering, and display.
+
 ### Deleting a Play
 
 1. Select a play
@@ -133,6 +148,137 @@ The map hero area renders play routes using MapLibre GL JS:
 - The map auto-fits bounds to show all routes in the selected play
 
 Dependencies: `route-maplibre.js`, `route-symbology.js`, `playbook-cdr-search.js`, `playbook-dcc-loader.js`, `awys.js`, `procs_enhanced.js`, Turf.js
+
+---
+
+## Route Grouping & Coloring (PRs #143-148)
+
+Routes within a play can be grouped by DCC Region with automatic canonical color assignments.
+
+### DCC Region Auto-Grouping
+
+When routes are loaded, the system can auto-group them by the originating DCC region (e.g., Eastern, Central, Western). Each group receives a distinct canonical color from a predefined palette for consistent visual identification on the map.
+
+### Canonical Color System
+
+| Feature | Description |
+|---------|-------------|
+| **Auto-assignment** | Colors assigned from a fixed palette based on group index |
+| **Consistency** | Same group always gets the same color across sessions |
+| **Override** | Individual route colors can be overridden in the edit modal |
+| **Map rendering** | Grouped routes share color on the MapLibre GL map |
+
+---
+
+## Facility Filter Dropdowns (PRs #149-150)
+
+### Optimized Play List Loading
+
+The play catalog supports facility-based filtering via dropdown selectors for ARTCC and TRACON codes. The play list endpoint accepts `artcc` and `tracon` filter parameters, enabling fast narrowing of the catalog to plays relevant to a specific facility.
+
+### Facility Filter UI
+
+- ARTCC dropdown populated from distinct `origin_filter` / `dest_filter` values across all plays
+- TRACON dropdown for terminal-level filtering
+- Filters combine with text search and source pills for compound filtering
+
+---
+
+## FIR Pattern Expansion & International Matching (PRs #151-159)
+
+### ICAO Prefix FIR Patterns
+
+The system recognizes ICAO prefix patterns for international facility matching:
+
+| Pattern | Expansion | Region |
+|---------|-----------|--------|
+| `K*` | All US domestic ARTCCs | United States |
+| `C*` | All Canadian FIRs | Canada |
+| `EG*` | UK FIRs (EGTT, EGPX) | United Kingdom |
+| `LF*` | French FIRs | France |
+
+### Global FIR Code Registry
+
+A centralized FIR code registry maps ICAO codes to their component ARTCCs and provides canonical metadata (name, region, division). This registry powers:
+
+- FIR pattern expansion in bulk paste
+- FIR pattern expansion in route rendering
+- Dynamic `areaCenters` from GeoJSON for map visualization
+- Facility filter dropdown population
+
+### FIR Exclusions
+
+FIR scope filtering supports exclusion patterns (prefixed with `!`) to exclude specific ARTCCs from an expanded FIR group. For example, `CZEG !CZVR` includes all CZEG member ARTCCs except those in CZVR.
+
+### ARTCC Member-Based Scope Filtering
+
+Routes can be filtered by ARTCC membership within a FIR. When a FIR code is used as a scope filter, only routes whose origin or destination ARTCCs are members of that FIR are included.
+
+---
+
+## Pseudo-Fix Audit & TRACON Fixes (PRs #154-162)
+
+### 218 TRACON Pseudo-Fixes
+
+The system includes 218 TRACON pseudo-fixes (205 US + 13 Canadian) that represent TRACON entry/exit points for route analysis. These are used for:
+
+- Route segment matching when real navigation fixes are not available
+- TRACON-level demand analysis
+- Route advisory scope definition
+
+### Pseudo-Fix Audit
+
+A pseudo-fix audit tool validates that all pseudo-fixes referenced in playbook routes resolve to known navigation data. Unresolved pseudo-fixes are flagged for review.
+
+---
+
+## Route Analysis Tools (PR #163)
+
+Three route analysis tools assist with play management:
+
+### Consolidation
+
+Identifies routes within a play that share the same origin-destination pair and can be merged or deduplicated. Highlights potential overlaps and suggests consolidation actions.
+
+### Compaction
+
+Reduces route verbosity by removing redundant intermediate waypoints that fall on published airways. Produces shorter, cleaner route strings while preserving the actual flight path.
+
+### Auto-Filters
+
+Automatically generates origin and destination filter values based on route patterns within a play. Analyzes the set of routes and suggests ARTCC-level or TRACON-level filter values that best describe the play's scope.
+
+---
+
+## Collapsible Edit Sections & Advisory Parser (PRs #151-152)
+
+### Collapsible Edit Modal
+
+The play edit modal uses collapsible sections for metadata fields, reducing visual clutter when editing routes. Sections include:
+
+- **Basic Info** (name, display name, category) - expanded by default
+- **Classification** (scenario type, source, status) - collapsed by default
+- **Description & Remarks** - collapsed by default, supports multi-line text
+
+### Advisory Parser
+
+An advisory text parser extracts route definitions from advisory text blocks. Paste an advisory and the parser identifies route strings, origin/destination pairs, and scope information.
+
+### Multi-Line Remarks & Descriptions
+
+Route remarks and play descriptions support multi-line text input. Line breaks are preserved in storage and display.
+
+---
+
+## ATC-Zero Import & Daily Backup (PRs #148-149)
+
+### ATC-Zero Import Script
+
+An import script loads ATC-Zero incident data for correlation with playbook activations. This supports post-event analysis of whether appropriate plays were activated during facility outages.
+
+### Daily Backup Daemon
+
+A daily backup process exports the current playbook state (plays + routes) to a timestamped JSON file. This provides a recovery point independent of database backups.
 
 ---
 
@@ -182,9 +328,9 @@ Playbook tables reside in **perti_site** MySQL:
 
 ### Key Columns
 
-**`playbook_plays`**: `play_id` PK, `play_name` (unique), `display_name`, `category`, `source` (FAA/DCC/ECFMP/CANOC), `scenario_type` (WEATHER/VOLUME/CONSTRUCTION/GENERAL), `route_format` (standard/split), `status` (active/draft/archived), `route_count`, `org_code`
+**`playbook_plays`**: `play_id` PK, `play_name` (unique), `display_name`, `category`, `source` (FAA/DCC/ECFMP/CANOC), `scenario_type` (WEATHER/VOLUME/CONSTRUCTION/GENERAL), `route_format` (standard/split), `status` (active/draft/archived), `route_count`, `org_code`, `description` (text, multi-line), `group_color` (canonical color for DCC region grouping)
 
-**`playbook_routes`**: `route_id` PK, `play_id` FK (CASCADE), `origin`, `dest`, `origin_filter`, `dest_filter`, `route_string`, `remarks`
+**`playbook_routes`**: `route_id` PK, `play_id` FK (CASCADE), `origin`, `dest`, `origin_filter`, `dest_filter`, `route_string`, `remarks` (text, multi-line), `route_group` (grouping key for color assignment)
 
 See [[Database Schema]] for full column definitions.
 
@@ -195,9 +341,11 @@ See [[Database Schema]] for full column definitions.
 | File | Purpose |
 |------|---------|
 | `playbook.php` | Page layout with map hero, catalog, detail panel, edit modal |
-| `assets/js/playbook.js` | Core playbook module (catalog, detail, CRUD, search, filter) |
+| `assets/js/playbook.js` | Core playbook module (catalog, detail, CRUD, search, filter, route grouping, analysis tools) |
 | `assets/js/playbook-cdr-search.js` | CDR/playbook route search component |
-| `assets/js/playbook-dcc-loader.js` | DCC play loader with GIS route expansion |
+| `assets/js/playbook-dcc-loader.js` | DCC play loader with GIS route expansion and FIR pattern expansion |
+| `assets/js/fir-scope.js` | FIR boundary scope with global FIR code registry |
+| `assets/js/fir-integration.js` | FIR data integration and ICAO prefix pattern expansion |
 | `assets/css/playbook.css` | Playbook-specific styles |
 
 ### Permission Model
@@ -214,6 +362,9 @@ The PHP page sets `window.PERTI_PLAYBOOK_PERM` based on the user's session. When
 | `database/migrations/playbook/002_add_source_enum.sql` | Add `ECFMP` and `CANOC` to source enum |
 | `database/migrations/playbook/003_add_org_code.sql` | Add `org_code` for multi-organization support |
 | `database/migrations/playbook/004_add_route_remarks.sql` | Add `remarks` column to `playbook_routes` |
+| `database/migrations/playbook/005_add_grouping_columns.sql` | Add `group_color`, `description`, and `route_group` columns |
+| `database/migrations/playbook/006_add_facility_filters.sql` | Add facility filter index and optimized list loading |
+| `database/migrations/playbook/007_multiline_remarks.sql` | Expand `remarks` and `description` to TEXT for multi-line support |
 
 ---
 

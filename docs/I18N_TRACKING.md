@@ -1,12 +1,21 @@
 # PERTI Internationalization (i18n) Tracking
 
-> Last updated: 2026-02-25
+> Last updated: 2026-03-12
+>
+> **SYSTEM STATUS: HIBERNATED** (since March 9, 2026). Core ADL ingest daemon only. i18n system is fully deployed and functional; no active development during hibernation.
 
 ## Overview
 
 This document tracks the progress of globalizing the PERTI codebase for internationalization support.
 
 ## Status Summary
+
+| Metric | Value |
+|--------|-------|
+| Translation keys (en-US) | 7,276 |
+| Supported locales | 4 (en-US, fr-CA, en-CA, en-EU) |
+| JS modules using i18n | 45 of 65 (69%) |
+| PHP pages with i18n | 30 (all via header.php auto-include) |
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -140,10 +149,19 @@ PERTIDialog.show({
 
 ---
 
+## Locale Coverage
+
+| Locale | Keys | Type | Notes |
+|--------|------|------|-------|
+| `en-US` | 7,276 | Full | Primary locale |
+| `fr-CA` | 7,560 | Full | Canadian French |
+| `en-CA` | 557 | Overlay | Canadian English (differences from en-US) |
+| `en-EU` | 509 | Overlay | European English (differences from en-US) |
+
 ## Locale String Categories
 
-| Category | Key Prefix | Count | Notes |
-|----------|------------|-------|-------|
+| Category | Key Prefix | Approx Count | Notes |
+|----------|------------|--------------|-------|
 | Common buttons | `common.*` | 30+ | OK, Cancel, Save, etc. |
 | Status labels | `status.*` | 13 | Active, Pending, etc. |
 | Flight phases | `phase.*` | 8 | Arrived, Enroute, etc. |
@@ -154,7 +172,24 @@ PERTIDialog.show({
 | TMI Publish page | `tmiPublish.*` | 30+ | Page-specific strings |
 | GDT page | `gdt.*` | 10+ | Page-specific strings |
 
+*Total: 7,276 keys in en-US (auto-flattened from nested JSON structure).*
+
 ---
+
+## JS Module i18n Adoption
+
+**45 of 65 JS modules (69%)** use `PERTII18n.t()` for user-facing strings.
+
+### Fully migrated modules (built with i18n or fully converted)
+`demand.js`, `jatoc.js`, `splits.js`, `reroute.js`, `schedule.js`, `review.js`, `sua.js`, `weather_impact.js`, `weather_hazards.js`, `tmi-publish.js`, `dialog.js`, `phase-colors.js`, `filter-colors.js`
+
+### Mostly migrated (minor gaps)
+`gdt.js`, `nod.js`, `route-maplibre.js`, `tmi_compliance.js`, `weather_radar.js`
+
+### PHP Page Coverage
+
+All 30 PHP pages auto-include i18n scripts via `load/header.php`. Pages include:
+`index.php`, `plan.php`, `sheet.php`, `route.php`, `review.php`, `schedule.php`, `demand.php`, `splits.php`, `gdt.php`, `nod.php`, `jatoc.php`, `sua.php`, `swim.php`, `tmi-publish.php`, `nav.php`, `footer.php`, and 14 others.
 
 ## Notes
 
