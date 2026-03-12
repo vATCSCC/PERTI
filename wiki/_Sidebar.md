@@ -79,6 +79,12 @@
 
 ---
 
+**Analysis**
+- [[Analysis]] (index)
+- [ETA Accuracy (Jan-Mar 2026)](../blob/main/docs/ETA_ACCURACY_ANALYSIS_JAN_MAR_2026.md)
+
+---
+
 **Reference**
 - [[Acronyms]]
 - [[FAQ]]
