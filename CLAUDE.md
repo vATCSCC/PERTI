@@ -420,9 +420,9 @@ Several utilities use Python 3.x:
 
 ## Hibernation Mode
 
-**Status**: ACTIVE since 2026-03-09. See MEMORY.md for current state, backfill progress, and Azure resource levels.
+**Status**: INACTIVE (exited 2026-03-12). See MEMORY.md for backfill progress.
 
-When `HIBERNATION_MODE` is enabled (`load/config.php` default `true` + Azure App Setting `1`), only ADL ingest daemon runs, pages redirect to `/hibernation`, SWIM API returns 503, Azure resources downscaled.
+When `HIBERNATION_MODE` is enabled (`load/config.php` default `true` + Azure App Setting `1`), only ADL ingest daemon runs, pages redirect to `/hibernation`, SWIM API returns 503, Azure resources downscaled. Currently disabled (`load/config.php` default `false`, App Setting `0`).
 
 **Key files**: `load/config.php`, `load/hibernation.php`, `hibernation.php`, `scripts/startup.sh`
 **Gotcha**: Azure App Setting `HIBERNATION_MODE=false` (string) is truthy in PHP — use `0` or delete the setting.
