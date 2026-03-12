@@ -7,6 +7,7 @@ This page indexes operational analyses produced from PERTI flight data. Each ana
 | Analysis | Period | Key Finding | Link |
 |----------|--------|-------------|------|
 | **ETA Calculation Accuracy** | Jan - Mar 2026 | 7.5x MAE improvement (38→5 min) across V3→V35 algorithm transition | [Full Report](../blob/main/docs/ETA_ACCURACY_ANALYSIS_JAN_MAR_2026.md) |
+| **Operational Analysis** | Jan - Mar 2026 | 8 analyses: ARTCC workload, traffic patterns, taxi times, route parsing, wind corrections, processing latency, data gap identification | [Full Report](../blob/main/docs/OPERATIONAL_ANALYSIS_JAN_MAR_2026.md) |
 
 ## Planned / Possible Analyses
 
@@ -17,18 +18,18 @@ The sections below outline analyses that are feasible with current data (1.6M fl
 | Analysis | Description | Data Available |
 |----------|-------------|----------------|
 | **Airport Demand Profiles** | Peak hour demand vs configured AAR/ADR at major airports. Identify airports where demand routinely exceeds capacity. | 1.6M flights, 1,421 airport configs, 4,499 taxi references |
-| **ARTCC Sector Workload** | Flights per sector per hour, peak loading, sector split effectiveness. Which sectors are chronically overloaded? | 35M crossing predictions, 3,033 boundary polygons, sector split configs |
-| **Day-of-Week / Time-of-Day Patterns** | Network-wide traffic shape — weekend peaks (Sun 289K vs Wed 200K), hourly distribution, regional variation. | 1.6M flights with timestamps |
+| ~~**ARTCC Sector Workload**~~ | ✅ Published in [Operational Analysis](../blob/main/docs/OPERATIONAL_ANALYSIS_JAN_MAR_2026.md) — KZNY dominates at 208 peak flights/hr | |
+| ~~**Day-of-Week / Time-of-Day Patterns**~~ | ✅ Published in [Operational Analysis](../blob/main/docs/OPERATIONAL_ANALYSIS_JAN_MAR_2026.md) — weekends 43% higher, 18Z peak | |
 | **Route Congestion** | Most-used routes and waypoints. Identify bottleneck fixes where demand concentrates. | 9.3M waypoint records, 940K parsed routes |
 
 ### Flight Operations
 
 | Analysis | Description | Data Available |
 |----------|-------------|----------------|
-| **Taxi Time Analysis** | Compare observed taxi times against unimpeded reference. Identify airports with systematic ground delays. | 688K OUT times, 161K OFF times, 4,499 airport taxi references |
+| ~~**Taxi Time Analysis**~~ | ✅ Published in [Operational Analysis](../blob/main/docs/OPERATIONAL_ANALYSIS_JAN_MAR_2026.md) — 90% exceed reference, 39% longer at peak hours | |
 | **Flight Time by City Pair** | Actual vs expected block times for top city pairs. Seasonal and directional (wind) variation. | 5,854 city-pair stats, 1.6M flight records |
 | **Fleet Mix & Performance** | Aircraft type distribution by region/route length. Compare ETA accuracy across aircraft categories. | 926K aircraft records (ICAO type, weight class, engine) |
-| **Route Parse Success Rate** | What % of routes parse fully? Which route patterns fail? Impact of parse quality on downstream accuracy. | 940K COMPLETE, 248K PENDING, 7.8K PARTIAL, 1.5K FAILED |
+| ~~**Route Parse Success Rate**~~ | ✅ Published in [Operational Analysis](../blob/main/docs/OPERATIONAL_ANALYSIS_JAN_MAR_2026.md) — 73% overall, 95%+ US domestic | |
 
 ### TMI Effectiveness
 
@@ -42,10 +43,10 @@ The sections below outline analyses that are feasible with current data (1.6M fl
 
 | Analysis | Description | Data Available |
 |----------|-------------|----------------|
-| **Boundary Detection Accuracy** | Compare predicted sector entry times against trajectory-observed entries. | 35M crossing predictions, trajectory data |
-| **Waypoint ETA Accuracy** | Per-waypoint predicted vs actual passage times (where `ata_utc` populated). | 9.3M waypoint records with eta_utc + ata_utc |
-| **Wind Correction Effectiveness** | Deep dive into V35_SEG_WIND vs non-wind methods, stratified by wind magnitude and direction. | Wind component data on all flights since Jan 27 |
-| **Processing Latency** | How fresh are ETAs at query time? Daemon cycle times and calculation staleness. | Daemon logs, `eta_last_calc_utc` timestamps |
+| ~~**Boundary Detection Accuracy**~~ | ⚠️ Data gap — no `actual_entry_utc` column exists. See [Operational Analysis](../blob/main/docs/OPERATIONAL_ANALYSIS_JAN_MAR_2026.md) | |
+| ~~**Waypoint ETA Accuracy**~~ | ⚠️ Data gap — `ata_utc` never populated (0 of 4.58M records). See [Operational Analysis](../blob/main/docs/OPERATIONAL_ANALYSIS_JAN_MAR_2026.md) | |
+| ~~**Wind Correction Effectiveness**~~ | ✅ Published in [Operational Analysis](../blob/main/docs/OPERATIONAL_ANALYSIS_JAN_MAR_2026.md) — V35 outperforms V35_SEG_WIND (needs investigation) | |
+| ~~**Processing Latency**~~ | ✅ Published in [Operational Analysis](../blob/main/docs/OPERATIONAL_ANALYSIS_JAN_MAR_2026.md) — <1 min staleness for active flights | |
 
 ### Event Correlation
 
