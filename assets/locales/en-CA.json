@@ -316,6 +316,9 @@
     }
   },
   "route": {
+    "analysis": {
+      "analyze": "Analyse"
+    },
     "color": "Colour",
     "colorRule": {
       "addTitle": "Add Colour Rule",

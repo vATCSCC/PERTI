@@ -302,6 +302,9 @@
     "ntmlEntries": "Flow Measures (paste from Discord)"
   },
   "route": {
+    "analysis": {
+      "analyze": "Analyse"
+    },
     "color": "Colour",
     "colorRule": {
       "addTitle": "Add Colour Rule",

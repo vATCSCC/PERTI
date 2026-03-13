@@ -175,6 +175,130 @@ include("load/nav.php");
             </div>
         </div>
     </div>
+
+    <!-- Route Analysis Panel (collapsible, shown when route clicked) -->
+    <div class="card mt-2 d-none" id="route-analysis-panel">
+        <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center cursor-pointer" data-toggle="collapse" data-target="#route-analysis-body">
+            <span class="font-weight-bold small">
+                <i class="fas fa-chart-line mr-1"></i>
+                <span data-i18n="playbook.analysis.title">Route Analysis</span>
+            </span>
+            <div>
+                <span class="badge badge-info mr-2" id="analysis-total-dist"></span>
+                <span class="badge badge-secondary" id="analysis-total-time"></span>
+                <button class="btn btn-sm btn-link p-0 ml-2" id="btn-close-analysis" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="collapse show" id="route-analysis-body">
+            <div class="card-body p-2">
+                <!-- Speed/Wind Config (collapsed by default) -->
+                <div class="mb-2">
+                    <a class="small text-muted" data-toggle="collapse" href="#analysis-speed-config">
+                        <i class="fas fa-cog mr-1"></i><span data-i18n="playbook.analysis.speedConfig">Speed &amp; Wind Settings</span>
+                    </a>
+                    <div class="collapse mt-1" id="analysis-speed-config">
+                        <div class="row no-gutters">
+                            <div class="col-3 pr-1">
+                                <label class="small mb-0" data-i18n="playbook.analysis.climbSpeed">Climb (kts)</label>
+                                <input type="number" class="form-control form-control-sm" id="analysis-climb-kts" value="280" min="100" max="600">
+                            </div>
+                            <div class="col-3 pr-1">
+                                <label class="small mb-0" data-i18n="playbook.analysis.cruiseSpeed">Cruise (kts)</label>
+                                <input type="number" class="form-control form-control-sm" id="analysis-cruise-kts" value="460" min="100" max="600">
+                            </div>
+                            <div class="col-3 pr-1">
+                                <label class="small mb-0" data-i18n="playbook.analysis.descentSpeed">Descent (kts)</label>
+                                <input type="number" class="form-control form-control-sm" id="analysis-descent-kts" value="250" min="100" max="600">
+                            </div>
+                            <div class="col-3">
+                                <label class="small mb-0" data-i18n="playbook.analysis.windComponent">Wind (kts)</label>
+                                <input type="number" class="form-control form-control-sm" id="analysis-wind-kts" value="0" min="-200" max="200">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Route Info -->
+                <div class="small mb-1" id="analysis-route-info"></div>
+                <!-- Facility Traversal Table -->
+                <div class="table-responsive" style="max-height:250px;overflow-y:auto">
+                    <table class="table table-sm table-dark table-bordered mb-0 small" id="analysis-traversal-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th data-i18n="playbook.analysis.facilityType">Type</th>
+                                <th data-i18n="playbook.analysis.facilityId">ID</th>
+                                <th data-i18n="playbook.analysis.facilityName">Name</th>
+                                <th data-i18n="playbook.analysis.distWithin">Dist (nm)</th>
+                                <th data-i18n="playbook.analysis.timeWithin">Time (min)</th>
+                                <th data-i18n="playbook.analysis.entryDist">Entry (nm)</th>
+                                <th data-i18n="playbook.analysis.exitDist">Exit (nm)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <!-- Fix Analysis (collapsible) -->
+                <div class="mt-1">
+                    <a class="small text-muted" data-toggle="collapse" href="#analysis-fix-detail">
+                        <i class="fas fa-map-pin mr-1"></i><span data-i18n="playbook.analysis.fixDetail">Fix Detail</span>
+                    </a>
+                    <div class="collapse mt-1" id="analysis-fix-detail">
+                        <div class="table-responsive" style="max-height:200px;overflow-y:auto">
+                            <table class="table table-sm table-dark table-bordered mb-0 small" id="analysis-fix-table">
+                                <thead>
+                                    <tr>
+                                        <th data-i18n="playbook.analysis.fix">Fix</th>
+                                        <th data-i18n="playbook.analysis.distFromOrig">From Orig</th>
+                                        <th data-i18n="playbook.analysis.distToDest">To Dest</th>
+                                        <th data-i18n="playbook.analysis.timeFromOrig">Time+</th>
+                                        <th data-i18n="playbook.analysis.timeToDest">Time-</th>
+                                        <th data-i18n="playbook.analysis.facility">Facility</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Changelog Panel (shown via tab/button) -->
+    <div class="card mt-2 d-none" id="play-changelog-panel">
+        <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center">
+            <span class="font-weight-bold small">
+                <i class="fas fa-history mr-1"></i>
+                <span data-i18n="playbook.changelog.title">Change History</span>
+                <span class="badge badge-pill badge-info ml-1" id="changelog-count">0</span>
+            </span>
+            <button class="btn btn-sm btn-link p-0" id="btn-close-changelog" title="Close">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="card-body p-2">
+            <div class="table-responsive" style="max-height:300px;overflow-y:auto">
+                <table class="table table-sm table-dark table-bordered mb-0 small" id="changelog-table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="playbook.changelog.time">Time</th>
+                            <th data-i18n="playbook.changelog.author">Author</th>
+                            <th data-i18n="playbook.changelog.action">Action</th>
+                            <th data-i18n="playbook.changelog.field">Field</th>
+                            <th data-i18n="playbook.changelog.oldValue">Old</th>
+                            <th data-i18n="playbook.changelog.newValue">New</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="text-center mt-1">
+                <button class="btn btn-sm btn-outline-secondary d-none" id="changelog-load-more" data-i18n="common.loadMore">Load More</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Create/Edit Play Modal -->

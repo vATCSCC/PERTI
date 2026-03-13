@@ -51,6 +51,8 @@
         sessions_complete: 'api/ctp/sessions/complete.php',
         stats:      'api/ctp/stats.php',
         audit_log:  'api/ctp/audit_log.php',
+        changelog:  'api/ctp/changelog.php',
+        nat_tracks: 'api/data/playbook/nat_tracks.php',
         demand:     'api/ctp/demand.php',
         boundaries: 'api/ctp/boundaries.php'
     };
@@ -153,6 +155,9 @@
                 FlightTable.load();
                 MapController.loadSessionData();
                 DemandChart.refresh();
+                NATTracks.loaded = false;
+                AuditLog.reset();
+                AuditLog.load();
                 SessionManager.startAutoRefresh();
             });
         },
@@ -2236,6 +2241,143 @@
     };
 
     // ========================================================================
+    // NAT Tracks Reference
+    // ========================================================================
+
+    var NATTracks = {
+        loaded: false,
+
+        init: function() {
+            $('#ctp_nat_toggle').on('click', function() {
+                var $body = $('#ctp_nat_body');
+                var $icon = $(this).find('.fa-chevron-down, .fa-chevron-up');
+                $body.slideToggle(200);
+                $icon.toggleClass('fa-chevron-down fa-chevron-up');
+                if (!NATTracks.loaded) {
+                    NATTracks.load();
+                }
+            });
+        },
+
+        load: function() {
+            if (!state.currentSession) return;
+            $.getJSON(API.nat_tracks, { session_id: state.currentSession.session_id }, function(resp) {
+                NATTracks.loaded = true;
+                var $tbody = $('#ctp_nat_tbody');
+                $tbody.empty();
+                if (!resp || !resp.tracks || resp.tracks.length === 0) {
+                    $tbody.html('<tr><td colspan="2" class="text-center text-muted py-2">' + t('ctp.nat.noTracks') + '</td></tr>');
+                    return;
+                }
+                resp.tracks.forEach(function(trk) {
+                    var $row = $('<tr>');
+                    $row.append($('<td>').addClass('font-weight-bold').css('color', '#239BCD').text(trk.name || ''));
+                    $row.append($('<td>').css({'font-family': 'Inconsolata, monospace', 'font-size': '0.65rem', 'word-break': 'break-all'}).text(trk.route_string || ''));
+                    $tbody.append($row);
+                });
+            }).fail(function() {
+                $('#ctp_nat_tbody').html('<tr><td colspan="2" class="text-center text-danger">' + t('ctp.nat.loadError') + '</td></tr>');
+            });
+        }
+    };
+
+    // ========================================================================
+    // Enhanced Audit Log
+    // ========================================================================
+
+    var AuditLog = {
+        page: 0,
+        pageSize: 20,
+
+        init: function() {
+            $('#ctp_audit_toggle').on('click', function() {
+                var $body = $('#ctp_audit_body');
+                var $icon = $(this).find('.fa-chevron-down, .fa-chevron-up');
+                $body.slideToggle(200);
+                $icon.toggleClass('fa-chevron-down fa-chevron-up');
+            });
+
+            $('#ctp_audit_load_more').on('click', function() {
+                AuditLog.page++;
+                AuditLog.load(true);
+            });
+        },
+
+        load: function(append) {
+            if (!state.currentSession) return;
+            var params = {
+                session_id: state.currentSession.session_id,
+                limit: AuditLog.pageSize,
+                offset: AuditLog.page * AuditLog.pageSize
+            };
+            $.getJSON(API.changelog, params, function(resp) {
+                var $list = $('#ctp_audit_list');
+                if (!append) $list.empty();
+
+                if (!resp || !resp.data || resp.data.length === 0) {
+                    if (!append) {
+                        $list.html('<div class="text-center text-muted py-2">' + t('ctp.changelog.noEntries') + '</div>');
+                    }
+                    $('#ctp_audit_load_more').hide();
+                    return;
+                }
+
+                resp.data.forEach(function(entry) {
+                    var $item = $('<div>').addClass('ctp-audit-entry border-bottom py-1');
+
+                    var timeStr = '--';
+                    if (entry.performed_at) {
+                        try {
+                            var d = new Date(entry.performed_at);
+                            timeStr = d.toISOString().substring(11, 16) + 'Z';
+                        } catch(e) {}
+                    }
+
+                    var who = entry.performed_by_name || entry.performed_by || t('common.unknown');
+                    var action = entry.action_type || '';
+                    var segment = entry.segment ? ' [' + entry.segment + ']' : '';
+
+                    $item.append(
+                        $('<div>').addClass('d-flex justify-content-between').append(
+                            $('<span>').addClass('font-weight-bold').text(action + segment),
+                            $('<span>').addClass('text-muted').text(timeStr)
+                        )
+                    );
+                    $item.append($('<div>').addClass('text-muted').text(t('ctp.changelog.by') + ' ' + who));
+
+                    // Show before/after values if present
+                    var rawDetail = entry.action_detail || entry.action_detail_json;
+                    if (rawDetail) {
+                        try {
+                            var detail = typeof rawDetail === 'string' ? JSON.parse(rawDetail) : rawDetail;
+                            if (detail.old_value !== undefined || detail.new_value !== undefined) {
+                                var $diff = $('<div>').addClass('mt-1').css('font-size', '0.65rem');
+                                if (detail.old_value !== undefined && detail.old_value !== null) {
+                                    $diff.append($('<div>').css({'color': '#dc3545', 'font-family': 'Inconsolata, monospace'}).text('- ' + detail.old_value));
+                                }
+                                if (detail.new_value !== undefined && detail.new_value !== null) {
+                                    $diff.append($('<div>').css({'color': '#28a745', 'font-family': 'Inconsolata, monospace'}).text('+ ' + detail.new_value));
+                                }
+                                $item.append($diff);
+                            }
+                        } catch(e) {}
+                    }
+
+                    $list.append($item);
+                });
+
+                $('#ctp_audit_load_more').toggle(resp.data.length >= AuditLog.pageSize);
+            });
+        },
+
+        reset: function() {
+            AuditLog.page = 0;
+            $('#ctp_audit_list').empty();
+            $('#ctp_audit_load_more').hide();
+        }
+    };
+
+    // ========================================================================
     // Init
     // ========================================================================
     $(document).ready(function() {
@@ -2247,6 +2389,8 @@
         EDCTManager.init();
         DemandChart.init();
         ComplianceMonitor.init();
+        NATTracks.init();
+        AuditLog.init();
         ResizeHandle.init();
         FlightTable.updateSortUI();
     });
