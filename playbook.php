@@ -165,8 +165,18 @@ include("load/nav.php");
     </div>
 </div>
 
+<!-- Section toggle bar -->
+<div class="pb-section-bar" id="pb_section_bar">
+    <button class="pb-section-toggle active" id="pb_toggle_map" title="<?= __('playbook.toggleMap') ?>">
+        <i class="fas fa-map"></i> <span><?= __('playbook.map') ?></span>
+    </button>
+    <button class="pb-section-toggle active" id="pb_toggle_routes" title="<?= __('playbook.toggleRoutes') ?>">
+        <i class="fas fa-list-alt"></i> <span><?= __('playbook.routeDetail') ?></span>
+    </button>
+</div>
+
 <!-- Detail panel (full width below map) -->
-<div class="container-fluid pb-page px-2 px-lg-3 pb-2">
+<div class="container-fluid pb-page px-2 px-lg-3 pb-2" id="pb_detail_section">
     <div class="pb-detail-panel" id="pb_detail_panel">
         <div id="pb_detail_content">
             <div class="pb-detail-placeholder">

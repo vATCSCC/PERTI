@@ -1027,6 +1027,9 @@
 .pb-changelog-header i { transition: transform 0.2s; }
 .pb-changelog-header.expanded i { transform: rotate(90deg); }
 
+.pb-changelog-tab-header i { transition: transform 0.2s; }
+.pb-changelog-tab-header.expanded i { transform: rotate(90deg); }
+
 .pb-changelog-list {
     list-style: none;
     padding: 0;
@@ -1460,10 +1463,15 @@
     position: sticky;
     top: 0;
     background: #1a1a2e;
+    color: #e0e0e0;
     z-index: 1;
     font-weight: 600;
     font-size: 0.75rem;
     white-space: nowrap;
+}
+
+#play-changelog-panel .table td {
+    color: #ccc;
 }
 
 /* Changelog diff styling */
@@ -1502,6 +1510,56 @@
     background: #2196f3 !important;
     color: #fff !important;
     border-color: #2196f3 !important;
+}
+
+/* ── Section Toggle Bar ──────────────────────────────────────────── */
+.pb-section-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 3px 12px;
+    background: #e9ecef;
+    border-bottom: 1px solid #dee2e6;
+    flex-shrink: 0;
+}
+
+.pb-section-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid #ced4da;
+    border-radius: 3px;
+    background: #fff;
+    color: #495057;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.pb-section-toggle:hover {
+    background: #f8f9fa;
+}
+
+.pb-section-toggle.active {
+    background: #007bff;
+    color: #fff;
+    border-color: #007bff;
+}
+
+.pb-section-toggle:not(.active) {
+    opacity: 0.6;
+}
+
+/* Collapsed section states */
+.pb-map-section.pb-collapsed {
+    display: none !important;
+}
+
+#pb_detail_section.pb-collapsed {
+    display: none !important;
 }
 
 /* ── Cursor pointer utility ───────────────────────────────────────── */
