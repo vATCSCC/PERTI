@@ -205,6 +205,14 @@ tags:
       - Unimpeded taxi-out times per airport (FAA ASPM methodology)
       - Dimensional breakdowns by weight class, carrier, engine configuration
       - Ground Stop delay estimation (actual vs. unimpeded taxi comparison)
+  - name: Routes
+    description: |
+      Reference route data: Coded Departure Routes (CDRs) and Playbook routes.
+
+      **Use Cases:**
+      - Route Planning: Find CDRs by origin/destination pair
+      - Playbook Lookup: Browse plays by ARTCC, category, or source
+      - ARTCC Filtering: Find routes by departure or arrival ARTCC
   - name: Configuration
     description: |
       Airport and facility configuration data.
@@ -1832,6 +1840,192 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
+  /routes/cdrs:
+    get:
+      tags:
+        - Routes
+      summary: List Coded Departure Routes
+      description: |
+        Returns Coded Departure Routes (CDRs) from the VATSIM_REF reference database.
+        Supports filtering by origin/destination airport, CDR code, ARTCC, and free-text search.
+        Data is refreshed daily from the authoritative `cdrs.csv` source.
+
+        **Use Cases:**
+        - Route planning tools: find CDRs between airport pairs
+        - ARTCC-scoped route catalogs: `?artcc=ZNY`
+        - Route string search: `?search=GREKI` to find routes through a fix
+      operationId: listCDRs
+      parameters:
+        - name: origin
+          in: query
+          description: Filter by origin ICAO code (case-insensitive)
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 4
+          example: KJFK
+        - name: dest
+          in: query
+          description: Filter by destination ICAO code (case-insensitive)
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 4
+          example: KORD
+        - name: code
+          in: query
+          description: Filter by CDR code (prefix match)
+          schema:
+            type: string
+          example: JFKORD
+        - name: search
+          in: query
+          description: Free-text search across CDR code and route string
+          schema:
+            type: string
+          example: GREKI
+        - name: artcc
+          in: query
+          description: Filter by departure OR arrival ARTCC
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 4
+          example: ZNY
+        - name: dep_artcc
+          in: query
+          description: Filter by departure ARTCC only
+          schema:
+            type: string
+        - name: arr_artcc
+          in: query
+          description: Filter by arrival ARTCC only
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number (default 1)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          description: Results per page (default 50, max 200)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Paginated list of CDRs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CDR'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                  metadata:
+                    type: object
+                    properties:
+                      generated:
+                        type: string
+                        format: date-time
+                      source:
+                        type: string
+        '405':
+          description: Method not allowed (only GET supported)
+        '503':
+          description: Reference database unavailable
+
+  /playbook/plays:
+    get:
+      tags:
+        - Routes
+      summary: List Playbook Plays
+      description: |
+        Returns playbook plays and their routes. Supports filtering by category,
+        source, ARTCC, and search. Use `?id=123` to fetch a single play with its full routes.
+        Data is refreshed daily for FAA-source plays.
+      operationId: listPlaybookPlays
+      parameters:
+        - name: id
+          in: query
+          description: Fetch a single play by ID (includes full routes)
+          schema:
+            type: integer
+        - name: category
+          in: query
+          description: Filter by play category
+          schema:
+            type: string
+        - name: source
+          in: query
+          description: Filter by data source (FAA, DCC, ECFMP, CANOC)
+          schema:
+            type: string
+            enum: [FAA, DCC, ECFMP, CANOC]
+        - name: search
+          in: query
+          description: Search play name or description
+          schema:
+            type: string
+        - name: artcc
+          in: query
+          description: Filter by ARTCC in facilities_involved
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Filter by play status
+          schema:
+            type: string
+            enum: [active, draft, archived]
+            default: active
+        - name: page
+          in: query
+          description: Page number
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          description: Results per page (max 200)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Paginated list of plays (or single play with routes if id provided)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlaybookPlay'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '404':
+          description: Play not found (when id specified)
+        '503':
+          description: Database unavailable
+
   /reference/taxi-times:
     get:
       tags:
@@ -2024,6 +2218,189 @@ components:
             code: DB_ERROR
 
   schemas:
+    CDR:
+      type: object
+      description: Coded Departure Route
+      properties:
+        cdr_id:
+          type: integer
+          description: Unique CDR identifier
+        cdr_code:
+          type: string
+          description: CDR code (e.g., JFKORDNB)
+          example: JFKORDNB
+        full_route:
+          type: string
+          description: Full route string
+          example: KJFK GREKI J584 CUTTA COATE4 KORD
+        origin_icao:
+          type: string
+          description: Origin airport ICAO code
+          example: KJFK
+        dest_icao:
+          type: string
+          description: Destination airport ICAO code
+          example: KORD
+        dep_artcc:
+          type: string
+          description: Departure ARTCC
+          example: ZNY
+        arr_artcc:
+          type: string
+          description: Arrival ARTCC
+          example: ZAU
+        direction:
+          type: string
+          nullable: true
+          description: Route direction (NORTH, SOUTH, EAST, WEST)
+        altitude_min_ft:
+          type: integer
+          nullable: true
+          description: Minimum altitude in feet
+        altitude_max_ft:
+          type: integer
+          nullable: true
+          description: Maximum altitude in feet
+        is_active:
+          type: boolean
+          description: Whether the CDR is currently active
+        source:
+          type: string
+          description: Data source identifier
+
+    PlaybookPlay:
+      type: object
+      description: Playbook play with optional routes
+      properties:
+        play_id:
+          type: integer
+        play_name:
+          type: string
+          example: KENPA_2601
+        display_name:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+          nullable: true
+        facilities_involved:
+          type: string
+          nullable: true
+          description: Comma-separated list of involved ARTCCs
+        scenario_type:
+          type: string
+          nullable: true
+        route_format:
+          type: string
+          enum: [standard, split]
+        source:
+          type: string
+          enum: [FAA, DCC, ECFMP, CANOC]
+        status:
+          type: string
+          enum: [active, draft, archived]
+        route_count:
+          type: integer
+        visibility:
+          type: string
+          enum: [public, local, private_users, private_org]
+        routes:
+          type: array
+          description: Included only when fetching a single play by ID
+          items:
+            $ref: '#/components/schemas/PlaybookRoute'
+        metadata:
+          type: object
+          properties:
+            created_by:
+              type: string
+              nullable: true
+            updated_by:
+              type: string
+              nullable: true
+            created_at:
+              type: string
+              format: date-time
+              nullable: true
+            updated_at:
+              type: string
+              format: date-time
+              nullable: true
+
+    PlaybookRoute:
+      type: object
+      description: A route within a playbook play
+      properties:
+        route_id:
+          type: integer
+        route_string:
+          type: string
+          example: KJFK GREKI J584 CUTTA COATE4 KORD
+        origin:
+          type: string
+          nullable: true
+        dest:
+          type: string
+          nullable: true
+        scope:
+          type: object
+          properties:
+            origin_airports:
+              type: array
+              items:
+                type: string
+            origin_tracons:
+              type: array
+              items:
+                type: string
+            origin_artccs:
+              type: array
+              items:
+                type: string
+            dest_airports:
+              type: array
+              items:
+                type: string
+            dest_tracons:
+              type: array
+              items:
+                type: string
+            dest_artccs:
+              type: array
+              items:
+                type: string
+        traversal:
+          type: object
+          properties:
+            artccs:
+              type: array
+              items:
+                type: string
+            tracons:
+              type: array
+              items:
+                type: string
+        remarks:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        total_pages:
+          type: integer
+
     ErrorResponse:
       type: object
       required:

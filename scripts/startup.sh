@@ -114,6 +114,14 @@ nohup bash -c "sleep 300; while true; do php '${WWWROOT}/scripts/playbook/export
 PLAYBOOK_EXPORT_PID=$!
 echo "  playbook export started (PID: $PLAYBOOK_EXPORT_PID, first run in 5min)"
 
+# Start the reference data sync daemon (daily CDR + playbook reimport at 06:00Z)
+# Reimports cdrs.csv -> VATSIM_REF and playbook_routes.csv -> MySQL daily
+# Runs even in hibernation — reference data should stay current
+echo "Starting refdata_sync_daemon.php (daily reimport at 06:00Z)..."
+nohup php "${WWWROOT}/scripts/refdata_sync_daemon.php" >> /home/LogFiles/refdata_sync.log 2>&1 &
+REFDATA_PID=$!
+echo "  refdata_sync_daemon.php started (PID: $REFDATA_PID)"
+
 # Start the SWIM WebSocket server (real-time flight events on port 8090)
 # NOTE: Runs even in hibernation — VATSWIM remains operational
 echo "Starting swim_ws_server.php (WebSocket on port 8090)..."
@@ -299,6 +307,7 @@ if [ "$HIBERNATION" = "1" ]; then
     echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
     echo "  discord_q=$DISCORD_Q_PID, adl_archive=$ADL_ARCHIVE_PID"
     echo "  ecfmp=$ECFMP_PID"
+    echo "  refdata=$REFDATA_PID (daily reimport at 06:00Z)"
     echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
     echo "  Hibernated: GIS, waypoint ETA, scheduler, event sync, CDM, vACDM"
@@ -312,6 +321,7 @@ else
     echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
     echo "  ecfmp=$ECFMP_PID, cdm=$CDM_PID, vacdm=$VACDM_PID"
     echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
+    echo "  refdata=$REFDATA_PID (daily reimport at 06:00Z)"
     echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
 fi
