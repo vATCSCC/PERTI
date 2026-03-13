@@ -38,13 +38,11 @@ function _hibernation_track_hit($page, $type = 'page') {
 }
 
 // Pages that redirect to the hibernation info page
+// NOTE: SWIM pages (swim.php, swim-doc.php, swim-docs.php, swim-keys.php) are
+// exempt from hibernation — VATSWIM remains operational during hibernation mode.
 $_hibernated_pages = [
     'demand.php',
     'nod.php',
-    'swim.php',
-    'swim-doc.php',
-    'swim-docs.php',
-    'swim-keys.php',
     'simulator.php',
     'gdt.php',
     'cdm.php',
@@ -64,22 +62,5 @@ if (in_array($_current_page, $_hibernated_pages)) {
     exit();
 }
 
-// SWIM API: return 503 Service Unavailable
-if (strpos($_request_uri, '/api/swim/') === 0) {
-    // Extract endpoint path for tracking (e.g. "flights", "health")
-    $swim_path = substr($_request_uri, strlen('/api/swim/'));
-    $swim_path = strtok($swim_path, '?'); // strip query string
-    _hibernation_track_hit('swim:' . ($swim_path ?: 'root'), 'api');
-
-    if (!headers_sent()) {
-        header('Content-Type: application/json; charset=utf-8');
-        http_response_code(503);
-    }
-    echo json_encode([
-        'error' => 'Service Temporarily Unavailable',
-        'message' => 'VATSWIM API is currently in hibernation mode. Service will resume at a future date.',
-        'status' => 503,
-        'info' => 'https://perti.vatcscc.org/hibernation'
-    ], JSON_UNESCAPED_SLASHES);
-    exit();
-}
+// SWIM API: exempt from hibernation — VATSWIM remains fully operational
+// (Previously returned 503; removed to keep SWIM API available during hibernation)

@@ -2,10 +2,10 @@
 
 ## Overview
 
-Hibernation mode is an open-ended operational pause that reduces PERTI to core data collection only. Most downstream flight processing, the SWIM API, and several UI pages are suspended. Azure resources are downscaled to match the reduced workload.
+Hibernation mode is an open-ended operational pause that reduces PERTI to core data collection plus VATSWIM. Most downstream flight processing and several UI pages are suspended, but **SWIM API, SWIM pages, and SWIM daemons remain fully operational**. Azure resources are downscaled to match the reduced workload.
 
-**Status**: Inactive (exited 2026-03-12)
-**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026
+**Status**: Active (re-entered 2026-03-13, SWIM exempt)
+**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption
 
 ---
 
@@ -20,6 +20,12 @@ Hibernation mode is an open-ended operational pause that reduces PERTI to core d
 | `adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage |
 | `monitoring_daemon.php` | 60s | System metrics collection |
 | `process_discord_queue.php` | Continuous | Async TMI Discord posting |
+| `ecfmp_poll_daemon.php` | 5min | ECFMP flow measure polling |
+| `export_playbook.php` | Daily | Playbook data backup |
+| `swim_ws_server.php` | Persistent | SWIM WebSocket server (port 8090) |
+| `swim_sync_daemon.php` | 2min | ADL-to-SWIM sync + cleanup |
+| `simtraffic_swim_poll.php` | 2min | SimTraffic time data polling |
+| `swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL |
 
 ### Data Still Being Collected
 
@@ -41,12 +47,10 @@ Hibernation mode is an open-ended operational pause that reduces PERTI to core d
 | `boundary_gis_daemon.php` | ARTCC/TRACON boundary detection |
 | `crossing_gis_daemon.php` | Boundary crossing ETA predictions |
 | `waypoint_eta_daemon.php` | Waypoint ETA calculations |
-| `swim_ws_server.php` | SWIM WebSocket server |
-| `swim_sync_daemon.php` | ADL-to-SWIM sync |
-| `simtraffic_swim_poll.php` | SimTraffic polling |
-| `swim_adl_reverse_sync_daemon.php` | SWIM-to-ADL reverse sync |
 | `scheduler_daemon.php` | Splits/routes auto-activation |
 | `event_sync_daemon.php` | VATUSA/VATCAN event sync |
+| `cdm_daemon.php` | CDM milestone computation |
+| `vacdm_poll_daemon.php` | vACDM polling |
 
 ### ADL Daemon Features Disabled
 
@@ -54,19 +58,13 @@ Hibernation mode is an open-ended operational pause that reduces PERTI to core d
 
 ### Web Pages (Redirect to /hibernation)
 
-`demand.php`, `nod.php`, `review.php`, `swim.php`, `swim-doc.php`, `swim-docs.php`, `swim-keys.php`, `simulator.php`, `gdt.php`, `sua.php`, `event-aar.php`
+`demand.php`, `nod.php`, `simulator.php`, `gdt.php`, `cdm.php`, `sua.php`, `event-aar.php`
+
+**SWIM pages are exempt**: `swim.php`, `swim-doc.php`, `swim-docs.php`, `swim-keys.php` remain fully accessible.
 
 ### SWIM API
 
-All `api/swim/v1/` endpoints return HTTP 503 JSON:
-```json
-{
-  "error": "Service Temporarily Unavailable",
-  "message": "VATSWIM API is currently in hibernation mode.",
-  "status": 503,
-  "info": "https://perti.vatcscc.org/hibernation"
-}
-```
+**Exempt from hibernation** — all `api/swim/v1/` endpoints remain fully operational. SWIM sync daemon keeps `swim_flights` populated from ADL data.
 
 ---
 

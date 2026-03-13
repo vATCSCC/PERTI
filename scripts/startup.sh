@@ -22,8 +22,8 @@ HIBERNATION_MODE=${HIBERNATION_MODE:-0}
 if [ "$HIBERNATION_MODE" = "1" ] || [ "$HIBERNATION_MODE" = "true" ]; then
     echo ""
     echo "  *** HIBERNATION MODE ACTIVE ***"
-    echo "  Only core daemons will start: ADL ingest, archival, monitoring, Discord queue, ECFMP"
-    echo "  Paused: GIS daemons, SWIM, scheduler, event sync, CDM"
+    echo "  Core + SWIM daemons will start"
+    echo "  Paused: GIS daemons, scheduler, event sync, CDM"
     echo ""
     HIBERNATION=1
 else
@@ -114,6 +114,37 @@ nohup bash -c "sleep 300; while true; do php '${WWWROOT}/scripts/playbook/export
 PLAYBOOK_EXPORT_PID=$!
 echo "  playbook export started (PID: $PLAYBOOK_EXPORT_PID, first run in 5min)"
 
+# Start the SWIM WebSocket server (real-time flight events on port 8090)
+# NOTE: Runs even in hibernation — VATSWIM remains operational
+echo "Starting swim_ws_server.php (WebSocket on port 8090)..."
+nohup php "${WWWROOT}/scripts/swim_ws_server.php" --debug >> /home/LogFiles/swim_ws.log 2>&1 &
+WS_PID=$!
+echo "  swim_ws_server.php started (PID: $WS_PID)"
+
+# Start the SWIM sync daemon (syncs VATSIM_ADL to SWIM_API every 2 min)
+# Also handles data retention cleanup every 6 hours
+# NOTE: Runs even in hibernation — VATSWIM remains operational
+echo "Starting swim_sync_daemon.php (sync every 2min, cleanup every 6h)..."
+nohup php "${WWWROOT}/scripts/swim_sync_daemon.php" --loop --sync-interval=120 --cleanup-interval=21600 >> /home/LogFiles/swim_sync.log 2>&1 &
+SWIM_SYNC_PID=$!
+echo "  swim_sync_daemon.php started (PID: $SWIM_SYNC_PID)"
+
+# Start the SimTraffic -> SWIM polling daemon (fetches ST times every 2 min)
+# Rate limited to 5 req/sec per SimTraffic API docs
+# NOTE: Runs even in hibernation — VATSWIM remains operational
+echo "Starting simtraffic_swim_poll.php (polling every 2min)..."
+nohup php "${WWWROOT}/scripts/simtraffic_swim_poll.php" --loop --interval=120 >> /home/LogFiles/simtraffic_poll.log 2>&1 &
+ST_POLL_PID=$!
+echo "  simtraffic_swim_poll.php started (PID: $ST_POLL_PID)"
+
+# Start the SWIM -> ADL reverse sync daemon (propagates ST times to ADL every 2 min)
+# Syncs SimTraffic data from swim_flights back to ADL normalized tables
+# NOTE: Runs even in hibernation — VATSWIM remains operational
+echo "Starting swim_adl_reverse_sync.php (reverse sync every 2min)..."
+nohup php "${WWWROOT}/scripts/swim_adl_reverse_sync_daemon.php" --loop --interval=120 >> /home/LogFiles/swim_reverse_sync.log 2>&1 &
+REVERSE_SYNC_PID=$!
+echo "  swim_adl_reverse_sync_daemon.php started (PID: $REVERSE_SYNC_PID)"
+
 # =============================================================================
 # DOWNSTREAM DAEMONS (skipped in hibernation mode)
 # =============================================================================
@@ -123,10 +154,6 @@ PARSE_PID="HIBERNATED"
 BOUNDARY_PID="HIBERNATED"
 CROSSING_PID="HIBERNATED"
 WAYPOINT_PID="HIBERNATED"
-WS_PID="HIBERNATED"
-SWIM_SYNC_PID="HIBERNATED"
-ST_POLL_PID="HIBERNATED"
-REVERSE_SYNC_PID="HIBERNATED"
 SCHED_PID="HIBERNATED"
 EVENT_SYNC_PID="HIBERNATED"
 CDM_PID="HIBERNATED"
@@ -193,33 +220,6 @@ if [ "$HIBERNATION" != "1" ]; then
     WAYPOINT_PID=$!
     echo "  waypoint_eta_daemon.php started (PID: $WAYPOINT_PID)"
 
-    # Start the SWIM WebSocket server (real-time flight events on port 8090)
-    echo "Starting swim_ws_server.php (WebSocket on port 8090)..."
-    nohup php "${WWWROOT}/scripts/swim_ws_server.php" --debug >> /home/LogFiles/swim_ws.log 2>&1 &
-    WS_PID=$!
-    echo "  swim_ws_server.php started (PID: $WS_PID)"
-
-    # Start the SWIM sync daemon (syncs VATSIM_ADL to SWIM_API every 2 min)
-    # Also handles data retention cleanup every 6 hours
-    echo "Starting swim_sync_daemon.php (sync every 2min, cleanup every 6h)..."
-    nohup php "${WWWROOT}/scripts/swim_sync_daemon.php" --loop --sync-interval=120 --cleanup-interval=21600 >> /home/LogFiles/swim_sync.log 2>&1 &
-    SWIM_SYNC_PID=$!
-    echo "  swim_sync_daemon.php started (PID: $SWIM_SYNC_PID)"
-
-    # Start the SimTraffic -> SWIM polling daemon (fetches ST times every 2 min)
-    # Rate limited to 5 req/sec per SimTraffic API docs
-    echo "Starting simtraffic_swim_poll.php (polling every 2min)..."
-    nohup php "${WWWROOT}/scripts/simtraffic_swim_poll.php" --loop --interval=120 >> /home/LogFiles/simtraffic_poll.log 2>&1 &
-    ST_POLL_PID=$!
-    echo "  simtraffic_swim_poll.php started (PID: $ST_POLL_PID)"
-
-    # Start the SWIM -> ADL reverse sync daemon (propagates ST times to ADL every 2 min)
-    # Syncs SimTraffic data from swim_flights back to ADL normalized tables
-    echo "Starting swim_adl_reverse_sync.php (reverse sync every 2min)..."
-    nohup php "${WWWROOT}/scripts/swim_adl_reverse_sync_daemon.php" --loop --interval=120 >> /home/LogFiles/swim_reverse_sync.log 2>&1 &
-    REVERSE_SYNC_PID=$!
-    echo "  swim_adl_reverse_sync_daemon.php started (PID: $REVERSE_SYNC_PID)"
-
     # Start the unified scheduler daemon (splits, routes auto-activation)
     echo "Starting scheduler_daemon.php (checks every 60s)..."
     nohup php "${WWWROOT}/scripts/scheduler_daemon.php" --interval=60 >> /home/LogFiles/scheduler.log 2>&1 &
@@ -261,8 +261,8 @@ if [ "$HIBERNATION" != "1" ]; then
 else
     echo ""
     echo "  Downstream daemons SKIPPED (hibernation mode)"
-    echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, SWIM ws/sync,"
-    echo "           SimTraffic, reverse sync, scheduler, event sync, CDM, vACDM, vNAS ctrl"
+    echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, scheduler, event sync, CDM, vACDM"
+    echo "  Running: SWIM (ws/sync/SimTraffic/reverse sync) — VATSWIM exempt from hibernation"
     echo ""
 fi
 
@@ -293,13 +293,15 @@ echo "  Indexer scheduled (PID: $INDEXER_PID, will run after 30s)"
 
 echo "========================================"
 if [ "$HIBERNATION" = "1" ]; then
-    echo "HIBERNATION MODE - Core daemons only:"
+    echo "HIBERNATION MODE - Core + SWIM daemons:"
     echo "  adl=$ADL_PID, arch=$ARCH_PID, mon=$MON_PID"
+    echo "  ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
+    echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
     echo "  discord_q=$DISCORD_Q_PID, adl_archive=$ADL_ARCHIVE_PID"
     echo "  ecfmp=$ECFMP_PID"
     echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
-    echo "  All other daemons: HIBERNATED"
+    echo "  Hibernated: GIS, waypoint ETA, scheduler, event sync, CDM, vACDM"
 else
     echo "All daemons started:"
     echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
