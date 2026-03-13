@@ -4230,6 +4230,22 @@
             }
         });
 
+        // ── Section toggle (map / detail) ──
+        $(document).on('click', '#pb_toggle_map', function() {
+            $(this).toggleClass('active');
+            var show = $(this).hasClass('active');
+            $('#pb_map_section').toggleClass('pb-collapsed', !show);
+            // Resize map when re-shown so tiles render correctly
+            if (show && window.graphic_map) {
+                setTimeout(function() { window.graphic_map.resize(); }, 50);
+            }
+        });
+        $(document).on('click', '#pb_toggle_routes', function() {
+            $(this).toggleClass('active');
+            var show = $(this).hasClass('active');
+            $('#pb_detail_section').toggleClass('pb-collapsed', !show);
+        });
+
         // ── Throughput toggle ──
         $(document).on('click', '#btn-throughput-toggle', function() {
             toggleThroughput();

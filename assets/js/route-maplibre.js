@@ -249,6 +249,7 @@ $(document).ready(function() {
     // Phase 5: Route label toggle tracking
     const routeLabelsVisible = new Set();  // Track which route IDs have labels visible
     let routeFixesByRouteId = {};        // Map routeId -> array of fix features
+    let routeStringByRouteId = {};       // Map routeId -> { routeString, color }
     let currentRouteId = 0;              // Counter for unique route IDs
 
     // Phase 5: Draggable label support
@@ -2411,6 +2412,7 @@ $(document).ready(function() {
         // Phase 5: Reset route tracking
         routeLabelsVisible.clear();
         routeFixesByRouteId = {};
+        routeStringByRouteId = {};
         currentRouteId = 0;
         labelOffsets = {};  // Clear any dragged label positions
 
@@ -2483,6 +2485,9 @@ $(document).ready(function() {
                 routeText = parts[0].trim();
                 if (parts[1]) {routeColor = parts[1].trim();}
             }
+
+            // Store route string for disambiguation in overlapping-route picker
+            routeStringByRouteId[thisRouteId] = { routeString: routeText, color: routeColor };
 
             // CDR expansion - strip mandatory markers before lookup
             const cdrTokens = routeText.split(/\s+/).filter(t => t !== '');
@@ -2986,6 +2991,7 @@ $(document).ready(function() {
                 fromFix: fromFix || '',
                 toFix: toFix || '',
                 distance: segmentDistance,
+                routeString: (routeStringByRouteId[routeId] || {}).routeString || '',
             },
             geometry: { type: 'LineString', coordinates: coords },
         });
@@ -3239,23 +3245,31 @@ $(document).ready(function() {
             // Build picker content with clickable route options
             const options = routes.map(([routeId, props], idx) => {
                 const isVisible = routeLabelsVisible.has(routeId);
-                const labelStatus = isVisible ? '👁' : '○';
-                const fromTo = (props.fromFix && props.toFix)
-                    ? `${props.fromFix}→${props.toFix}`
-                    : PERTII18n.t('route.routePicker.routeLabel', { id: routeId });
+                const eyeClass = isVisible ? 'fa-eye' : 'fa-eye-slash';
+                const meta = routeStringByRouteId[routeId] || {};
+                // Build disambiguation: truncated route string
+                let routeLabel = '';
+                if (meta.routeString) {
+                    const rs = meta.routeString;
+                    routeLabel = rs.length > 40 ? rs.substring(0, 37) + '...' : rs;
+                } else if (props.fromFix && props.toFix) {
+                    routeLabel = `${props.fromFix}→${props.toFix}`;
+                } else {
+                    routeLabel = PERTII18n.t('route.routePicker.routeLabel', { id: routeId });
+                }
                 return `
                     <div class="route-picker-option" data-route-id="${routeId}" data-color="${props.color || '#C70039'}"
-                         style="padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #eee; display: flex; align-items: center;"
+                         style="padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 6px;"
                          onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'">
-                        <span style="display: inline-block; width: 12px; height: 12px; background: ${props.color}; border-radius: 2px; margin-right: 8px;"></span>
-                        <span style="flex: 1; font-size: 11px;">${fromTo}</span>
-                        <span style="font-size: 10px; color: var(--dark-text-disabled);">${labelStatus}</span>
+                        <span style="display: inline-block; width: 12px; height: 12px; background: ${props.color}; border-radius: 2px; flex-shrink: 0;"></span>
+                        <span style="flex: 1; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${(meta.routeString || '').replace(/"/g, '&quot;')}">${routeLabel}</span>
+                        <i class="fas ${eyeClass} route-picker-eye" style="font-size: 11px; color: #6c757d; flex-shrink: 0;"></i>
                     </div>
                 `;
             }).join('');
 
             const content = `
-                <div class="route-picker" style="font-family: 'Inconsolata', monospace; min-width: 180px;">
+                <div class="route-picker" style="font-family: 'Inconsolata', monospace; min-width: 220px;">
                     <div style="font-weight: bold; font-size: 11px; color: var(--dark-text-disabled); padding: 6px 8px; border-bottom: 2px solid #ddd; text-transform: uppercase;">
                         ${PERTII18n.t('route.routePicker.overlappingRoutes', { count: routes.length })}
                     </div>
@@ -3266,7 +3280,7 @@ $(document).ready(function() {
                 </div>
             `;
 
-            const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '250px' })
+            const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '300px' })
                 .setLngLat(lngLat)
                 .setHTML(content)
                 .addTo(graphic_map);
@@ -3279,11 +3293,12 @@ $(document).ready(function() {
                         const color = this.dataset.color;
                         toggleRouteLabelsForRoute(routeId, color);
 
-                        // Update the label status indicator
+                        // Update the eye icon
                         const isNowVisible = routeLabelsVisible.has(routeId);
-                        const statusSpan = this.querySelector('span:last-child');
-                        if (statusSpan) {
-                            statusSpan.textContent = isNowVisible ? '👁' : '○';
+                        const eyeIcon = this.querySelector('.route-picker-eye');
+                        if (eyeIcon) {
+                            eyeIcon.classList.remove('fa-eye', 'fa-eye-slash');
+                            eyeIcon.classList.add(isNowVisible ? 'fa-eye' : 'fa-eye-slash');
                         }
                     });
                 });
