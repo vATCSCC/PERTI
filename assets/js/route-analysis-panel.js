@@ -80,12 +80,13 @@
 
     function formatDist(nm) {
         if (nm == null || isNaN(nm)) return '--';
-        // 2 significant figures
+        // 2 significant figures, no thousand separators
         if (nm === 0) return '0';
         var mag = Math.floor(Math.log10(Math.abs(nm))) + 1;
         var factor = Math.pow(10, 2 - mag);
         var rounded = Math.round(nm * factor) / factor;
-        return rounded.toLocaleString(undefined, { maximumFractionDigits: Math.max(0, 2 - mag) });
+        var decimals = Math.max(0, 2 - mag);
+        return decimals > 0 ? rounded.toFixed(decimals) : String(rounded);
     }
 
     // ── Departure time / UTC helpers ───────────────────────────────
@@ -219,7 +220,7 @@
         if (facFiltersEl) facFiltersEl.innerHTML = '';
         if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
         if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="9" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
-        if (segTbody) segTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
+        if (segTbody) segTbody.innerHTML = '<tr><td colspan="10" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
 
         panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -230,7 +231,7 @@
         var errMsg = msg || t('routeAnalysis.error') || 'Analysis failed';
         if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-empty"><i class="fas fa-exclamation-triangle"></i> ' + errMsg + '</td></tr>';
         if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="9" class="ra-empty"><i class="fas fa-exclamation-triangle"></i> ' + errMsg + '</td></tr>';
-        if (segTbody) segTbody.innerHTML = '<tr><td colspan="8" class="ra-empty"><i class="fas fa-exclamation-triangle"></i> ' + errMsg + '</td></tr>';
+        if (segTbody) segTbody.innerHTML = '<tr><td colspan="10" class="ra-empty"><i class="fas fa-exclamation-triangle"></i> ' + errMsg + '</td></tr>';
     }
 
     // ── Rendering ────────────────────────────────────────────────────
@@ -243,6 +244,9 @@
         currentOrigin = origin || null;
         currentDest = dest || null;
         currentRouteId = routeId || null;
+
+        // Clear picker when new analysis shown (fresh selection)
+        clearPicker();
 
         // Set route label
         var label = '';
@@ -460,7 +464,7 @@
     function renderSegmentTable(fixAnalysis, depEpoch) {
         if (!segTbody) return;
         if (!fixAnalysis || fixAnalysis.length < 2) {
-            segTbody.innerHTML = '<tr><td colspan="8" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
+            segTbody.innerHTML = '<tr><td colspan="10" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
             return;
         }
         var html = '';
@@ -476,7 +480,9 @@
                 '<td>' + escHtml(curr.fix || '') + '</td>' +
                 '<td class="text-right">' + formatDist(segDist) + '</td>' +
                 '<td class="text-right">' + formatTime(segTime) + '</td>' +
+                '<td class="text-right">' + formatDist(prev.dist_from_origin_nm) + '</td>' +
                 '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, prev.time_from_origin_min) + '</td>' +
+                '<td class="text-right">' + formatDist(curr.dist_from_origin_nm) + '</td>' +
                 '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, curr.time_from_origin_min) + '</td>' +
                 '<td class="text-right">' + gs + '</td>' +
                 '</tr>';
@@ -923,7 +929,7 @@
     function buildSegmentRows(sep, depEpoch) {
         var lines = [];
         var fixes = (currentData && currentData.fix_analysis) || [];
-        lines.push(['#', 'From', 'To', 'Dist (nm)', 'Time', 'Time (min)', 'Dep (Z)', 'Arr (Z)', 'GS (kts)'].join(sep));
+        lines.push(['#', 'From', 'To', 'Seg Dist (nm)', 'Seg Time', 'Seg Time (min)', 'Entry Dist (nm)', 'Entry (Z)', 'Exit Dist (nm)', 'Exit (Z)', 'GS (kts)'].join(sep));
         for (var i = 1; i < fixes.length; i++) {
             var prev = fixes[i - 1];
             var curr = fixes[i];
@@ -937,7 +943,9 @@
                 Math.round(segDist),
                 formatTime(segTime),
                 Math.round(segTime * 10) / 10,
+                prev.dist_from_origin_nm != null ? Math.round(prev.dist_from_origin_nm) : '',
                 minutesToUtcStr(depEpoch, prev.time_from_origin_min),
+                curr.dist_from_origin_nm != null ? Math.round(curr.dist_from_origin_nm) : '',
                 minutesToUtcStr(depEpoch, curr.time_from_origin_min),
                 gs
             ].join(sep));
@@ -1164,7 +1172,7 @@
         // Show loading
         if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
         if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="9" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
-        if (segTbody) segTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
+        if (segTbody) segTbody.innerHTML = '<tr><td colspan="10" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
 
         $.getJSON('api/data/playbook/analysis.php', params, function (resp) {
             if (!resp || resp.status !== 'success') {
@@ -1208,6 +1216,14 @@
         currentDest = null;
         currentRouteId = null;
         clearHighlight();
+        clearPicker();
+    }
+
+    function clearPicker() {
+        if (pickerOrigin) pickerOrigin.value = '';
+        if (pickerDest) pickerDest.value = '';
+        if (pickerRoute) pickerRoute.value = '';
+        if (pickerMatches) pickerMatches.innerHTML = '';
     }
 
     // ── Utility ──────────────────────────────────────────────────────
@@ -1456,6 +1472,7 @@
         exportTXT: exportTXT,
         exportCSV: exportCSV,
         exportXLSX: exportXLSX,
-        getCurrentData: function () { return currentData; }
+        getCurrentData: function () { return currentData; },
+        clearPicker: clearPicker
     };
 })();
