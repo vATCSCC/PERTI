@@ -2844,28 +2844,22 @@ document.addEventListener('DOMContentLoaded', function () {
     window.showRouteAnalysis = function(routeId, routeString, origin, dest) {
         if (!routeString) return;
 
-        // Use client-side expanded route (airways resolved, dots split) when available.
-        // This gives the analysis API a richer route string than the raw user input,
-        // since ConvertRoute() has already expanded J/Q/V airways to intermediate fixes.
-        var analysisRouteStr = routeString;
-        if (routeId != null && typeof MapLibreRoute !== 'undefined' && MapLibreRoute.getRouteIndex) {
-            var rIdx = MapLibreRoute.getRouteIndex();
-            var rMeta = rIdx[routeId];
-            if (rMeta && rMeta.expandedTokens && rMeta.expandedTokens.length > 0) {
-                analysisRouteStr = rMeta.expandedTokens.join(' ');
-            }
-        }
-
         if (typeof RouteAnalysisPanel !== 'undefined') {
             RouteAnalysisPanel.showLoading(routeString, origin, dest);
         }
-        var params = { route_string: analysisRouteStr };
-        if (origin) params.origin = origin;
-        if (dest) params.dest = dest;
-        params.cruise_kts = 460;
-        params.facility_types = 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH';
 
-        $.getJSON('api/data/playbook/analysis.php', params, function(resp) {
+        // When routeId is available, use the map's pre-computed geometry directly.
+        // This bypasses server-side expand_route() which can't handle oceanic coordinate
+        // waypoints (42N020W), SID/STAR expansion, or disambiguation as well as the client.
+        var namedPts = null;
+        if (routeId != null && typeof MapLibreRoute !== 'undefined' && MapLibreRoute.getRoutePointsNamed) {
+            var allNamed = MapLibreRoute.getRoutePointsNamed();
+            if (allNamed[routeId] && allNamed[routeId].length >= 2) {
+                namedPts = allNamed[routeId];
+            }
+        }
+
+        var handleResponse = function(resp) {
             if (!resp || resp.status !== 'success') {
                 if (typeof RouteAnalysisPanel !== 'undefined') RouteAnalysisPanel.showError();
                 return;
@@ -2873,9 +2867,38 @@ document.addEventListener('DOMContentLoaded', function () {
             if (typeof RouteAnalysisPanel !== 'undefined') {
                 RouteAnalysisPanel.show(resp, routeString, origin, dest, routeId);
             }
-        }).fail(function() {
+        };
+        var handleError = function() {
             if (typeof RouteAnalysisPanel !== 'undefined') RouteAnalysisPanel.showError();
-        });
+        };
+
+        if (namedPts) {
+            // POST with client-resolved waypoints — exact match to map display
+            $.ajax({
+                url: 'api/data/playbook/analysis.php',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    route_waypoints: namedPts,
+                    route_string: routeString,
+                    origin: origin || null,
+                    dest: dest || null,
+                    cruise_kts: 460,
+                    facility_types: 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH'
+                }),
+                dataType: 'json',
+                success: handleResponse,
+                error: handleError
+            });
+        } else {
+            // Fallback: pass route string for server-side resolution
+            var params = { route_string: routeString };
+            if (origin) params.origin = origin;
+            if (dest) params.dest = dest;
+            params.cruise_kts = 460;
+            params.facility_types = 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH';
+            $.getJSON('api/data/playbook/analysis.php', params, handleResponse).fail(handleError);
+        }
     };
 });
 </script>
