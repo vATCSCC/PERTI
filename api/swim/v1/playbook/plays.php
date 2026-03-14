@@ -473,6 +473,11 @@ function expandPlaybookRouteGeometry(array $routes): array {
             $route['waypoints'] = extractWaypoints($geo);
             $route['distance_nm'] = $geo['distance_nm'];
             $route['artccs_traversed'] = $geo['artccs'];
+
+            // Populate traversal.artccs from GIS if static data is empty
+            if (empty($route['traversal']['artccs']) && !empty($geo['artccs'])) {
+                $route['traversal']['artccs'] = $geo['artccs'];
+            }
         } else {
             $route['geometry'] = null;
             $route['waypoints'] = null;
