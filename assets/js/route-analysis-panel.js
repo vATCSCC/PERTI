@@ -651,21 +651,30 @@
         } catch (e) { /* layer may not exist */ }
 
         // Dim non-analysis fixes (route-fix points/labels)
+        // Both 'fixes-circles' (original layer) and 'route-fixes-circles' (Phase 5)
+        // render dots at fix positions — both must be dimmed.
         try {
+            var circLayers = ['route-fixes-circles', 'fixes-circles'];
             if (currentRouteId != null) {
-                if (map.getLayer('route-fixes-circles')) {
-                    map.setPaintProperty('route-fixes-circles', 'circle-opacity',
-                        ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.15]);
-                }
+                var dimExpr = ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.1];
+                circLayers.forEach(function (lid) {
+                    if (map.getLayer(lid)) {
+                        map.setPaintProperty(lid, 'circle-opacity', dimExpr);
+                        map.setPaintProperty(lid, 'circle-stroke-opacity', dimExpr);
+                    }
+                });
                 if (map.getLayer('route-fixes-labels')) {
                     map.setPaintProperty('route-fixes-labels', 'text-opacity',
                         ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.1]);
                 }
             } else {
                 // No specific route ID — dim all existing fixes
-                if (map.getLayer('route-fixes-circles')) {
-                    map.setPaintProperty('route-fixes-circles', 'circle-opacity', 0.15);
-                }
+                circLayers.forEach(function (lid) {
+                    if (map.getLayer(lid)) {
+                        map.setPaintProperty(lid, 'circle-opacity', 0.1);
+                        map.setPaintProperty(lid, 'circle-stroke-opacity', 0.1);
+                    }
+                });
                 if (map.getLayer('route-fixes-labels')) {
                     map.setPaintProperty('route-fixes-labels', 'text-opacity', 0.1);
                 }
@@ -843,9 +852,12 @@
 
         // Restore fix/airport opacity
         try {
-            if (map.getLayer('route-fixes-circles')) {
-                map.setPaintProperty('route-fixes-circles', 'circle-opacity', 1);
-            }
+            ['route-fixes-circles', 'fixes-circles'].forEach(function (lid) {
+                if (map.getLayer(lid)) {
+                    map.setPaintProperty(lid, 'circle-opacity', 1);
+                    map.setPaintProperty(lid, 'circle-stroke-opacity', 1);
+                }
+            });
             if (map.getLayer('route-fixes-labels')) {
                 map.setPaintProperty('route-fixes-labels', 'text-opacity', 1);
             }
