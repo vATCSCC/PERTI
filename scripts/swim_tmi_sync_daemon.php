@@ -501,7 +501,7 @@ function getTier1TmiConfigs(): array {
             'source_query' => 'SELECT advisory_id, advisory_guid, advisory_number, advisory_type, ctl_element, element_type, scope_facilities, program_id, program_rate, delay_cap, effective_from, effective_until, subject, body_text, reason_code, reason_detail, reroute_id, reroute_name, reroute_area, reroute_string, reroute_from, reroute_to, mit_miles, mit_type, mit_fix, status, is_proposed, source_type, source_id, discord_message_id, discord_posted_at, discord_channel_id, created_by, created_by_name, created_at, updated_at, approved_by, approved_at, cancelled_by, cancelled_at, cancel_reason, revision_number, supersedes_advisory_id FROM dbo.tmi_advisories',
             'columns' => [
                 'advisory_id' => 'INT', 'advisory_guid' => 'UNIQUEIDENTIFIER',
-                'advisory_number' => 'INT', 'advisory_type' => 'NVARCHAR(16)',
+                'advisory_number' => 'NVARCHAR(16)', 'advisory_type' => 'NVARCHAR(16)',
                 'ctl_element' => 'NVARCHAR(8)', 'element_type' => 'NVARCHAR(16)',
                 'scope_facilities' => 'NVARCHAR(256)', 'program_id' => 'INT',
                 'program_rate' => 'INT', 'delay_cap' => 'INT',
@@ -652,8 +652,8 @@ function getTier1TmiConfigs(): array {
         'swim_tmi_flight_control' => [
             'swim_table' => 'swim_tmi_flight_control',
             'pk' => 'control_id',
-            'watermark' => 'modified_utc',
-            'source_query' => 'SELECT control_id, flight_uid, callsign, program_id, slot_id, ctd_utc, cta_utc, octd_utc, octa_utc, aslot, ctl_elem, ctl_prgm, ctl_type, ctl_exempt, ctl_exempt_reason, program_delay_min, delay_capped, gs_held, gs_release_utc, is_popup, popup_detected_utc, popup_lead_time_min, sl_hold, subbable, compliance_status, actual_dep_utc, actual_arr_utc, compliance_delta_min, dep_airport, arr_airport, is_archived, created_utc, modified_utc FROM dbo.tmi_flight_control',
+            'watermark' => 'updated_at',
+            'source_query' => 'SELECT control_id, flight_uid, callsign, program_id, slot_id, ctd_utc, cta_utc, octd_utc, octa_utc, aslot, ctl_elem, ctl_prgm, ctl_type, ctl_exempt, ctl_exempt_reason, program_delay_min, delay_capped, gs_held, gs_release_utc, is_popup, popup_detected_utc, popup_lead_time_min, sl_hold, subbable, compliance_status, actual_dep_utc, actual_arr_utc, compliance_delta_min, dep_airport, arr_airport, is_archived, created_at AS created_utc, updated_at AS modified_utc FROM dbo.tmi_flight_control',
             'columns' => [
                 'control_id' => 'BIGINT', 'flight_uid' => 'BIGINT', 'callsign' => 'NVARCHAR(16)',
                 'program_id' => 'INT', 'slot_id' => 'BIGINT',
