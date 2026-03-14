@@ -1,10 +1,10 @@
 # SWIM Routes API
 
-The SWIM Routes API provides public, read-only access to reference route data: **Coded Departure Routes (CDRs)** and **National Playbook plays**. Both endpoints serve the latest FAA/NASR data, reimported daily at 06:00Z.
+The SWIM Routes API provides access to reference route data: **Coded Departure Routes (CDRs)**, **National Playbook plays**, and **route analysis tools**. CDR and playbook data are served from the isolated `SWIM_API` database (mirrored from internal sources daily). Analysis and throughput endpoints require API key authentication.
 
 **Base URL**: `https://perti.vatcscc.org/api/swim/v1`
 
-**Authentication**: None required. Endpoints are public. An optional API key can be provided via `X-API-Key` header for rate-limit tracking.
+**Authentication**: CDR and playbook list/detail endpoints are public. Analysis and throughput endpoints require an API key via `X-API-Key` or `Authorization: Bearer` header.
 
 **CORS**: `Access-Control-Allow-Origin: *` -- callable from any origin.
 
@@ -16,9 +16,9 @@ The SWIM Routes API provides public, read-only access to reference route data: *
 
 ### GET /api/swim/v1/routes/cdrs
 
-Returns paginated CDRs from the VATSIM_REF reference database. CDRs are pre-coordinated reroutes between airport pairs, used for traffic management rerouting and playbook operations.
+Returns paginated CDRs. Data is served from the isolated `SWIM_API` database (`swim_coded_departure_routes`), with automatic fallback to `VATSIM_REF` if the SWIM mirror is unavailable. CDRs are pre-coordinated reroutes between airport pairs, used for traffic management rerouting and playbook operations.
 
-**Source**: FAA NASR `cdrs.csv` (~41,000 routes)
+**Source**: FAA NASR `cdrs.csv` (~41,000 routes), mirrored to SWIM_API daily at 06:00Z
 
 **Parameters:**
 
@@ -122,20 +122,21 @@ GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD&per_page=2
 
 ### GET /api/swim/v1/playbook/plays
 
-Returns National Playbook plays with their associated routes. Each play represents a named traffic management scenario containing one or more reroutes.
+Returns National Playbook plays with their associated routes. Each play represents a named traffic management scenario containing one or more reroutes. Data is served from the isolated `SWIM_API` database (`swim_playbook_plays` + `swim_playbook_routes`), with automatic fallback to MySQL if the SWIM mirror is unavailable.
 
 The endpoint operates in two modes:
 
 - **List mode** (default): Returns paginated play metadata. Routes are not included to keep responses compact.
 - **Single-play mode** (`?id=<play_id>`): Returns one play with its full route detail, including per-route scope (origin/destination airports, TRACONs, ARTCCs) and facility traversal data.
 
-**Source**: FAA National Playbook `playbook_routes.csv` (~1,800 plays, ~56,000 routes across 9 categories)
+**Source**: FAA National Playbook + DCC/ECFMP/CANOC plays (~3,800 plays, ~268,000 routes across 9 categories), mirrored to SWIM_API daily at 06:00Z
 
 **Parameters:**
 
 | Name | Type | Required | Description | Example |
 |------|------|----------|-------------|---------|
 | `id` | int | No | Fetch a single play by ID (enables full route detail) | `9255` |
+| `name` | string | No | Fetch a single play by name (alternative to `id`) | `ORD EAST 1` |
 | `category` | string | No | FAA category filter | `Airports` |
 | `source` | string | No | Data source filter | `FAA` |
 | `search` | string | No | Free-text search across play name and routes | `ORD EAST` |
@@ -412,6 +413,73 @@ Lists the airspace sectors and facilities the route passes through en route (bet
 
 ---
 
+## Route Analysis
+
+### GET /api/swim/v1/playbook/analysis
+
+Computes facility traversal, distances, and estimated time segments for a playbook route using PostGIS spatial analysis. Proxies to the internal analysis API.
+
+**Auth**: Required (API key with read access)
+
+**Parameters:**
+
+| Name | Type | Required | Description | Example |
+|------|------|----------|-------------|---------|
+| `route_id` | int | No | Playbook route ID to analyze | `659602` |
+| `route_string` | string | No | Route string (alternative to `route_id`) | `KJFK JFK.DEEZZ5 CANDR J60 DANNR RAV Q62 WATSN WATSN4 KORD` |
+| `origin` | string | Yes* | Origin airport ICAO (*required when using `route_string`) | `KJFK` |
+| `dest` | string | Yes* | Destination airport ICAO (*required when using `route_string`) | `KORD` |
+| `climb_kts` | int | No | Climb speed in knots TAS (default 280) | `280` |
+| `cruise_kts` | int | No | Cruise speed in knots TAS (default 460) | `460` |
+| `descent_kts` | int | No | Descent speed in knots TAS (default 250) | `250` |
+| `wind_component_kts` | int | No | Wind component in knots (positive=headwind, default 0) | `-20` |
+| `facility_types` | string | No | Comma-separated facility types (default `ARTCC,FIR`) | `ARTCC,FIR,TRACON` |
+
+**Example Request:**
+
+```
+GET /api/swim/v1/playbook/analysis?route_id=659602&cruise_kts=480
+```
+
+**Response** includes ordered facility traversal with entry/exit distances, time segments, and total route distance.
+
+---
+
+## Route Throughput (CTP Integration)
+
+### GET /api/swim/v1/playbook/throughput
+
+Returns throughput data for playbook routes, used for CTP (Collaborative Traffic Planning) capacity tracking.
+
+**Auth**: Required (API key with read access)
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `play_id` | int | No | Get throughput data for all routes in a play |
+| `route_id` | int | No | Get throughput data for a specific route |
+
+### POST /api/swim/v1/playbook/throughput
+
+Ingests per-route throughput metrics from CTP.
+
+**Auth**: Required (API key with write access)
+
+**Request Body:**
+
+```json
+{
+  "route_id": 659602,
+  "play_id": 9255,
+  "throughput": {
+    "planned_count": 45,
+    "slot_count": 42,
+    "peak_rate": 20
+  }
+}
+```
+
+---
+
 ## Route Geometry (GIS)
 
 Both endpoints support an optional `include=geometry` parameter that adds GeoJSON route geometry, expanded waypoints, and distance calculations via PostGIS.
@@ -508,11 +576,15 @@ To iterate through all results, increment `page` until `has_more` is `false`.
 
 ---
 
-## Data Freshness
+## Data Freshness & Architecture
 
-Both CDR and playbook data are reimported daily at **06:00Z** by the `refdata_sync_daemon.php` daemon. The authoritative source files update with each AIRAC cycle (every 28 days). Consumers should cache results appropriately -- reference data rarely changes between AIRAC cycles.
+Both CDR and playbook data are reimported daily at **06:00Z** by the `refdata_sync_daemon.php` daemon. After reimport, Phase 3 of the daemon mirrors the data into the `SWIM_API` database (`swim_coded_departure_routes`, `swim_playbook_plays`, `swim_playbook_routes`). This isolation ensures SWIM API consumers do not put load on internal operational databases.
 
-The `metadata.generated` field in each response indicates when the response was built (not when the data was last imported).
+The authoritative source files update with each AIRAC cycle (every 28 days). Consumers should cache results appropriately -- reference data rarely changes between AIRAC cycles.
+
+The `metadata.generated` field in each response indicates when the response was built (not when the data was last imported). The `metadata.source` field indicates which database served the response (`swim_api.*` or the fallback internal source).
+
+**Sync monitoring**: The `vw_swim_refdata_sync_status` view in SWIM_API shows row counts and minutes since last sync for all three tables.
 
 ---
 
@@ -550,13 +622,21 @@ GET /api/swim/v1/playbook/plays?search=ORD EAST
 
 Returns 11 plays matching "ORD EAST" (ORD EAST 1 through ORD EAST 11).
 
-### Get a single play with full route detail
+### Get a single play by ID
 
 ```
 GET /api/swim/v1/playbook/plays?id=9255
 ```
 
 Returns ORD EAST 1 with all 11 routes, each including scope and traversal objects.
+
+### Get a single play by name
+
+```
+GET /api/swim/v1/playbook/plays?name=ORD+EAST+1
+```
+
+Same result as `?id=9255`. Name lookup is case-insensitive and also matches the normalized form (spaces replaced with underscores).
 
 ### Get all plays involving an ARTCC
 

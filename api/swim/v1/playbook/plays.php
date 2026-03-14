@@ -6,7 +6,8 @@
  * Data from SWIM_API database (fallback to perti_site MySQL).
  *
  * GET /api/swim/v1/playbook/plays              - List plays (paginated)
- * GET /api/swim/v1/playbook/plays?id=123        - Get single play with routes
+ * GET /api/swim/v1/playbook/plays?id=123        - Get single play with routes (by ID)
+ * GET /api/swim/v1/playbook/plays?name=ORD+EAST+1 - Get single play with routes (by name)
  * GET /api/swim/v1/playbook/plays?category=...   - Filter by category
  * GET /api/swim/v1/playbook/plays?source=...     - Filter by source
  * GET /api/swim/v1/playbook/plays?search=...     - Search play name
@@ -62,10 +63,17 @@ if (!$using_swim && !$conn_sqli) {
     SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
-$id = swim_get_param('id');
+$id   = swim_get_param('id');
+$name = swim_get_param('name');
 
 if ($id) {
     handleGetSingle((int)$id);
+} elseif ($name !== null && $name !== '') {
+    $resolved_id = resolvePlayIdByName(trim($name));
+    if ($resolved_id === null) {
+        SwimResponse::error('Play not found with name: ' . $name, 404, 'NOT_FOUND');
+    }
+    handleGetSingle($resolved_id);
 } else {
     handleGetList();
 }
@@ -801,6 +809,39 @@ function checkIsAdmin(int $cid, $conn): bool {
     $is_admin = $stmt->get_result()->num_rows > 0;
     $stmt->close();
     return $is_admin;
+}
+
+/**
+ * Resolve a play_id from a play name.
+ * Searches SWIM_API first, falls back to MySQL.
+ * Uses case-insensitive exact match against play_name.
+ */
+function resolvePlayIdByName(string $name): ?int {
+    global $conn_swim_api, $conn_sqli, $using_swim;
+
+    if ($using_swim) {
+        $stmt = sqlsrv_query($conn_swim_api,
+            "SELECT play_id FROM dbo.swim_playbook_plays WHERE play_name = ? OR play_name_norm = ?",
+            [$name, strtoupper(str_replace(' ', '_', $name))]
+        );
+        if ($stmt !== false) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+            if ($row) return (int)$row['play_id'];
+        }
+    }
+
+    if ($conn_sqli) {
+        $stmt = $conn_sqli->prepare("SELECT play_id FROM playbook_plays WHERE play_name = ? OR play_name_norm = ? LIMIT 1");
+        $norm = strtoupper(str_replace(' ', '_', $name));
+        $stmt->bind_param('ss', $name, $norm);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($row) return (int)$row['play_id'];
+    }
+
+    return null;
 }
 
 /**

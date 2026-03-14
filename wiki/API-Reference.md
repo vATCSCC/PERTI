@@ -1070,11 +1070,30 @@ Generates a Discord-formatted TMR message following the NTMO Guide template. Ret
 
 ---
 
+## CDR APIs
+
+Coded Departure Route reference data. CDRs are pre-coordinated reroutes between airport pairs used for traffic management.
+
+**Internal Base Path:** None (CDRs are read-only reference data accessed via SWIM API)
+**SWIM API:** `GET /api/swim/v1/routes/cdrs` (public, no auth required) -- see [[SWIM Routes API]]
+
+**Data Source:** FAA NASR `cdrs.csv` (~41,000 routes), stored in `VATSIM_REF.coded_departure_routes` and mirrored to `SWIM_API.swim_coded_departure_routes` daily at 06:00Z.
+
+**Internal GIS Endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/adl/boundaries.php?action=expand_route` | GET | Expand a route string to waypoints + geometry via PostGIS |
+| `/api/data/playbook/analysis.php` | GET | Route analysis with facility traversal and time segments |
+
+---
+
 ## Playbook APIs (v18)
 
 Pre-coordinated route play catalog management. Playbook plays define route sets for common traffic management scenarios (weather reroutes, volume management, etc.).
 
 **Base Path:** `/api/data/playbook/` (read) and `/api/mgt/playbook/` (write)
+**SWIM API:** `GET /api/swim/v1/playbook/plays` (public), `GET /api/swim/v1/playbook/analysis` (auth required), `GET/POST /api/swim/v1/playbook/throughput` (auth required) -- see [[SWIM Routes API]]
 
 ### Read Endpoints
 
@@ -1084,6 +1103,7 @@ Pre-coordinated route play catalog management. Playbook plays define route sets 
 | `/api/data/playbook/get.php` | GET | Get single play with routes |
 | `/api/data/playbook/categories.php` | GET | List distinct categories |
 | `/api/data/playbook/changelog.php` | GET | Playbook audit trail |
+| `/api/data/playbook/analysis.php` | GET | Route analysis (facility traversal, distance, time segments) |
 
 #### GET /api/data/playbook/list.php
 
@@ -1097,6 +1117,9 @@ Returns all playbook plays with filtering options.
 | `category` | string | Filter by category |
 | `status` | string | Filter by status: `active`, `draft`, `archived` |
 | `search` | string | Search play name, display name, or description |
+| `artcc` | string | Filter by ARTCC in facilities_involved |
+| `page` | int | Page number (default 1) |
+| `per_page` | int | Results per page (default 200, max 10000) |
 | `include_legacy` | bool | Include archived/legacy plays (default: false) |
 
 #### GET /api/data/playbook/get.php
@@ -1140,6 +1163,24 @@ Returns a single play with all routes.
   }
 }
 ```
+
+#### GET /api/data/playbook/analysis.php
+
+Computes facility traversal, distances, and time segments for a route using PostGIS.
+
+**Access:** Public
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `route_id` | int | Playbook route ID |
+| `route_string` | string | Route string (requires `origin` + `dest`) |
+| `origin` | string | Origin airport ICAO |
+| `dest` | string | Destination airport ICAO |
+| `climb_kts` | int | Climb speed TAS (default 280) |
+| `cruise_kts` | int | Cruise speed TAS (default 460) |
+| `descent_kts` | int | Descent speed TAS (default 250) |
+| `wind_component_kts` | int | Wind component (positive=headwind, default 0) |
+| `facility_types` | string | Facility types to include (default `ARTCC,FIR`) |
 
 ### Write Endpoints
 

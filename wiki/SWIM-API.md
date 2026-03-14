@@ -375,7 +375,7 @@ curl -H "Authorization: Bearer YOUR_KEY" \
 
 ### Routes & Playbook
 
-These endpoints provide reference route data from FAA/NASR sources, reimported daily at 06:00Z. Both are **public** (no auth required).
+Reference route data served from the isolated `SWIM_API` database, reimported daily at 06:00Z. CDR and playbook list/detail endpoints are **public**; analysis and throughput require an API key.
 
 For full documentation, parameters, response schemas, geometry support, and use cases, see **[[SWIM Routes API]]**.
 
@@ -398,13 +398,14 @@ curl "https://perti.vatcscc.org/api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD&pe
 
 #### GET /playbook/plays
 
-National Playbook plays (~1,800 plays, ~56,000 routes). Operates in list mode (metadata only) or single-play mode (`?id=X` for full routes with scope and traversal).
+National Playbook plays (~3,800 plays, ~268,000 routes). Operates in list mode (metadata only) or single-play mode (`?id=X` or `?name=PLAY_NAME` for full routes with scope and traversal).
 
 **Auth**: Public (no auth required)
 
 | Key Parameters | |
 |---|---|
 | `id` | Single play by ID (enables full route detail) |
+| `name` | Single play by name (alternative to `id`) |
 | `category` | FAA category filter |
 | `artcc` | ARTCC filter |
 | `search` | Free-text search |
@@ -413,6 +414,25 @@ National Playbook plays (~1,800 plays, ~56,000 routes). Operates in list mode (m
 ```bash
 curl "https://perti.vatcscc.org/api/swim/v1/playbook/plays?search=ORD+EAST&per_page=5"
 ```
+
+#### GET /playbook/analysis
+
+Route facility traversal, distances, and time segments via PostGIS spatial analysis.
+
+**Auth**: Required (read-only)
+
+| Key Parameters | |
+|---|---|
+| `route_id` | Playbook route ID |
+| `route_string` | Route string (with `origin` + `dest`) |
+| `cruise_kts` | Cruise speed in knots TAS (default 460) |
+| `facility_types` | Facility types to include (default `ARTCC,FIR`) |
+
+#### GET/POST /playbook/throughput
+
+CTP route throughput data. GET retrieves; POST ingests per-route metrics.
+
+**Auth**: Required (read for GET, write for POST)
 
 ---
 

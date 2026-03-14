@@ -295,36 +295,55 @@ DCC plays can be expanded and visualized on the Route Plotter (`route.php`):
 
 ## API Endpoints
 
-### Read Endpoints
+### Internal (PERTI) Read Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/data/playbook/list.php` | GET | List plays with filtering (category, status, source, search, artcc, pagination) |
-| `/api/data/playbook/get.php` | GET | Get single play with routes (by `id` or `name`) |
-| `/api/data/playbook/categories.php` | GET | Distinct categories with counts, plus available sources |
-| `/api/data/playbook/changelog.php` | GET | Playbook audit trail |
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/data/playbook/list.php` | GET | Session | List plays with filtering (category, status, source, search, artcc, pagination) |
+| `/api/data/playbook/get.php` | GET | Session | Get single play with routes (by `id` or `name`) |
+| `/api/data/playbook/categories.php` | GET | None | Distinct categories with counts, plus available sources |
+| `/api/data/playbook/changelog.php` | GET | Session | Playbook audit trail |
+| `/api/data/playbook/analysis.php` | GET | None | Route analysis (facility traversal, distance, time segments via PostGIS) |
 
-### Write Endpoints
+### Internal (PERTI) Write Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/mgt/playbook/save.php` | POST | Create or update play with routes |
-| `/api/mgt/playbook/delete.php` | POST | Delete play (CASCADE to routes) |
-| `/api/mgt/playbook/route.php` | POST/DELETE | Add or remove individual routes |
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/mgt/playbook/save.php` | POST | Session | Create or update play with routes |
+| `/api/mgt/playbook/delete.php` | POST | Session | Delete play (CASCADE to routes) |
+| `/api/mgt/playbook/route.php` | POST/DELETE | Session | Add or remove individual routes |
 
-See [[API Reference]] for full endpoint documentation.
+### SWIM API (External) Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/api/swim/v1/playbook/plays` | GET | Public | List plays or get single play by `id` or `name` (serves from SWIM_API mirror) |
+| `/api/swim/v1/playbook/analysis` | GET | API Key | Route analysis (proxies to internal analysis API) |
+| `/api/swim/v1/playbook/throughput` | GET/POST | API Key | CTP route throughput data |
+| `/api/swim/v1/routes/cdrs` | GET | Public | Coded Departure Routes (~41K routes, serves from SWIM_API mirror) |
+
+See [[API Reference]] for internal endpoint details and [[SWIM Routes API]] for external SWIM endpoint documentation.
 
 ---
 
 ## Database Schema
 
-Playbook tables reside in **perti_site** MySQL:
+Playbook tables reside in **perti_site** MySQL (authoritative source):
 
 | Table | Purpose |
 |-------|---------|
 | `playbook_plays` | Play definitions (name, category, source, scenario, status, org_code) |
 | `playbook_routes` | Routes per play (origin, dest, route string, filters, remarks) |
 | `playbook_changelog` | Audit trail (action, field, old/new values, user, timestamp) |
+
+SWIM API mirrors in **SWIM_API** Azure SQL (isolated external data layer, synced daily at 06:00Z):
+
+| Table | Purpose |
+|-------|---------|
+| `swim_playbook_plays` | Mirror of `playbook_plays` (~3,800 rows) |
+| `swim_playbook_routes` | Mirror of `playbook_routes` (~268,000 rows) |
+| `swim_coded_departure_routes` | Mirror of `coded_departure_routes` from VATSIM_REF (~41,000 rows) |
+| `vw_swim_refdata_sync_status` | Monitoring view (row counts + minutes since last sync) |
 
 ### Key Columns
 
