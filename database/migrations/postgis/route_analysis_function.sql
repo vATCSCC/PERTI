@@ -53,14 +53,14 @@ BEGIN
 
     RETURN QUERY
     WITH boundary_hits AS (
-        -- ARTCC/FIR boundaries
+        -- ARTCC/FIR boundaries (US ARTCCs have Z__ codes like ZDC, ZNY)
         SELECT
             CASE
-                WHEN ab.boundary_type = 'FIR' THEN 'FIR'
-                ELSE 'ARTCC'
+                WHEN ab.artcc_code ~ '^Z[A-Z]{2}$' THEN 'ARTCC'
+                ELSE 'FIR'
             END AS ftype,
-            ab.boundary_id::text AS fid,
-            ab.boundary_name AS fname,
+            ab.artcc_code::text AS fid,
+            ab.fir_name::text AS fname,
             ST_Intersection(p_route_geom, ab.geom) AS intersection_geom
         FROM artcc_boundaries ab
         WHERE ('ARTCC' = ANY(p_facility_types) OR 'FIR' = ANY(p_facility_types))
@@ -72,8 +72,8 @@ BEGIN
         -- TRACON boundaries
         SELECT
             'TRACON'::text AS ftype,
-            tb.tracon_id::text AS fid,
-            tb.tracon_name AS fname,
+            tb.tracon_code::text AS fid,
+            tb.tracon_name::text AS fname,
             ST_Intersection(p_route_geom, tb.geom) AS intersection_geom
         FROM tracon_boundaries tb
         WHERE 'TRACON' = ANY(p_facility_types)
@@ -147,7 +147,7 @@ BEGIN
 
     -- Optionally prepend origin airport
     IF p_origin_icao IS NOT NULL THEN
-        SELECT geom INTO v_pt FROM airports WHERE icao_code = UPPER(p_origin_icao) LIMIT 1;
+        SELECT geom INTO v_pt FROM airports WHERE icao_id = UPPER(p_origin_icao) LIMIT 1;
         IF v_pt IS NOT NULL THEN
             v_points := ARRAY[v_pt];
         ELSE
@@ -176,7 +176,7 @@ BEGIN
 
         -- Try airports if not found in fixes
         IF v_pt IS NULL THEN
-            SELECT geom INTO v_pt FROM airports WHERE icao_code = v_fix LIMIT 1;
+            SELECT geom INTO v_pt FROM airports WHERE icao_id = v_fix LIMIT 1;
         END IF;
 
         IF v_pt IS NOT NULL THEN
@@ -186,7 +186,7 @@ BEGIN
 
     -- Optionally append destination airport
     IF p_dest_icao IS NOT NULL THEN
-        SELECT geom INTO v_pt FROM airports WHERE icao_code = UPPER(p_dest_icao) LIMIT 1;
+        SELECT geom INTO v_pt FROM airports WHERE icao_id = UPPER(p_dest_icao) LIMIT 1;
         IF v_pt IS NOT NULL THEN
             v_points := array_append(v_points, v_pt);
         END IF;

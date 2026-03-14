@@ -89,81 +89,121 @@ if (empty($route_string)) {
     exit;
 }
 
-// Get PostGIS connection
-$conn_gis = get_conn_gis();
-if (!$conn_gis) {
-    http_response_code(503);
-    echo json_encode(['status' => 'error', 'message' => 'GIS connection unavailable']);
-    exit;
+// Cache key based on spatial query params (speed/wind are just math, not cached)
+$cache_key = md5($route_string . '|' . $origin . '|' . $dest . '|' . $facility_types_str);
+$cache_dir = sys_get_temp_dir() . '/route_analysis_cache';
+$cache_file = $cache_dir . '/' . $cache_key . '.json';
+$cache_ttl = 86400; // 24 hours
+$cached = false;
+
+if (is_file($cache_file) && (time() - filemtime($cache_file)) < $cache_ttl) {
+    $cache_data = json_decode(file_get_contents($cache_file), true);
+    if ($cache_data && isset($cache_data['route_wkt'])) {
+        $route_wkt      = $cache_data['route_wkt'];
+        $total_dist_nm  = $cache_data['total_dist_nm'];
+        $waypoints_raw  = $cache_data['waypoints_raw'];
+        $traversal_raw  = $cache_data['traversal_raw'];
+        $cached = true;
+    }
 }
 
-// Step 1: Build route LINESTRING from route string
-$ls_sql = "SELECT ST_AsText(route_string_to_linestring(:route, :origin, :dest)) AS route_wkt,
-                  ST_Length(route_string_to_linestring(:route2, :origin2, :dest2)::geography) / 1852.0 AS total_dist_nm";
-$ls_stmt = $conn_gis->prepare($ls_sql);
-$ls_stmt->execute([
-    ':route'   => $route_string,
-    ':origin'  => $origin ?: null,
-    ':dest'    => $dest ?: null,
-    ':route2'  => $route_string,
-    ':origin2' => $origin ?: null,
-    ':dest2'   => $dest ?: null,
-]);
-$ls_row = $ls_stmt->fetch(\PDO::FETCH_ASSOC);
+if (!$cached) {
+    // Get PostGIS connection
+    $conn_gis = get_conn_gis();
+    if (!$conn_gis) {
+        http_response_code(503);
+        echo json_encode(['status' => 'error', 'message' => 'GIS connection unavailable']);
+        exit;
+    }
 
-if (!$ls_row || empty($ls_row['route_wkt'])) {
-    http_response_code(422);
-    echo json_encode([
-        'status'  => 'error',
-        'message' => 'Could not resolve route string to geometry. Ensure fixes are valid.'
+    try {
+
+    // Step 1: Build route LINESTRING from route string
+    $ls_sql = "SELECT ST_AsText(route_string_to_linestring(:route, :origin, :dest)) AS route_wkt,
+                      ST_Length(route_string_to_linestring(:route2, :origin2, :dest2)::geography) / 1852.0 AS total_dist_nm";
+    $ls_stmt = $conn_gis->prepare($ls_sql);
+    $ls_stmt->execute([
+        ':route'   => $route_string,
+        ':origin'  => $origin ?: null,
+        ':dest'    => $dest ?: null,
+        ':route2'  => $route_string,
+        ':origin2' => $origin ?: null,
+        ':dest2'   => $dest ?: null,
     ]);
-    exit;
+    $ls_row = $ls_stmt->fetch(\PDO::FETCH_ASSOC);
+
+    if (!$ls_row || empty($ls_row['route_wkt'])) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 'error',
+            'message' => 'Could not resolve route string to geometry. Ensure fixes are valid.'
+        ]);
+        exit;
+    }
+
+    $route_wkt    = $ls_row['route_wkt'];
+    $total_dist_nm = round((float)$ls_row['total_dist_nm'], 1);
+
+    // Step 2: Get waypoints along the route with their positions
+    $wp_sql = "WITH route AS (
+                   SELECT route_string_to_linestring(:route, :origin, :dest) AS geom
+               ),
+               fixes AS (
+                   SELECT unnest(regexp_split_to_array(TRIM(:route2), '\s+')) AS fix_name
+               ),
+               located AS (
+                   SELECT
+                       f.fix_name,
+                       ST_Y(nf.geom) AS lat,
+                       ST_X(nf.geom) AS lon,
+                       ST_LineLocatePoint(r.geom, nf.geom) AS fraction
+                   FROM fixes f
+                   JOIN nav_fixes nf ON UPPER(f.fix_name) = nf.fix_name
+                   CROSS JOIN route r
+                   WHERE nf.geom IS NOT NULL
+                     AND ST_DWithin(r.geom, nf.geom, 0.5)
+               )
+               SELECT fix_name, lat, lon, fraction
+               FROM located
+               ORDER BY fraction ASC";
+
+    $wp_stmt = $conn_gis->prepare($wp_sql);
+    $wp_stmt->execute([
+        ':route'  => $route_string,
+        ':origin' => $origin ?: null,
+        ':dest'   => $dest ?: null,
+        ':route2' => $route_string,
+    ]);
+    $waypoints_raw = $wp_stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+    // Step 3: Facility traversal analysis
+    $ft_types_pg = '{' . implode(',', $facility_types) . '}';
+    $ft_sql = "SELECT * FROM analyze_route_traversal(
+                   ST_GeomFromText(:wkt, 4326),
+                   :types::text[]
+               )";
+    $ft_stmt = $conn_gis->prepare($ft_sql);
+    $ft_stmt->execute([':wkt' => $route_wkt, ':types' => $ft_types_pg]);
+    $traversal_raw = $ft_stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+    } catch (PDOException $e) {
+        error_log("Route analysis GIS error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => 'GIS query failed: ' . $e->getMessage()]);
+        exit;
+    }
+
+    // Write cache
+    if (!is_dir($cache_dir)) {
+        @mkdir($cache_dir, 0755, true);
+    }
+    @file_put_contents($cache_file, json_encode([
+        'route_wkt'     => $route_wkt,
+        'total_dist_nm' => $total_dist_nm,
+        'waypoints_raw' => $waypoints_raw,
+        'traversal_raw' => $traversal_raw,
+    ]));
 }
-
-$route_wkt    = $ls_row['route_wkt'];
-$total_dist_nm = round((float)$ls_row['total_dist_nm'], 1);
-
-// Step 2: Get waypoints along the route with their positions
-$wp_sql = "WITH route AS (
-               SELECT route_string_to_linestring(:route, :origin, :dest) AS geom
-           ),
-           fixes AS (
-               SELECT unnest(regexp_split_to_array(TRIM(:route2), '\s+')) AS fix_name
-           ),
-           located AS (
-               SELECT
-                   f.fix_name,
-                   nf.latitude AS lat,
-                   nf.longitude AS lon,
-                   ST_LineLocatePoint(r.geom, nf.geom) AS fraction
-               FROM fixes f
-               JOIN nav_fixes nf ON UPPER(f.fix_name) = nf.fix_name
-               CROSS JOIN route r
-               WHERE nf.geom IS NOT NULL
-                 AND ST_DWithin(r.geom, nf.geom, 0.5)
-           )
-           SELECT fix_name, lat, lon, fraction
-           FROM located
-           ORDER BY fraction ASC";
-
-$wp_stmt = $conn_gis->prepare($wp_sql);
-$wp_stmt->execute([
-    ':route'  => $route_string,
-    ':origin' => $origin ?: null,
-    ':dest'   => $dest ?: null,
-    ':route2' => $route_string,
-]);
-$waypoints_raw = $wp_stmt->fetchAll(\PDO::FETCH_ASSOC);
-
-// Step 3: Facility traversal analysis
-$ft_types_pg = '{' . implode(',', $facility_types) . '}';
-$ft_sql = "SELECT * FROM analyze_route_traversal(
-               ST_GeomFromText(:wkt, 4326),
-               :types::text[]
-           )";
-$ft_stmt = $conn_gis->prepare($ft_sql);
-$ft_stmt->execute([':wkt' => $route_wkt, ':types' => $ft_types_pg]);
-$traversal_raw = $ft_stmt->fetchAll(\PDO::FETCH_ASSOC);
 
 // Step 4: Apply speed model to compute times
 // Simple 3-phase model: climb (first 50nm), cruise (middle), descent (last 40nm)
@@ -287,6 +327,7 @@ echo json_encode([
     'wind_profile' => [
         'component_kts' => $wind_kts,
     ],
+    'cached'             => $cached,
     'waypoints'          => $waypoints,
     'facility_traversal' => $traversal,
     'fix_analysis'       => $fix_analysis,

@@ -196,7 +196,7 @@ function swim_detectPositionUpdates($conn, string $lastRefresh): array
         JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid
         JOIN dbo.adl_flight_plan p ON p.flight_uid = c.flight_uid
         WHERE c.is_active = 1
-          AND pos.updated_at > ?
+          AND pos.position_updated_utc > ?
           AND pos.lat IS NOT NULL
     ";
     
