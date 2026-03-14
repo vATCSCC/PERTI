@@ -2407,18 +2407,6 @@ components:
         sort_order:
           type: integer
 
-    Pagination:
-      type: object
-      properties:
-        page:
-          type: integer
-        per_page:
-          type: integer
-        total:
-          type: integer
-        total_pages:
-          type: integer
-
     ErrorResponse:
       type: object
       required:
