@@ -251,6 +251,7 @@ $(document).ready(function() {
     let routeFixesByRouteId = {};        // Map routeId -> array of fix features
     let routeStringByRouteId = {};       // Map routeId -> { routeString, color }
     let currentRouteId = 0;              // Counter for unique route IDs
+    let activeRoutePopup = null;         // Track single active popup to prevent stacking
 
     // Phase 5: Draggable label support
     let labelOffsets = {};               // Map "fixName|routeId" -> {dx, dy} offset in pixels
@@ -2594,10 +2595,13 @@ $(document).ready(function() {
                 }
             }
 
+            let routeProcInfo = null;
             if (typeof preprocessRouteProcedures === 'function') {
-                const procInfo = preprocessRouteProcedures(tokens);
-                if (procInfo && procInfo.tokens) {tokens = procInfo.tokens;}
+                routeProcInfo = preprocessRouteProcedures(tokens);
+                if (routeProcInfo && routeProcInfo.tokens) {tokens = routeProcInfo.tokens;}
             }
+            routeStringByRouteId[thisRouteId].procInfo = routeProcInfo || null;
+            routeStringByRouteId[thisRouteId].originalTokens = tokens.slice();
             if (typeof expandRouteProcedures === 'function') {
                 const expanded = expandRouteProcedures(tokens, currentSolidMask);
                 if (expanded && expanded.tokens) {
@@ -2645,6 +2649,9 @@ $(document).ready(function() {
                     }
                 }
             }
+
+            routeStringByRouteId[thisRouteId].expandedTokens = expandedTokens.slice();
+            routeStringByRouteId[thisRouteId].expandedToOriginalIdx = expandedToOriginalIdx.slice();
 
             const solidExpanded = expandedTokens.map((_, t) => {
                 const oi = expandedToOriginalIdx[t];
@@ -2761,7 +2768,7 @@ $(document).ready(function() {
                 for (let i = 0; i < firstNavIndex; i++) {
                     const ap = routePoints[i];
                     if (String(ap[0]).toUpperCase() === 'UNKN') {continue;}
-                    addSegmentFeature(routeFeatures, [[ap[2], ap[1]], [firstNav[2], firstNav[1]]], routeColor, false, true, thisRouteId, ap[0], firstNav[0]);
+                    addSegmentFeature(routeFeatures, [[ap[2], ap[1]], [firstNav[2], firstNav[1]]], routeColor, false, true, thisRouteId, ap[0], firstNav[0], getSegmentAttribution(thisRouteId, ap[0], firstNav[0]));
                 }
 
                 if (lastNavIndex > firstNavIndex) {
@@ -2769,14 +2776,14 @@ $(document).ready(function() {
                         const from = routePoints[i], to = routePoints[i + 1];
                         const idxFrom = routeExpandedIndex[i], idxTo = routeExpandedIndex[i + 1];
                         const segSolid = solidExpanded[idxFrom] && solidExpanded[idxTo];
-                        addSegmentFeature(routeFeatures, [[from[2], from[1]], [to[2], to[1]]], routeColor, segSolid, false, thisRouteId, from[0], to[0]);
+                        addSegmentFeature(routeFeatures, [[from[2], from[1]], [to[2], to[1]]], routeColor, segSolid, false, thisRouteId, from[0], to[0], getSegmentAttribution(thisRouteId, from[0], to[0]));
                     }
                 }
 
                 for (let i = lastNavIndex + 1; i < nPoints; i++) {
                     const ap = routePoints[i];
                     if (String(ap[0]).toUpperCase() === 'UNKN') {continue;}
-                    addSegmentFeature(routeFeatures, [[lastNav[2], lastNav[1]], [ap[2], ap[1]]], routeColor, false, true, thisRouteId, lastNav[0], ap[0]);
+                    addSegmentFeature(routeFeatures, [[lastNav[2], lastNav[1]], [ap[2], ap[1]]], routeColor, false, true, thisRouteId, lastNav[0], ap[0], getSegmentAttribution(thisRouteId, lastNav[0], ap[0]));
                 }
             } else {
                 for (let i = 0; i < nPoints - 1; i++) {
@@ -2784,7 +2791,7 @@ $(document).ready(function() {
                     if (String(from[0]).toUpperCase() === 'UNKN' || String(to[0]).toUpperCase() === 'UNKN') {continue;}
                     const idxFrom = routeExpandedIndex[i], idxTo = routeExpandedIndex[i + 1];
                     const segSolid = solidExpanded[idxFrom] && solidExpanded[idxTo];
-                    addSegmentFeature(routeFeatures, [[from[2], from[1]], [to[2], to[1]]], routeColor, segSolid, false, thisRouteId, from[0], to[0]);
+                    addSegmentFeature(routeFeatures, [[from[2], from[1]], [to[2], to[1]]], routeColor, segSolid, false, thisRouteId, from[0], to[0], getSegmentAttribution(thisRouteId, from[0], to[0]));
                 }
             }
 
@@ -2950,7 +2957,7 @@ $(document).ready(function() {
         }
     }
 
-    function addSegmentFeature(features, coords, color, solid, isFan, routeId, fromFix, toFix) {
+    function addSegmentFeature(features, coords, color, solid, isFan, routeId, fromFix, toFix, segMeta) {
         // Validate all coordinate pairs contain finite numbers
         for (let ci = 0; ci < coords.length; ci++) {
             if (!coords[ci] || !isFinite(coords[ci][0]) || !isFinite(coords[ci][1])) {return;}
@@ -2992,9 +2999,70 @@ $(document).ready(function() {
                 toFix: toFix || '',
                 distance: segmentDistance,
                 routeString: (routeStringByRouteId[routeId] || {}).routeString || '',
+                airway: (segMeta && segMeta.airway) || '',
+                procedure: (segMeta && segMeta.procedure) || '',
+                procedureType: (segMeta && segMeta.procedureType) || '',
             },
             geometry: { type: 'LineString', coordinates: coords },
         });
+    }
+
+    function getSegmentAttribution(routeId, fromFix, toFix) {
+        const meta = routeStringByRouteId[routeId];
+        if (!meta || !meta.expandedToOriginalIdx) return {};
+
+        const eidx = meta.expandedToOriginalIdx;
+        const origTokens = meta.originalTokens || [];
+        const expTokens = meta.expandedTokens || [];
+
+        // Find fromFix and toFix indices in expanded tokens
+        let fromIdx = -1, toIdx = -1;
+        for (let i = 0; i < expTokens.length; i++) {
+            if (expTokens[i] === fromFix && fromIdx === -1) fromIdx = i;
+            if (expTokens[i] === toFix) toIdx = i;
+        }
+        if (fromIdx === -1 || toIdx === -1) return {};
+
+        // Check if segment fixes are in an airway expansion range
+        if (eidx[fromIdx] === null || eidx[toIdx] === null) {
+            // Find nearest non-null indices before and after the run
+            let before = Math.min(fromIdx, toIdx) - 1;
+            while (before >= 0 && eidx[before] === null) before--;
+            let after = Math.max(fromIdx, toIdx) + 1;
+            while (after < eidx.length && eidx[after] === null) after++;
+
+            if (before >= 0 && after < eidx.length) {
+                const origBefore = eidx[before];
+                const origAfter = eidx[after];
+                if (origBefore !== null && origAfter !== null && origAfter - origBefore === 2) {
+                    const awyToken = origTokens[origBefore + 1];
+                    if (awyToken && typeof awyIndexMap !== 'undefined' && awyIndexMap[awyToken]) {
+                        return { airway: awyToken };
+                    }
+                }
+            }
+        }
+
+        // Check procedure attribution
+        const procInfo = meta.procInfo;
+        if (procInfo) {
+            if (procInfo.dpInfo && procInfo.dpInfo.records) {
+                const dpFixes = procInfo.dpInfo.records.map(r => r.fix_name || r.fixName || '');
+                if (dpFixes.includes(fromFix) || dpFixes.includes(toFix)) {
+                    const procName = procInfo.dpInfo.dpCode || procInfo.dpInfo.transCode || '';
+                    return { procedure: procName, procedureType: 'DP' };
+                }
+            }
+            if (procInfo.starInfo && procInfo.starInfo.records) {
+                const starFixes = procInfo.starInfo.records.map(r => r.fix_name || r.fixName || '');
+                if (starFixes.includes(fromFix) || starFixes.includes(toFix)) {
+                    const procName = procInfo.starInfo.starCode || procInfo.starInfo.transCode || '';
+                    return { procedure: procName, procedureType: 'STAR' };
+                }
+            }
+        }
+
+        return {};
     }
 
     function resolveVariantFixes(variant) {
@@ -3187,10 +3255,13 @@ $(document).ready(function() {
                 </div>
             `;
 
+            if (activeRoutePopup) { activeRoutePopup.remove(); }
             const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: true })
                 .setLngLat(lngLat)
                 .setHTML(content)
                 .addTo(graphic_map);
+            activeRoutePopup = popup;
+            popup.on('close', () => { if (activeRoutePopup === popup) activeRoutePopup = null; });
 
             // Bind button handlers after popup is added to DOM
             setTimeout(() => {
@@ -3275,31 +3346,31 @@ $(document).ready(function() {
                     </div>
                     ${options}
                     <div style="font-size: 9px; color: var(--dark-text-subtle); padding: 4px 8px; text-align: center;">
-                        ${PERTII18n.t('route.routePicker.clickToToggleLabels')}
+                        ${PERTII18n.t('route.routePicker.clickToSelect')}
                     </div>
                 </div>
             `;
 
+            if (activeRoutePopup) { activeRoutePopup.remove(); }
             const popup = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '300px' })
                 .setLngLat(lngLat)
                 .setHTML(content)
                 .addTo(graphic_map);
+            activeRoutePopup = popup;
+            popup.on('close', () => { if (activeRoutePopup === popup) activeRoutePopup = null; });
 
-            // Add click handlers to options
+            // Build a lookup from routeId -> props for use in click handler
+            const routePropsMap = {};
+            routes.forEach(([routeId, props]) => { routePropsMap[routeId] = props; });
+
+            // Add click handlers to options — clicking shows route interaction popup
             setTimeout(() => {
                 document.querySelectorAll('.route-picker-option').forEach(el => {
                     el.addEventListener('click', function() {
                         const routeId = parseInt(this.dataset.routeId);
-                        const color = this.dataset.color;
-                        toggleRouteLabelsForRoute(routeId, color);
-
-                        // Update the eye icon
-                        const isNowVisible = routeLabelsVisible.has(routeId);
-                        const eyeIcon = this.querySelector('.route-picker-eye');
-                        if (eyeIcon) {
-                            eyeIcon.classList.remove('fa-eye', 'fa-eye-slash');
-                            eyeIcon.classList.add(isNowVisible ? 'fa-eye' : 'fa-eye-slash');
-                        }
+                        const rProps = routePropsMap[routeId] || { color: this.dataset.color };
+                        popup.remove();
+                        showRoutePopupAndToggle(lngLat, routeId, rProps);
                     });
                 });
             }, 50);
@@ -8136,6 +8207,49 @@ $(document).ready(function() {
             routes.push(routeMeta);
         });
 
+        // Enrich routes with facility data
+        routes.forEach(routeMeta => {
+            // For playbook routes, look up facility data from playbookByPlayName
+            if (routeMeta.playbookName && typeof playbookByPlayName !== 'undefined') {
+                const key = typeof normalizePlayName === 'function' ? normalizePlayName(routeMeta.playbookName) : routeMeta.playbookName.toUpperCase();
+                const pbEntries = playbookByPlayName[key] || [];
+                if (pbEntries.length > 0) {
+                    // Match by route string
+                    const rStr = (routeMeta.routeString || '').toUpperCase();
+                    const match = pbEntries.find(e => (e.routeString || '').toUpperCase() === rStr) || pbEntries[0];
+                    if (match) {
+                        routeMeta.originTracons = (match.originTracons || []).join(',');
+                        routeMeta.originArtccs = (match.originArtccs || []).join(',');
+                        routeMeta.destTracons = (match.destTracons || []).join(',');
+                        routeMeta.destArtccs = (match.destArtccs || []).join(',');
+                        routeMeta.facilitiesTraversed = (match.traversedArtccs || []).join(',');
+                    }
+                }
+            }
+
+            // For non-playbook routes, use FacilityHierarchy
+            if (!routeMeta.originArtccs && typeof FacilityHierarchy !== 'undefined') {
+                const oArtccs = new Set(), oTracons = new Set();
+                const dArtccs = new Set(), dTracons = new Set();
+                (routeMeta.origins || []).forEach(apt => {
+                    const artcc = FacilityHierarchy.getParentArtcc(apt);
+                    if (artcc) oArtccs.add(artcc);
+                    const tracon = FacilityHierarchy.getTracon ? FacilityHierarchy.getTracon(apt) : null;
+                    if (tracon) oTracons.add(tracon);
+                });
+                (routeMeta.destinations || []).forEach(apt => {
+                    const artcc = FacilityHierarchy.getParentArtcc(apt);
+                    if (artcc) dArtccs.add(artcc);
+                    const tracon = FacilityHierarchy.getTracon ? FacilityHierarchy.getTracon(apt) : null;
+                    if (tracon) dTracons.add(tracon);
+                });
+                routeMeta.originArtccs = [...oArtccs].join(',');
+                routeMeta.originTracons = [...oTracons].join(',');
+                routeMeta.destArtccs = [...dArtccs].join(',');
+                routeMeta.destTracons = [...dTracons].join(',');
+            }
+        });
+
         // Collect GeoJSON features from map sources
         let routeFeatures = [];
         let fixFeatures = [];
@@ -8164,6 +8278,30 @@ $(document).ready(function() {
         };
 
         return lastExportData;
+    }
+
+    function generateRouteName(origins, destinations, dp, star, body) {
+        const orig = (origins || []).join('/');
+        const dest = (destinations || []).join('/');
+        if (!orig && !dest) return '';
+
+        let name = orig + '-' + dest;
+
+        const keyElements = [];
+        if (dp) keyElements.push(dp);
+
+        const bodyTokens = (body || '').split(/\s+/).filter(t => t);
+        bodyTokens.forEach(t => {
+            if (/^[JQTV]\d+$/.test(t) || /^U[A-Z]\d+$/.test(t) || /^NAT[A-Z]$/.test(t)) keyElements.push(t);
+        });
+
+        if (star) keyElements.push(star);
+
+        if (keyElements.length > 0) {
+            name += '_' + keyElements.slice(0, 4).join('_');
+        }
+
+        return name;
     }
 
     /**
@@ -8234,32 +8372,39 @@ $(document).ready(function() {
         const endIdx = tokens.length - destinations.length;
         routeBody = tokens.slice(startIdx, endIdx);
 
-        // Detect DP/STAR
+        // Detect DP/STAR using CIFP procedure database
         let departureProc = null;
         let departureTransition = null;
         let arrivalProc = null;
         let arrivalTransition = null;
 
-        tokens.forEach(tok => {
-            // DP pattern: NAME#.TRANSITION or TRANSITION.NAME#
-            const dpMatch = tok.match(/^([A-Z]{4,5}\d)\.([A-Z]{3,5})$/) || tok.match(/^([A-Z]{3,5})\.([A-Z]{4,5}\d)$/);
-            if (dpMatch) {
-                if (tok.includes('#') || /\d$/.test(tok.split('.')[0])) {
-                    // Likely a DP
-                    if (!departureProc) {
-                        departureProc = dpMatch[1];
-                        departureTransition = dpMatch[2];
+        if (typeof preprocessRouteProcedures === 'function') {
+            try {
+                const procInfo = preprocessRouteProcedures(tokens);
+                if (procInfo) {
+                    if (procInfo.dpInfo) {
+                        const tc = procInfo.dpInfo.transCode || procInfo.dpInfo.dpCode || '';
+                        if (tc.includes('.')) {
+                            const parts = tc.split('.');
+                            departureProc = parts[0];
+                            departureTransition = parts[1];
+                        } else {
+                            departureProc = tc;
+                        }
+                    }
+                    if (procInfo.starInfo) {
+                        const tc = procInfo.starInfo.transCode || procInfo.starInfo.starCode || '';
+                        if (tc.includes('.')) {
+                            const parts = tc.split('.');
+                            arrivalTransition = parts[0];
+                            arrivalProc = parts[1];
+                        } else {
+                            arrivalProc = tc;
+                        }
                     }
                 }
-            }
-
-            // STAR pattern: FIX.STAR#
-            const starMatch = tok.match(/^([A-Z]{3,5})\.([A-Z]{4,5}\d?)#?$/);
-            if (starMatch && tok.includes('#')) {
-                arrivalTransition = starMatch[1];
-                arrivalProc = starMatch[2];
-            }
-        });
+            } catch (e) { /* preprocessRouteProcedures not available or failed */ }
+        }
 
         // Get expanded route
         let expandedRoute = cleanRoute;
@@ -8282,6 +8427,7 @@ $(document).ready(function() {
             originalString: routeString,
             routeString: cleanRoute,
             expandedRouteString: expandedRoute,
+            fullRouteString: routeText,
             color: color,
             origins: origins,
             destinations: destinations,
@@ -8298,6 +8444,12 @@ $(document).ready(function() {
             cdrCode: null,
             natExpanded: natExpanded,
             isMandatory: false,
+            routeName: generateRouteName(origins, destinations, departureProc, arrivalProc, routeBody.join(' ')),
+            originTracons: '',
+            originArtccs: '',
+            destTracons: '',
+            destArtccs: '',
+            facilitiesTraversed: '',
         };
     }
 
@@ -8508,26 +8660,83 @@ $(document).ready(function() {
                 properties: {
                     featureType: 'route_segment',
                     routeId: routeId,
+                    routeName: routeMeta.routeName || '',
                     fromFix: props.fromFix || '',
                     toFix: props.toFix || '',
                     color: props.color || '',
                     solid: props.solid || false,
                     isFan: props.isFan || false,
                     distance_nm: props.distance || 0,
+                    airway: props.airway || '',
+                    procedure: props.procedure || '',
+                    procedureType: props.procedureType || '',
                     groupName: routeMeta.groupName || '',
                     playbookName: routeMeta.playbookName || '',
                     cdrCode: routeMeta.cdrCode || '',
                     origins: (routeMeta.origins || []).join('/'),
                     destinations: (routeMeta.destinations || []).join('/'),
                     routeString: routeMeta.routeString || '',
+                    fullRouteString: routeMeta.fullRouteString || '',
                     expandedRouteString: routeMeta.expandedRouteString || '',
                     departureProc: routeMeta.departureProc || '',
                     departureTransition: routeMeta.departureTransition || '',
                     arrivalProc: routeMeta.arrivalProc || '',
                     arrivalTransition: routeMeta.arrivalTransition || '',
+                    originTracons: routeMeta.originTracons || '',
+                    originArtccs: routeMeta.originArtccs || '',
+                    destTracons: routeMeta.destTracons || '',
+                    destArtccs: routeMeta.destArtccs || '',
+                    facilitiesTraversed: routeMeta.facilitiesTraversed || '',
                     isMandatory: routeMeta.isMandatory || false,
                 },
                 geometry: feat.geometry,
+            });
+        });
+
+        // Add full route features (MultiLineString per route)
+        const routeGroupedCoords = {};
+        data.routeFeatures.forEach(feat => {
+            const rid = (feat.properties || {}).routeId || 0;
+            if (!routeGroupedCoords[rid]) routeGroupedCoords[rid] = [];
+            if (feat.geometry && feat.geometry.coordinates) {
+                routeGroupedCoords[rid].push(feat.geometry.coordinates);
+            }
+        });
+
+        data.routes.forEach(routeMeta => {
+            const segs = routeGroupedCoords[routeMeta.routeId] || [];
+            if (segs.length === 0) return;
+
+            features.push({
+                type: 'Feature',
+                properties: {
+                    featureType: 'route',
+                    routeId: routeMeta.routeId,
+                    routeName: routeMeta.routeName || '',
+                    routeString: routeMeta.routeString || '',
+                    fullRouteString: routeMeta.fullRouteString || '',
+                    expandedRouteString: routeMeta.expandedRouteString || '',
+                    origins: (routeMeta.origins || []).join('/'),
+                    destinations: (routeMeta.destinations || []).join('/'),
+                    originTracons: routeMeta.originTracons || '',
+                    originArtccs: routeMeta.originArtccs || '',
+                    destTracons: routeMeta.destTracons || '',
+                    destArtccs: routeMeta.destArtccs || '',
+                    facilitiesTraversed: routeMeta.facilitiesTraversed || '',
+                    departureProc: routeMeta.departureProc || '',
+                    departureTransition: routeMeta.departureTransition || '',
+                    arrivalProc: routeMeta.arrivalProc || '',
+                    arrivalTransition: routeMeta.arrivalTransition || '',
+                    groupName: routeMeta.groupName || '',
+                    playbookName: routeMeta.playbookName || '',
+                    cdrCode: routeMeta.cdrCode || '',
+                    color: routeMeta.color || '',
+                    isMandatory: routeMeta.isMandatory || false,
+                },
+                geometry: {
+                    type: 'MultiLineString',
+                    coordinates: segs,
+                },
             });
         });
 
@@ -8552,6 +8761,7 @@ $(document).ready(function() {
             metadata: {
                 exportedAt: data.timestamp,
                 routeCount: data.routes.length,
+                segmentCount: data.routeFeatures.length,
                 source: 'PERTI Route Visualization',
             },
             features: features,
@@ -8605,16 +8815,25 @@ $(document).ready(function() {
             const routeMeta = data.routes.find(r => r.routeId == routeId) || {};
             const routeName = routeMeta.groupName || routeMeta.routeString || `Route ${routeId}`;
 
+            const displayName = routeMeta.routeName || routeName;
+
             kml += `    <Folder>
-        <name>${escapeXml(routeName)}</name>
+        <name>${escapeXml(displayName)}</name>
         <description><![CDATA[
 Route ID: ${routeId}
+Route Name: ${routeMeta.routeName || 'N/A'}
 Group: ${routeMeta.groupName || 'N/A'}
 Playbook: ${routeMeta.playbookName || 'N/A'}
 CDR: ${routeMeta.cdrCode || 'N/A'}
 Origins: ${(routeMeta.origins || []).join(', ') || 'N/A'}
 Destinations: ${(routeMeta.destinations || []).join(', ') || 'N/A'}
+Origin ARTCCs: ${routeMeta.originArtccs || 'N/A'}
+Origin TRACONs: ${routeMeta.originTracons || 'N/A'}
+Dest ARTCCs: ${routeMeta.destArtccs || 'N/A'}
+Dest TRACONs: ${routeMeta.destTracons || 'N/A'}
+Facilities Traversed: ${routeMeta.facilitiesTraversed || 'N/A'}
 Route: ${routeMeta.routeString || 'N/A'}
+Full Route: ${routeMeta.fullRouteString || 'N/A'}
 Expanded: ${routeMeta.expandedRouteString || 'N/A'}
 Departure: ${routeMeta.departureProc || 'N/A'} / ${routeMeta.departureTransition || 'N/A'}
 Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N/A'}
@@ -8635,6 +8854,9 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                 <Data name="distance_nm"><value>${feat.properties.distance || 0}</value></Data>
                 <Data name="solid"><value>${feat.properties.solid || false}</value></Data>
                 <Data name="isFan"><value>${feat.properties.isFan || false}</value></Data>
+                <Data name="airway"><value>${escapeXml(feat.properties.airway || '')}</value></Data>
+                <Data name="procedure"><value>${escapeXml(feat.properties.procedure || '')}</value></Data>
+                <Data name="procedureType"><value>${escapeXml(feat.properties.procedureType || '')}</value></Data>
             </ExtendedData>
             <LineString>
                 <tessellate>1</tessellate>
@@ -8706,23 +8928,33 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                             properties: {
                                 fid: idx + 1,
                                 route_id: routeId,
+                                route_name: routeMeta.routeName || '',
                                 from_fix: feat.properties.fromFix || '',
                                 to_fix: feat.properties.toFix || '',
                                 color: feat.properties.color || '',
                                 is_solid: feat.properties.solid ? 1 : 0,
                                 is_fan: feat.properties.isFan ? 1 : 0,
                                 distance_nm: feat.properties.distance || 0,
+                                airway: feat.properties.airway || '',
+                                procedure: feat.properties.procedure || '',
+                                proc_type: feat.properties.procedureType || '',
                                 group_name: routeMeta.groupName || '',
                                 playbook: routeMeta.playbookName || '',
                                 cdr_code: routeMeta.cdrCode || '',
                                 origins: (routeMeta.origins || []).join('/'),
                                 destinations: (routeMeta.destinations || []).join('/'),
                                 route_str: routeMeta.routeString || '',
+                                full_route: routeMeta.fullRouteString || '',
                                 expanded_str: routeMeta.expandedRouteString || '',
                                 dep_proc: routeMeta.departureProc || '',
                                 dep_trans: routeMeta.departureTransition || '',
                                 arr_proc: routeMeta.arrivalProc || '',
                                 arr_trans: routeMeta.arrivalTransition || '',
+                                orig_tracons: routeMeta.originTracons || '',
+                                orig_artccs: routeMeta.originArtccs || '',
+                                dest_tracons: routeMeta.destTracons || '',
+                                dest_artccs: routeMeta.destArtccs || '',
+                                fac_traversed: routeMeta.facilitiesTraversed || '',
                                 mandatory: routeMeta.isMandatory ? 1 : 0,
                             },
                             geometry: feat.geometry,
@@ -8745,8 +8977,10 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                 routes_meta: data.routes.map((r, idx) => ({
                     fid: idx + 1,
                     route_id: r.routeId,
+                    route_name: r.routeName || '',
                     original_str: r.originalString,
                     route_str: r.routeString,
+                    full_route: r.fullRouteString || '',
                     expanded_str: r.expandedRouteString,
                     color: r.color,
                     group_name: r.groupName,
@@ -8761,6 +8995,11 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                     dep_trans: r.departureTransition,
                     arr_proc: r.arrivalProc,
                     arr_trans: r.arrivalTransition,
+                    orig_tracons: r.originTracons || '',
+                    orig_artccs: r.originArtccs || '',
+                    dest_tracons: r.destTracons || '',
+                    dest_artccs: r.destArtccs || '',
+                    fac_traversed: r.facilitiesTraversed || '',
                     mandatory: r.isMandatory ? 1 : 0,
                 })),
             },

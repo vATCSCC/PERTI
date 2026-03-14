@@ -89,19 +89,51 @@ if ($is_owner || $is_admin) {
 $acl = [];
 if ($can_manage_acl) {
     // Owner / admin / ACL manager: return full list
-    $acl_stmt = $conn_sqli->prepare("SELECT cid, can_view, can_manage, can_manage_acl, added_by, created_at, updated_at FROM playbook_play_acl WHERE play_id = ? ORDER BY created_at ASC");
+    $acl_stmt = $conn_sqli->prepare("SELECT a.cid, a.can_view, a.can_manage, a.can_manage_acl, a.added_by, a.created_at, a.updated_at,
+                                            u.first_name, u.last_name
+                                     FROM playbook_play_acl a
+                                     LEFT JOIN users u ON u.cid = a.cid
+                                     WHERE a.play_id = ? ORDER BY a.created_at ASC");
     $acl_stmt->bind_param('i', $play_id);
     $acl_stmt->execute();
     $result = $acl_stmt->get_result();
 
+    $acl_cids = [];
     while ($row = $result->fetch_assoc()) {
         $row['cid'] = (int)$row['cid'];
         $row['can_view'] = (int)$row['can_view'];
         $row['can_manage'] = (int)$row['can_manage'];
         $row['can_manage_acl'] = (int)$row['can_manage_acl'];
+        $row['name'] = trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''));
+        unset($row['first_name'], $row['last_name']);
         $acl[] = $row;
+        $acl_cids[] = $row['cid'];
     }
     $acl_stmt->close();
+
+    // Enrich with org memberships
+    if ($acl_cids) {
+        $cid_placeholders = implode(',', array_fill(0, count($acl_cids), '?'));
+        $org_sql = "SELECT uo.cid, uo.org_code, o.display_name
+                    FROM user_orgs uo
+                    JOIN organizations o ON o.org_code = uo.org_code AND o.is_active = 1
+                    WHERE uo.cid IN ($cid_placeholders)";
+        $org_stmt = $conn_sqli->prepare($org_sql);
+        $org_types = str_repeat('i', count($acl_cids));
+        $org_stmt->bind_param($org_types, ...$acl_cids);
+        $org_stmt->execute();
+        $org_result = $org_stmt->get_result();
+        $org_map = [];
+        while ($orow = $org_result->fetch_assoc()) {
+            $org_map[(int)$orow['cid']][] = $orow['display_name'];
+        }
+        $org_stmt->close();
+
+        foreach ($acl as &$entry) {
+            $entry['orgs'] = $org_map[$entry['cid']] ?? [];
+        }
+        unset($entry);
+    }
 } elseif ($session_cid !== null) {
     // Non-manager: return only their own entry (if any)
     $own_stmt = $conn_sqli->prepare("SELECT cid, can_view, can_manage, can_manage_acl, added_by, created_at, updated_at FROM playbook_play_acl WHERE play_id = ? AND cid = ?");

@@ -421,12 +421,14 @@ include("load/nav.php");
                                         <strong><?= __('playbook.acl.title') ?></strong>
                                         <small class="text-muted ml-2"><?= __('playbook.acl.ownerNote') ?></small>
                                     </div>
+
+                                    <!-- User search (CID, name, or org) -->
                                     <div class="pb-acl-add-row">
-                                        <input type="text" id="pb_acl_add_cid" class="form-control form-control-sm"
-                                               placeholder="<?= __('playbook.acl.addUserPlaceholder') ?>" style="max-width:120px;">
-                                        <button class="btn btn-sm btn-outline-primary" id="pb_acl_add_btn">
-                                            <i class="fas fa-plus mr-1"></i><?= __('playbook.acl.addUserBtn') ?>
-                                        </button>
+                                        <div class="pb-acl-search-wrap" style="position:relative; flex:1; max-width:280px;">
+                                            <input type="text" id="pb_acl_search" class="form-control form-control-sm"
+                                                   placeholder="<?= __('playbook.acl.searchPlaceholder') ?>" autocomplete="off">
+                                            <div id="pb_acl_search_results" class="pb-acl-search-dropdown" style="display:none;"></div>
+                                        </div>
                                         <button class="btn btn-sm btn-outline-secondary" id="pb_acl_bulk_btn">
                                             <i class="fas fa-users mr-1"></i><?= __('playbook.acl.bulkAdd') ?>
                                         </button>
@@ -438,6 +440,16 @@ include("load/nav.php");
                                             <i class="fas fa-check mr-1"></i><?= __('common.apply') ?>
                                         </button>
                                     </div>
+
+                                    <!-- Org sharing (shown only for private_org) -->
+                                    <div id="pb_acl_org_section" style="display:none;" class="mb-2">
+                                        <div class="pb-acl-org-header">
+                                            <strong class="small"><?= __('playbook.acl.orgSharing') ?></strong>
+                                        </div>
+                                        <div id="pb_acl_org_picker" class="pb-acl-org-picker mb-1"></div>
+                                        <div id="pb_acl_org_members" class="pb-acl-org-members" style="display:none;"></div>
+                                    </div>
+
                                     <div id="pb_acl_list" class="pb-acl-list"></div>
                                 </div>
                             </div>

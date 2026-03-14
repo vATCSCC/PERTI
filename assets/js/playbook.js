@@ -15,6 +15,9 @@
     var API_GROUPS_SAVE = 'api/mgt/playbook/groups.php';
     var API_ACL         = 'api/data/playbook/acl.php';
     var API_ACL_MGT     = 'api/mgt/playbook/acl.php';
+    var API_USER_SEARCH = 'api/data/playbook/user_search.php';
+    var API_ORG_MEMBERS = 'api/data/playbook/org_members.php';
+    var API_ORGS        = 'api/data/playbook/orgs.php';
     var API_ANALYSIS    = 'api/data/playbook/analysis.php';
     var API_THROUGHPUT  = 'api/swim/v1/playbook/throughput';
     var API_NAT_TRACKS  = 'api/data/playbook/nat_tracks.php';
@@ -67,6 +70,12 @@
 
     // NAT track cache: { 'NATA': 'FIX1 FIX2 ...', ... }
     var natTrackCache = {};
+
+    // ACL sharing state
+    var aclSearchTimer = null;
+    var aclOrgCache = null;         // Cached org list from API
+    var aclSelectedOrgs = new Set(); // Selected org codes for org sharing
+    var aclExcludedCids = new Set(); // CIDs excluded from org sharing
 
     var GROUP_COLORS = [
         '#e74c3c', '#3498db', '#2ecc71', '#9b59b6', '#f39c12',
@@ -1109,6 +1118,11 @@
                 html += '<button class="btn btn-outline-success btn-sm" id="pb_restore_btn"><i class="fas fa-undo mr-1"></i>' + t('playbook.restore') + '</button>';
             }
         }
+        html += '<div class="btn-group btn-group-sm ml-1" role="group">';
+        html += '<button class="btn btn-outline-primary btn-sm" id="pb_export_geojson" title="' + t('playbook.export.geojsonTitle') + '"><i class="fas fa-file-code mr-1"></i>GeoJSON</button>';
+        html += '<button class="btn btn-outline-primary btn-sm" id="pb_export_kml" title="' + t('playbook.export.kmlTitle') + '"><i class="fas fa-globe mr-1"></i>KML</button>';
+        html += '<button class="btn btn-outline-primary btn-sm" id="pb_export_csv" title="' + t('playbook.export.csvTitle') + '"><i class="fas fa-file-csv mr-1"></i>CSV</button>';
+        html += '</div>';
         html += '</div>';
 
         // Metadata badges
@@ -1925,9 +1939,16 @@
 
         routes.forEach(function(r) {
             var values = csvSplit(r[fieldName]);
-            var key = values.length ? values[0] : 'Other';
-            if (!buckets[key]) buckets[key] = new Set();
-            buckets[key].add(r.route_id);
+            if (!values.length) {
+                if (!buckets['Other']) buckets['Other'] = new Set();
+                buckets['Other'].add(r.route_id);
+            } else {
+                // Place route in ALL matching buckets (multi-origin/dest support)
+                values.forEach(function(val) {
+                    if (!buckets[val]) buckets[val] = new Set();
+                    buckets[val].add(r.route_id);
+                });
+            }
         });
 
         routeGroups = [];
@@ -1964,10 +1985,21 @@
 
         routes.forEach(function(r) {
             var artccs = csvSplit(r[artccField]);
-            var artcc = artccs.length ? artccs[0] : '';
-            var region = FH.ARTCC_TO_REGION[artcc] || 'OTHER';
-            if (!buckets[region]) buckets[region] = new Set();
-            buckets[region].add(r.route_id);
+            if (!artccs.length) {
+                if (!buckets['OTHER']) buckets['OTHER'] = new Set();
+                buckets['OTHER'].add(r.route_id);
+            } else {
+                // Place route in ALL matching region buckets (multi-origin/dest support)
+                var seenRegions = {};
+                artccs.forEach(function(artcc) {
+                    var region = FH.ARTCC_TO_REGION[artcc] || 'OTHER';
+                    if (!seenRegions[region]) {
+                        seenRegions[region] = true;
+                        if (!buckets[region]) buckets[region] = new Set();
+                        buckets[region].add(r.route_id);
+                    }
+                });
+            }
         });
 
         // Build groups using DCC region order and colors
@@ -3119,6 +3151,13 @@
         } else {
             $('#pb_acl_section').slideUp(150);
         }
+        // Show org picker only for private_org
+        if (vis === 'private_org') {
+            $('#pb_acl_org_section').slideDown(150);
+            loadOrgPicker();
+        } else {
+            $('#pb_acl_org_section').slideUp(150);
+        }
     }
 
     function loadAclList(playId) {
@@ -3144,14 +3183,18 @@
         }
         var html = '<table class="pb-acl-table"><thead><tr>';
         html += '<th>CID</th>';
+        html += '<th>' + t('playbook.acl.userName') + '</th>';
         html += '<th>' + t('playbook.acl.canView') + '</th>';
         html += '<th>' + t('playbook.acl.canManage') + '</th>';
         html += '<th>' + t('playbook.acl.canManageAcl') + '</th>';
         html += '<th></th>';
         html += '</tr></thead><tbody>';
         aclEntries.forEach(function(entry) {
+            var nameStr = entry.name || '';
+            var orgStr = (entry.orgs || []).join(', ');
             html += '<tr data-acl-cid="' + entry.cid + '">';
             html += '<td>' + escHtml(String(entry.cid)) + '</td>';
+            html += '<td>' + escHtml(nameStr) + (orgStr ? ' <span class="text-muted" style="font-size:0.6rem;">(' + escHtml(orgStr) + ')</span>' : '') + '</td>';
             html += '<td><input type="checkbox" class="pb-acl-perm" data-perm="can_view"' + (entry.can_view ? ' checked' : '') + '></td>';
             html += '<td><input type="checkbox" class="pb-acl-perm" data-perm="can_manage"' + (entry.can_manage ? ' checked' : '') + '></td>';
             html += '<td><input type="checkbox" class="pb-acl-perm" data-perm="can_manage_acl"' + (entry.can_manage_acl ? ' checked' : '') + '></td>';
@@ -3190,6 +3233,153 @@
                 PERTIDialog.toast(t('playbook.acl.saveFailed'), 'error');
             }
         });
+    }
+
+    // =========================================================================
+    // ACL USER SEARCH + ORG SHARING
+    // =========================================================================
+
+    /**
+     * Perform debounced user search and show dropdown results.
+     */
+    function aclUserSearch(query) {
+        if (aclSearchTimer) clearTimeout(aclSearchTimer);
+        var $results = $('#pb_acl_search_results');
+
+        if (query.length < 2) {
+            $results.hide();
+            return;
+        }
+
+        aclSearchTimer = setTimeout(function() {
+            $.getJSON(API_USER_SEARCH + '?q=' + encodeURIComponent(query), function(data) {
+                if (!data || !data.success || !data.users) {
+                    $results.hide();
+                    return;
+                }
+                renderSearchResults(data.users);
+            });
+        }, 250);
+    }
+
+    function renderSearchResults(users) {
+        var $results = $('#pb_acl_search_results');
+        if (!users.length) {
+            $results.html('<div class="pb-acl-search-no-results">' + t('playbook.acl.noSearchResults') + '</div>').show();
+            return;
+        }
+
+        // Get current ACL CIDs to mark already-added users
+        var existingCids = new Set();
+        $('#pb_acl_list .pb-acl-table [data-acl-cid]').each(function() {
+            existingCids.add(parseInt($(this).data('acl-cid')));
+        });
+
+        var html = '';
+        users.forEach(function(u) {
+            var alreadyAdded = existingCids.has(u.cid);
+            var orgNames = (u.orgs || []).map(function(o) { return o.display_name; }).join(', ');
+            html += '<div class="pb-acl-search-item' + (alreadyAdded ? ' acl-already-added' : '') + '" data-cid="' + u.cid + '">';
+            html += '<span class="acl-user-cid">' + u.cid + '</span>';
+            html += '<span class="acl-user-name">' + escHtml(u.name) + '</span>';
+            if (orgNames) html += '<span class="acl-user-orgs">' + escHtml(orgNames) + '</span>';
+            if (alreadyAdded) html += '<span class="badge badge-secondary" style="font-size:0.55rem;">' + t('playbook.acl.alreadyAdded') + '</span>';
+            html += '</div>';
+        });
+        $results.html(html).show();
+    }
+
+    /**
+     * Load org picker chips for private_org sharing.
+     */
+    function loadOrgPicker() {
+        var $picker = $('#pb_acl_org_picker');
+        if (aclOrgCache) {
+            renderOrgPicker(aclOrgCache);
+            return;
+        }
+        $picker.html('<span class="small text-muted">' + t('common.loading') + '</span>');
+        $.getJSON(API_ORGS, function(data) {
+            if (data && data.success && data.orgs) {
+                aclOrgCache = data.orgs;
+                renderOrgPicker(data.orgs);
+            }
+        });
+    }
+
+    function renderOrgPicker(orgs) {
+        var $picker = $('#pb_acl_org_picker');
+        var html = '';
+        orgs.forEach(function(org) {
+            var active = aclSelectedOrgs.has(org.org_code) ? ' active' : '';
+            html += '<div class="pb-acl-org-chip' + active + '" data-org="' + escHtml(org.org_code) + '">';
+            html += '<i class="fas fa-building" style="font-size:0.6rem;"></i> ';
+            html += escHtml(org.display_name);
+            html += '</div>';
+        });
+        $picker.html(html);
+    }
+
+    /**
+     * Load and display members of selected organization(s), allowing exclusion.
+     */
+    function loadOrgMembers() {
+        var $members = $('#pb_acl_org_members');
+        if (!aclSelectedOrgs.size) {
+            $members.hide();
+            return;
+        }
+
+        var orgCodes = Array.from(aclSelectedOrgs).join(',');
+        $members.html('<div class="pb-acl-org-loading"><div class="spinner-border spinner-border-sm text-primary"></div> ' + t('common.loading') + '</div>').show();
+
+        $.getJSON(API_ORG_MEMBERS + '?orgs=' + encodeURIComponent(orgCodes), function(data) {
+            if (!data || !data.success) {
+                $members.html('<div class="pb-acl-org-loading text-muted">' + t('playbook.acl.loadFailed') + '</div>');
+                return;
+            }
+            renderOrgMembers(data.members || []);
+        });
+    }
+
+    function renderOrgMembers(members) {
+        var $members = $('#pb_acl_org_members');
+        if (!members.length) {
+            $members.html('<div class="pb-acl-org-loading text-muted">' + t('playbook.acl.noOrgMembers') + '</div>').show();
+            return;
+        }
+
+        // Get current ACL CIDs
+        var existingCids = new Set();
+        $('#pb_acl_list .pb-acl-table [data-acl-cid]').each(function() {
+            existingCids.add(parseInt($(this).data('acl-cid')));
+        });
+
+        var html = '<div class="pb-acl-org-header small px-2 py-1" style="background:#f0f0f0; display:flex; justify-content:space-between;">';
+        html += '<span>' + t('playbook.acl.orgMembers') + ' (' + members.length + ')</span>';
+        html += '<button class="btn btn-xs btn-outline-primary" id="pb_acl_org_add_all"><i class="fas fa-plus mr-1"></i>' + t('playbook.acl.addAllOrg') + '</button>';
+        html += '</div>';
+
+        members.forEach(function(m) {
+            var isExcluded = aclExcludedCids.has(m.cid);
+            var isAlreadyInAcl = existingCids.has(m.cid);
+            var orgNames = (m.orgs || []).map(function(o) { return o.display_name; }).join(', ');
+            html += '<div class="pb-acl-org-member-row' + (isExcluded ? ' excluded' : '') + '" data-member-cid="' + m.cid + '">';
+            html += '<span class="acl-user-cid">' + m.cid + '</span>';
+            html += '<span class="acl-user-name">' + escHtml(m.name) + '</span>';
+            if (orgNames) html += '<span class="acl-user-orgs" style="font-size:0.6rem;color:#888;">' + escHtml(orgNames) + '</span>';
+            if (isAlreadyInAcl) {
+                html += '<span class="badge badge-secondary" style="font-size:0.55rem;">' + t('playbook.acl.alreadyAdded') + '</span>';
+            } else {
+                html += '<label class="acl-exclude-cb mb-0" title="' + t('playbook.acl.excludeUser') + '">';
+                html += '<input type="checkbox" class="pb-acl-org-exclude" data-cid="' + m.cid + '"' + (isExcluded ? ' checked' : '') + '>';
+                html += ' <span style="font-size:0.6rem;">' + t('playbook.acl.exclude') + '</span>';
+                html += '</label>';
+            }
+            html += '</div>';
+        });
+
+        $members.html(html).show();
     }
 
     // =========================================================================
@@ -3517,6 +3707,356 @@
             b = Math.round(0 + 69 * t2);
         }
         return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    // =========================================================================
+    // PLAYBOOK EXPORT (GeoJSON / KML / CSV)
+    // =========================================================================
+
+    function pbDownloadFile(content, filename, mimeType) {
+        var blob = new Blob([content], { type: mimeType });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function generatePlaybookRouteName(play, route) {
+        var orig = (route.origin || '').replace(/\s+/g, '-');
+        var dest = (route.dest || '').replace(/\s+/g, '-');
+        return (play.play_name || 'play') + '_' + orig + '-' + dest;
+    }
+
+    /**
+     * Build an array of route export objects with geometry from the map source.
+     * Each object has { route, geometry, throughput }.
+     */
+    function collectPlaybookExportData() {
+        if (!activePlayData) return [];
+        var selected = getSelectedRoutes();
+        if (!selected.length) return [];
+
+        // Collect route segment features from the map source
+        var segmentsByRouteString = {};
+        var map = window.graphic_map;
+        if (map && map.getSource('routes')) {
+            var source = map.getSource('routes');
+            var feats = (source._data && source._data.features) || [];
+            feats.forEach(function(f) {
+                if (!f.properties || !f.geometry) return;
+                var rs = f.properties.routeString || '';
+                if (!rs) return;
+                if (!segmentsByRouteString[rs]) segmentsByRouteString[rs] = [];
+                segmentsByRouteString[rs].push(f);
+            });
+        }
+
+        var results = [];
+        selected.forEach(function(r) {
+            // Build the route string as plotOnMap does
+            var parts = [];
+            if (r.origin) parts.push(r.origin);
+            parts.push(r.route_string);
+            if (r.dest) parts.push(r.dest);
+            var routeStr = parts.join(' ');
+
+            // Try to find matching segments
+            var segments = [];
+            var coords = [];
+            // Match by checking if the route string is contained in any key
+            Object.keys(segmentsByRouteString).forEach(function(key) {
+                if (key === routeStr || key.indexOf(routeStr) !== -1 || routeStr.indexOf(key) !== -1) {
+                    segmentsByRouteString[key].forEach(function(f) {
+                        segments.push(f);
+                        if (f.geometry.type === 'LineString' && f.geometry.coordinates) {
+                            coords.push(f.geometry.coordinates);
+                        }
+                    });
+                }
+            });
+
+            var tp = throughputData ? throughputData[r.route_id] : null;
+
+            results.push({
+                route: r,
+                routeStr: routeStr,
+                segments: segments,
+                coords: coords,
+                throughput: tp || null
+            });
+        });
+        return results;
+    }
+
+    function exportPlaybookGeoJSON() {
+        if (!activePlayData) {
+            PERTIDialog.toast(t('playbook.export.noRoutes'), 'warning');
+            return;
+        }
+        var exportData = collectPlaybookExportData();
+        if (!exportData.length) {
+            PERTIDialog.toast(t('playbook.export.noRoutes'), 'warning');
+            return;
+        }
+
+        var play = activePlayData;
+        var features = [];
+
+        exportData.forEach(function(d) {
+            var r = d.route;
+            var tp = d.throughput;
+
+            // Build full route feature (MultiLineString)
+            var geometry;
+            if (d.coords.length > 0) {
+                geometry = { type: 'MultiLineString', coordinates: d.coords };
+            } else {
+                // No geometry available — skip or use empty
+                geometry = { type: 'MultiLineString', coordinates: [] };
+            }
+
+            features.push({
+                type: 'Feature',
+                properties: {
+                    featureType: 'route',
+                    routeId: r.route_id,
+                    routeName: generatePlaybookRouteName(play, r),
+                    playName: play.play_name || '',
+                    playDisplayName: play.display_name || '',
+                    playCategory: play.category || '',
+                    playSource: play.source || '',
+                    playDescription: play.description || '',
+                    scenarioType: play.scenario_type || '',
+                    impactedArea: play.impacted_area || '',
+                    facilitiesInvolved: play.facilities_involved || '',
+                    airacCycle: play.airac_cycle || '',
+                    ctpScope: play.ctp_scope || '',
+                    routeString: r.route_string || '',
+                    origin: r.origin || '',
+                    dest: r.dest || '',
+                    originAirports: r.origin_airports || '',
+                    originTracons: r.origin_tracons || '',
+                    originArtccs: r.origin_artccs || '',
+                    destAirports: r.dest_airports || '',
+                    destTracons: r.dest_tracons || '',
+                    destArtccs: r.dest_artccs || '',
+                    traversedArtccs: r.traversed_artccs || '',
+                    traversedTracons: r.traversed_tracons || '',
+                    traversedSectorsLow: r.traversed_sectors_low || '',
+                    traversedSectorsHigh: r.traversed_sectors_high || '',
+                    traversedSectorsSuperHigh: r.traversed_sectors_superhigh || '',
+                    remarks: r.remarks || '',
+                    sortOrder: r.sort_order || 0,
+                    throughputPlanned: tp ? tp.planned_count : null,
+                    throughputSlots: tp ? tp.slot_count : null,
+                    throughputPeakRate: tp ? tp.peak_rate_hr : null,
+                    throughputAvgRate: tp ? tp.avg_rate_hr : null,
+                    throughputPeriodStart: tp ? tp.period_start : null,
+                    throughputPeriodEnd: tp ? tp.period_end : null
+                },
+                geometry: geometry
+            });
+
+            // Also include individual segment features if available
+            d.segments.forEach(function(seg) {
+                var sp = seg.properties || {};
+                features.push({
+                    type: 'Feature',
+                    properties: {
+                        featureType: 'route_segment',
+                        routeId: r.route_id,
+                        routeName: generatePlaybookRouteName(play, r),
+                        playName: play.play_name || '',
+                        fromFix: sp.fromFix || '',
+                        toFix: sp.toFix || '',
+                        distance: sp.distance || 0,
+                        airway: sp.airway || '',
+                        procedure: sp.procedure || '',
+                        procedureType: sp.procedureType || '',
+                        color: sp.color || '',
+                        solid: sp.solid || false
+                    },
+                    geometry: seg.geometry
+                });
+            });
+        });
+
+        var geojson = {
+            type: 'FeatureCollection',
+            properties: {
+                exportType: 'playbook',
+                playName: play.play_name || '',
+                exportedAt: new Date().toISOString(),
+                routeCount: exportData.length
+            },
+            features: features
+        };
+
+        var filename = (play.play_name || 'playbook_export').replace(/[^a-zA-Z0-9_-]/g, '_') + '.geojson';
+        pbDownloadFile(JSON.stringify(geojson, null, 2), filename, 'application/geo+json');
+    }
+
+    function exportPlaybookKML() {
+        if (!activePlayData) {
+            PERTIDialog.toast(t('playbook.export.noRoutes'), 'warning');
+            return;
+        }
+        var exportData = collectPlaybookExportData();
+        if (!exportData.length) {
+            PERTIDialog.toast(t('playbook.export.noRoutes'), 'warning');
+            return;
+        }
+
+        var play = activePlayData;
+        var kml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+        kml += '<kml xmlns="http://www.opengis.net/kml/2.2">\n';
+        kml += '<Document>\n';
+        kml += '<name>' + escHtml(play.play_name || 'Playbook Export') + '</name>\n';
+        kml += '<description><![CDATA[';
+        kml += 'Play: ' + (play.play_name || '') + '\n';
+        if (play.display_name) kml += 'Display Name: ' + play.display_name + '\n';
+        if (play.category) kml += 'Category: ' + play.category + '\n';
+        if (play.source) kml += 'Source: ' + play.source + '\n';
+        if (play.scenario_type) kml += 'Scenario: ' + play.scenario_type + '\n';
+        if (play.impacted_area) kml += 'Impacted Area: ' + play.impacted_area + '\n';
+        if (play.facilities_involved) kml += 'Facilities: ' + play.facilities_involved + '\n';
+        if (play.description) kml += 'Description: ' + play.description + '\n';
+        kml += 'Exported: ' + new Date().toISOString() + '\n';
+        kml += 'Routes: ' + exportData.length + '\n';
+        kml += ']]></description>\n';
+
+        exportData.forEach(function(d) {
+            var r = d.route;
+            var tp = d.throughput;
+            var routeName = generatePlaybookRouteName(play, r);
+
+            kml += '<Folder>\n';
+            kml += '<name>' + escHtml(routeName) + '</name>\n';
+            kml += '<description><![CDATA[';
+            kml += 'Route: ' + (r.route_string || '') + '\n';
+            kml += 'Origin: ' + (r.origin || '') + '\n';
+            kml += 'Destination: ' + (r.dest || '') + '\n';
+            if (r.origin_artccs) kml += 'Origin ARTCCs: ' + r.origin_artccs + '\n';
+            if (r.dest_artccs) kml += 'Dest ARTCCs: ' + r.dest_artccs + '\n';
+            if (r.traversed_artccs) kml += 'Traversed ARTCCs: ' + r.traversed_artccs + '\n';
+            if (r.remarks) kml += 'Remarks: ' + r.remarks + '\n';
+            if (tp) {
+                kml += 'Planned Count: ' + (tp.planned_count || '') + '\n';
+                kml += 'Slot Count: ' + (tp.slot_count || '') + '\n';
+                kml += 'Peak Rate/hr: ' + (tp.peak_rate_hr || '') + '\n';
+                kml += 'Avg Rate/hr: ' + (tp.avg_rate_hr || '') + '\n';
+            }
+            kml += ']]></description>\n';
+
+            // Route segments as placemarks
+            d.segments.forEach(function(seg, idx) {
+                var sp = seg.properties || {};
+                if (seg.geometry.type !== 'LineString' || !seg.geometry.coordinates) return;
+                var coords = seg.geometry.coordinates;
+                kml += '<Placemark>\n';
+                kml += '<name>' + escHtml((sp.fromFix || '') + '-' + (sp.toFix || '')) + '</name>\n';
+                kml += '<Style><LineStyle><color>ff' + hexToKmlColor(sp.color || '#3388ff') + '</color><width>3</width></LineStyle></Style>\n';
+                kml += '<ExtendedData>';
+                kml += '<Data name="fromFix"><value>' + escHtml(sp.fromFix || '') + '</value></Data>';
+                kml += '<Data name="toFix"><value>' + escHtml(sp.toFix || '') + '</value></Data>';
+                kml += '<Data name="distance"><value>' + (sp.distance || 0) + '</value></Data>';
+                if (sp.airway) kml += '<Data name="airway"><value>' + escHtml(sp.airway) + '</value></Data>';
+                if (sp.procedure) kml += '<Data name="procedure"><value>' + escHtml(sp.procedure) + '</value></Data>';
+                kml += '</ExtendedData>\n';
+                kml += '<LineString><coordinates>';
+                kml += coords.map(function(c) { return c[0] + ',' + c[1] + ',0'; }).join(' ');
+                kml += '</coordinates></LineString>\n';
+                kml += '</Placemark>\n';
+            });
+
+            kml += '</Folder>\n';
+        });
+
+        kml += '</Document>\n</kml>';
+
+        var filename = (play.play_name || 'playbook_export').replace(/[^a-zA-Z0-9_-]/g, '_') + '.kml';
+        pbDownloadFile(kml, filename, 'application/vnd.google-earth.kml+xml');
+    }
+
+    /**
+     * Convert hex color (#RRGGBB) to KML color (BBGGRR).
+     */
+    function hexToKmlColor(hex) {
+        hex = hex.replace('#', '');
+        if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+        return hex.substring(4,6) + hex.substring(2,4) + hex.substring(0,2);
+    }
+
+    function exportPlaybookCSV() {
+        if (!activePlayData) {
+            PERTIDialog.toast(t('playbook.export.noRoutes'), 'warning');
+            return;
+        }
+        var exportData = collectPlaybookExportData();
+        if (!exportData.length) {
+            PERTIDialog.toast(t('playbook.export.noRoutes'), 'warning');
+            return;
+        }
+
+        var play = activePlayData;
+        var headers = [
+            'play_name','display_name','category','source','scenario_type',
+            'impacted_area','facilities_involved','airac_cycle','ctp_scope',
+            'route_id','route_string','origin','dest',
+            'origin_airports','origin_tracons','origin_artccs',
+            'dest_airports','dest_tracons','dest_artccs',
+            'traversed_artccs','traversed_tracons',
+            'traversed_sectors_low','traversed_sectors_high','traversed_sectors_superhigh',
+            'remarks','sort_order',
+            'throughput_planned','throughput_slots','throughput_peak_rate_hr',
+            'throughput_avg_rate_hr','throughput_period_start','throughput_period_end'
+        ];
+
+        var rows = [headers.join(',')];
+
+        exportData.forEach(function(d) {
+            var r = d.route;
+            var tp = d.throughput;
+            var vals = [
+                csvQuote(play.play_name), csvQuote(play.display_name),
+                csvQuote(play.category), csvQuote(play.source),
+                csvQuote(play.scenario_type), csvQuote(play.impacted_area),
+                csvQuote(play.facilities_involved), csvQuote(play.airac_cycle),
+                csvQuote(play.ctp_scope),
+                r.route_id || '', csvQuote(r.route_string),
+                csvQuote(r.origin), csvQuote(r.dest),
+                csvQuote(r.origin_airports), csvQuote(r.origin_tracons),
+                csvQuote(r.origin_artccs), csvQuote(r.dest_airports),
+                csvQuote(r.dest_tracons), csvQuote(r.dest_artccs),
+                csvQuote(r.traversed_artccs), csvQuote(r.traversed_tracons),
+                csvQuote(r.traversed_sectors_low), csvQuote(r.traversed_sectors_high),
+                csvQuote(r.traversed_sectors_superhigh),
+                csvQuote(r.remarks), r.sort_order || 0,
+                tp ? (tp.planned_count || '') : '',
+                tp ? (tp.slot_count || '') : '',
+                tp ? (tp.peak_rate_hr || '') : '',
+                tp ? (tp.avg_rate_hr || '') : '',
+                tp ? csvQuote(tp.period_start) : '',
+                tp ? csvQuote(tp.period_end) : ''
+            ];
+            rows.push(vals.join(','));
+        });
+
+        var filename = (play.play_name || 'playbook_export').replace(/[^a-zA-Z0-9_-]/g, '_') + '.csv';
+        pbDownloadFile(rows.join('\n'), filename, 'text/csv');
+    }
+
+    function csvQuote(val) {
+        if (val === null || val === undefined) return '';
+        var s = String(val);
+        if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+            return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
     }
 
     // =========================================================================
@@ -4193,6 +4733,11 @@
             }
         });
 
+        // ── Playbook export buttons ──
+        $(document).on('click', '#pb_export_geojson', exportPlaybookGeoJSON);
+        $(document).on('click', '#pb_export_kml', exportPlaybookKML);
+        $(document).on('click', '#pb_export_csv', exportPlaybookCSV);
+
         // ── Route analysis panel: click route row to load analysis ──
         $(document).on('click', '.pb-route-table tbody tr', function(e) {
             // Skip if clicking a checkbox
@@ -4475,14 +5020,66 @@
             }
         });
 
-        $(document).on('click', '#pb_acl_add_btn', function() {
-            var cid = $('#pb_acl_add_cid').val().trim();
-            if (!cid || !/^\d+$/.test(cid)) {
-                PERTIDialog.toast(t('playbook.acl.invalidCid'), 'warning');
+        // User search input (debounced)
+        $(document).on('input', '#pb_acl_search', function() {
+            aclUserSearch($(this).val().trim());
+        });
+
+        // Close search dropdown on blur (with delay for click events)
+        $(document).on('blur', '#pb_acl_search', function() {
+            setTimeout(function() { $('#pb_acl_search_results').hide(); }, 200);
+        });
+
+        // Click search result to add user
+        $(document).on('click', '.pb-acl-search-item:not(.acl-already-added)', function() {
+            var cid = parseInt($(this).data('cid'));
+            if (!cid) return;
+            aclAction('add', { cid: cid });
+            $('#pb_acl_search').val('');
+            $('#pb_acl_search_results').hide();
+        });
+
+        // Org chip toggle
+        $(document).on('click', '.pb-acl-org-chip', function() {
+            var orgCode = $(this).data('org');
+            if (aclSelectedOrgs.has(orgCode)) {
+                aclSelectedOrgs.delete(orgCode);
+                $(this).removeClass('active');
+            } else {
+                aclSelectedOrgs.add(orgCode);
+                $(this).addClass('active');
+            }
+            loadOrgMembers();
+        });
+
+        // Org member exclude checkbox
+        $(document).on('change', '.pb-acl-org-exclude', function() {
+            var cid = parseInt($(this).data('cid'));
+            if (this.checked) {
+                aclExcludedCids.add(cid);
+                $(this).closest('.pb-acl-org-member-row').addClass('excluded');
+            } else {
+                aclExcludedCids.delete(cid);
+                $(this).closest('.pb-acl-org-member-row').removeClass('excluded');
+            }
+        });
+
+        // Add all org members (minus excluded) to ACL
+        $(document).on('click', '#pb_acl_org_add_all', function() {
+            var cids = [];
+            $('.pb-acl-org-member-row').each(function() {
+                var cid = parseInt($(this).data('member-cid'));
+                if (!cid) return;
+                if (aclExcludedCids.has(cid)) return;
+                // Skip if already in ACL
+                if ($(this).find('.badge-secondary').length) return;
+                cids.push(cid);
+            });
+            if (!cids.length) {
+                PERTIDialog.toast(t('playbook.acl.noUsersToAdd'), 'info');
                 return;
             }
-            aclAction('add', { cid: parseInt(cid) });
-            $('#pb_acl_add_cid').val('');
+            aclAction('bulk_add', { cids: cids });
         });
 
         $(document).on('click', '#pb_acl_bulk_btn', function() {

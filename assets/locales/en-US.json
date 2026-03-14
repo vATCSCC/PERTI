@@ -3757,6 +3757,12 @@
       "noData": "No throughput data available.",
       "source": "Source"
     },
+    "export": {
+      "geojsonTitle": "Export selected routes to GeoJSON",
+      "kmlTitle": "Export selected routes to KML",
+      "csvTitle": "Export selected routes to CSV",
+      "noRoutes": "No routes selected for export"
+    },
     "clearFilters": "Clear filters",
     "confirmArchive": "Archive Play?",
     "confirmArchiveText": "This play will be hidden from the active catalog.",
@@ -3978,22 +3984,33 @@
       "addUser": "Add User",
       "addUserPlaceholder": "Enter VATSIM CID",
       "addUserBtn": "Add",
+      "searchPlaceholder": "Search by CID, name, or org...",
+      "noSearchResults": "No users found",
+      "alreadyAdded": "Added",
+      "userName": "Name",
       "removeUser": "Remove",
       "removeConfirm": "Remove this user's access?",
       "permissions": "Permissions",
       "canView": "View",
       "canManage": "Edit Routes",
       "canManageAcl": "Manage Access",
-      "userAdded": "User {cid} added to shared list",
-      "userRemoved": "User {cid} removed from shared list",
-      "userUpdated": "Permissions updated for user {cid}",
+      "userAdded": "User added to shared list",
+      "userRemoved": "User removed from shared list",
+      "userUpdated": "Permissions updated",
       "invalidCid": "Invalid CID",
       "alreadyOnList": "User is already on the shared list",
       "ownerNote": "Owner always has full access",
       "bulkAdd": "Bulk Add",
       "bulkAddPlaceholder": "Enter CIDs separated by commas",
       "loadFailed": "Failed to load access list",
-      "saveFailed": "Failed to update access"
+      "saveFailed": "Failed to update access",
+      "orgSharing": "Share with Organizations",
+      "orgMembers": "Organization Members",
+      "addAllOrg": "Add All",
+      "noOrgMembers": "No members found in selected organizations",
+      "excludeUser": "Exclude this user",
+      "exclude": "Exclude",
+      "noUsersToAdd": "No new users to add"
     }
   },
   "privacy": {
@@ -4682,6 +4699,7 @@
     "plottingRoute": "Plotting route...",
     "plottingRoutes": "Plotting {count} routes...",
     "routePicker": {
+      "clickToSelect": "Click a route to select it",
       "clickToToggleLabels": "Click to toggle labels",
       "overlappingRoutes": "Overlapping Routes",
       "routeLabel": "Route Label"
