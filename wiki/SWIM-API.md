@@ -80,6 +80,11 @@ A few endpoints are accessible without an API key:
 | `GET /playbook/plays` | Playbook plays |
 | `GET /tmi/reroutes` | TMI reroute definitions |
 | `GET /health` | Health check (also accepts localhost) |
+| `GET /tmi/` | TMI overview index |
+| `GET /tmi/flow/` | Flow management overview |
+| `GET /tmi/flow/providers` | Registered flow providers |
+| `GET /tmi/flow/events` | External flow events |
+| `GET /tmi/flow/measures` | External flow measures |
 
 ---
 
@@ -292,6 +297,56 @@ ECFMP flow measures.
 
 **Auth**: Required (read-only)
 
+
+#### GET /tmi/
+
+TMI overview/index: summary of active programs, advisories, reroutes, entries.
+
+**Auth**: Not required
+
+#### GET /tmi/flow/
+
+External flow management integration overview: provider counts, active events/measures.
+
+**Auth**: Not required
+
+#### GET /tmi/flow/providers
+
+Registered external flow management providers (ECFMP, NavCanada, VATPAC, etc.).
+
+**Auth**: Not required
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `active_only` | bool | Only active providers (default: true) |
+| `region` | string | Filter by region (EUR, NAM, etc.) |
+| `provider` | string | Specific provider code |
+
+#### GET /tmi/flow/events
+
+Special events (CTP, FNO, etc.) from external flow providers in FIXM-aligned structure.
+
+**Auth**: Not required
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | string | Filter by provider code |
+| `code` | string | Event code |
+| `status` | string | Event status filter |
+| `include_participants` | bool | Include participant list |
+
+#### GET /tmi/flow/measures
+
+External flow measures (MIT, MINIT, MDI, GS) from registered providers in TFMS/FIXM-aligned format.
+
+**Auth**: Not required
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `provider` | string | Filter by provider code |
+| `type` | string | Measure type: MIT, MINIT, MDI, GS |
+| `event_id` | int | Measures for a specific event |
+| `airport` | string | Airport filter |
 ---
 
 ### Metering (TBFM-aligned)
@@ -321,6 +376,74 @@ Arrival sequence list sorted by sequence number.
 **Auth**: Required (read-only)
 
 Compact format optimized for vNAS datablocks: SEQ, STA, ETA, delay, runway, stream.
+
+---
+
+### CDM (Collaborative Decision Making)
+
+A-CDM style endpoints for departure coordination, pilot readiness, and compliance monitoring. All CDM endpoints require API key authentication.
+
+#### GET /cdm/status
+
+CDM status for a flight: milestones, readiness, TMI control, compliance, pending messages.
+
+**Auth**: Required (read-only)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `callsign` | string | Callsign to look up |
+| `flight_uid` | int | Numeric flight UID |
+
+#### GET /cdm/readiness
+
+Current pilot readiness state (PLANNING, BOARDING, READY, TAXIING, CANCELLED).
+
+**Auth**: Required (read-only)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `callsign` | string | Callsign to look up |
+
+#### POST /cdm/readiness
+
+Update readiness state. Accepts JSON body with `callsign`, `state`, and optional `tobt_utc`.
+
+**Auth**: Required (write access)
+
+#### GET /cdm/compliance
+
+Real-time compliance data for flights under TMI control.
+
+**Auth**: Required (read-only)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `program_id` | int | TMI program ID |
+| `flight_uid` | int | Specific flight UID |
+| `airport` | string | Airport filter |
+| `status` | string | Compliance status (e.g., `AT_RISK`) |
+
+#### GET /cdm/metrics
+
+CDM effectiveness metrics: delivery rates, compliance rates, pilot participation, readiness adoption.
+
+**Auth**: Required (read-only)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `program_id` | int | Program ID (global metrics if omitted) |
+
+#### GET /cdm/airport-status
+
+A-CDM style airport operational picture: departure queue, gate-hold metrics, weather impact, rates.
+
+**Auth**: Required (read-only)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `airport` | string | Airport ICAO code (required) |
+| `history` | bool | Include 24h history snapshots |
+| `limit` | int | History limit (1-288, default 288) |
 
 ---
 
@@ -624,6 +747,22 @@ API index page. Lists all available endpoints, authentication info, and contact 
 **Auth**: None
 
 ---
+
+### Connectors
+
+External system connector monitoring endpoints.
+
+#### GET /connectors/health
+
+Lightweight aggregate health check: status (OK/DEGRADED/DOWN) with per-connector summary.
+
+**Auth**: Required (any SWIM API key or localhost)
+
+#### GET /connectors/status
+
+Detailed per-connector status: health, circuit breaker state, endpoints, config, daemon status.
+
+**Auth**: Required (system-tier API key: `swim_sys_` or `swim_par_` prefix)
 
 ## Error Handling
 
