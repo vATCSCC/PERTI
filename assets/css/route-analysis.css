@@ -189,8 +189,8 @@
     outline: none;
     border-color: #239BCD;
 }
-.ra-picker-input:not(.ra-picker-route) {
-    width: 70px;
+.ra-picker-icao {
+    width: 60px;
     text-align: center;
 }
 .ra-picker-route {

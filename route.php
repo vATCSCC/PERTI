@@ -2360,9 +2360,9 @@ ROUTE2</pre>
             <div id="ra-body">
                 <div class="ra-route-picker" id="ra-route-picker">
                     <div class="ra-picker-row">
-                        <input type="text" class="ra-picker-input" id="ra-picker-origin" placeholder="Origin (ICAO)" maxlength="4">
+                        <input type="text" class="ra-picker-input ra-picker-icao" id="ra-picker-origin" placeholder="Origin" maxlength="4">
                         <span class="ra-picker-arrow">&rarr;</span>
-                        <input type="text" class="ra-picker-input" id="ra-picker-dest" placeholder="Dest (ICAO)" maxlength="4">
+                        <input type="text" class="ra-picker-input ra-picker-icao" id="ra-picker-dest" placeholder="Dest" maxlength="4">
                         <input type="text" class="ra-picker-input ra-picker-route" id="ra-picker-route" placeholder="Route string (or leave blank to use plotted routes)">
                         <button class="ra-picker-go-btn" id="ra-picker-go" title="Analyze">
                             <i class="fas fa-search"></i> Analyze
@@ -2425,8 +2425,10 @@ ROUTE2</pre>
                                         <th>To</th>
                                         <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
                                         <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
-                                        <th class="text-right">Dep (Z)</th>
-                                        <th class="text-right">Arr (Z)</th>
+                                        <th class="text-right">Entry Dist</th>
+                                        <th class="text-right">Entry (Z)</th>
+                                        <th class="text-right">Exit Dist</th>
+                                        <th class="text-right">Exit (Z)</th>
                                         <th class="text-right">GS (kts)</th>
                                     </tr>
                                 </thead>
@@ -2841,10 +2843,23 @@ document.addEventListener('DOMContentLoaded', function () {
     // ═══════════════════════════════════════════════════════════════════════
     window.showRouteAnalysis = function(routeId, routeString, origin, dest) {
         if (!routeString) return;
+
+        // Use client-side expanded route (airways resolved, dots split) when available.
+        // This gives the analysis API a richer route string than the raw user input,
+        // since ConvertRoute() has already expanded J/Q/V airways to intermediate fixes.
+        var analysisRouteStr = routeString;
+        if (routeId != null && typeof MapLibreRoute !== 'undefined' && MapLibreRoute.getRouteIndex) {
+            var rIdx = MapLibreRoute.getRouteIndex();
+            var rMeta = rIdx[routeId];
+            if (rMeta && rMeta.expandedTokens && rMeta.expandedTokens.length > 0) {
+                analysisRouteStr = rMeta.expandedTokens.join(' ');
+            }
+        }
+
         if (typeof RouteAnalysisPanel !== 'undefined') {
             RouteAnalysisPanel.showLoading(routeString, origin, dest);
         }
-        var params = { route_string: routeString };
+        var params = { route_string: analysisRouteStr };
         if (origin) params.origin = origin;
         if (dest) params.dest = dest;
         params.cruise_kts = 460;
