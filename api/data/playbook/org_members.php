@@ -26,7 +26,7 @@ if (!isset($_SESSION['VATSIM_CID'])) {
     exit;
 }
 
-$orgs_raw = trim(get_str('orgs'));
+$orgs_raw = trim(get_input('orgs'));
 if (!$orgs_raw) {
     echo json_encode(['success' => true, 'members' => [], 'orgs' => []]);
     exit;

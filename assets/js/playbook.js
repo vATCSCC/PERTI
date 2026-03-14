@@ -2032,60 +2032,107 @@
         if (!activePlayData || !activePlayData.routes) return;
         var routes = activePlayData.routes;
 
-        // Count how often each fix appears across all routes
-        var fixCounts = {};
-        routes.forEach(function(r) {
-            var tokens = (r.route_string || '').split(/\s+/).filter(Boolean);
-            tokens.forEach(function(tok) {
-                if (/^[A-Z]{2,5}$/.test(tok) && tok !== 'DCT') {
-                    fixCounts[tok] = (fixCounts[tok] || 0) + 1;
-                }
+        // 1. Parse each route into ordered fix/airway tokens
+        var routeTokens = routes.map(function(r) {
+            return (r.route_string || '').toUpperCase().split(/\s+/).filter(function(tok) {
+                return tok.length >= 2 && tok.length <= 6 &&
+                       /^[A-Z][A-Z0-9]+$/.test(tok) && tok !== 'DCT';
             });
         });
 
-        // Find pivot fixes (appear in >25% of routes but not all)
-        var threshold = Math.max(2, Math.floor(routes.length * 0.25));
-        var pivots = Object.keys(fixCounts).filter(function(fix) {
-            return fixCounts[fix] >= threshold && fixCounts[fix] < routes.length;
-        }).sort(function(a, b) { return fixCounts[b] - fixCounts[a]; });
+        // 2. Build n-gram (consecutive token sequence) → route index set
+        //    These represent actual route segments where routes converge
+        var segRoutes = {};
+        var MAX_SEG = 8;
+        routeTokens.forEach(function(tokens, ri) {
+            for (var len = 2; len <= Math.min(MAX_SEG, tokens.length); len++) {
+                for (var s = 0; s <= tokens.length - len; s++) {
+                    var key = tokens.slice(s, s + len).join(' ');
+                    if (!segRoutes[key]) segRoutes[key] = new Set();
+                    segRoutes[key].add(ri);
+                }
+            }
+        });
 
-        if (!pivots.length) {
+        // 3. Keep only segments shared by >=2 routes but not universal
+        var shared = [];
+        Object.keys(segRoutes).forEach(function(key) {
+            var sz = segRoutes[key].size;
+            if (sz >= 2 && sz < routes.length) {
+                shared.push({ seg: key, routes: segRoutes[key], len: key.split(' ').length });
+            }
+        });
+
+        if (!shared.length) {
             autoGroupByField('origin_artccs', '');
             return;
         }
 
-        // Greedy assignment: most frequent pivot first, each route assigned once
+        // 4. Sort longest first, then by route count desc — longest segments
+        //    represent the most specific convergence points
+        shared.sort(function(a, b) {
+            return b.len !== a.len ? b.len - a.len : b.routes.size - a.routes.size;
+        });
+
+        // 5. Deduplicate: remove sub-segments whose route set is identical
+        //    to a longer containing segment (the longer one is more descriptive)
+        var kept = [];
+        shared.forEach(function(cand) {
+            var dominated = kept.some(function(k) {
+                if (k.len <= cand.len) return false;
+                if (k.seg.indexOf(cand.seg) === -1) return false;
+                if (cand.routes.size !== k.routes.size) return false;
+                var same = true;
+                cand.routes.forEach(function(r) { if (!k.routes.has(r)) same = false; });
+                return same;
+            });
+            if (!dominated) kept.push(cand);
+        });
+
+        // 6. Re-sort by discriminating power (length * route count)
+        kept.sort(function(a, b) {
+            return (b.len * b.routes.size) - (a.len * a.routes.size);
+        });
+
+        // 7. Greedy assignment: best segment first, each route assigned once
         var assigned = new Set();
         routeGroups = [];
         var colorIdx = 0;
 
-        pivots.forEach(function(pivot) {
+        kept.forEach(function(seg) {
             var members = new Set();
-            routes.forEach(function(r) {
-                if (assigned.has(r.route_id)) return;
-                if ((r.route_string || '').indexOf(pivot) !== -1) {
-                    members.add(r.route_id);
-                    assigned.add(r.route_id);
+            seg.routes.forEach(function(ri) {
+                if (!assigned.has(ri)) {
+                    members.add(routes[ri].route_id);
+                    assigned.add(ri);
                 }
             });
-            if (members.size < 2) {
-                members.forEach(function(rid) { assigned.delete(rid); });
-            } else {
+            if (members.size >= 2) {
+                // Format display: show full segment up to 4 tokens,
+                // abbreviate longer ones as "first second...last"
+                var segTokens = seg.seg.split(' ');
+                var display;
+                if (segTokens.length <= 4) {
+                    display = seg.seg;
+                } else {
+                    display = segTokens.slice(0, 2).join(' ') + '\u2026' +
+                              segTokens.slice(-2).join(' ');
+                }
                 routeGroups.push({
-                    group_name: t('playbook.groups.viaPrefix') + ' ' + pivot,
+                    group_name: t('playbook.groups.viaPrefix') + ' ' + display,
                     group_color: GROUP_COLORS[colorIdx % GROUP_COLORS.length],
                     route_ids: members,
                     sort_order: colorIdx,
-                    _autoField: 'route_contains'
+                    _autoField: 'common_segment'
                 });
                 colorIdx++;
             }
         });
 
-        // Remaining unassigned routes
+        // 8. Remaining unassigned routes
         var remaining = new Set();
-        routes.forEach(function(r) {
-            if (!assigned.has(r.route_id)) remaining.add(r.route_id);
+        routes.forEach(function(r, idx) {
+            if (!assigned.has(idx)) remaining.add(r.route_id);
         });
         if (remaining.size) {
             routeGroups.push({

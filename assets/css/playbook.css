@@ -1263,14 +1263,18 @@
     margin-top: 4px;
     border-top: 1px solid #eee;
     padding-top: 4px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 10px;
 }
 
 .pb-group-item {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 5px;
     padding: 2px 0;
     font-size: 0.68rem;
+    white-space: nowrap;
 }
 
 .pb-group-item-name {
