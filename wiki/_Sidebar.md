@@ -38,6 +38,7 @@
 **SWIM API** (Public/External)
 - [[SWIM API]]
 - [[SWIM Routes API]]
+- [[SWIM Playbook API]]
 
 **PERTI API** (Internal)
 - [[API Reference]]
