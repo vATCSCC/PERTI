@@ -1886,7 +1886,7 @@ paths:
           example: GREKI
         - name: artcc
           in: query
-          description: Filter by departure OR arrival ARTCC
+          description: Filter by departure OR arrival ARTCC. Aliases "fir" and "acc" are also accepted.
           schema:
             type: string
             minLength: 2
@@ -1894,12 +1894,12 @@ paths:
           example: ZNY
         - name: dep_artcc
           in: query
-          description: Filter by departure ARTCC only
+          description: Filter by departure ARTCC only. Aliases "dep_fir" and "dep_acc" are also accepted.
           schema:
             type: string
         - name: arr_artcc
           in: query
-          description: Filter by arrival ARTCC only
+          description: Filter by arrival ARTCC only. Aliases "arr_fir" and "arr_acc" are also accepted.
           schema:
             type: string
         - name: page
@@ -1980,7 +1980,7 @@ paths:
             type: string
         - name: artcc
           in: query
-          description: Filter by ARTCC in facilities_involved
+          description: Filter by ARTCC in facilities_involved. Aliases "fir" and "acc" are also accepted.
           schema:
             type: string
         - name: status

@@ -13,9 +13,9 @@
  *   dest      - Filter by dest_icao (exact match, case-insensitive)
  *   code      - Filter by cdr_code (prefix match)
  *   search    - Free-text search across cdr_code + full_route (LIKE %search%)
- *   artcc     - Filter by dep_artcc OR arr_artcc
- *   dep_artcc - Filter by dep_artcc only
- *   arr_artcc - Filter by arr_artcc only
+ *   artcc     - Filter by dep_artcc OR arr_artcc (aliases: fir, acc)
+ *   dep_artcc - Filter by dep_artcc only (aliases: dep_fir, dep_acc)
+ *   arr_artcc - Filter by arr_artcc only (aliases: arr_fir, arr_acc)
  *   page      - Page number (default 1, min 1, max 5000)
  *   per_page  - Results per page (default 50, max 200)
  *
@@ -55,9 +55,9 @@ $origin    = swim_get_param('origin');
 $dest      = swim_get_param('dest');
 $code      = swim_get_param('code');
 $search    = swim_get_param('search');
-$artcc     = swim_get_param('artcc');
-$dep_artcc = swim_get_param('dep_artcc');
-$arr_artcc = swim_get_param('arr_artcc');
+$artcc     = swim_get_param('artcc') ?? swim_get_param('fir') ?? swim_get_param('acc');
+$dep_artcc = swim_get_param('dep_artcc') ?? swim_get_param('dep_fir') ?? swim_get_param('dep_acc');
+$arr_artcc = swim_get_param('arr_artcc') ?? swim_get_param('arr_fir') ?? swim_get_param('arr_acc');
 $page      = swim_get_int_param('page', 1, 1, 5000);
 $per_page  = swim_get_int_param('per_page', 50, 1, 200);
 $offset    = ($page - 1) * $per_page;

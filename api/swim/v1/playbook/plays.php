@@ -10,7 +10,7 @@
  * GET /api/swim/v1/playbook/plays?category=...   - Filter by category
  * GET /api/swim/v1/playbook/plays?source=...     - Filter by source
  * GET /api/swim/v1/playbook/plays?search=...     - Search play name
- * GET /api/swim/v1/playbook/plays?artcc=...      - Filter by ARTCC in facilities_involved
+ * GET /api/swim/v1/playbook/plays?artcc=...      - Filter by ARTCC in facilities_involved (aliases: fir, acc)
  * GET /api/swim/v1/playbook/plays?status=...     - Filter by status (active/draft/archived)
  * GET /api/swim/v1/playbook/plays?format=geojson - GeoJSON output (stub)
  *
@@ -62,7 +62,7 @@ function handleGetList(): void {
     $category = swim_get_param('category');
     $source   = swim_get_param('source');
     $search   = swim_get_param('search');
-    $artcc    = swim_get_param('artcc');
+    $artcc    = swim_get_param('artcc') ?? swim_get_param('fir') ?? swim_get_param('acc');
     $status   = swim_get_param('status');
     $format   = swim_get_param('format', 'json');
     $page     = swim_get_int_param('page', 1, 1, 1000);

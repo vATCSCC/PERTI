@@ -40,6 +40,7 @@
 - [[ADL API]]
 - [[TMI API]]
 - [[GIS API]]
+- [[SWIM Routes API]]
 - [[JATOC API]]
 - [[Simulator API]]
 - [[NOD Discord API]]
