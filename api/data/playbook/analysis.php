@@ -49,7 +49,7 @@ $cruise_kts  = isset($_GET['cruise_kts']) ? (float)$_GET['cruise_kts'] : 460.0;
 $descent_kts = isset($_GET['descent_kts']) ? (float)$_GET['descent_kts'] : 250.0;
 $wind_kts    = isset($_GET['wind_component_kts']) ? (float)$_GET['wind_component_kts'] : 0.0;
 
-$facility_types_str = $_GET['facility_types'] ?? 'ARTCC,FIR';
+$facility_types_str = $_GET['facility_types'] ?? 'ARTCC,FIR,TRACON';
 $facility_types = array_map('trim', array_map('strtoupper', explode(',', $facility_types_str)));
 
 // If route_id provided, look up the route from MySQL
@@ -152,7 +152,7 @@ if (!$cached) {
                    SELECT unnest(regexp_split_to_array(TRIM(:route2), '\s+')) AS fix_name
                ),
                located AS (
-                   SELECT
+                   SELECT DISTINCT ON (f.fix_name)
                        f.fix_name,
                        ST_Y(nf.geom) AS lat,
                        ST_X(nf.geom) AS lon,
@@ -162,6 +162,7 @@ if (!$cached) {
                    CROSS JOIN route r
                    WHERE nf.geom IS NOT NULL
                      AND ST_DWithin(r.geom, nf.geom, 0.5)
+                   ORDER BY f.fix_name, ST_Distance(r.geom, nf.geom) ASC
                )
                SELECT fix_name, lat, lon, fraction
                FROM located
@@ -302,6 +303,8 @@ $fix_analysis = [];
 foreach ($waypoints as $wp) {
     $fix_analysis[] = [
         'fix'                 => $wp['fix'],
+        'lat'                 => $wp['lat'],
+        'lon'                 => $wp['lon'],
         'dist_from_origin_nm' => $wp['cum_dist_nm'],
         'dist_to_dest_nm'     => round($total_dist_nm - $wp['cum_dist_nm'], 1),
         'time_from_origin_min'=> $wp['cum_time_min'],
