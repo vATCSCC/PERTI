@@ -87,7 +87,7 @@ GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD&per_page=2
   },
   "metadata": {
     "generated": "2026-03-14T03:39:16+00:00",
-    "source": "vatsim_ref.coded_departure_routes"
+    "source": "swim_api.swim_coded_departure_routes"
   }
 }
 ```
@@ -506,9 +506,9 @@ When `include=geometry` is specified, each CDR gains a `geometry` object:
     "coordinates": [[-73.7789, 40.6397], [-73.532, 40.844], ...]
   },
   "waypoints": [
-    {"name": "KJFK", "lat": 40.6397, "lon": -73.7789},
-    {"name": "GAYEL", "lat": 40.844, "lon": -73.532},
-    {"name": "WOZEE", "lat": 41.517, "lon": -79.139}
+    {"lat": 40.6397, "lon": -73.7789},
+    {"lat": 40.844, "lon": -73.532},
+    {"lat": 41.517, "lon": -79.139}
   ],
   "distance_nm": 642.3,
   "artccs_traversed": ["ZNY", "ZOB", "ZAU"]
@@ -536,8 +536,8 @@ When `include=geometry` is specified on a single-play request, each route gains 
     "coordinates": [[-73.7789, 40.6397], [-74.123, 41.052], ...]
   },
   "waypoints": [
-    {"name": "KJFK", "lat": 40.6397, "lon": -73.7789},
-    {"name": "CANDR", "lat": 41.052, "lon": -74.123}
+    {"lat": 40.6397, "lon": -73.7789},
+    {"lat": 41.052, "lon": -74.123}
   ],
   "distance_nm": 642.3,
   "artccs_traversed": ["ZNY", "ZOB", "ZAU"]
@@ -549,7 +549,7 @@ When `include=geometry` is specified on a single-play request, each route gains 
 | Field | Type | Description |
 |-------|------|-------------|
 | `geometry` | GeoJSON | Route path as a GeoJSON `LineString` (WGS84, EPSG:4326) |
-| `waypoints` | array | Ordered array of resolved waypoints with `name`, `lat`, `lon` |
+| `waypoints` | array | Ordered array of resolved waypoints with `lat`, `lon` |
 | `distance_nm` | float | Total route distance in nautical miles |
 | `artccs_traversed` | array | ARTCCs the route passes through (in route order) |
 
