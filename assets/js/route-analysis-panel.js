@@ -24,11 +24,12 @@
     var currentRouteId = null;
     var activeRowFacility = null;
     var activeRowFix = null;
+    var facilityFilters = { ARTCC: true, FIR: true, TRACON: true, SECTOR_HIGH: true, SECTOR_LOW: true, SECTOR_SUPERHIGH: true };
 
     // ── DOM refs (resolved on first show) ────────────────────────────
     var panel, header, toggle, body, routeLabel, chevron;
-    var summaryEl, facTbody, fixTbody;
-    var speedInput, windInput;
+    var summaryEl, facTbody, fixTbody, facFiltersEl;
+    var speedInput, windInput, depTimeInput;
     var exportMenu;
 
     function resolveDOM() {
@@ -42,6 +43,8 @@
         fixTbody    = document.getElementById('ra-fix-tbody');
         speedInput  = document.getElementById('ra-cruise-speed');
         windInput   = document.getElementById('ra-wind');
+        depTimeInput = document.getElementById('ra-dep-time');
+        facFiltersEl = document.getElementById('ra-facility-filters');
         exportMenu  = document.getElementById('ra-export-menu');
     }
 
@@ -59,6 +62,27 @@
     function formatDist(nm) {
         if (nm == null || isNaN(nm)) return '--';
         return Math.round(nm).toLocaleString();
+    }
+
+    // ── Departure time / UTC helpers ───────────────────────────────
+    function getDepartureEpoch() {
+        var val = depTimeInput ? depTimeInput.value.trim() : '';
+        if (!val) return Date.now();
+        var parts = val.match(/^(\d{1,2}):(\d{2})$/);
+        if (!parts) return Date.now();
+        var now = new Date();
+        var dep = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
+                                    parseInt(parts[1], 10), parseInt(parts[2], 10), 0));
+        return dep.getTime();
+    }
+
+    function minutesToUtcStr(depEpoch, minutes) {
+        if (minutes == null || isNaN(minutes)) return '--:--Z';
+        var d = new Date(depEpoch + minutes * 60000);
+        if (typeof PERTIDateTime !== 'undefined' && PERTIDateTime.formatTimeShortZ) {
+            return PERTIDateTime.formatTimeShortZ(d);
+        }
+        return d.toISOString().slice(11, 16) + 'Z';
     }
 
     // Deduplicate fix/waypoint arrays — nav_fixes has multiple entries per fix
@@ -92,6 +116,59 @@
 
     function typeLabel(type) {
         return typeLabels[type] || type || '';
+    }
+
+    // Pill style colors (match badge colors)
+    var pillColors = {
+        'ARTCC': { bg: 'rgba(35,155,205,0.2)', border: 'rgba(35,155,205,0.5)', color: '#239BCD' },
+        'FIR': { bg: 'rgba(108,117,125,0.3)', border: 'rgba(108,117,125,0.6)', color: '#adb5bd' },
+        'TRACON': { bg: 'rgba(255,193,7,0.2)', border: 'rgba(255,193,7,0.5)', color: '#ffc107' },
+        'SECTOR_HIGH': { bg: 'rgba(40,167,69,0.2)', border: 'rgba(40,167,69,0.5)', color: '#28a745' },
+        'SECTOR_LOW': { bg: 'rgba(220,53,69,0.2)', border: 'rgba(220,53,69,0.5)', color: '#dc3545' },
+        'SECTOR_SUPERHIGH': { bg: 'rgba(111,66,193,0.2)', border: 'rgba(111,66,193,0.5)', color: '#6f42c1' }
+    };
+
+    // ── Facility filter pills ─────────────────────────────────────────
+    function renderFacilityFilters(traversal) {
+        if (!facFiltersEl) return;
+        var counts = {};
+        for (var i = 0; i < traversal.length; i++) {
+            var tp = traversal[i].type || 'OTHER';
+            counts[tp] = (counts[tp] || 0) + 1;
+        }
+        var types = Object.keys(counts);
+        if (types.length <= 1) { facFiltersEl.innerHTML = ''; return; }
+
+        var html = '';
+        var order = ['ARTCC', 'FIR', 'TRACON', 'SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH'];
+        for (var o = 0; o < order.length; o++) {
+            var typ = order[o];
+            if (!counts[typ]) continue;
+            var pc = pillColors[typ] || pillColors['FIR'];
+            var active = facilityFilters[typ] !== false;
+            html += '<span class="ra-filter-pill' + (active ? ' active' : '') + '" data-type="' + typ + '"' +
+                ' style="background:' + pc.bg + '; border-color:' + pc.border + '; color:' + pc.color + ';">' +
+                typeLabel(typ) + ' <span class="ra-pill-count">' + counts[typ] + '</span></span>';
+        }
+        facFiltersEl.innerHTML = html;
+
+        var pills = facFiltersEl.querySelectorAll('.ra-filter-pill');
+        for (var p = 0; p < pills.length; p++) {
+            pills[p].addEventListener('click', function (e) {
+                e.stopPropagation();
+                var typ2 = this.getAttribute('data-type');
+                facilityFilters[typ2] = !facilityFilters[typ2];
+                this.classList.toggle('active', facilityFilters[typ2]);
+                refreshTimeline();
+            });
+        }
+    }
+
+    function filterTraversal(traversal) {
+        if (!traversal) return [];
+        return traversal.filter(function (f) {
+            return facilityFilters[f.type] !== false;
+        });
     }
 
     // ── Rendering ────────────────────────────────────────────────────
@@ -136,9 +213,12 @@
             data.waypoints = deduplicateFixes(data.waypoints);
         }
 
-        renderSummary(data);
-        renderFacilityTable(data.facility_traversal || []);
-        renderFixTable(data.fix_analysis || [], data.total_distance_nm, data.total_time_min);
+        var depEpoch = getDepartureEpoch();
+        var traversal = data.facility_traversal || [];
+        renderSummary(data, depEpoch);
+        renderFacilityFilters(traversal);
+        renderFacilityTable(filterTraversal(traversal), depEpoch);
+        renderFixTable(data.fix_analysis || [], data.total_distance_nm, data.total_time_min, depEpoch);
 
         // Scroll into view
         panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -147,10 +227,12 @@
         highlightOnMap(data);
     }
 
-    function renderSummary(data) {
+    function renderSummary(data, depEpoch) {
         if (!summaryEl) return;
         var facilities = data.facility_traversal || [];
         var fixes = data.fix_analysis || [];
+        var etdStr = minutesToUtcStr(depEpoch, 0);
+        var etaStr = minutesToUtcStr(depEpoch, data.total_time_min);
         summaryEl.innerHTML =
             '<div class="ra-stat-card">' +
                 '<div class="ra-stat-value">' + formatDist(data.total_distance_nm) + '</div>' +
@@ -159,6 +241,14 @@
             '<div class="ra-stat-card">' +
                 '<div class="ra-stat-value">' + formatTime(data.total_time_min) + '</div>' +
                 '<div class="ra-stat-label">' + t('routeAnalysis.stat.totalTime') + '</div>' +
+            '</div>' +
+            '<div class="ra-stat-card">' +
+                '<div class="ra-stat-value ra-utc">' + etdStr + '</div>' +
+                '<div class="ra-stat-label">' + t('routeAnalysis.stat.etd') + '</div>' +
+            '</div>' +
+            '<div class="ra-stat-card">' +
+                '<div class="ra-stat-value ra-utc">' + etaStr + '</div>' +
+                '<div class="ra-stat-label">' + t('routeAnalysis.stat.eta') + '</div>' +
             '</div>' +
             '<div class="ra-stat-card">' +
                 '<div class="ra-stat-value">' + facilities.length + '</div>' +
@@ -170,10 +260,10 @@
             '</div>';
     }
 
-    function renderFacilityTable(traversal) {
+    function renderFacilityTable(traversal, depEpoch) {
         if (!facTbody) return;
         if (!traversal || traversal.length === 0) {
-            facTbody.innerHTML = '<tr><td colspan="6" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
+            facTbody.innerHTML = '<tr><td colspan="8" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
             return;
         }
         var html = '';
@@ -185,6 +275,8 @@
                 '<td><span class="ra-type-badge ' + typeBadgeClass(f.type) + '">' + typeLabel(f.type) + '</span></td>' +
                 '<td class="text-right">' + formatDist(f.distance_within_nm) + '</td>' +
                 '<td class="text-right">' + formatTime(f.time_within_min) + '</td>' +
+                '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, f.entry_time_min) + '</td>' +
+                '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, f.exit_time_min) + '</td>' +
                 '<td class="text-right ra-seg-delta">' + (f.entry_fix || '') + ' \u2192 ' + (f.exit_fix || '') + '</td>' +
                 '</tr>';
         }
@@ -199,10 +291,10 @@
         }
     }
 
-    function renderFixTable(fixAnalysis, totalDist, totalTime) {
+    function renderFixTable(fixAnalysis, totalDist, totalTime, depEpoch) {
         if (!fixTbody) return;
         if (!fixAnalysis || fixAnalysis.length === 0) {
-            fixTbody.innerHTML = '<tr><td colspan="8" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
+            fixTbody.innerHTML = '<tr><td colspan="9" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
             return;
         }
         var html = '';
@@ -224,6 +316,7 @@
                 '</td>' +
                 '<td class="text-right">' + formatDist(fx.dist_from_origin_nm) + '</td>' +
                 '<td class="text-right">' + formatTime(fx.time_from_origin_min) + '</td>' +
+                '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, fx.time_from_origin_min) + '</td>' +
                 '<td class="text-right ra-seg-delta">' + segDist + '</td>' +
                 '<td class="text-right ra-seg-delta">' + segTime + '</td>' +
                 '<td class="text-right">' + formatDist(fx.dist_to_dest_nm) + '</td>' +
@@ -328,48 +421,82 @@
         var map = getMap();
         if (!map) return;
 
-        var traversal = data.facility_traversal || [];
-
-        // Dim non-analyzed routes
+        // Emphasize analyzed route, dim all others
         try {
             ['routes-solid', 'routes-dashed', 'routes-fan'].forEach(function (layerId) {
                 if (map.getLayer(layerId)) {
-                    map.setPaintProperty(layerId, 'line-opacity', 0.2);
+                    if (currentRouteId != null) {
+                        map.setPaintProperty(layerId, 'line-opacity',
+                            ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.15]
+                        );
+                        var baseWidth = layerId === 'routes-fan' ? 1 : (layerId === 'routes-dashed' ? 2 : 2.5);
+                        map.setPaintProperty(layerId, 'line-width',
+                            ['case', ['==', ['get', 'routeId'], currentRouteId], baseWidth * 1.5, baseWidth]
+                        );
+                    } else {
+                        map.setPaintProperty(layerId, 'line-opacity', 0.2);
+                    }
                 }
             });
         } catch (e) { /* layer may not exist */ }
 
-        // Highlight traversed ARTCCs
-        var artccIds = traversal
-            .filter(function (f) { return f.type === 'ARTCC' || f.type === 'FIR'; })
-            .map(function (f) { return f.id; });
-        if (artccIds.length > 0 && map.getLayer('artcc-play-traversed')) {
-            map.setFilter('artcc-play-traversed', ['in', 'ICAOCODE'].concat(artccIds));
+        updateFacilityHighlights();
+    }
+
+    // Update map boundary highlights based on facility filter state
+    function updateFacilityHighlights() {
+        var map = getMap();
+        if (!map || !currentData) return;
+        var traversal = currentData.facility_traversal || [];
+
+        // ARTCCs/FIRs — only show if ARTCC or FIR filter is active
+        var artccIds = (facilityFilters.ARTCC !== false || facilityFilters.FIR !== false)
+            ? traversal
+                .filter(function (f) {
+                    return (f.type === 'ARTCC' && facilityFilters.ARTCC !== false) ||
+                           (f.type === 'FIR' && facilityFilters.FIR !== false);
+                })
+                .map(function (f) { return f.id; })
+            : [];
+        if (map.getLayer('artcc-play-traversed')) {
+            map.setFilter('artcc-play-traversed',
+                artccIds.length > 0 ? ['in', 'ICAOCODE'].concat(artccIds) : ['in', 'ICAOCODE', '']);
         }
 
-        // Highlight traversed TRACONs (GeoJSON uses 'sector' property)
-        var traconIds = traversal
-            .filter(function (f) { return f.type === 'TRACON'; })
-            .map(function (f) { return f.id; });
-        if (traconIds.length > 0) {
-            if (map.getLayer('tracon-search-include')) {
-                map.setFilter('tracon-search-include', ['in', 'sector'].concat(traconIds));
-            }
+        // TRACONs
+        var traconIds = facilityFilters.TRACON !== false
+            ? traversal.filter(function (f) { return f.type === 'TRACON'; }).map(function (f) { return f.id; })
+            : [];
+        if (map.getLayer('tracon-search-include')) {
+            map.setFilter('tracon-search-include',
+                traconIds.length > 0 ? ['in', 'sector'].concat(traconIds) : ['in', 'sector', '']);
         }
 
-        // Highlight traversed sectors
-        var sectorHighLabels = traversal.filter(function (f) { return f.type === 'SECTOR_HIGH'; }).map(function (f) { return f.id; });
-        var sectorLowLabels = traversal.filter(function (f) { return f.type === 'SECTOR_LOW'; }).map(function (f) { return f.id; });
-        var sectorSuperLabels = traversal.filter(function (f) { return f.type === 'SECTOR_SUPERHIGH'; }).map(function (f) { return f.id; });
+        // High sectors
+        var highIds = facilityFilters.SECTOR_HIGH !== false
+            ? traversal.filter(function (f) { return f.type === 'SECTOR_HIGH'; }).map(function (f) { return f.id; })
+            : [];
+        if (map.getLayer('high-sector-search-include')) {
+            map.setFilter('high-sector-search-include',
+                highIds.length > 0 ? ['in', 'label'].concat(highIds) : ['in', 'label', '']);
+        }
 
-        if (sectorHighLabels.length > 0 && map.getLayer('high-sector-search-include')) {
-            map.setFilter('high-sector-search-include', ['in', 'label'].concat(sectorHighLabels));
+        // Low sectors
+        var lowIds = facilityFilters.SECTOR_LOW !== false
+            ? traversal.filter(function (f) { return f.type === 'SECTOR_LOW'; }).map(function (f) { return f.id; })
+            : [];
+        if (map.getLayer('low-sector-search-include')) {
+            map.setFilter('low-sector-search-include',
+                lowIds.length > 0 ? ['in', 'label'].concat(lowIds) : ['in', 'label', '']);
         }
-        if (sectorLowLabels.length > 0 && map.getLayer('low-sector-search-include')) {
-            map.setFilter('low-sector-search-include', ['in', 'label'].concat(sectorLowLabels));
-        }
-        if (sectorSuperLabels.length > 0 && map.getLayer('superhigh-sector-search-include')) {
-            map.setFilter('superhigh-sector-search-include', ['in', 'label'].concat(sectorSuperLabels));
+
+        // Superhigh sectors
+        var superIds = facilityFilters.SECTOR_SUPERHIGH !== false
+            ? traversal.filter(function (f) { return f.type === 'SECTOR_SUPERHIGH'; }).map(function (f) { return f.id; })
+            : [];
+        if (map.getLayer('superhigh-sector-search-include')) {
+            map.setFilter('superhigh-sector-search-include',
+                superIds.length > 0 ? ['in', 'label'].concat(superIds) : ['in', 'label', '']);
         }
     }
 
@@ -377,11 +504,13 @@
         var map = getMap();
         if (!map) return;
 
-        // Restore route opacity
+        // Restore route opacity and widths
         try {
             ['routes-solid', 'routes-dashed', 'routes-fan'].forEach(function (layerId) {
                 if (map.getLayer(layerId)) {
                     map.setPaintProperty(layerId, 'line-opacity', 0.9);
+                    var baseWidth = layerId === 'routes-fan' ? 1 : (layerId === 'routes-dashed' ? 2 : 2.5);
+                    map.setPaintProperty(layerId, 'line-width', baseWidth);
                 }
             });
         } catch (e) { /* ignore */ }
@@ -411,10 +540,10 @@
         return label;
     }
 
-    function buildFacilityRows(sep) {
+    function buildFacilityRows(sep, depEpoch) {
         var lines = [];
         var traversal = (currentData && currentData.facility_traversal) || [];
-        lines.push(['#', 'Facility', 'Type', 'Dist (nm)', 'Time', 'Entry Fix', 'Exit Fix'].join(sep));
+        lines.push(['#', 'Facility', 'Type', 'Dist (nm)', 'Time', 'Time (min)', 'Entry (Z)', 'Exit (Z)', 'Entry Fix', 'Exit Fix'].join(sep));
         for (var i = 0; i < traversal.length; i++) {
             var f = traversal[i];
             lines.push([
@@ -423,6 +552,9 @@
                 typeLabel(f.type),
                 f.distance_within_nm != null ? Math.round(f.distance_within_nm) : '',
                 formatTime(f.time_within_min),
+                f.time_within_min != null ? Math.round(f.time_within_min * 10) / 10 : '',
+                minutesToUtcStr(depEpoch, f.entry_time_min),
+                minutesToUtcStr(depEpoch, f.exit_time_min),
                 f.entry_fix || '',
                 f.exit_fix || ''
             ].join(sep));
@@ -430,17 +562,19 @@
         return lines;
     }
 
-    function buildFixRows(sep) {
+    function buildFixRows(sep, depEpoch) {
         var lines = [];
         var fixes = (currentData && currentData.fix_analysis) || [];
-        lines.push(['#', 'Fix', 'Facility', 'Cum Dist (nm)', 'Cum Time', 'Seg Dist (nm)', 'Seg Time', 'Rem Dist (nm)', 'Rem Time'].join(sep));
+        lines.push(['#', 'Fix', 'Facility', 'Elapsed Dist (nm)', 'Elapsed Time', 'Elapsed (min)', 'ETA (Z)', 'Seg Dist (nm)', 'Seg Time', 'Seg Time (min)', 'Rem Dist (nm)', 'Rem Time', 'Rem Time (min)'].join(sep));
         for (var i = 0; i < fixes.length; i++) {
             var fx = fixes[i];
-            var segDist = '', segTime = '';
+            var segDist = '', segTime = '', segTimeMin = '';
             if (i > 0) {
                 var prev = fixes[i - 1];
                 segDist = Math.round(fx.dist_from_origin_nm - prev.dist_from_origin_nm);
-                segTime = formatTime(fx.time_from_origin_min - prev.time_from_origin_min);
+                var stMin = fx.time_from_origin_min - prev.time_from_origin_min;
+                segTime = formatTime(stMin);
+                segTimeMin = Math.round(stMin * 10) / 10;
             }
             lines.push([
                 i + 1,
@@ -448,27 +582,33 @@
                 fx.facility || '',
                 fx.dist_from_origin_nm != null ? Math.round(fx.dist_from_origin_nm) : '',
                 formatTime(fx.time_from_origin_min),
+                fx.time_from_origin_min != null ? Math.round(fx.time_from_origin_min * 10) / 10 : '',
+                minutesToUtcStr(depEpoch, fx.time_from_origin_min),
                 segDist,
                 segTime,
+                segTimeMin,
                 fx.dist_to_dest_nm != null ? Math.round(fx.dist_to_dest_nm) : '',
-                formatTime(fx.time_to_dest_min)
+                formatTime(fx.time_to_dest_min),
+                fx.time_to_dest_min != null ? Math.round(fx.time_to_dest_min * 10) / 10 : ''
             ].join(sep));
         }
         return lines;
     }
 
     function buildTextContent(sep) {
+        var depEpoch = getDepartureEpoch();
         var lines = [];
         lines.push(buildHeaderLine());
         if (currentData) {
             lines.push('Total: ' + formatDist(currentData.total_distance_nm) + ' nm / ' + formatTime(currentData.total_time_min));
+            lines.push('ETD: ' + minutesToUtcStr(depEpoch, 0) + '  ETA: ' + minutesToUtcStr(depEpoch, currentData.total_time_min));
         }
         lines.push('');
         lines.push('FACILITY TRAVERSAL');
-        lines = lines.concat(buildFacilityRows(sep));
+        lines = lines.concat(buildFacilityRows(sep, depEpoch));
         lines.push('');
         lines.push('FIX ANALYSIS');
-        lines = lines.concat(buildFixRows(sep));
+        lines = lines.concat(buildFixRows(sep, depEpoch));
         return lines.join('\n');
     }
 
@@ -481,15 +621,17 @@
     }
 
     function buildCsvContent() {
+        var depEpoch = getDepartureEpoch();
         var lines = [];
         lines.push('# ' + buildHeaderLine());
         if (currentData) {
             lines.push('# Total: ' + formatDist(currentData.total_distance_nm) + ' nm / ' + formatTime(currentData.total_time_min));
+            lines.push('# ETD: ' + minutesToUtcStr(depEpoch, 0) + '  ETA: ' + minutesToUtcStr(depEpoch, currentData.total_time_min));
         }
         lines.push('');
 
         var traversal = (currentData && currentData.facility_traversal) || [];
-        lines.push(['"#"', '"Facility"', '"Type"', '"Dist (nm)"', '"Time"', '"Entry Fix"', '"Exit Fix"'].join(','));
+        lines.push(['"#"', '"Facility"', '"Type"', '"Dist (nm)"', '"Time"', '"Time (min)"', '"Entry (Z)"', '"Exit (Z)"', '"Entry Fix"', '"Exit Fix"'].join(','));
         for (var i = 0; i < traversal.length; i++) {
             var f = traversal[i];
             lines.push([
@@ -498,6 +640,9 @@
                 csvEscape(typeLabel(f.type)),
                 f.distance_within_nm != null ? Math.round(f.distance_within_nm) : '',
                 csvEscape(formatTime(f.time_within_min)),
+                f.time_within_min != null ? Math.round(f.time_within_min * 10) / 10 : '',
+                csvEscape(minutesToUtcStr(depEpoch, f.entry_time_min)),
+                csvEscape(minutesToUtcStr(depEpoch, f.exit_time_min)),
                 csvEscape(f.entry_fix || ''),
                 csvEscape(f.exit_fix || '')
             ].join(','));
@@ -505,14 +650,16 @@
         lines.push('');
 
         var fixes = (currentData && currentData.fix_analysis) || [];
-        lines.push(['"#"', '"Fix"', '"Facility"', '"Cum Dist (nm)"', '"Cum Time"', '"Seg Dist (nm)"', '"Seg Time"', '"Rem Dist (nm)"', '"Rem Time"'].join(','));
+        lines.push(['"#"', '"Fix"', '"Facility"', '"Elapsed Dist (nm)"', '"Elapsed Time"', '"Elapsed (min)"', '"ETA (Z)"', '"Seg Dist (nm)"', '"Seg Time"', '"Seg Time (min)"', '"Rem Dist (nm)"', '"Rem Time"', '"Rem Time (min)"'].join(','));
         for (var j = 0; j < fixes.length; j++) {
             var fx = fixes[j];
-            var segDist = '', segTime = '';
+            var segDist = '', segTime = '', segTimeMin = '';
             if (j > 0) {
                 var prev = fixes[j - 1];
                 segDist = Math.round(fx.dist_from_origin_nm - prev.dist_from_origin_nm);
-                segTime = formatTime(fx.time_from_origin_min - prev.time_from_origin_min);
+                var stMin = fx.time_from_origin_min - prev.time_from_origin_min;
+                segTime = formatTime(stMin);
+                segTimeMin = Math.round(stMin * 10) / 10;
             }
             lines.push([
                 j + 1,
@@ -520,10 +667,14 @@
                 csvEscape(fx.facility || ''),
                 fx.dist_from_origin_nm != null ? Math.round(fx.dist_from_origin_nm) : '',
                 csvEscape(formatTime(fx.time_from_origin_min)),
+                fx.time_from_origin_min != null ? Math.round(fx.time_from_origin_min * 10) / 10 : '',
+                csvEscape(minutesToUtcStr(depEpoch, fx.time_from_origin_min)),
                 segDist,
                 csvEscape(segTime),
+                segTimeMin,
                 fx.dist_to_dest_nm != null ? Math.round(fx.dist_to_dest_nm) : '',
-                csvEscape(formatTime(fx.time_to_dest_min))
+                csvEscape(formatTime(fx.time_to_dest_min)),
+                fx.time_to_dest_min != null ? Math.round(fx.time_to_dest_min * 10) / 10 : ''
             ].join(','));
         }
         return lines.join('\n');
@@ -585,10 +736,11 @@
     function doExportXLSX() {
         if (typeof XLSX === 'undefined') return;
 
+        var depEpoch = getDepartureEpoch();
         var wb = XLSX.utils.book_new();
 
         // Facilities sheet
-        var facData = [['#', 'Facility', 'Type', 'Dist (nm)', 'Time (min)', 'Entry Fix', 'Exit Fix']];
+        var facData = [['#', 'Facility', 'Type', 'Dist (nm)', 'Time (min)', 'Entry (Z)', 'Exit (Z)', 'Entry Fix', 'Exit Fix']];
         var traversal = (currentData && currentData.facility_traversal) || [];
         for (var i = 0; i < traversal.length; i++) {
             var f = traversal[i];
@@ -598,6 +750,8 @@
                 typeLabel(f.type),
                 f.distance_within_nm != null ? Math.round(f.distance_within_nm) : null,
                 f.time_within_min != null ? Math.round(f.time_within_min * 10) / 10 : null,
+                minutesToUtcStr(depEpoch, f.entry_time_min),
+                minutesToUtcStr(depEpoch, f.exit_time_min),
                 f.entry_fix || '',
                 f.exit_fix || ''
             ]);
@@ -606,7 +760,7 @@
         XLSX.utils.book_append_sheet(wb, ws1, 'Facilities');
 
         // Fixes sheet
-        var fixData = [['#', 'Fix', 'Facility', 'Cum Dist (nm)', 'Cum Time (min)', 'Seg Dist (nm)', 'Seg Time (min)', 'Rem Dist (nm)', 'Rem Time (min)']];
+        var fixData = [['#', 'Fix', 'Facility', 'Elapsed Dist (nm)', 'Elapsed (min)', 'ETA (Z)', 'Seg Dist (nm)', 'Seg Time (min)', 'Rem Dist (nm)', 'Rem Time (min)']];
         var fixes = (currentData && currentData.fix_analysis) || [];
         for (var j = 0; j < fixes.length; j++) {
             var fx = fixes[j];
@@ -622,6 +776,7 @@
                 fx.facility || '',
                 fx.dist_from_origin_nm != null ? Math.round(fx.dist_from_origin_nm) : null,
                 fx.time_from_origin_min != null ? Math.round(fx.time_from_origin_min * 10) / 10 : null,
+                minutesToUtcStr(depEpoch, fx.time_from_origin_min),
                 segDist,
                 segTime,
                 fx.dist_to_dest_nm != null ? Math.round(fx.dist_to_dest_nm) : null,
@@ -651,27 +806,40 @@
         if (currentDest) params.dest = currentDest;
         if (speedInput && speedInput.value) params.cruise_kts = parseFloat(speedInput.value) || 460;
         if (windInput && windInput.value) params.wind_component_kts = parseFloat(windInput.value) || 0;
-        params.facility_types = 'ARTCC,FIR,TRACON';
+        params.facility_types = 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH';
 
         // Show loading
-        if (facTbody) facTbody.innerHTML = '<tr><td colspan="6" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
-        if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
+        if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
+        if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="9" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
 
         $.getJSON('api/data/playbook/analysis.php', params, function (resp) {
             if (!resp || resp.status !== 'success') {
-                if (facTbody) facTbody.innerHTML = '<tr><td colspan="6" class="ra-empty">' + t('routeAnalysis.error') + '</td></tr>';
+                if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-empty">' + t('routeAnalysis.error') + '</td></tr>';
                 return;
             }
             if (resp.fix_analysis) resp.fix_analysis = deduplicateFixes(resp.fix_analysis);
             if (resp.waypoints) resp.waypoints = deduplicateFixes(resp.waypoints);
             currentData = resp;
-            renderSummary(resp);
-            renderFacilityTable(resp.facility_traversal || []);
-            renderFixTable(resp.fix_analysis || [], resp.total_distance_nm, resp.total_time_min);
+            var depEpoch = getDepartureEpoch();
+            var traversal = resp.facility_traversal || [];
+            renderSummary(resp, depEpoch);
+            renderFacilityFilters(traversal);
+            renderFacilityTable(filterTraversal(traversal), depEpoch);
+            renderFixTable(resp.fix_analysis || [], resp.total_distance_nm, resp.total_time_min, depEpoch);
             highlightOnMap(resp);
         }).fail(function () {
-            if (facTbody) facTbody.innerHTML = '<tr><td colspan="6" class="ra-empty">' + t('routeAnalysis.error') + '</td></tr>';
+            if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-empty">' + t('routeAnalysis.error') + '</td></tr>';
         });
+    }
+
+    // ── Refresh timeline (dep time change only — no API call) ──────
+    function refreshTimeline() {
+        if (!currentData) return;
+        var depEpoch = getDepartureEpoch();
+        renderSummary(currentData, depEpoch);
+        renderFacilityTable(filterTraversal(currentData.facility_traversal || []), depEpoch);
+        renderFixTable(currentData.fix_analysis || [], currentData.total_distance_nm, currentData.total_time_min, depEpoch);
+        updateFacilityHighlights();
     }
 
     // ── Lifecycle ────────────────────────────────────────────────────
@@ -764,6 +932,15 @@
                 inp.addEventListener('click', function (e) { e.stopPropagation(); });
             }
         });
+
+        // Departure time input — refresh timeline (no API call)
+        if (depTimeInput) {
+            depTimeInput.addEventListener('blur', function () { refreshTimeline(); });
+            depTimeInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); refreshTimeline(); }
+            });
+            depTimeInput.addEventListener('click', function (e) { e.stopPropagation(); });
+        }
     });
 
     // ── Public API ───────────────────────────────────────────────────
@@ -771,6 +948,7 @@
         show: show,
         clear: clear,
         recalculate: recalculate,
+        refreshTimeline: refreshTimeline,
         clearHighlight: clearHighlight,
         exportClipboard: exportClipboard,
         exportTXT: exportTXT,
