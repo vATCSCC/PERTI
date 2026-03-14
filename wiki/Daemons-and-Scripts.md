@@ -1,8 +1,8 @@
 # Daemons and Scripts
 
-> **HIBERNATION MODE ACTIVE** (since March 9, 2026): Only the ADL Ingest daemon runs during hibernation. All other daemons are suspended. See `docs/HIBERNATION_RUNBOOK.md` for re-activation procedures.
+> **HIBERNATION MODE ACTIVE** (since March 13, 2026): ADL Ingest and all SWIM daemons run during hibernation (SWIM exempt). All non-SWIM daemons are suspended. See `docs/HIBERNATION_RUNBOOK.md` for re-activation procedures.
 
-Background processes that keep PERTI data current. All 15 daemons are started at App Service boot via `scripts/startup.sh` and run continuously (ADL Archive is conditional on `ADL_ARCHIVE_STORAGE_CONN`).
+Background processes that keep PERTI data current. All 17 daemons are started at App Service boot via `scripts/startup.sh` and run continuously (ADL Archive is conditional on `ADL_ARCHIVE_STORAGE_CONN`).
 
 ---
 
@@ -15,10 +15,12 @@ Background processes that keep PERTI data current. All 15 daemons are started at
 | Boundary Detection (GIS) | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection | Suspended |
 | Crossing Calculation | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction | Suspended |
 | Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation | Suspended |
-| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events on port 8090 | Suspended |
-| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | Sync ADL to SWIM_API database | Suspended |
-| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data polling | Suspended |
-| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL | Suspended |
+| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events on port 8090 | **Active** (SWIM exempt) |
+| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | Sync ADL flights to SWIM_API | **Active** (SWIM exempt) |
+| SWIM TMI Sync | `scripts/swim_tmi_sync_daemon.php` | 5min | Sync TMI/CDM/flow/ref data to SWIM_API | **Active** (SWIM exempt) |
+| SWIM Refdata Sync | `scripts/refdata_sync_daemon.php` | Daily 06:00Z | Sync CDRs, playbook, airports, taxi ref to SWIM_API | **Active** (SWIM exempt) |
+| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data polling | **Active** (SWIM exempt) |
+| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL | **Active** (SWIM exempt) |
 | Scheduler | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activation | Suspended |
 | Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge | Suspended |
 | Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics collection | Suspended |
@@ -135,11 +137,69 @@ WebSocket server providing real-time flight data events.
 
 ### swim_sync_daemon.php
 
-Syncs flight data from VATSIM_ADL to the dedicated SWIM_API database.
+Syncs flight data from VATSIM_ADL to the dedicated SWIM_API database. Uses `sp_Swim_BulkUpsert` with row-hash skip to avoid updating unchanged rows, and emits changes to `swim_change_feed` for downstream consumers.
 
 | Setting | Value |
 |---------|-------|
 | Location | `scripts/swim_sync_daemon.php` |
+| Interval | 2 minutes |
+| Language | PHP |
+| Data source | `scripts/swim_sync.php` (~219 columns from 6 ADL tables) |
+| Target | `swim_flights` via `sp_Swim_BulkUpsert` |
+
+---
+
+### swim_tmi_sync_daemon.php
+
+Syncs TMI, CDM, flow, and reference data from VATSIM_TMI and VATSIM_ADL to SWIM_API mirror tables. Two-tier sync: operational data every 5 minutes (offset from flight sync), reference data daily at a random time in the 0601-0801Z window.
+
+| Setting | Value |
+|---------|-------|
+| Location | `scripts/swim_tmi_sync_daemon.php` |
+| Interval | 5 minutes (operational) / daily (reference) |
+| Language | PHP |
+| Tables synced | 14 mirror tables (10 TMI + 4 flow) |
+| Method | Watermark-based delta detection + OPENJSON MERGE |
+
+**Operational tier (every 5 min):** `swim_ntml`, `swim_tmi_programs`, `swim_tmi_entries`, `swim_tmi_advisories`, `swim_tmi_reroutes`, `swim_tmi_reroute_routes`, `swim_tmi_reroute_flights`, `swim_tmi_reroute_compliance_log`, `swim_tmi_public_routes`, `swim_tmi_flight_control`, `swim_tmi_flow_providers`, `swim_tmi_flow_events`, `swim_tmi_flow_event_participants`, `swim_tmi_flow_measures`
+
+**Reference tier (daily 0601-0801Z):** `swim_airports` (from ADL `apts`), `swim_airport_taxi_reference` + `_detail`
+
+---
+
+### refdata_sync_daemon.php
+
+Syncs reference data (CDRs, playbook routes, airports, taxi reference) from VATSIM_REF, VATSIM_ADL, and MySQL to SWIM_API. Runs daily with incremental upsert + tombstone deactivation for large tables.
+
+| Setting | Value |
+|---------|-------|
+| Location | `scripts/refdata_sync_daemon.php` |
+| Schedule | Daily at 06:00Z |
+| Language | PHP |
+| Tables synced | `swim_coded_departure_routes` (~41K), `swim_playbook_routes` (~55K), `swim_airports`, `swim_airport_taxi_reference` |
+| Method | Full MERGE with `is_active` tombstoning for CDRs/playbook |
+
+---
+
+### simtraffic_swim_poll.php
+
+Polls SimTraffic time data and syncs it into the SWIM_API database.
+
+| Setting | Value |
+|---------|-------|
+| Location | `scripts/simtraffic_swim_poll.php` |
+| Interval | 2 minutes |
+| Language | PHP |
+
+---
+
+### swim_adl_reverse_sync_daemon.php
+
+Reverse syncs data from SWIM_API back to VATSIM_ADL — primarily SimTraffic metering times and CDM milestone data.
+
+| Setting | Value |
+|---------|-------|
+| Location | `scripts/swim_adl_reverse_sync_daemon.php` |
 | Interval | 2 minutes |
 | Language | PHP |
 

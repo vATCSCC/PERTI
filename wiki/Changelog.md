@@ -4,11 +4,45 @@ This document tracks significant changes to PERTI across versions.
 
 ---
 
-## Version 18 (Current)
+## Version 19 (Current)
+
+*Released: March 2026*
+
+> **Note:** System re-entered hibernation mode on March 13, 2026 with SWIM exemption — all SWIM daemons and API endpoints remain active. A backfill pipeline is processing historical data (Phase 3 of 6 in progress).
+
+### SWIM Data Isolation (Phase 4 — Migration 026)
+
+All SWIM API endpoints now query exclusively from the `SWIM_API` database. Internal databases (`VATSIM_TMI`, `VATSIM_ADL`, `VATSIM_REF`, `perti_site` MySQL) are never accessed directly by API request handlers.
+
+#### Schema Changes
+- `swim_flights` expansion: +34 new columns, `row_hash BINARY(20)` for change detection, 14 unused indexes dropped (36 → 22)
+- 25 new mirror tables: 10 TMI (`swim_ntml`, `swim_tmi_programs`, `_entries`, `_advisories`, `_reroutes`, `_reroute_routes`, `_reroute_flights`, `_reroute_compliance_log`, `_public_routes`, `_flight_control`) + 4 flow (`swim_tmi_flow_*`) + 4 CDM (`swim_cdm_*`) + 4 reference (`swim_airports`, `swim_airport_taxi_reference`, `_detail`, `swim_playbook_route_throughput`) + 3 infrastructure (`swim_change_feed`, `swim_sync_watermarks`, `swim_sync_state`)
+- 14 SWIM views (8 active/recent TMI + 3 CDM + 3 existing)
+- `sp_Swim_BulkUpsert` updated: row-hash skip eliminates ~60-70% of no-op updates, change feed emission, +60 columns in OPENJSON/MERGE
+
+#### New Daemons
+- `swim_tmi_sync_daemon.php` — Syncs 14 TMI/CDM/flow tables every 5 minutes (watermark-based delta detection + OPENJSON MERGE)
+- `refdata_sync_daemon.php` — Syncs CDRs (~41K), playbook routes (~55K), airports, taxi reference daily at 06:00Z
+
+#### Endpoint Migration
+- 48 SWIM endpoints migrated to SWIM_API-only queries
+- `PERTI_SWIM_ONLY` optimization added to `connect.php` — skips MySQL/ADL/TMI/REF/GIS connections (~500-1000ms saved per request)
+- Removed ADL/TMI/REF/MySQL fallback paths from `auth.php`, `flights.php`, `positions.php`, `flight.php`, `cdrs.php`, `plays.php`, `keys/*.php`
+- TMI endpoints switched from `$conn_tmi` to `$conn_swim` with `swim_tmi_*` mirror tables (10 files)
+- CDM endpoints switched to SWIM mirror reads with CDMService v2.0 (5 files + CDMService)
+
+#### Bug Fixes
+- WebSocket position timestamp: `pos.updated_at` → `pos.position_updated_utc` (correctness fix)
+- TMI sync advisory_number type mismatch: `INT` → `NVARCHAR(16)` (source data is 'ADVZY 001' etc.)
+- TMI sync flight_control watermark: `modified_utc` → `updated_at` (actual source column name)
+
+---
+
+## Version 18
 
 *Released: February 2026*
 
-> **Note:** System entered hibernation mode on March 9, 2026. All features below are deployed but many are inactive during hibernation. A backfill pipeline is processing historical data (Phase 3 of 6 in progress as of March 11, 2026).
+> **Note:** System entered hibernation mode on March 9, 2026, then re-entered March 13, 2026 with SWIM exemption. All features below are deployed but many non-SWIM features are inactive during hibernation.
 
 ### Recent Enhancements (February-March 2026, PRs #142-163)
 
@@ -422,6 +456,16 @@ This document tracks significant changes to PERTI across versions.
 
 ## Migration Notes
 
+### Upgrading to v19
+
+1. Apply `database/migrations/swim/026_swim_data_isolation.sql` to SWIM_API (DDL admin: `jpeterson`)
+2. Run initial data load for all mirror tables (TMI sync daemon handles this automatically on first run)
+3. Deploy updated `scripts/swim_sync.php` (60 new columns in ADL SELECT/JSON mapping)
+4. Deploy `scripts/swim_tmi_sync_daemon.php` and `scripts/refdata_sync_daemon.php`
+5. Update `scripts/startup.sh` to start new sync daemons
+6. Verify all SWIM endpoints return identical data post-migration
+7. Confirm DTU stays below 80% peak on Azure portal
+
 ### Upgrading to v18
 
 1. Apply NOD flow migrations: `database/migrations/nod/001_facility_flow_tables.sql`, `002_flow_element_fea_linkage.sql`
@@ -478,15 +522,15 @@ This document tracks significant changes to PERTI across versions.
 
 ## Upcoming (Planned)
 
-### v19 (Planned - Post-Hibernation)
+### v20 (Planned - Post-Hibernation)
 
 - CDM Adaptation (hybrid FAA/EUROCONTROL/AMNAC model, 6 phases)
 - Daemon reoptimization cycle for GDP (2-5 min automatic reopt)
 - TMI Historical Import (NTML compact + ADVZY parsers)
+- Change feed delta endpoint (`GET /api/swim/v1/changes?since_seq=<n>&limit=<m>`) for external consumers
 - Reroute compliance automation
 - StatSim v2 integration
 - Additional i18n locale support
-- Hibernation recovery backfill completion
 
 ---
 

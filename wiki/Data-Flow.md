@@ -133,20 +133,25 @@ Boundary detection uses PostGIS polygon intersection against ARTCC, TRACON, and 
 
 ## SWIM Sync Pipeline
 
+All SWIM API endpoints query exclusively from the `SWIM_API` database. Three sync daemons keep data fresh:
+
 ```
-ADL Normalized Tables
-       |
-       v
-swim_sync_daemon.php (every 2min)
-       |
-       v
-SWIM_API.swim_flights (denormalized snapshot)
+ADL Normalized Tables (6 tables)          VATSIM_TMI / VATSIM_ADL          VATSIM_REF / MySQL
+       |                                          |                              |
+       v                                          v                              v
+swim_sync_daemon.php (every 2min)    swim_tmi_sync_daemon.php (5min)   refdata_sync_daemon.php (daily)
+       |                                          |                              |
+       v                                          v                              v
+swim_flights (~219 cols)             25 mirror tables (TMI/CDM/flow)   CDRs, playbook, airports, taxi
+  + swim_change_feed                  + swim_sync_state                  + swim_airports
        |
        |-->  REST API (/api/swim/v1/)
        '-->  WebSocket (swim_ws_server.php port 8090)
 ```
 
-The SWIM sync daemon denormalizes the 8-table flight architecture into a single wide `swim_flights` table for efficient API consumption. The WebSocket server pushes real-time flight updates to connected clients.
+- **Flight sync** uses `sp_Swim_BulkUpsert` with row-hash skip to avoid updating unchanged rows, and emits changes to `swim_change_feed` for downstream consumers.
+- **TMI sync** uses watermark-based delta detection + OPENJSON MERGE for 14 operational tables (every 5 min, offset from flight sync).
+- **Refdata sync** runs daily at 06:00Z with incremental upsert + tombstone deactivation for large tables (CDRs, playbook routes).
 
 ---
 
@@ -272,7 +277,7 @@ Completed flight data is also moved to `adl_flight_archive` on a daily schedule 
 ## API Request Flow
 
 ```
-Browser Request
+Browser/Client Request
        |
        v
 nginx + PHP-FPM (40 workers)
@@ -280,13 +285,16 @@ nginx + PHP-FPM (40 workers)
        v
 /api/{module}/{endpoint}.php
        |
-       |-->  MySQL (plans, configs, staffing, review)
-       |-->  Azure SQL (flights, TMIs, SWIM, reference)
-       '-->  PostgreSQL/PostGIS (spatial queries)
+       |-->  MySQL (plans, configs, staffing, review) — internal pages only
+       |-->  Azure SQL (flights, TMIs, reference) — internal pages only
+       |-->  PostgreSQL/PostGIS (spatial queries) — internal pages only
+       '-->  SWIM_API only — all /api/swim/v1/* endpoints (PERTI_SWIM_ONLY)
               |
               v
          JSON Response
 ```
+
+**SWIM Data Isolation (v19):** All `/api/swim/v1/*` endpoints use `PERTI_SWIM_ONLY` mode, which skips MySQL, ADL, TMI, REF, and GIS connections entirely. Only `SWIM_API` (Azure SQL Basic, 5 DTU) is connected — saving ~500-1000ms per request and preventing external API traffic from impacting internal operational workloads.
 
 ---
 
@@ -300,7 +308,9 @@ nginx + PHP-FPM (40 workers)
 | Boundary detection | 15 seconds | `boundary_gis_daemon.php` (PostGIS) |
 | Crossing predictions | Tiered (15s - 5min) | `crossing_gis_daemon.php` |
 | Waypoint ETAs | Tiered (15s - 5min) | `waypoint_eta_daemon.php` |
-| SWIM sync | 2 minutes | `swim_sync_daemon.php` |
+| SWIM flight sync | 2 minutes | `swim_sync_daemon.php` |
+| SWIM TMI sync | 5 minutes | `swim_tmi_sync_daemon.php` |
+| SWIM refdata sync | Daily 06:00Z | `refdata_sync_daemon.php` |
 | Weather alerts | 5 minutes | Aviation Weather Center |
 | TMI status | On change | User actions |
 | Discord queue | Continuous | `process_discord_queue.php` |

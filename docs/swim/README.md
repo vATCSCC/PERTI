@@ -3,7 +3,7 @@
 > Centralized data exchange hub for real-time flight information sharing across the VATSIM ecosystem.
 
 [![Status](https://img.shields.io/badge/status-production-brightgreen)]()
-[![Phase](https://img.shields.io/badge/phase_3-complete-brightgreen)]()
+[![Phase](https://img.shields.io/badge/phase_4-complete-brightgreen)]()
 [![Cost](https://img.shields.io/badge/cost-$5/mo-brightgreen)]()
 [![FIXM](https://img.shields.io/badge/FIXM-complete-brightgreen)]()
 
@@ -19,6 +19,7 @@
 | Phase 1: REST API | ✅ Complete |
 | Phase 2: WebSocket | ✅ Complete |
 | Phase 3: SDKs & Integrations | ✅ Complete (Python, C#, Java, JS) |
+| Phase 4: Data Isolation | ✅ Complete — all endpoints query SWIM_API exclusively |
 
 **Live Features:**
 - REST API with FIXM field naming
@@ -28,7 +29,8 @@
 - Tier-based rate limits (100-30,000 req/min)
 - Response caching, ETags, gzip compression
 - Python SDK
-- **NEW:** AOC Telemetry Ingest (vertical rate, OOOI times)
+- AOC Telemetry Ingest (vertical rate, OOOI times)
+- **NEW:** Full data isolation — all endpoints query SWIM_API only; 3 sync daemons keep data fresh
 
 ---
 
@@ -153,6 +155,24 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 | `/tmi/mit` | GET | Miles-In-Trail restrictions |
 | `/tmi/minit` | GET | Minutes-In-Trail restrictions |
 | `/tmi/afp` | GET | Airspace Flow Programs |
+| `/tmi/entries` | GET | TMI restriction entries (MIT, AFP, etc.) |
+| `/tmi/advisories` | GET | NTML advisory messages |
+| `/tmi/measures` | GET | TMI measures and flow restrictions |
+| `/tmi/routes` | GET | TMI public routes |
+| `/tmi/flow` | GET | Flow management overview |
+| `/tmi/flow/providers` | GET | Flow management providers (ECFMP) |
+| `/tmi/flow/events` | GET | Flow events |
+| `/tmi/flow/measures` | GET | Flow measures |
+| `/cdm/status` | GET | CDM system status |
+| `/cdm/readiness` | GET/POST | Pilot readiness status |
+| `/cdm/compliance` | GET | CDM compliance monitoring |
+| `/cdm/metrics` | GET | CDM performance metrics |
+| `/cdm/airport-status` | GET | CDM airport status |
+| `/reference/taxi-times` | GET | Airport taxi reference times |
+| `/routes/cdrs` | GET | Coded Departure Routes |
+| `/playbook/plays` | GET | Playbook route plays |
+| `/playbook/throughput` | GET | Playbook route throughput |
+| `/playbook/analysis` | GET | Route analysis (PostGIS) |
 | `/metering/{airport}` | GET | TBFM metering data for airport |
 | `/metering/{airport}/sequence` | GET | Arrival sequence list |
 | `/jatoc/incidents` | GET | JATOC incident records |

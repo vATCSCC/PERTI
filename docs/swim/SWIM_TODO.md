@@ -1,7 +1,7 @@
 # VATSWIM Implementation Tracker
 
-**Last Updated:** 2026-01-16 22:00 UTC  
-**Status:** Phase 3 COMPLETE ✅  
+**Last Updated:** 2026-03-14
+**Status:** Phase 4 COMPLETE ✅ (Data Isolation)
 **Repository:** `VATSIM PERTI/PERTI/`
 
 ---
@@ -18,7 +18,11 @@
 
 ---
 
-## 🎉 Latest: All SDKs Complete
+## 🎉 Latest: Data Isolation Complete (Phase 4)
+
+All SWIM API endpoints now query exclusively from the `SWIM_API` database. Three sync daemons (`swim_sync_daemon`, `swim_tmi_sync_daemon`, `refdata_sync_daemon`) keep 25+ mirror tables fresh within the 5 DTU budget. See Phase 4 section below for full details.
+
+## SDKs
 
 Client SDKs now available for all major platforms:
 
@@ -277,6 +281,17 @@ PERTI/
 ---
 
 ## 📝 Change Log
+
+### 2026-03-14 Data Isolation (Phase 4 Complete)
+- ✅ Migration 026 — swim_flights expansion (+34 cols, row_hash, 14 index drops)
+- ✅ Migration 026 — 25 mirror tables (10 TMI + 4 flow + 4 CDM + 4 ref + 3 infra)
+- ✅ Migration 026 — sp_Swim_BulkUpsert update (row-hash skip + change feed + 60 cols)
+- ✅ swim_sync.php — add ~60 columns to ADL SELECT/JSON mapping
+- ✅ swim_tmi_sync_daemon.php — new TMI sync daemon (5min operational, daily reference)
+- ✅ refdata_sync_daemon.php — new reference data sync daemon (daily 06:00Z)
+- ✅ All 48 SWIM endpoints migrated to SWIM_API-only queries
+- ✅ PERTI_SWIM_ONLY optimization — skip non-SWIM DB connections
+- ✅ WebSocket bug fix (pos.updated_at → pos.position_updated_utc)
 
 ### 2026-01-16 Session 5 (SDKs Complete)
 - ✅ Enhanced Python SDK v2.0.0 - Added REST client, models
