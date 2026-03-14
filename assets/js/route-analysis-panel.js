@@ -886,22 +886,62 @@
     function buildFacilityRows(sep, depEpoch) {
         var lines = [];
         var traversal = (currentData && currentData.facility_traversal) || [];
-        lines.push(['#', 'Facility', 'Type', 'Dist (nm)', 'Time', 'Time (min)', 'Entry (Z)', 'Exit (Z)', 'Entry Fix', 'Exit Fix'].join(sep));
+        var header = ['#', 'Facility', 'Type', 'Dist (nm)', 'Time', 'Time (min)', 'Entry (Z)', 'Exit (Z)', 'Entry Fix', 'Exit Fix'];
+        lines.push(header.join(sep));
+
+        // Group by facility type in standard order
+        var typeOrder = ['ARTCC', 'FIR', 'SECTOR_SUPERHIGH', 'SECTOR_HIGH', 'SECTOR_LOW', 'TRACON'];
+        var grouped = {};
         for (var i = 0; i < traversal.length; i++) {
             var f = traversal[i];
-            lines.push([
-                i + 1,
-                f.name || f.id || '',
-                typeLabel(f.type),
-                f.distance_within_nm != null ? Math.round(f.distance_within_nm) : '',
-                formatTime(f.time_within_min),
-                f.time_within_min != null ? Math.round(f.time_within_min * 10) / 10 : '',
-                minutesToUtcStr(depEpoch, f.entry_time_min),
-                minutesToUtcStr(depEpoch, f.exit_time_min),
-                f.entry_fix || '',
-                f.exit_fix || ''
-            ].join(sep));
+            var t = f.type || 'OTHER';
+            if (!grouped[t]) grouped[t] = [];
+            grouped[t].push(f);
         }
+
+        var idx = 1;
+        typeOrder.forEach(function (t) {
+            if (!grouped[t] || grouped[t].length === 0) return;
+            // Section header row
+            lines.push('');
+            lines.push('--- ' + typeLabel(t) + ' ---');
+            grouped[t].forEach(function (f) {
+                lines.push([
+                    idx++,
+                    f.name || f.id || '',
+                    typeLabel(f.type),
+                    f.distance_within_nm != null ? Math.round(f.distance_within_nm) : '',
+                    formatTime(f.time_within_min),
+                    f.time_within_min != null ? Math.round(f.time_within_min * 10) / 10 : '',
+                    minutesToUtcStr(depEpoch, f.entry_time_min),
+                    minutesToUtcStr(depEpoch, f.exit_time_min),
+                    f.entry_fix || '',
+                    f.exit_fix || ''
+                ].join(sep));
+            });
+        });
+
+        // Any types not in typeOrder
+        Object.keys(grouped).forEach(function (t) {
+            if (typeOrder.indexOf(t) >= 0) return;
+            lines.push('');
+            lines.push('--- ' + typeLabel(t) + ' ---');
+            grouped[t].forEach(function (f) {
+                lines.push([
+                    idx++,
+                    f.name || f.id || '',
+                    typeLabel(f.type),
+                    f.distance_within_nm != null ? Math.round(f.distance_within_nm) : '',
+                    formatTime(f.time_within_min),
+                    f.time_within_min != null ? Math.round(f.time_within_min * 10) / 10 : '',
+                    minutesToUtcStr(depEpoch, f.entry_time_min),
+                    minutesToUtcStr(depEpoch, f.exit_time_min),
+                    f.entry_fix || '',
+                    f.exit_fix || ''
+                ].join(sep));
+            });
+        });
+
         return lines;
     }
 
