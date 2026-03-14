@@ -1902,6 +1902,15 @@ paths:
           description: Filter by arrival ARTCC only. Aliases "arr_fir" and "arr_acc" are also accepted.
           schema:
             type: string
+        - name: include
+          in: query
+          description: |
+            Comma-separated list of additional data to include. Supported values:
+            - `geometry`: Adds GeoJSON route geometry, waypoints, distance_nm, and artccs_traversed via PostGIS.
+              Slower than standard queries. Keep per_page low (10-20) for geometry requests.
+          schema:
+            type: string
+          example: geometry
         - name: page
           in: query
           description: Page number (default 1)
@@ -1990,6 +1999,14 @@ paths:
             type: string
             enum: [active, draft, archived]
             default: active
+        - name: include
+          in: query
+          description: |
+            Comma-separated list of additional data to include. Supported values:
+            - `geometry`: Adds GeoJSON route geometry, waypoints, distance_nm, and artccs_traversed to each route (single-play mode only).
+          schema:
+            type: string
+          example: geometry
         - name: page
           in: query
           description: Page number

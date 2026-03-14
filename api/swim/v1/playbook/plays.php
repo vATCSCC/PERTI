@@ -12,9 +12,10 @@
  * GET /api/swim/v1/playbook/plays?search=...     - Search play name
  * GET /api/swim/v1/playbook/plays?artcc=...      - Filter by ARTCC in facilities_involved (aliases: fir, acc)
  * GET /api/swim/v1/playbook/plays?status=...     - Filter by status (active/draft/archived)
- * GET /api/swim/v1/playbook/plays?format=geojson - GeoJSON output (stub)
+ * GET /api/swim/v1/playbook/plays?format=geojson - GeoJSON output
+ * GET /api/swim/v1/playbook/plays?include=geometry - Add route geometry via PostGIS
  *
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 require_once __DIR__ . '/../auth.php';
@@ -201,7 +202,13 @@ function handleGetSingle(int $id): void {
 
     $auth = tryOptionalAuth();
 
-    $format = swim_get_param('format', 'json');
+    $format  = swim_get_param('format', 'json');
+    $include = swim_get_param('include');
+    $include_geometry = false;
+    if ($include !== null && $include !== '') {
+        $include_parts = array_map('trim', explode(',', strtolower($include)));
+        $include_geometry = in_array('geometry', $include_parts, true);
+    }
 
     // Fetch the play
     $stmt = $conn_sqli->prepare("SELECT * FROM playbook_plays WHERE play_id = ?");
@@ -253,8 +260,13 @@ function handleGetSingle(int $id): void {
     $formatted = formatPlay($play);
     $formatted['routes'] = $routes;
 
+    // Optionally expand route geometry via PostGIS
+    if ($include_geometry && !empty($routes)) {
+        $formatted['routes'] = expandPlaybookRouteGeometry($formatted['routes']);
+    }
+
     if ($format === 'geojson') {
-        outputGeoJSON($formatted);
+        outputGeoJSON($formatted, $include_geometry);
         return;
     }
 
@@ -353,17 +365,62 @@ function outputResponse(array $plays, int $total, int $page, int $per_page, stri
 }
 
 /**
- * Output a GeoJSON stub (no geometry data available for plays at this time).
+ * Output GeoJSON for a single play. If geometry was expanded, each route
+ * already has a 'geometry' key; otherwise routes get Point features from
+ * origin/dest airports.
  */
-function outputGeoJSON(array $play): void {
+function outputGeoJSON(array $play, bool $hasGeometry = false): void {
+    $features = [];
+
+    foreach ($play['routes'] ?? [] as $route) {
+        $geom = $route['geometry'] ?? null;
+        if ($geom) {
+            $features[] = [
+                'type' => 'Feature',
+                'geometry' => $geom,
+                'properties' => [
+                    'route_id'     => $route['route_id'],
+                    'route_string' => $route['route_string'],
+                    'origin'       => $route['origin'],
+                    'dest'         => $route['dest'],
+                    'distance_nm'  => $route['distance_nm'] ?? null,
+                ],
+            ];
+        }
+    }
+
+    $geojson = [
+        'type' => 'FeatureCollection',
+        'features' => $features,
+        'metadata' => [
+            'generated' => gmdate('c'),
+            'play_id'   => $play['play_id'],
+            'play_name' => $play['play_name'],
+            'count'     => count($features),
+            'source'    => 'perti_playbook',
+        ],
+    ];
+
+    if (empty($features) && !$hasGeometry) {
+        $geojson['metadata']['note'] = 'Add include=geometry to populate route geometries.';
+    }
+
+    header('Content-Type: application/geo+json; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    echo json_encode($geojson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+/**
+ * Output a GeoJSON FeatureCollection for a list of plays (list mode).
+ */
+function outputGeoJSONCollection(array $plays): void {
     $geojson = [
         'type' => 'FeatureCollection',
         'features' => [],
         'metadata' => [
             'generated' => gmdate('c'),
-            'play_id'   => $play['play_id'],
-            'play_name' => $play['play_name'],
-            'note'      => 'Route geometry not yet available via SWIM API. Use route_string for route parsing.',
+            'note'      => 'Use ?id=<play_id>&format=geojson&include=geometry for route geometries.',
             'count'     => 0,
             'source'    => 'perti_playbook',
         ],
@@ -375,25 +432,75 @@ function outputGeoJSON(array $play): void {
     exit;
 }
 
-/**
- * Output a GeoJSON stub for a collection of plays.
- */
-function outputGeoJSONCollection(array $plays): void {
-    $geojson = [
-        'type' => 'FeatureCollection',
-        'features' => [],
-        'metadata' => [
-            'generated' => gmdate('c'),
-            'note'      => 'Route geometry not yet available via SWIM API. Use route_string for route parsing.',
-            'count'     => 0,
-            'source'    => 'perti_playbook',
-        ],
-    ];
+// ============================================================================
+// Geometry Expansion
+// ============================================================================
 
-    header('Content-Type: application/geo+json; charset=utf-8');
-    header('Access-Control-Allow-Origin: *');
-    echo json_encode($geojson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    exit;
+/**
+ * Expand playbook routes with GeoJSON geometry via PostGIS GISService.
+ * Adds geometry, waypoints, distance_nm, artccs_traversed to each route.
+ */
+function expandPlaybookRouteGeometry(array $routes): array {
+    require_once __DIR__ . '/../../../../load/services/GISService.php';
+
+    $gis = GISService::getInstance();
+    if (!$gis) {
+        // GIS unavailable -- return routes with null geometry fields
+        foreach ($routes as &$route) {
+            $route['geometry'] = null;
+            $route['waypoints'] = null;
+            $route['distance_nm'] = null;
+            $route['artccs_traversed'] = null;
+        }
+        return $routes;
+    }
+
+    // Collect route strings and batch-expand
+    $routeStrings = array_map(fn($r) => $r['route_string'], $routes);
+    $expanded = $gis->expandRoutesBatch($routeStrings);
+
+    // Index by route string for lookup
+    $geoByRoute = [];
+    foreach ($expanded as $result) {
+        $geoByRoute[$result['route']] = $result;
+    }
+
+    // Merge geometry into route results
+    foreach ($routes as &$route) {
+        $geo = $geoByRoute[$route['route_string']] ?? null;
+        if ($geo && $geo['geojson'] && empty($geo['error'])) {
+            $route['geometry'] = $geo['geojson'];
+            $route['waypoints'] = extractWaypoints($geo);
+            $route['distance_nm'] = $geo['distance_nm'];
+            $route['artccs_traversed'] = $geo['artccs'];
+        } else {
+            $route['geometry'] = null;
+            $route['waypoints'] = null;
+            $route['distance_nm'] = null;
+            $route['artccs_traversed'] = null;
+        }
+    }
+
+    return $routes;
+}
+
+/**
+ * Extract waypoints as lat/lon objects from GeoJSON coordinates.
+ */
+function extractWaypoints(array $geo): ?array {
+    if (!$geo['geojson'] || !isset($geo['geojson']['coordinates'])) {
+        return null;
+    }
+
+    $coords = $geo['geojson']['coordinates'];
+    $waypoints = [];
+    foreach ($coords as $coord) {
+        $waypoints[] = [
+            'lat' => round($coord[1], 6),
+            'lon' => round($coord[0], 6),
+        ];
+    }
+    return $waypoints;
 }
 
 // ============================================================================

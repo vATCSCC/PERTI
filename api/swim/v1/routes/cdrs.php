@@ -16,10 +16,11 @@
  *   artcc     - Filter by dep_artcc OR arr_artcc (aliases: fir, acc)
  *   dep_artcc - Filter by dep_artcc only (aliases: dep_fir, dep_acc)
  *   arr_artcc - Filter by arr_artcc only (aliases: arr_fir, arr_acc)
+ *   include   - Comma-separated extras: "geometry" adds GeoJSON route geometry via PostGIS
  *   page      - Page number (default 1, min 1, max 5000)
  *   per_page  - Results per page (default 50, max 200)
  *
- * @version 1.0.0
+ * @version 1.1.0
  * @since 2026-03-13
  */
 
@@ -58,9 +59,16 @@ $search    = swim_get_param('search');
 $artcc     = swim_get_param('artcc') ?? swim_get_param('fir') ?? swim_get_param('acc');
 $dep_artcc = swim_get_param('dep_artcc') ?? swim_get_param('dep_fir') ?? swim_get_param('dep_acc');
 $arr_artcc = swim_get_param('arr_artcc') ?? swim_get_param('arr_fir') ?? swim_get_param('arr_acc');
+$include   = swim_get_param('include');
 $page      = swim_get_int_param('page', 1, 1, 5000);
 $per_page  = swim_get_int_param('per_page', 50, 1, 200);
 $offset    = ($page - 1) * $per_page;
+
+$include_geometry = false;
+if ($include !== null && $include !== '') {
+    $include_parts = array_map('trim', explode(',', strtolower($include)));
+    $include_geometry = in_array('geometry', $include_parts, true);
+}
 
 // Build WHERE clauses with parameterized values
 $where_clauses = [];
@@ -141,6 +149,11 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 }
 sqlsrv_free_stmt($stmt);
 
+// Optionally expand route geometry via PostGIS
+if ($include_geometry && !empty($cdrs)) {
+    $cdrs = expandCdrGeometry($cdrs);
+}
+
 // Build response with pagination and metadata
 $total_pages = ($per_page > 0) ? (int)ceil($total / $per_page) : 0;
 
@@ -182,4 +195,78 @@ function formatCdrRow(array $row): array {
         'is_active'       => (bool)$row['is_active'],
         'source'          => $row['source'] ?: null
     ];
+}
+
+// ============================================================================
+// Geometry Expansion
+// ============================================================================
+
+/**
+ * Expand CDR routes with GeoJSON geometry via PostGIS GISService.
+ * Adds geometry, waypoints, distance_nm, artccs_traversed to each CDR.
+ */
+function expandCdrGeometry(array $cdrs): array {
+    require_once __DIR__ . '/../../../../load/services/GISService.php';
+
+    $gis = GISService::getInstance();
+    if (!$gis) {
+        // GIS unavailable -- return CDRs with null geometry fields
+        foreach ($cdrs as &$cdr) {
+            $cdr['geometry'] = null;
+            $cdr['waypoints'] = null;
+            $cdr['distance_nm'] = null;
+            $cdr['artccs_traversed'] = null;
+        }
+        return $cdrs;
+    }
+
+    // Collect unique route strings and batch-expand
+    $routes = array_map(fn($c) => $c['full_route'], $cdrs);
+    $expanded = $gis->expandRoutesBatch($routes);
+
+    // Index results by route string for lookup
+    $geoByRoute = [];
+    foreach ($expanded as $result) {
+        $geoByRoute[$result['route']] = $result;
+    }
+
+    // Merge geometry into CDR results
+    foreach ($cdrs as &$cdr) {
+        $geo = $geoByRoute[$cdr['full_route']] ?? null;
+        if ($geo && $geo['geojson'] && empty($geo['error'])) {
+            $cdr['geometry'] = $geo['geojson'];
+            $cdr['waypoints'] = formatWaypoints($geo);
+            $cdr['distance_nm'] = $geo['distance_nm'];
+            $cdr['artccs_traversed'] = $geo['artccs'];
+        } else {
+            $cdr['geometry'] = null;
+            $cdr['waypoints'] = null;
+            $cdr['distance_nm'] = null;
+            $cdr['artccs_traversed'] = null;
+        }
+    }
+
+    return $cdrs;
+}
+
+/**
+ * Extract waypoints from a GIS expansion result.
+ * The batch function returns waypoint_count but not waypoint details;
+ * fall back to extracting from the GeoJSON coordinates.
+ */
+function formatWaypoints(array $geo): ?array {
+    if (!$geo['geojson'] || !isset($geo['geojson']['coordinates'])) {
+        return null;
+    }
+
+    // GeoJSON coordinates are [lon, lat] pairs -- convert to waypoint objects
+    $coords = $geo['geojson']['coordinates'];
+    $waypoints = [];
+    foreach ($coords as $coord) {
+        $waypoints[] = [
+            'lat' => round($coord[1], 6),
+            'lon' => round($coord[0], 6),
+        ];
+    }
+    return $waypoints;
 }

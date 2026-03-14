@@ -31,6 +31,7 @@ Returns paginated CDRs from the VATSIM_REF reference database. CDRs are pre-coor
 | `artcc` | string | No | Filter by departure OR arrival ARTCC (aliases: `fir`, `acc`) | `ZNY` |
 | `dep_artcc` | string | No | Filter by departure ARTCC only (aliases: `dep_fir`, `dep_acc`) | `ZNY` |
 | `arr_artcc` | string | No | Filter by arrival ARTCC only (aliases: `arr_fir`, `arr_acc`) | `ZAU` |
+| `include` | string | No | Include additional data: `geometry` adds GeoJSON route geometry | `geometry` |
 | `page` | int | No | Page number (default 1, min 1, max 5000) | `2` |
 | `per_page` | int | No | Results per page (default 50, max 200) | `100` |
 
@@ -39,7 +40,7 @@ All filter parameters can be combined. For example, `?origin=KJFK&artcc=ZAU` ret
 **Example Request:**
 
 ```
-GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD
+GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD&per_page=2
 ```
 
 **Response:**
@@ -49,7 +50,7 @@ GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD
   "success": true,
   "data": [
     {
-      "cdr_id": 22663,
+      "cdr_id": 63801,
       "cdr_code": "JFKORD1K",
       "full_route": "KJFK GAYEL Q818 WOZEE KENPA OBSTR WYNDE3 KORD",
       "origin_icao": "KJFK",
@@ -60,10 +61,10 @@ GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD
       "altitude_min_ft": null,
       "altitude_max_ft": null,
       "is_active": true,
-      "source": "NASR"
+      "source": "cdrs.csv"
     },
     {
-      "cdr_id": 22664,
+      "cdr_id": 63802,
       "cdr_code": "JFKORD1N",
       "full_route": "KJFK GAYEL Q818 WOZEE NOSIK ZOHAN OBSTR WYNDE3 KORD",
       "origin_icao": "KJFK",
@@ -74,18 +75,18 @@ GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD
       "altitude_min_ft": null,
       "altitude_max_ft": null,
       "is_active": true,
-      "source": "NASR"
+      "source": "cdrs.csv"
     }
   ],
   "pagination": {
     "page": 1,
-    "per_page": 50,
+    "per_page": 2,
     "total": 23,
-    "total_pages": 1,
-    "has_more": false
+    "total_pages": 12,
+    "has_more": true
   },
   "metadata": {
-    "generated": "2026-03-13T19:40:40+00:00",
+    "generated": "2026-03-14T03:39:16+00:00",
     "source": "vatsim_ref.coded_departure_routes"
   }
 }
@@ -121,7 +122,12 @@ GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD
 
 ### GET /api/swim/v1/playbook/plays
 
-Returns paginated National Playbook plays with their associated routes. Each play represents a named traffic management scenario containing one or more reroutes.
+Returns National Playbook plays with their associated routes. Each play represents a named traffic management scenario containing one or more reroutes.
+
+The endpoint operates in two modes:
+
+- **List mode** (default): Returns paginated play metadata. Routes are not included to keep responses compact.
+- **Single-play mode** (`?id=<play_id>`): Returns one play with its full route detail, including per-route scope (origin/destination airports, TRACONs, ARTCCs) and facility traversal data.
 
 **Source**: FAA National Playbook `playbook_routes.csv` (~1,800 plays, ~56,000 routes across 9 categories)
 
@@ -129,15 +135,20 @@ Returns paginated National Playbook plays with their associated routes. Each pla
 
 | Name | Type | Required | Description | Example |
 |------|------|----------|-------------|---------|
-| `id` | int | No | Specific play by ID | `4926` |
+| `id` | int | No | Fetch a single play by ID (enables full route detail) | `9255` |
 | `category` | string | No | FAA category filter | `Airports` |
 | `source` | string | No | Data source filter | `FAA` |
 | `search` | string | No | Free-text search across play name and routes | `ORD EAST` |
 | `artcc` | string | No | Filter by ARTCC involved in any route (aliases: `fir`, `acc`) | `ZAU` |
 | `status` | string | No | Play status filter | `active` |
 | `format` | string | No | Response format: `summary` (no routes) or `full` | `full` |
+| `include` | string | No | Include additional data: `geometry` adds GeoJSON route geometry | `geometry` |
 | `page` | int | No | Page number (default 1) | `2` |
 | `per_page` | int | No | Results per page (default 50, max 200) | `100` |
+
+### List Mode
+
+Returns play metadata without routes. Use this for browsing, searching, and filtering.
 
 **Example Request:**
 
@@ -152,49 +163,240 @@ GET /api/swim/v1/playbook/plays?category=Airports&artcc=ZAU&per_page=2
   "success": true,
   "data": [
     {
-      "play_id": 4960,
-      "play_name": "ORD EAST 1",
+      "play_id": 8767,
+      "play_name": "ATL NO CHPPR",
       "display_name": null,
       "description": null,
       "category": "Airports",
-      "impacted_area": "ZAU/ZBW/ZDC/ZID/ZNY/ZOB",
-      "facilities_involved": "ZAU,ZBW,ZDC,ZID,ZNY,ZOB",
+      "impacted_area": "ZAB/ZAU/ZBW/ZDC/ZDV/ZFW/ZID/ZKC/ZLA/ZLC/ZME/ZMP/ZNY/ZOA/ZOB/ZSE/ZTL",
+      "facilities_involved": "ZAB,ZAU,ZBW,ZDC,ZDV,ZFW,ZID,ZKC,ZLA,ZLC,ZME,ZMP,ZNY,ZOA,ZOB,ZSE,ZTL",
+      "scenario_type": null,
       "route_format": "standard",
       "source": "FAA",
       "status": "active",
-      "route_count": 15,
+      "airac_cycle": null,
+      "route_count": 45,
       "visibility": "public",
-      "routes": [
-        {
-          "route_id": 48201,
-          "route_string": "KJFK GREKI JUDDS CAM NOVON KENPA OBSTR WYNDE3 KORD",
-          "origin": "KJFK",
-          "dest": "KORD",
-          "origin_airports": "KJFK",
-          "origin_tracons": "N90",
-          "origin_artccs": "ZNY",
-          "dest_airports": "KORD",
-          "dest_tracons": "C80",
-          "dest_artccs": "ZAU"
-        }
-      ]
+      "metadata": {
+        "created_by": "refdata_sync",
+        "updated_by": null,
+        "created_at": "2026-03-13 19:59:44",
+        "updated_at": "2026-03-13 19:59:44"
+      }
+    },
+    {
+      "play_id": 8768,
+      "play_name": "ATL NO CHPPR GLAVN",
+      "display_name": null,
+      "description": null,
+      "category": "Airports",
+      "impacted_area": "ZAB/ZAU/ZBW/ZDC/ZDV/ZFW/ZID/ZJX/ZKC/ZLA/ZLC/ZMA/ZME/ZMP/ZNY/ZOA/ZOB/ZSE/ZTL",
+      "facilities_involved": "ZAB,ZAU,ZBW,ZDC,ZDV,ZFW,ZID,ZJX,ZKC,ZLA,ZLC,ZMA,ZME,ZMP,ZNY,ZOA,ZOB,ZSE,ZTL",
+      "scenario_type": null,
+      "route_format": "standard",
+      "source": "FAA",
+      "status": "active",
+      "airac_cycle": null,
+      "route_count": 46,
+      "visibility": "public",
+      "metadata": {
+        "created_by": "refdata_sync",
+        "updated_by": null,
+        "created_at": "2026-03-13 19:59:44",
+        "updated_at": "2026-03-13 19:59:44"
+      }
     }
   ],
   "pagination": {
+    "total": 961,
     "page": 1,
     "per_page": 2,
-    "total": 34,
-    "total_pages": 17,
+    "total_pages": 481,
     "has_more": true
   },
-  "metadata": {
-    "generated": "2026-03-13T20:00:00+00:00",
-    "source": "perti_site.playbook_plays"
-  }
+  "timestamp": "2026-03-14T03:39:20+00:00"
 }
 ```
 
-**FAA Playbook Categories:**
+**List Mode Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `play_id` | int | Unique play identifier (use with `?id=` for full detail) |
+| `play_name` | string | Play name (e.g., `ORD EAST 1`, `ATL NO CHPPR`) |
+| `display_name` | string | Optional display override |
+| `description` | string | Play description (if provided) |
+| `category` | string | FAA category (see table below) |
+| `impacted_area` | string | Slash-separated list of impacted ARTCCs |
+| `facilities_involved` | string | Comma-separated list of all facilities |
+| `scenario_type` | string | Scenario classification (if set) |
+| `route_format` | string | Format type (`standard`) |
+| `source` | string | Data source (`FAA`) |
+| `status` | string | Play status (`active`) |
+| `airac_cycle` | string | AIRAC cycle identifier (if set) |
+| `route_count` | int | Number of routes in this play |
+| `visibility` | string | Visibility level (`public`) |
+| `metadata` | object | Creation/update timestamps and attribution |
+
+### Single-Play Mode
+
+Fetch a specific play with full route detail using `?id=<play_id>`. Each route includes **scope** (which airports/TRACONs/ARTCCs the route connects) and **traversal** (which airspace sectors the route passes through).
+
+**Example Request:**
+
+```
+GET /api/swim/v1/playbook/plays?id=9255
+```
+
+**Response** (ORD EAST 1 -- 11 routes, truncated to 3 for brevity):
+
+```json
+{
+  "success": true,
+  "data": {
+    "play_id": 9255,
+    "play_name": "ORD EAST 1",
+    "display_name": null,
+    "description": null,
+    "category": "Airports",
+    "impacted_area": "ZAU/ZBW/ZNY/ZOB/ZUL/ZYZ",
+    "facilities_involved": "ZAU,ZBW,ZNY,ZOB,ZUL,ZYZ",
+    "scenario_type": null,
+    "route_format": "standard",
+    "source": "FAA",
+    "status": "active",
+    "airac_cycle": null,
+    "route_count": 11,
+    "visibility": "public",
+    "metadata": {
+      "created_by": "refdata_sync",
+      "updated_by": null,
+      "created_at": "2026-03-13 19:59:45",
+      "updated_at": "2026-03-13 19:59:45"
+    },
+    "routes": [
+      {
+        "route_id": 659596,
+        "route_string": "CYOW YOW LETAK NOSIK ZOHAN GRB SHIKY.FYTTE7 KORD",
+        "origin": "CYOW",
+        "origin_filter": null,
+        "dest": "KORD",
+        "dest_filter": null,
+        "scope": {
+          "origin_airports": ["CYOW"],
+          "origin_tracons": [],
+          "origin_artccs": ["ZUL"],
+          "dest_airports": ["KORD"],
+          "dest_tracons": ["C90"],
+          "dest_artccs": ["ZAU"]
+        },
+        "traversal": {
+          "artccs": [],
+          "tracons": [],
+          "sectors_low": [],
+          "sectors_high": [],
+          "sectors_superhigh": []
+        },
+        "remarks": null,
+        "sort_order": 0
+      },
+      {
+        "route_id": 659602,
+        "route_string": "KJFK JFK.DEEZZ5 CANDR J60 DANNR RAV Q62 WATSN WATSN4 KORD",
+        "origin": "KJFK",
+        "origin_filter": null,
+        "dest": "KORD",
+        "dest_filter": null,
+        "scope": {
+          "origin_airports": ["KJFK"],
+          "origin_tracons": ["N90"],
+          "origin_artccs": ["ZNY"],
+          "dest_airports": ["KORD"],
+          "dest_tracons": ["C90"],
+          "dest_artccs": ["ZAU"]
+        },
+        "traversal": {
+          "artccs": [],
+          "tracons": [],
+          "sectors_low": [],
+          "sectors_high": [],
+          "sectors_superhigh": []
+        },
+        "remarks": null,
+        "sort_order": 6
+      },
+      {
+        "route_id": 659605,
+        "route_string": "ZBW NOVON KENLU NOSIK ZOHAN GRB SHIKY.FYTTE7 KORD",
+        "origin": null,
+        "origin_filter": null,
+        "dest": "KORD",
+        "dest_filter": null,
+        "scope": {
+          "origin_airports": [],
+          "origin_tracons": [],
+          "origin_artccs": ["ZBW"],
+          "dest_airports": ["KORD"],
+          "dest_tracons": ["C90"],
+          "dest_artccs": ["ZAU"]
+        },
+        "traversal": {
+          "artccs": [],
+          "tracons": [],
+          "sectors_low": [],
+          "sectors_high": [],
+          "sectors_superhigh": []
+        },
+        "remarks": null,
+        "sort_order": 9
+      }
+    ]
+  },
+  "timestamp": "2026-03-14T03:39:48+00:00"
+}
+```
+
+**Route Fields (single-play mode only):**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `route_id` | int | Unique route identifier |
+| `route_string` | string | Full route string (departure, fixes, airways, STARs, arrival) |
+| `origin` | string | Origin airport ICAO (null for ARTCC-scoped routes like `ZBW ...`) |
+| `origin_filter` | string | Origin filter expression (if applicable) |
+| `dest` | string | Destination airport ICAO |
+| `dest_filter` | string | Destination filter expression (if applicable) |
+| `scope` | object | Airspace scope for origin and destination (see below) |
+| `traversal` | object | Airspace facilities traversed by the route (see below) |
+| `remarks` | string | Operational remarks (if any) |
+| `sort_order` | int | Display ordering within the play |
+
+**Scope Object:**
+
+Defines which facilities the route connects. Some routes originate from a specific airport; others apply to all departures from an entire ARTCC.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `scope.origin_airports` | array | Origin airport(s) ICAO codes (e.g., `["KJFK"]`) |
+| `scope.origin_tracons` | array | Origin TRACON(s) (e.g., `["N90"]`) |
+| `scope.origin_artccs` | array | Origin ARTCC(s) (e.g., `["ZNY"]`) |
+| `scope.dest_airports` | array | Destination airport(s) ICAO codes |
+| `scope.dest_tracons` | array | Destination TRACON(s) (e.g., `["C90"]`) |
+| `scope.dest_artccs` | array | Destination ARTCC(s) (e.g., `["ZAU"]`) |
+
+**Traversal Object:**
+
+Lists the airspace sectors and facilities the route passes through en route (between origin and destination scope). Useful for understanding which facilities need to coordinate.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `traversal.artccs` | array | ARTCCs traversed (in route order) |
+| `traversal.tracons` | array | TRACONs traversed |
+| `traversal.sectors_low` | array | Low-altitude sectors traversed |
+| `traversal.sectors_high` | array | High-altitude sectors traversed |
+| `traversal.sectors_superhigh` | array | Super-high sectors traversed (FL350+) |
+
+### FAA Playbook Categories
 
 | Category | Description |
 |----------|-------------|
@@ -207,6 +409,86 @@ GET /api/swim/v1/playbook/plays?category=Airports&artcc=ZAU&per_page=2
 | Special Ops | Special operations reroutes |
 | SUA Activity | Reroutes for Special Use Airspace activity |
 | Equipment | Equipment-specific routing plays |
+
+---
+
+## Route Geometry (GIS)
+
+Both endpoints support an optional `include=geometry` parameter that adds GeoJSON route geometry, expanded waypoints, and distance calculations via PostGIS.
+
+### CDR Geometry
+
+```
+GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD&per_page=1&include=geometry
+```
+
+When `include=geometry` is specified, each CDR gains a `geometry` object:
+
+```json
+{
+  "cdr_id": 63801,
+  "cdr_code": "JFKORD1K",
+  "full_route": "KJFK GAYEL Q818 WOZEE KENPA OBSTR WYNDE3 KORD",
+  "origin_icao": "KJFK",
+  "dest_icao": "KORD",
+  "dep_artcc": "ZNY",
+  "arr_artcc": "ZAU",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [[-73.7789, 40.6397], [-73.532, 40.844], ...]
+  },
+  "waypoints": [
+    {"name": "KJFK", "lat": 40.6397, "lon": -73.7789},
+    {"name": "GAYEL", "lat": 40.844, "lon": -73.532},
+    {"name": "WOZEE", "lat": 41.517, "lon": -79.139}
+  ],
+  "distance_nm": 642.3,
+  "artccs_traversed": ["ZNY", "ZOB", "ZAU"]
+}
+```
+
+### Playbook Geometry
+
+```
+GET /api/swim/v1/playbook/plays?id=9255&include=geometry
+```
+
+When `include=geometry` is specified on a single-play request, each route gains the same geometry fields:
+
+```json
+{
+  "route_id": 659602,
+  "route_string": "KJFK JFK.DEEZZ5 CANDR J60 DANNR RAV Q62 WATSN WATSN4 KORD",
+  "origin": "KJFK",
+  "dest": "KORD",
+  "scope": { "..." },
+  "traversal": { "..." },
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [[-73.7789, 40.6397], [-74.123, 41.052], ...]
+  },
+  "waypoints": [
+    {"name": "KJFK", "lat": 40.6397, "lon": -73.7789},
+    {"name": "CANDR", "lat": 41.052, "lon": -74.123}
+  ],
+  "distance_nm": 642.3,
+  "artccs_traversed": ["ZNY", "ZOB", "ZAU"]
+}
+```
+
+**Geometry Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `geometry` | GeoJSON | Route path as a GeoJSON `LineString` (WGS84, EPSG:4326) |
+| `waypoints` | array | Ordered array of resolved waypoints with `name`, `lat`, `lon` |
+| `distance_nm` | float | Total route distance in nautical miles |
+| `artccs_traversed` | array | ARTCCs the route passes through (in route order) |
+
+**Notes:**
+- Geometry is computed on-the-fly via PostGIS. Requests with `include=geometry` are slower than standard queries.
+- Routes that cannot be resolved (unknown fixes) will have `geometry: null`.
+- For bulk geometry requests, keep `per_page` low (10-20) to avoid timeouts.
 
 ---
 
@@ -239,8 +521,10 @@ The `metadata.generated` field in each response indicates when the response was 
 ### Find all CDRs between two airports
 
 ```
-GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KLAX
+GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD
 ```
+
+Returns 23 CDRs between JFK and O'Hare.
 
 ### Find CDRs involving a specific ARTCC
 
@@ -248,7 +532,7 @@ GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KLAX
 GET /api/swim/v1/routes/cdrs?artcc=ZNY
 ```
 
-This returns CDRs where ZNY is either the departure or arrival ARTCC. Use `dep_artcc` or `arr_artcc` for one-sided filtering.
+Returns CDRs where ZNY is either the departure or arrival ARTCC (9,657 results). Use `dep_artcc` or `arr_artcc` for one-sided filtering.
 
 ### Search CDRs by route fix
 
@@ -264,11 +548,31 @@ Returns all CDRs whose code or route string contains "GREKI" (543 results).
 GET /api/swim/v1/playbook/plays?search=ORD EAST
 ```
 
+Returns 11 plays matching "ORD EAST" (ORD EAST 1 through ORD EAST 11).
+
+### Get a single play with full route detail
+
+```
+GET /api/swim/v1/playbook/plays?id=9255
+```
+
+Returns ORD EAST 1 with all 11 routes, each including scope and traversal objects.
+
 ### Get all plays involving an ARTCC
 
 ```
-GET /api/swim/v1/playbook/plays?artcc=ZAU&format=full
+GET /api/swim/v1/playbook/plays?artcc=ZAU
 ```
+
+Returns 961 plays that include ZAU in their facility list.
+
+### Get route geometry for map display
+
+```
+GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KORD&include=geometry&per_page=5
+```
+
+Returns CDRs with GeoJSON LineStrings suitable for rendering on a MapLibre/Leaflet map.
 
 ### Download all CDRs (paginated)
 
