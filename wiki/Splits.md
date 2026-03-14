@@ -75,7 +75,7 @@ The scheduled splits layer on the map shows upcoming configurations with their t
 
 The splits page includes an interactive MapLibre GL map showing sector boundaries for the selected facility. Sector data comes from multiple sources:
 
-1. **CRC VideoMaps** — GeoJSON extracted from the Common Reference Center pack
+1. **CRC VideoMaps** — GeoJSON extracted from the Consolidated Radar Client pack
 2. **Custom GeoJSON** — Per-facility sector boundaries in `assets/data/sectors/`
 3. **PostGIS** — Sector boundary polygons from `VATSIM_GIS.sector_boundaries`
 
