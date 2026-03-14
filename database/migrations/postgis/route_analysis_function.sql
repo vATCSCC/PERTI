@@ -61,7 +61,7 @@ BEGIN
             END AS ftype,
             ab.artcc_code::text AS fid,
             ab.fir_name::text AS fname,
-            ST_Intersection(p_route_geom, ab.geom) AS intersection_geom
+            ST_Intersection(p_route_geom, ST_MakeValid(ab.geom)) AS intersection_geom
         FROM artcc_boundaries ab
         WHERE ('ARTCC' = ANY(p_facility_types) OR 'FIR' = ANY(p_facility_types))
           AND ST_Intersects(p_route_geom, ab.geom)
@@ -74,7 +74,7 @@ BEGIN
             'TRACON'::text AS ftype,
             tb.tracon_code::text AS fid,
             tb.tracon_name::text AS fname,
-            ST_Intersection(p_route_geom, tb.geom) AS intersection_geom
+            ST_Intersection(p_route_geom, ST_MakeValid(tb.geom)) AS intersection_geom
         FROM tracon_boundaries tb
         WHERE 'TRACON' = ANY(p_facility_types)
           AND ST_Intersects(p_route_geom, tb.geom)
@@ -87,10 +87,10 @@ BEGIN
             ('SECTOR_' || UPPER(sb.sector_type))::text AS ftype,
             sb.sector_code::text AS fid,
             COALESCE(sb.sector_name, sb.sector_code || ' (' || sb.parent_artcc || ')')::text AS fname,
-            ST_Intersection(p_route_geom, sb.geom) AS intersection_geom
+            ST_Intersection(p_route_geom, ST_MakeValid(sb.geom)) AS intersection_geom
         FROM sector_boundaries sb
         WHERE sb.geom IS NOT NULL
-          AND ST_Intersects(p_route_geom, sb.geom)
+          AND ST_Intersects(p_route_geom, ST_MakeValid(sb.geom))
           AND (
               ('SECTOR_HIGH' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'HIGH')
               OR ('SECTOR_LOW' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'LOW')
