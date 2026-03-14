@@ -2336,6 +2336,9 @@ ROUTE2</pre>
                         <button class="ra-recalc-btn" id="ra-recalc-btn" title="<?= __('routeAnalysis.recalculate') ?>">
                             <i class="fas fa-sync-alt"></i>
                         </button>
+                        <button class="ra-recalc-btn" id="ra-time-fmt-btn" title="Toggle time format">
+                            <i class="fas fa-clock"></i> <span id="ra-time-fmt-label">hh:mm:ss</span>
+                        </button>
                     </div>
                     <div class="ra-export-dropdown">
                         <button class="ra-export-btn" id="ra-export-btn">
@@ -2355,29 +2358,41 @@ ROUTE2</pre>
                 <i class="fas fa-chevron-up ra-chevron"></i>
             </div>
             <div id="ra-body">
-                <div class="ra-summary" id="ra-summary"></div>
-                <div class="ra-tables">
-                    <div class="ra-table-section">
-                        <div class="ra-table-title"><?= __('routeAnalysis.facilityTraversal') ?></div>
-                        <div class="ra-facility-filters" id="ra-facility-filters"></div>
-                        <div class="ra-table-wrap">
-                            <table class="ra-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th><?= __('routeAnalysis.col.facility') ?></th>
-                                        <th><?= __('routeAnalysis.col.type') ?></th>
-                                        <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
-                                        <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
-                                        <th class="text-right"><?= __('routeAnalysis.col.entryUtc') ?></th>
-                                        <th class="text-right"><?= __('routeAnalysis.col.exitUtc') ?></th>
-                                        <th class="text-right"><?= __('routeAnalysis.col.segment') ?></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="ra-facility-tbody"></tbody>
-                            </table>
-                        </div>
+                <div class="ra-route-picker" id="ra-route-picker">
+                    <div class="ra-picker-row">
+                        <input type="text" class="ra-picker-input" id="ra-picker-origin" placeholder="Origin (ICAO)" maxlength="4">
+                        <span class="ra-picker-arrow">&rarr;</span>
+                        <input type="text" class="ra-picker-input" id="ra-picker-dest" placeholder="Dest (ICAO)" maxlength="4">
+                        <input type="text" class="ra-picker-input ra-picker-route" id="ra-picker-route" placeholder="Route string (or leave blank to use plotted routes)">
+                        <button class="ra-picker-go-btn" id="ra-picker-go" title="Analyze">
+                            <i class="fas fa-search"></i> Analyze
+                        </button>
                     </div>
+                    <div class="ra-picker-matches" id="ra-picker-matches"></div>
+                </div>
+                <div class="ra-summary" id="ra-summary"></div>
+                <div class="ra-table-section ra-table-full">
+                    <div class="ra-table-title"><?= __('routeAnalysis.facilityTraversal') ?></div>
+                    <div class="ra-facility-filters" id="ra-facility-filters"></div>
+                    <div class="ra-table-wrap">
+                        <table class="ra-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th><?= __('routeAnalysis.col.facility') ?></th>
+                                    <th><?= __('routeAnalysis.col.type') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.entryUtc') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.exitUtc') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.segment') ?></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ra-facility-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="ra-tables">
                     <div class="ra-table-section">
                         <div class="ra-table-title"><?= __('routeAnalysis.fixAnalysis') ?></div>
                         <div class="ra-table-wrap">
@@ -2396,6 +2411,26 @@ ROUTE2</pre>
                                     </tr>
                                 </thead>
                                 <tbody id="ra-fix-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="ra-table-section">
+                        <div class="ra-table-title">Segment Analysis</div>
+                        <div class="ra-table-wrap">
+                            <table class="ra-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>From</th>
+                                        <th>To</th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
+                                        <th class="text-right">Dep (Z)</th>
+                                        <th class="text-right">Arr (Z)</th>
+                                        <th class="text-right">GS (kts)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ra-segment-tbody"></tbody>
                             </table>
                         </div>
                     </div>
