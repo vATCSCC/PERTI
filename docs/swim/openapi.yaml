@@ -4,8 +4,9 @@ info:
   description: |
     VATSWIM (System Wide Information Management) API for VATSIM.
 
-    > **System Status: HIBERNATED** (since March 9, 2026) — SWIM API returns 503
-    > during hibernation. Only ADL ingest daemon is active. See Hibernation Runbook for details.
+    > **System Status: SWIM ACTIVE** — SWIM API is fully operational (SWIM exempt from hibernation).
+    > All endpoints query exclusively from the dedicated SWIM_API database. Three sync daemons
+    > keep data fresh (flight sync every 2min, TMI sync every 5min, refdata sync daily).
 
     VATSWIM provides a centralized data exchange hub enabling real-time flight information
     sharing across the VATSIM ecosystem. It serves as a single source of truth for flight

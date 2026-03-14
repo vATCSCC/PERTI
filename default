@@ -144,6 +144,13 @@ server {
         log_not_found off;
     }
 
+    # YAML files — set correct MIME type (needed for Swagger UI to parse OpenAPI spec)
+    location ~* \.ya?ml$ {
+        default_type text/yaml;
+        expires 1h;
+        add_header Cache-Control "public";
+    }
+
     # Static file caching
     location ~* \.(jpg|jpeg|gif|png|css|js|ico|xml|svg|woff|woff2|ttf|eot)$ {
         expires 30d;
