@@ -3934,6 +3934,7 @@
       "byDestDCCRegion": "By Dest DCC Region",
       "byDestFir": "By Dest FIR",
       "byCommonSegment": "By Common Segment",
+      "byCommonFix": "By Common Fix",
       "noRoutesSelected": "Select routes first to create a group",
       "confirmClear": "Clear All Groups?",
       "confirmClearText": "All group assignments for this play will be removed.",

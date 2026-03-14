@@ -1937,6 +1937,8 @@
         if (!activePlayData || !activePlayData.routes) return;
         var routes = activePlayData.routes;
         var buckets = {};
+        // Airport fields: show all groups even with 1 route (each origin/dest is meaningful)
+        var isAirportField = (fieldName === 'origin_airports' || fieldName === 'dest_airports');
 
         routes.forEach(function(r) {
             var values = csvSplit(r[fieldName]);
@@ -1956,7 +1958,7 @@
         var colorIdx = 0;
         var keys = Object.keys(buckets).sort();
         keys.forEach(function(key) {
-            if (buckets[key].size < 2) return;
+            if (!isAirportField && buckets[key].size < 2) return;
             var displayName = (key === 'Other') ? t('playbook.groups.other') : key;
             routeGroups.push({
                 group_name: displayName + (labelSuffix || ''),
@@ -2148,6 +2150,94 @@
         refreshGroupUI();
     }
 
+    function autoGroupByCommonFix() {
+        if (!activePlayData || !activePlayData.routes) return;
+        var routes = activePlayData.routes;
+
+        // 1. Parse each route into fix/airway tokens
+        var routeTokens = routes.map(function(r) {
+            return (r.route_string || '').toUpperCase().split(/\s+/).filter(function(tok) {
+                return tok.length >= 2 && tok.length <= 6 &&
+                       /^[A-Z][A-Z0-9]+$/.test(tok) && tok !== 'DCT';
+            });
+        });
+
+        // 2. Build single fix → route index set
+        var fixRoutes = {};
+        routeTokens.forEach(function(tokens, ri) {
+            var seen = {};
+            tokens.forEach(function(tok) {
+                if (!seen[tok]) {
+                    seen[tok] = true;
+                    if (!fixRoutes[tok]) fixRoutes[tok] = new Set();
+                    fixRoutes[tok].add(ri);
+                }
+            });
+        });
+
+        // 3. Keep only fixes shared by >=2 routes but not universal
+        var shared = [];
+        Object.keys(fixRoutes).forEach(function(fix) {
+            var sz = fixRoutes[fix].size;
+            if (sz >= 2 && sz < routes.length) {
+                shared.push({ fix: fix, routes: fixRoutes[fix] });
+            }
+        });
+
+        if (!shared.length) {
+            autoGroupByField('origin_artccs', '');
+            return;
+        }
+
+        // 4. Sort by discriminating power: route count desc
+        shared.sort(function(a, b) {
+            return b.routes.size - a.routes.size;
+        });
+
+        // 5. Greedy assignment: best fix first, each route assigned once
+        var assigned = new Set();
+        routeGroups = [];
+        var colorIdx = 0;
+
+        shared.forEach(function(item) {
+            var members = new Set();
+            item.routes.forEach(function(ri) {
+                if (!assigned.has(ri)) {
+                    members.add(routes[ri].route_id);
+                    assigned.add(ri);
+                }
+            });
+            if (members.size >= 2) {
+                routeGroups.push({
+                    group_name: t('playbook.groups.viaPrefix') + ' ' + item.fix,
+                    group_color: GROUP_COLORS[colorIdx % GROUP_COLORS.length],
+                    route_ids: members,
+                    sort_order: colorIdx,
+                    _autoField: 'common_fix'
+                });
+                colorIdx++;
+            }
+        });
+
+        // 6. Remaining unassigned routes
+        var remaining = new Set();
+        routes.forEach(function(r, idx) {
+            if (!assigned.has(idx)) remaining.add(r.route_id);
+        });
+        if (remaining.size) {
+            routeGroups.push({
+                group_name: t('playbook.groups.other'),
+                group_color: GROUP_COLORS[colorIdx % GROUP_COLORS.length],
+                route_ids: remaining,
+                sort_order: colorIdx,
+                _autoField: null
+            });
+        }
+
+        saveGroups();
+        refreshGroupUI();
+    }
+
     // ── Group Toolbar UI ──
     function renderGroupToolbar() {
         var $container = $('#pb_group_toolbar');
@@ -2178,6 +2268,7 @@
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="dcc_region_dest">' + t('playbook.groups.byDestDCCRegion') + '</div>';
         html += '<div style="border-top:1px solid #3a3a4e;margin:2px 0;"></div>';
         html += '<div class="pb-cb-item pb-auto-group-opt" data-field="common_segment">' + t('playbook.groups.byCommonSegment') + '</div>';
+        html += '<div class="pb-cb-item pb-auto-group-opt" data-field="common_fix">' + t('playbook.groups.byCommonFix') + '</div>';
         html += '</div></div>';
 
         // Route Tools dropdown
@@ -5181,6 +5272,8 @@
             var doIt = function() {
                 if (field === 'common_segment') {
                     autoGroupByCommonSegment();
+                } else if (field === 'common_fix') {
+                    autoGroupByCommonFix();
                 } else if (field === 'dcc_region_origin') {
                     autoGroupByDCCRegion('origin');
                 } else if (field === 'dcc_region_dest') {
