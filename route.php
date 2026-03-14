@@ -2312,86 +2312,95 @@ ROUTE2</pre>
                     </div>
                 </div>
 
-                <!-- ═══════════════════════════════════════════════════════
-                     Route Analysis Panel (below map, collapsible)
-                     ═══════════════════════════════════════════════════════ -->
-                <div id="route-analysis-panel" class="mt-3" style="display:none;">
-                    <div class="ra-header" id="ra-toggle">
-                        <span class="ra-title"><i class="fas fa-chart-line mr-2"></i><?= __('routeAnalysis.title') ?></span>
-                        <span id="ra-route-label" class="ra-route-label"></span>
-                        <div class="ra-controls">
-                            <div class="ra-speed-group">
-                                <label for="ra-cruise-speed"><?= __('routeAnalysis.col.speed') ?></label>
-                                <input type="number" class="ra-speed-input" id="ra-cruise-speed" value="460" min="100" max="600" step="10">
-                                <span class="ra-speed-sep">|</span>
-                                <label for="ra-wind"><?= __('routeAnalysis.col.wind') ?></label>
-                                <input type="number" class="ra-speed-input" id="ra-wind" value="0" min="-200" max="200" step="5">
-                                <button class="ra-recalc-btn" id="ra-recalc-btn" title="<?= __('routeAnalysis.recalculate') ?>">
-                                    <i class="fas fa-sync-alt"></i>
-                                </button>
-                            </div>
-                            <div class="ra-export-dropdown">
-                                <button class="ra-export-btn" id="ra-export-btn">
-                                    <i class="fas fa-download mr-1"></i><?= __('routeAnalysis.export.title') ?>
-                                </button>
-                                <div class="ra-export-menu" id="ra-export-menu">
-                                    <a href="#" id="ra-exp-clipboard"><i class="fas fa-clipboard"></i> <?= __('routeAnalysis.export.clipboard') ?></a>
-                                    <a href="#" id="ra-exp-txt"><i class="fas fa-file-alt"></i> <?= __('routeAnalysis.export.txt') ?></a>
-                                    <a href="#" id="ra-exp-csv"><i class="fas fa-file-csv"></i> <?= __('routeAnalysis.export.csv') ?></a>
-                                    <a href="#" id="ra-exp-xlsx"><i class="fas fa-file-excel"></i> <?= __('routeAnalysis.export.xlsx') ?></a>
-                                </div>
-                            </div>
-                            <button class="ra-close-btn" id="ra-close-btn" title="<?= __('routeAnalysis.close') ?>">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                        <i class="fas fa-chevron-up ra-chevron"></i>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             Route Analysis Panel (below map row, full width, collapsible)
+             ═══════════════════════════════════════════════════════════════ -->
+        <div id="route-analysis-panel" class="mt-3" style="display:none;">
+            <div class="ra-header" id="ra-toggle">
+                <span class="ra-title"><i class="fas fa-chart-line mr-2"></i><?= __('routeAnalysis.title') ?></span>
+                <span id="ra-route-label" class="ra-route-label"></span>
+                <div class="ra-controls">
+                    <div class="ra-speed-group">
+                        <label for="ra-cruise-speed"><?= __('routeAnalysis.col.speed') ?></label>
+                        <input type="number" class="ra-speed-input" id="ra-cruise-speed" value="460" min="100" max="600" step="10">
+                        <span class="ra-speed-sep">|</span>
+                        <label for="ra-wind"><?= __('routeAnalysis.col.wind') ?></label>
+                        <input type="number" class="ra-speed-input" id="ra-wind" value="0" min="-200" max="200" step="5">
+                        <span class="ra-speed-sep">|</span>
+                        <label for="ra-dep-time"><?= __('routeAnalysis.depTime') ?></label>
+                        <input type="text" class="ra-speed-input ra-dep-time-input" id="ra-dep-time"
+                               placeholder="Now" maxlength="5"
+                               title="<?= __('routeAnalysis.depTimeTitle') ?>">
+                        <button class="ra-recalc-btn" id="ra-recalc-btn" title="<?= __('routeAnalysis.recalculate') ?>">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
                     </div>
-                    <div id="ra-body">
-                        <div class="ra-summary" id="ra-summary"></div>
-                        <div class="ra-tables">
-                            <div class="ra-table-section">
-                                <div class="ra-table-title"><?= __('routeAnalysis.facilityTraversal') ?></div>
-                                <div class="ra-table-wrap">
-                                    <table class="ra-table">
-                                        <thead>
-                                            <tr>
-                                                <th>#</th>
-                                                <th><?= __('routeAnalysis.col.facility') ?></th>
-                                                <th><?= __('routeAnalysis.col.type') ?></th>
-                                                <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
-                                                <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
-                                                <th class="text-right"><?= __('routeAnalysis.col.segment') ?></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="ra-facility-tbody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            <div class="ra-table-section">
-                                <div class="ra-table-title"><?= __('routeAnalysis.fixAnalysis') ?></div>
-                                <div class="ra-table-wrap">
-                                    <table class="ra-table">
-                                        <thead>
-                                            <tr>
-                                                <th>#</th>
-                                                <th><?= __('routeAnalysis.col.fix') ?></th>
-                                                <th class="text-right"><?= __('routeAnalysis.col.cumDist') ?></th>
-                                                <th class="text-right"><?= __('routeAnalysis.col.cumTime') ?></th>
-                                                <th class="text-right"><?= __('routeAnalysis.col.segDist') ?></th>
-                                                <th class="text-right"><?= __('routeAnalysis.col.segTime') ?></th>
-                                                <th class="text-right"><?= __('routeAnalysis.col.remDist') ?></th>
-                                                <th class="text-right"><?= __('routeAnalysis.col.remTime') ?></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="ra-fix-tbody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
+                    <div class="ra-export-dropdown">
+                        <button class="ra-export-btn" id="ra-export-btn">
+                            <i class="fas fa-download mr-1"></i><?= __('routeAnalysis.export.title') ?>
+                        </button>
+                        <div class="ra-export-menu" id="ra-export-menu">
+                            <a href="#" id="ra-exp-clipboard"><i class="fas fa-clipboard"></i> <?= __('routeAnalysis.export.clipboard') ?></a>
+                            <a href="#" id="ra-exp-txt"><i class="fas fa-file-alt"></i> <?= __('routeAnalysis.export.txt') ?></a>
+                            <a href="#" id="ra-exp-csv"><i class="fas fa-file-csv"></i> <?= __('routeAnalysis.export.csv') ?></a>
+                            <a href="#" id="ra-exp-xlsx"><i class="fas fa-file-excel"></i> <?= __('routeAnalysis.export.xlsx') ?></a>
+                        </div>
+                    </div>
+                    <button class="ra-close-btn" id="ra-close-btn" title="<?= __('routeAnalysis.close') ?>">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <i class="fas fa-chevron-up ra-chevron"></i>
+            </div>
+            <div id="ra-body">
+                <div class="ra-summary" id="ra-summary"></div>
+                <div class="ra-tables">
+                    <div class="ra-table-section">
+                        <div class="ra-table-title"><?= __('routeAnalysis.facilityTraversal') ?></div>
+                        <div class="ra-facility-filters" id="ra-facility-filters"></div>
+                        <div class="ra-table-wrap">
+                            <table class="ra-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th><?= __('routeAnalysis.col.facility') ?></th>
+                                        <th><?= __('routeAnalysis.col.type') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.entryUtc') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.exitUtc') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.segment') ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ra-facility-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="ra-table-section">
+                        <div class="ra-table-title"><?= __('routeAnalysis.fixAnalysis') ?></div>
+                        <div class="ra-table-wrap">
+                            <table class="ra-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th><?= __('routeAnalysis.col.fix') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.cumDist') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.cumTime') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.etaUtc') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.segDist') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.segTime') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.remDist') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.remTime') ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ra-fix-tbody"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
 
@@ -2800,7 +2809,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (origin) params.origin = origin;
         if (dest) params.dest = dest;
         params.cruise_kts = 460;
-        params.facility_types = 'ARTCC,FIR,TRACON';
+        params.facility_types = 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH';
 
         $.getJSON('api/data/playbook/analysis.php', params, function(resp) {
             if (!resp || resp.status !== 'success') return;

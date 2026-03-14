@@ -49,7 +49,7 @@ $cruise_kts  = isset($_GET['cruise_kts']) ? (float)$_GET['cruise_kts'] : 460.0;
 $descent_kts = isset($_GET['descent_kts']) ? (float)$_GET['descent_kts'] : 250.0;
 $wind_kts    = isset($_GET['wind_component_kts']) ? (float)$_GET['wind_component_kts'] : 0.0;
 
-$facility_types_str = $_GET['facility_types'] ?? 'ARTCC,FIR,TRACON';
+$facility_types_str = $_GET['facility_types'] ?? 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH';
 $facility_types = array_map('trim', array_map('strtoupper', explode(',', $facility_types_str)));
 
 // If route_id provided, look up the route from MySQL
@@ -118,21 +118,45 @@ if (!$cached) {
 
     try {
 
-    // Step 1: Build route LINESTRING from route string
-    $ls_sql = "SELECT ST_AsText(route_string_to_linestring(:route, :origin, :dest)) AS route_wkt,
-                      ST_Length(route_string_to_linestring(:route2, :origin2, :dest2)::geography) / 1852.0 AS total_dist_nm";
-    $ls_stmt = $conn_gis->prepare($ls_sql);
-    $ls_stmt->execute([
-        ':route'   => $route_string,
-        ':origin'  => $origin ?: null,
-        ':dest'    => $dest ?: null,
-        ':route2'  => $route_string,
-        ':origin2' => $origin ?: null,
-        ':dest2'   => $dest ?: null,
-    ]);
-    $ls_row = $ls_stmt->fetch(\PDO::FETCH_ASSOC);
+    // Build full route string with origin/dest bookends for expand_route()
+    $full_route = $route_string;
+    if ($origin) $full_route = $origin . ' ' . $full_route;
+    if ($dest)   $full_route = $full_route . ' ' . $dest;
 
-    if (!$ls_row || empty($ls_row['route_wkt'])) {
+    // Step 1: Use expand_route() for context-aware fix disambiguation and airway expansion.
+    // This replaces route_string_to_linestring() which had no proximity disambiguation
+    // and silently skipped airways (M16, UL9, etc.) without expanding them.
+    $er_sql = "WITH expanded AS (
+                   SELECT waypoint_seq, waypoint_id, lat, lon, waypoint_type
+                   FROM expand_route(:route)
+               ),
+               route_line AS (
+                   SELECT ST_MakeLine(
+                       ARRAY(
+                           SELECT ST_SetSRID(ST_MakePoint(e.lon::float, e.lat::float), 4326)
+                           FROM expanded e ORDER BY e.waypoint_seq
+                       )
+                   ) AS geom
+               )
+               SELECT
+                   ST_AsText(rl.geom) AS route_wkt,
+                   ST_Length(rl.geom::geography) / 1852.0 AS total_dist_nm,
+                   jsonb_agg(
+                       jsonb_build_object(
+                           'fix_name', e.waypoint_id,
+                           'lat', e.lat,
+                           'lon', e.lon,
+                           'fraction', ST_LineLocatePoint(rl.geom, ST_SetSRID(ST_MakePoint(e.lon::float, e.lat::float), 4326))
+                       ) ORDER BY e.waypoint_seq
+                   ) AS waypoints_json
+               FROM expanded e, route_line rl
+               GROUP BY rl.geom";
+
+    $er_stmt = $conn_gis->prepare($er_sql);
+    $er_stmt->execute([':route' => $full_route]);
+    $er_row = $er_stmt->fetch(\PDO::FETCH_ASSOC);
+
+    if (!$er_row || empty($er_row['route_wkt'])) {
         http_response_code(422);
         echo json_encode([
             'status'  => 'error',
@@ -141,43 +165,11 @@ if (!$cached) {
         exit;
     }
 
-    $route_wkt    = $ls_row['route_wkt'];
-    $total_dist_nm = round((float)$ls_row['total_dist_nm'], 1);
+    $route_wkt     = $er_row['route_wkt'];
+    $total_dist_nm = round((float)$er_row['total_dist_nm'], 1);
+    $waypoints_raw = json_decode($er_row['waypoints_json'], true) ?: [];
 
-    // Step 2: Get waypoints along the route with their positions
-    $wp_sql = "WITH route AS (
-                   SELECT route_string_to_linestring(:route, :origin, :dest) AS geom
-               ),
-               fixes AS (
-                   SELECT unnest(regexp_split_to_array(TRIM(:route2), '\s+')) AS fix_name
-               ),
-               located AS (
-                   SELECT DISTINCT ON (f.fix_name)
-                       f.fix_name,
-                       ST_Y(nf.geom) AS lat,
-                       ST_X(nf.geom) AS lon,
-                       ST_LineLocatePoint(r.geom, nf.geom) AS fraction
-                   FROM fixes f
-                   JOIN nav_fixes nf ON UPPER(f.fix_name) = nf.fix_name
-                   CROSS JOIN route r
-                   WHERE nf.geom IS NOT NULL
-                     AND ST_DWithin(r.geom, nf.geom, 0.5)
-                   ORDER BY f.fix_name, ST_Distance(r.geom, nf.geom) ASC
-               )
-               SELECT fix_name, lat, lon, fraction
-               FROM located
-               ORDER BY fraction ASC";
-
-    $wp_stmt = $conn_gis->prepare($wp_sql);
-    $wp_stmt->execute([
-        ':route'  => $route_string,
-        ':origin' => $origin ?: null,
-        ':dest'   => $dest ?: null,
-        ':route2' => $route_string,
-    ]);
-    $waypoints_raw = $wp_stmt->fetchAll(\PDO::FETCH_ASSOC);
-
-    // Step 3: Facility traversal analysis
+    // Step 2: Facility traversal analysis (unchanged — uses the correct LINESTRING)
     $ft_types_pg = '{' . implode(',', $facility_types) . '}';
     $ft_sql = "SELECT * FROM analyze_route_traversal(
                    ST_GeomFromText(:wkt, 4326),

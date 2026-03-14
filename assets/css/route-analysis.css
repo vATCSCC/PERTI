@@ -313,6 +313,41 @@
     margin-left: 4px;
 }
 
+/* Departure time input */
+.ra-dep-time-input { width: 58px; }
+.ra-dep-time-input::placeholder { color: #6c757d; font-style: italic; }
+
+/* UTC time columns — amber to distinguish from white relative times */
+.ra-utc { color: #ffc107; font-size: 0.68rem; }
+
+/* Facility type filter pills */
+.ra-facility-filters {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+.ra-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    user-select: none;
+    transition: opacity 0.15s, border-color 0.15s;
+    letter-spacing: 0.3px;
+}
+.ra-filter-pill.active { opacity: 1; }
+.ra-filter-pill:not(.active) { opacity: 0.35; }
+.ra-filter-pill .ra-pill-count {
+    font-size: 0.55rem;
+    opacity: 0.7;
+}
+
 /* Segment delta columns */
 .ra-seg-delta {
     color: #868e96;
