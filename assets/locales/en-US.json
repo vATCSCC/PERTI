@@ -3881,7 +3881,8 @@
       "remDist": "Rem. Dist",
       "remTime": "Rem. Time",
       "fix": "Fix",
-      "noData": "No analysis data available for this route"
+      "noData": "No analysis data available for this route",
+      "windHelp": "+HW / -TW (kts)"
     },
     "throughput": {
       "title": "Route Throughput",

@@ -212,6 +212,23 @@ foreach ($waypoints_raw as $wp) {
     ];
 }
 
+// Helper to find nearest waypoint to a given fraction along the route
+$findNearestFix = function($fraction) use ($waypoints_raw, $total_dist_nm) {
+    if (empty($waypoints_raw)) return null;
+    $target_dist = $fraction * $total_dist_nm;
+    $best = null;
+    $best_delta = PHP_FLOAT_MAX;
+    foreach ($waypoints_raw as $wp) {
+        $wp_dist = (float)$wp['fraction'] * $total_dist_nm;
+        $delta = abs($wp_dist - $target_dist);
+        if ($delta < $best_delta && $delta < 20.0) {
+            $best = $wp['fix_name'];
+            $best_delta = $delta;
+        }
+    }
+    return $best;
+};
+
 // Build facility traversal response with times
 $traversal = [];
 foreach ($traversal_raw as $t) {
@@ -224,8 +241,8 @@ foreach ($traversal_raw as $t) {
         'type'             => $t['facility_type'],
         'id'               => $t['facility_id'],
         'name'             => $t['facility_name'],
-        'entry_fix'        => null, // Could be resolved from waypoints
-        'exit_fix'         => null,
+        'entry_fix'        => $findNearestFix((float)$t['entry_fraction']),
+        'exit_fix'         => $findNearestFix((float)$t['exit_fraction']),
         'entry_dist_nm'    => $entry_dist,
         'exit_dist_nm'     => $exit_dist,
         'distance_within_nm' => round((float)$t['distance_nm'], 1),

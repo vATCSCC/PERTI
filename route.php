@@ -1664,6 +1664,15 @@ ROUTE2</pre>
                             <!-- Route Info Header -->
                             <div class="small mb-1" id="route_analysis_header"></div>
 
+                            <!-- Total Summary -->
+                            <div class="d-flex align-items-center mb-1" id="route_analysis_summary" style="display:none; gap:0.35rem;">
+                                <span class="badge badge-info" id="route_analysis_total_dist" style="font-size:0.7rem;"></span>
+                                <span class="badge badge-secondary" id="route_analysis_total_time" style="font-size:0.7rem;"></span>
+                                <button class="btn btn-xs btn-outline-light ml-auto" id="route_analysis_copy" title="<?= __('common.copy') ?>" style="font-size:0.6rem; padding:1px 5px;">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+
                             <!-- Speed & Wind Config -->
                             <div class="form-row mb-2" style="font-size:0.7rem;">
                                 <div class="col-6">
@@ -1672,7 +1681,8 @@ ROUTE2</pre>
                                 </div>
                                 <div class="col-6">
                                     <label class="mb-0"><?= __('playbook.analysis.wind') ?></label>
-                                    <input type="text" class="form-control form-control-sm" id="route_analysis_wind" placeholder="270/50" style="font-size:0.7rem;">
+                                    <input type="number" class="form-control form-control-sm" id="route_analysis_wind" value="0" min="-200" max="200" step="5" style="font-size:0.7rem;">
+                                    <small class="form-text text-muted" style="font-size:0.55rem; line-height:1.1;"><?= __('playbook.analysis.windHelp') ?></small>
                                 </div>
                             </div>
                             <button class="btn btn-xs btn-outline-info btn-block mb-2" id="route_analysis_refresh" style="font-size:0.65rem;">
@@ -1710,12 +1720,6 @@ ROUTE2</pre>
                                     </thead>
                                     <tbody id="route_analysis_fixes"></tbody>
                                 </table>
-                            </div>
-
-                            <!-- Throughput (if available) -->
-                            <div id="route_analysis_throughput" class="mt-2" style="display:none;">
-                                <div class="small font-weight-bold mb-1"><?= __('playbook.throughput.title') ?></div>
-                                <div class="d-flex flex-wrap" style="gap:0.5rem; font-size:0.7rem;" id="route_analysis_throughput_data"></div>
                             </div>
                         </div>
                     </div>
@@ -2803,8 +2807,49 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    var routeAnalysisCopy = document.getElementById('route_analysis_copy');
+    if (routeAnalysisCopy) {
+        routeAnalysisCopy.addEventListener('click', function() {
+            var lines = [];
+            var hdr = raActiveOrigin && raActiveDest
+                ? raActiveOrigin + ' > ' + raActiveDest
+                : (raActiveRouteStr || '');
+            lines.push(hdr);
+            var td = document.getElementById('route_analysis_total_dist');
+            var tt = document.getElementById('route_analysis_total_time');
+            if (td && tt) lines.push('Total: ' + td.textContent + ' / ' + tt.textContent);
+            lines.push('');
+            lines.push('FACILITY\tTYPE\tDIST\tTIME');
+            var facRows = document.querySelectorAll('#route_analysis_facilities tr');
+            facRows.forEach(function(tr) {
+                var cells = tr.querySelectorAll('td');
+                if (cells.length >= 4) {
+                    lines.push(cells[0].textContent.trim() + '\t' + cells[1].textContent.trim() + '\t' +
+                               cells[2].textContent.trim() + '\t' + cells[3].textContent.trim());
+                }
+            });
+            lines.push('');
+            lines.push('FIX\tCUM DIST\tCUM TIME\tREM DIST\tREM TIME');
+            var fixRows = document.querySelectorAll('#route_analysis_fixes tr');
+            fixRows.forEach(function(tr) {
+                var cells = tr.querySelectorAll('td');
+                if (cells.length >= 5) {
+                    lines.push(cells[0].textContent.trim() + '\t' + cells[1].textContent.trim() + '\t' +
+                               cells[2].textContent.trim() + '\t' + cells[3].textContent.trim() + '\t' +
+                               cells[4].textContent.trim());
+                }
+            });
+
+            navigator.clipboard.writeText(lines.join('\n')).then(function() {
+                if (typeof PERTIDialog !== 'undefined') {
+                    PERTIDialog.toast(typeof PERTII18n !== 'undefined' ? PERTII18n.t('common.copied') : 'Copied!');
+                }
+            }).catch(function() {});
+        });
+    }
+
     function showRouteAnalysis(routeId, routeString, origin, dest) {
-        raActiveRouteId = routeId || null;
+        raActiveRouteId = null;
         raActiveRouteStr = routeString || null;
         raActiveOrigin = origin || null;
         raActiveDest = dest || null;
@@ -2817,9 +2862,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (header) {
             var label = '';
             if (origin) label += origin;
-            if (dest) label += ' → ' + dest;
-            if (routeId) label += ' (ID: ' + routeId + ')';
-            header.textContent = label || routeString || '';
+            if (dest) label += ' \u2192 ' + dest;
+            if (!label && routeString) {
+                label = routeString.length > 50 ? routeString.substring(0, 47) + '...' : routeString;
+            }
+            header.textContent = label;
         }
 
         loadRouteAnalysisData();
@@ -2833,12 +2880,16 @@ document.addEventListener('DOMContentLoaded', function () {
         if (raActiveRouteStr) {
             params.route_string = raActiveRouteStr;
             if (raActiveOrigin) params.origin = raActiveOrigin;
-            if (raActiveDest) params.destination = raActiveDest;
+            if (raActiveDest) params.dest = raActiveDest;
         } else {
             return;
         }
-        if (speed && speed.value) params.cruise_kts = speed.value;
-        if (wind && wind.value) params.wind_component_kts = wind.value;
+        if (speed && speed.value) params.cruise_kts = parseFloat(speed.value) || 450;
+        if (wind && wind.value) params.wind_component_kts = parseFloat(wind.value) || 0;
+
+        // Reset summary while loading
+        var summaryDiv = document.getElementById('route_analysis_summary');
+        if (summaryDiv) summaryDiv.style.display = 'none';
 
         var facTbody = document.getElementById('route_analysis_facilities');
         var fixTbody = document.getElementById('route_analysis_fixes');
@@ -2851,6 +2902,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
+            // Render total summary
+            var summaryDiv = document.getElementById('route_analysis_summary');
+            var totalDistEl = document.getElementById('route_analysis_total_dist');
+            var totalTimeEl = document.getElementById('route_analysis_total_time');
+            if (summaryDiv && resp.total_distance_nm != null) {
+                summaryDiv.style.display = 'flex';
+                if (totalDistEl) totalDistEl.textContent = Math.round(resp.total_distance_nm) + ' nm';
+                if (totalTimeEl) totalTimeEl.textContent = Math.round(resp.total_time_min) + ' min';
+            }
+
             // Render facilities (API returns facility_traversal)
             var facilities = resp.facility_traversal || [];
             if (facTbody) {
@@ -2859,8 +2920,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     var tr = document.createElement('tr');
                     tr.innerHTML = '<td>' + (f.name || '') + '</td>' +
                         '<td><span class="badge badge-sm badge-' + (f.type === 'ARTCC' ? 'info' : f.type === 'TRACON' ? 'warning' : 'secondary') + '">' + (f.type || '') + '</span></td>' +
-                        '<td class="text-right">' + (f.distance_nm != null ? Number(f.distance_nm).toFixed(0) + ' nm' : '--') + '</td>' +
-                        '<td class="text-right">' + (f.time_min != null ? Number(f.time_min).toFixed(0) + ' min' : '--') + '</td>';
+                        '<td class="text-right">' + (f.distance_within_nm != null ? Number(f.distance_within_nm).toFixed(0) + ' nm' : '--') + '</td>' +
+                        '<td class="text-right">' + (f.time_within_min != null ? Number(f.time_within_min).toFixed(0) + ' min' : '--') + '</td>';
                     facTbody.appendChild(tr);
                 });
                 if (facilities.length === 0) {
@@ -2884,12 +2945,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (fixes.length === 0) {
                     fixTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">' + (typeof PERTII18n !== 'undefined' ? PERTII18n.t('playbook.analysis.noData') : 'No data') + '</td></tr>';
                 }
-            }
-
-            // Throughput (not in analysis API, separate endpoint — hide for now)
-            var tpSection = document.getElementById('route_analysis_throughput');
-            if (tpSection) {
-                tpSection.style.display = 'none';
             }
         }).fail(function() {
             if (facTbody) facTbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">' + (typeof PERTII18n !== 'undefined' ? PERTII18n.t('common.error') : 'Error') + '</td></tr>';

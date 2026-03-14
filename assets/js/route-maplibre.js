@@ -2761,6 +2761,17 @@ $(document).ready(function() {
             // Store all points (incl airports) per route for export PIP
             routePointsByRouteId[thisRouteId] = routePoints.map(p => [p[1], p[2]]); // [lat, lon]
 
+            // Detect origin/dest airports for route analysis
+            let raOrigin = null, raDest = null;
+            if (nPoints >= 2) {
+                const first = routePoints[0][0];
+                const last = routePoints[nPoints - 1][0];
+                if (isAirportIdent(first) && /^[A-Z]{4}$/.test(first)) raOrigin = first;
+                if (isAirportIdent(last) && /^[A-Z]{4}$/.test(last)) raDest = last;
+            }
+            routeStringByRouteId[thisRouteId].origin = raOrigin;
+            routeStringByRouteId[thisRouteId].dest = raDest;
+
             let firstNavIndex = 0;
             while (firstNavIndex < nPoints && isAirportIdent(routePoints[firstNavIndex][0])) {firstNavIndex++;}
             let lastNavIndex = nPoints - 1;
@@ -3269,6 +3280,8 @@ $(document).ready(function() {
                         <button class="btn btn-sm btn-outline-info route-popup-analyze-btn"
                                 data-route-id="${routeId}"
                                 data-route-string="${(props.routeString || '').replace(/"/g, '&quot;')}"
+                                data-origin="${(routeStringByRouteId[routeId] || {}).origin || ''}"
+                                data-dest="${(routeStringByRouteId[routeId] || {}).dest || ''}"
                                 style="flex: 1; font-size: 10px; padding: 2px 6px;">
                             <i class="fas fa-chart-line"></i> ${PERTII18n.t('route.analysis.analyze')}
                         </button>
@@ -3325,8 +3338,10 @@ $(document).ready(function() {
                         popup.remove();
                         const rId = parseInt(this.dataset.routeId);
                         const rStr = this.dataset.routeString || '';
+                        const origin = this.dataset.origin || null;
+                        const dest = this.dataset.dest || null;
                         if (typeof window.showRouteAnalysis === 'function') {
-                            window.showRouteAnalysis(rId, rStr, null, null);
+                            window.showRouteAnalysis(rId, rStr, origin, dest);
                         }
                     });
                 }
