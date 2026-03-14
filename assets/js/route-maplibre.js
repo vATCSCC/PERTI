@@ -252,6 +252,7 @@ $(document).ready(function() {
     let routeStringByRouteId = {};       // Map routeId -> { routeString, color }
     let routeSegmentsByRouteId = {};     // Map routeId -> array of segment data (pre-dedup, for export)
     let routePointsByRouteId = {};       // Map routeId -> array of all points incl. airports (for export PIP)
+    let routePointsNamedByRouteId = {};  // Map routeId -> array of {fix, lat, lon} for analysis API
     let currentRouteId = 0;              // Counter for unique route IDs
     let activeRoutePopup = null;         // Track single active popup to prevent stacking
 
@@ -2459,6 +2460,7 @@ $(document).ready(function() {
         routeStringByRouteId = {};
         routeSegmentsByRouteId = {};
         routePointsByRouteId = {};
+        routePointsNamedByRouteId = {};
         currentRouteId = 0;
         labelOffsets = {};  // Clear any dragged label positions
 
@@ -2801,6 +2803,7 @@ $(document).ready(function() {
 
             // Store all points (incl airports) per route for export PIP
             routePointsByRouteId[thisRouteId] = routePoints.map(p => [p[1], p[2]]); // [lat, lon]
+            routePointsNamedByRouteId[thisRouteId] = routePoints.map(p => ({ fix: p[0], lat: p[1], lon: p[2] }));
 
             // Detect origin/dest airports for route analysis
             let raOrigin = null, raDest = null;
@@ -8051,6 +8054,7 @@ $(document).ready(function() {
         resetLabelPositions: resetLabelPositions,
         parseRoutesEnhanced: advParseRoutesEnhanced,
         getRouteIndex: () => routeStringByRouteId,
+        getRoutePointsNamed: () => routePointsNamedByRouteId,
     };
 
     // ═══════════════════════════════════════════════════════════════════════════

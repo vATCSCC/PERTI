@@ -5,17 +5,21 @@
  * Computes ordered facility traversal, distances, and time segments
  * for a playbook route string using PostGIS spatial analysis.
  *
- * GET /api/data/playbook/analysis.php?route_id=123
- * GET /api/data/playbook/analysis.php?route_string=...&origin=KJFK&dest=EGLL
+ * GET  /api/data/playbook/analysis.php?route_id=123
+ * GET  /api/data/playbook/analysis.php?route_string=...&origin=KJFK&dest=EGLL
+ * POST /api/data/playbook/analysis.php  (JSON body with route_waypoints)
  *
- * Optional params:
+ * POST body (route_waypoints mode — uses client-resolved geometry directly):
+ *   { "route_waypoints": [{fix,lat,lon},...], "route_string": "...", ... }
+ *
+ * Optional params (GET query or POST body):
  *   climb_kts=280        - Climb speed (kts TAS)
  *   cruise_kts=460       - Cruise speed (kts TAS)
  *   descent_kts=250      - Descent speed (kts TAS)
  *   wind_component_kts=0 - Wind component (positive=headwind, negative=tailwind)
  *   facility_types=ARTCC,FIR,TRACON
  *
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 include("../../../load/config.php");
@@ -26,71 +30,116 @@ header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('Access-Control-Allow-Methods: GET, OPTIONS');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type');
     http_response_code(204);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+if (!in_array($_SERVER['REQUEST_METHOD'], ['GET', 'POST'])) {
     http_response_code(405);
     echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
     exit;
 }
 
-// Parse parameters
-$route_id    = isset($_GET['route_id']) ? (int)$_GET['route_id'] : null;
-$route_string = $_GET['route_string'] ?? null;
-$origin      = strtoupper(trim($_GET['origin'] ?? ''));
-$dest        = strtoupper(trim($_GET['dest'] ?? ''));
+// Parse parameters from GET or POST JSON body
+$route_waypoints = null; // Client-resolved waypoints [{fix, lat, lon}, ...]
 
-$climb_kts   = isset($_GET['climb_kts']) ? (float)$_GET['climb_kts'] : 280.0;
-$cruise_kts  = isset($_GET['cruise_kts']) ? (float)$_GET['cruise_kts'] : 460.0;
-$descent_kts = isset($_GET['descent_kts']) ? (float)$_GET['descent_kts'] : 250.0;
-$wind_kts    = isset($_GET['wind_component_kts']) ? (float)$_GET['wind_component_kts'] : 0.0;
-
-$facility_types_str = $_GET['facility_types'] ?? 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH';
-$facility_types = array_map('trim', array_map('strtoupper', explode(',', $facility_types_str)));
-
-// If route_id provided, look up the route from MySQL
-if ($route_id !== null) {
-    global $conn_sqli;
-    if (!$conn_sqli) {
-        http_response_code(503);
-        echo json_encode(['status' => 'error', 'message' => 'MySQL connection unavailable']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $body = json_decode(file_get_contents('php://input'), true);
+    if (!$body) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Invalid JSON body']);
         exit;
     }
-
-    $stmt = $conn_sqli->prepare(
-        "SELECT r.route_string, r.origin, r.dest, p.play_name
-         FROM playbook_routes r
-         JOIN playbook_plays p ON r.play_id = p.play_id
-         WHERE r.route_id = ?"
-    );
-    $stmt->bind_param('i', $route_id);
-    $stmt->execute();
-    $route = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    if (!$route) {
-        http_response_code(404);
-        echo json_encode(['status' => 'error', 'message' => 'Route not found']);
-        exit;
-    }
-
-    $route_string = $route['route_string'];
-    if (empty($origin)) $origin = strtoupper(trim($route['origin'] ?? ''));
-    if (empty($dest))   $dest   = strtoupper(trim($route['dest'] ?? ''));
+    $route_waypoints = $body['route_waypoints'] ?? null;
+    $route_id     = isset($body['route_id']) ? (int)$body['route_id'] : null;
+    $route_string = $body['route_string'] ?? null;
+    $origin       = strtoupper(trim($body['origin'] ?? ''));
+    $dest         = strtoupper(trim($body['dest'] ?? ''));
+    $climb_kts    = isset($body['climb_kts']) ? (float)$body['climb_kts'] : 280.0;
+    $cruise_kts   = isset($body['cruise_kts']) ? (float)$body['cruise_kts'] : 460.0;
+    $descent_kts  = isset($body['descent_kts']) ? (float)$body['descent_kts'] : 250.0;
+    $wind_kts     = isset($body['wind_component_kts']) ? (float)$body['wind_component_kts'] : 0.0;
+    $facility_types_str = $body['facility_types'] ?? 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH';
+} else {
+    $route_id     = isset($_GET['route_id']) ? (int)$_GET['route_id'] : null;
+    $route_string = $_GET['route_string'] ?? null;
+    $origin       = strtoupper(trim($_GET['origin'] ?? ''));
+    $dest         = strtoupper(trim($_GET['dest'] ?? ''));
+    $climb_kts    = isset($_GET['climb_kts']) ? (float)$_GET['climb_kts'] : 280.0;
+    $cruise_kts   = isset($_GET['cruise_kts']) ? (float)$_GET['cruise_kts'] : 460.0;
+    $descent_kts  = isset($_GET['descent_kts']) ? (float)$_GET['descent_kts'] : 250.0;
+    $wind_kts     = isset($_GET['wind_component_kts']) ? (float)$_GET['wind_component_kts'] : 0.0;
+    $facility_types_str = $_GET['facility_types'] ?? 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH';
 }
 
-if (empty($route_string)) {
-    http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => 'Either route_id or route_string is required']);
-    exit;
+$facility_types = array_map('trim', array_map('strtoupper', explode(',', $facility_types_str)));
+
+// If route_waypoints provided, skip route_id/route_string resolution entirely
+if (!empty($route_waypoints) && is_array($route_waypoints) && count($route_waypoints) >= 2) {
+    // Validate waypoints structure
+    foreach ($route_waypoints as &$wp) {
+        if (!isset($wp['lat']) || !isset($wp['lon'])) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Each waypoint must have lat and lon']);
+            exit;
+        }
+        $wp['lat'] = (float)$wp['lat'];
+        $wp['lon'] = (float)$wp['lon'];
+        $wp['fix'] = $wp['fix'] ?? 'UNK';
+    }
+    unset($wp);
+
+    if (empty($route_string)) {
+        $route_string = implode(' ', array_column($route_waypoints, 'fix'));
+    }
+} else {
+    $route_waypoints = null;
+
+    // If route_id provided, look up the route from MySQL
+    if ($route_id !== null) {
+        global $conn_sqli;
+        if (!$conn_sqli) {
+            http_response_code(503);
+            echo json_encode(['status' => 'error', 'message' => 'MySQL connection unavailable']);
+            exit;
+        }
+
+        $stmt = $conn_sqli->prepare(
+            "SELECT r.route_string, r.origin, r.dest, p.play_name
+             FROM playbook_routes r
+             JOIN playbook_plays p ON r.play_id = p.play_id
+             WHERE r.route_id = ?"
+        );
+        $stmt->bind_param('i', $route_id);
+        $stmt->execute();
+        $route = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$route) {
+            http_response_code(404);
+            echo json_encode(['status' => 'error', 'message' => 'Route not found']);
+            exit;
+        }
+
+        $route_string = $route['route_string'];
+        if (empty($origin)) $origin = strtoupper(trim($route['origin'] ?? ''));
+        if (empty($dest))   $dest   = strtoupper(trim($route['dest'] ?? ''));
+    }
+
+    if (empty($route_string)) {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Either route_waypoints, route_id, or route_string is required']);
+        exit;
+    }
 }
 
 // Cache key based on spatial query params (speed/wind are just math, not cached)
-$cache_key = md5($route_string . '|' . $origin . '|' . $dest . '|' . $facility_types_str);
+$cache_source = $route_waypoints
+    ? json_encode(array_map(function($w) { return $w['lat'].','.$w['lon']; }, $route_waypoints))
+    : ($route_string . '|' . $origin . '|' . $dest);
+$cache_key = md5($cache_source . '|' . $facility_types_str);
 $cache_dir = sys_get_temp_dir() . '/route_analysis_cache';
 $cache_file = $cache_dir . '/' . $cache_key . '.json';
 $cache_ttl = 86400; // 24 hours
@@ -118,58 +167,121 @@ if (!$cached) {
 
     try {
 
-    // Build full route string with origin/dest bookends for expand_route()
-    $full_route = $route_string;
-    if ($origin) $full_route = $origin . ' ' . $full_route;
-    if ($dest)   $full_route = $full_route . ' ' . $dest;
+    if ($route_waypoints) {
+        // =====================================================================
+        // MODE 1: Client-resolved waypoints — build LINESTRING from coordinates
+        // This uses the exact same geometry the map displays, handling oceanic
+        // coordinate waypoints, SID/STAR expansion, and fix disambiguation
+        // identically to the client-side route renderer.
+        // =====================================================================
 
-    // Step 1: Use expand_route() for context-aware fix disambiguation and airway expansion.
-    // This replaces route_string_to_linestring() which had no proximity disambiguation
-    // and silently skipped airways (M16, UL9, etc.) without expanding them.
-    $er_sql = "WITH expanded AS (
-                   SELECT waypoint_seq, waypoint_id, lat, lon, waypoint_type
-                   FROM expand_route(:route)
-               ),
-               route_line AS (
-                   SELECT ST_MakeLine(
-                       ARRAY(
-                           SELECT ST_SetSRID(ST_MakePoint(e.lon::float, e.lat::float), 4326)
-                           FROM expanded e ORDER BY e.waypoint_seq
-                       )
-                   ) AS geom
-               )
-               SELECT
-                   ST_AsText(rl.geom) AS route_wkt,
-                   ST_Length(rl.geom::geography) / 1852.0 AS total_dist_nm,
-                   jsonb_agg(
-                       jsonb_build_object(
-                           'fix_name', e.waypoint_id,
-                           'lat', e.lat,
-                           'lon', e.lon,
-                           'fraction', ST_LineLocatePoint(rl.geom, ST_SetSRID(ST_MakePoint(e.lon::float, e.lat::float), 4326))
-                       ) ORDER BY e.waypoint_seq
-                   ) AS waypoints_json
-               FROM expanded e, route_line rl
-               GROUP BY rl.geom";
+        // Build WKT LINESTRING from waypoint coordinates
+        $wkt_points = [];
+        foreach ($route_waypoints as $wp) {
+            $wkt_points[] = sprintf('%.6f %.6f', $wp['lon'], $wp['lat']);
+        }
+        $route_wkt_raw = 'LINESTRING(' . implode(',', $wkt_points) . ')';
 
-    $er_stmt = $conn_gis->prepare($er_sql);
-    $er_stmt->execute([':route' => $full_route]);
-    $er_row = $er_stmt->fetch(\PDO::FETCH_ASSOC);
+        // Query PostGIS for total distance and per-waypoint fractions
+        $params_json = json_encode(array_map(function($wp) {
+            return ['lon' => $wp['lon'], 'lat' => $wp['lat'], 'fix' => $wp['fix']];
+        }, $route_waypoints));
 
-    if (!$er_row || empty($er_row['route_wkt'])) {
-        http_response_code(422);
-        echo json_encode([
-            'status'  => 'error',
-            'message' => 'Could not resolve route string to geometry. Ensure fixes are valid.'
-        ]);
-        exit;
+        $dist_sql = "WITH route AS (
+                         SELECT ST_GeomFromText(:wkt, 4326) AS geom
+                     ),
+                     wp AS (
+                         SELECT
+                             (elem->>'fix')::text AS fix_name,
+                             (elem->>'lat')::float AS lat,
+                             (elem->>'lon')::float AS lon,
+                             ordinality AS seq
+                         FROM jsonb_array_elements(:wps::jsonb) WITH ORDINALITY AS t(elem, ordinality)
+                     )
+                     SELECT
+                         ST_AsText(r.geom) AS route_wkt,
+                         ST_Length(r.geom::geography) / 1852.0 AS total_dist_nm,
+                         jsonb_agg(
+                             jsonb_build_object(
+                                 'fix_name', wp.fix_name,
+                                 'lat', wp.lat,
+                                 'lon', wp.lon,
+                                 'fraction', ST_LineLocatePoint(r.geom, ST_SetSRID(ST_MakePoint(wp.lon, wp.lat), 4326))
+                             ) ORDER BY wp.seq
+                         ) AS waypoints_json
+                     FROM route r, wp
+                     GROUP BY r.geom";
+
+        $dist_stmt = $conn_gis->prepare($dist_sql);
+        $dist_stmt->execute([':wkt' => $route_wkt_raw, ':wps' => $params_json]);
+        $dist_row = $dist_stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$dist_row || empty($dist_row['route_wkt'])) {
+            http_response_code(422);
+            echo json_encode(['status' => 'error', 'message' => 'Could not build route geometry from waypoints']);
+            exit;
+        }
+
+        $route_wkt     = $dist_row['route_wkt'];
+        $total_dist_nm = round((float)$dist_row['total_dist_nm'], 1);
+        $waypoints_raw = json_decode($dist_row['waypoints_json'], true) ?: [];
+
+    } else {
+        // =====================================================================
+        // MODE 2: Server-side route resolution via PostGIS expand_route()
+        // Fallback when client geometry is not available (e.g. picker mode)
+        // =====================================================================
+
+        // Build full route string with origin/dest bookends for expand_route()
+        $full_route = $route_string;
+        if ($origin) $full_route = $origin . ' ' . $full_route;
+        if ($dest)   $full_route = $full_route . ' ' . $dest;
+
+        $er_sql = "WITH expanded AS (
+                       SELECT waypoint_seq, waypoint_id, lat, lon, waypoint_type
+                       FROM expand_route(:route)
+                   ),
+                   route_line AS (
+                       SELECT ST_MakeLine(
+                           ARRAY(
+                               SELECT ST_SetSRID(ST_MakePoint(e.lon::float, e.lat::float), 4326)
+                               FROM expanded e ORDER BY e.waypoint_seq
+                           )
+                       ) AS geom
+                   )
+                   SELECT
+                       ST_AsText(rl.geom) AS route_wkt,
+                       ST_Length(rl.geom::geography) / 1852.0 AS total_dist_nm,
+                       jsonb_agg(
+                           jsonb_build_object(
+                               'fix_name', e.waypoint_id,
+                               'lat', e.lat,
+                               'lon', e.lon,
+                               'fraction', ST_LineLocatePoint(rl.geom, ST_SetSRID(ST_MakePoint(e.lon::float, e.lat::float), 4326))
+                           ) ORDER BY e.waypoint_seq
+                       ) AS waypoints_json
+                   FROM expanded e, route_line rl
+                   GROUP BY rl.geom";
+
+        $er_stmt = $conn_gis->prepare($er_sql);
+        $er_stmt->execute([':route' => $full_route]);
+        $er_row = $er_stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!$er_row || empty($er_row['route_wkt'])) {
+            http_response_code(422);
+            echo json_encode([
+                'status'  => 'error',
+                'message' => 'Could not resolve route string to geometry. Ensure fixes are valid.'
+            ]);
+            exit;
+        }
+
+        $route_wkt     = $er_row['route_wkt'];
+        $total_dist_nm = round((float)$er_row['total_dist_nm'], 1);
+        $waypoints_raw = json_decode($er_row['waypoints_json'], true) ?: [];
     }
 
-    $route_wkt     = $er_row['route_wkt'];
-    $total_dist_nm = round((float)$er_row['total_dist_nm'], 1);
-    $waypoints_raw = json_decode($er_row['waypoints_json'], true) ?: [];
-
-    // Step 2: Facility traversal analysis (unchanged — uses the correct LINESTRING)
+    // Facility traversal analysis — same for both modes
     $ft_types_pg = '{' . implode(',', $facility_types) . '}';
     $ft_sql = "SELECT * FROM analyze_route_traversal(
                    ST_GeomFromText(:wkt, 4326),
