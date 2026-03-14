@@ -497,6 +497,7 @@
                     var from = fixAnalysis[idx - 1];
                     var to = fixAnalysis[idx];
                     if (!from || !to) return;
+                    setActiveRow('segment', idx);
                     var map = getMap();
                     if (!map) return;
                     // Show both endpoints as highlights
@@ -612,9 +613,10 @@
         var prev = document.querySelectorAll('.ra-active-row');
         for (var i = 0; i < prev.length; i++) prev[i].classList.remove('ra-active-row');
 
-        var tbody = table === 'facility' ? facTbody : fixTbody;
+        var tbody = table === 'facility' ? facTbody : (table === 'segment' ? segTbody : fixTbody);
+        var attr = table === 'segment' ? 'data-seg-idx' : 'data-idx';
         if (tbody) {
-            var row = tbody.querySelector('tr[data-idx="' + idx + '"]');
+            var row = tbody.querySelector('tr[' + attr + '="' + idx + '"]');
             if (row) row.classList.add('ra-active-row');
         }
     }
