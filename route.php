@@ -2805,6 +2805,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // ═══════════════════════════════════════════════════════════════════════
     window.showRouteAnalysis = function(routeId, routeString, origin, dest) {
         if (!routeString) return;
+        if (typeof RouteAnalysisPanel !== 'undefined') {
+            RouteAnalysisPanel.showLoading(routeString, origin, dest);
+        }
         var params = { route_string: routeString };
         if (origin) params.origin = origin;
         if (dest) params.dest = dest;
@@ -2812,10 +2815,15 @@ document.addEventListener('DOMContentLoaded', function () {
         params.facility_types = 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH';
 
         $.getJSON('api/data/playbook/analysis.php', params, function(resp) {
-            if (!resp || resp.status !== 'success') return;
+            if (!resp || resp.status !== 'success') {
+                if (typeof RouteAnalysisPanel !== 'undefined') RouteAnalysisPanel.showError();
+                return;
+            }
             if (typeof RouteAnalysisPanel !== 'undefined') {
                 RouteAnalysisPanel.show(resp, routeString, origin, dest, routeId);
             }
+        }).fail(function() {
+            if (typeof RouteAnalysisPanel !== 'undefined') RouteAnalysisPanel.showError();
         });
     };
 });

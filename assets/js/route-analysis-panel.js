@@ -171,6 +171,42 @@
         });
     }
 
+    // ── Loading state ───────────────────────────────────────────────
+    function showLoading(routeStr, origin, dest) {
+        resolveDOM();
+        if (!panel) return;
+
+        // Set route label
+        var label = '';
+        if (origin) label += origin;
+        if (dest)   label += ' \u2192 ' + dest;
+        if (!label && routeStr) {
+            label = routeStr.length > 80 ? routeStr.substring(0, 77) + '...' : routeStr;
+        }
+        if (routeLabel) routeLabel.textContent = label;
+
+        // Show panel and expand
+        panel.style.display = 'block';
+        if (body) body.style.display = 'block';
+        if (chevron) chevron.classList.remove('collapsed');
+
+        // Show spinners in summary and tables
+        if (summaryEl) summaryEl.innerHTML = '';
+        if (facFiltersEl) facFiltersEl.innerHTML = '';
+        if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
+        if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="9" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
+
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function showError(msg) {
+        resolveDOM();
+        if (!panel) return;
+        var errMsg = msg || t('routeAnalysis.error') || 'Analysis failed';
+        if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-empty"><i class="fas fa-exclamation-triangle"></i> ' + errMsg + '</td></tr>';
+        if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="9" class="ra-empty"><i class="fas fa-exclamation-triangle"></i> ' + errMsg + '</td></tr>';
+    }
+
     // ── Rendering ────────────────────────────────────────────────────
     function show(data, routeStr, origin, dest, routeId) {
         resolveDOM();
@@ -946,6 +982,8 @@
     // ── Public API ───────────────────────────────────────────────────
     window.RouteAnalysisPanel = {
         show: show,
+        showLoading: showLoading,
+        showError: showError,
         clear: clear,
         recalculate: recalculate,
         refreshTimeline: refreshTimeline,
