@@ -3,7 +3,7 @@
  * VATSWIM API v1 - Playbook Plays Endpoint
  *
  * Read-only access to playbook plays and their routes.
- * Data from perti_site MySQL database (playbook_plays + playbook_routes tables).
+ * Data from SWIM_API database (fallback to perti_site MySQL).
  *
  * GET /api/swim/v1/playbook/plays              - List plays (paginated)
  * GET /api/swim/v1/playbook/plays?id=123        - Get single play with routes
@@ -15,18 +15,12 @@
  * GET /api/swim/v1/playbook/plays?format=geojson - GeoJSON output
  * GET /api/swim/v1/playbook/plays?include=geometry - Add route geometry via PostGIS
  *
- * @version 1.1.0
+ * @version 1.2.0
+ * @since 2026-03-14
  */
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../../../../load/playbook_visibility.php';
-
-// MySQL connection (playbook data is in perti_site)
-global $conn_sqli;
-
-if (!$conn_sqli) {
-    SwimResponse::error('MySQL database connection not available', 503, 'SERVICE_UNAVAILABLE');
-}
 
 // Handle CORS preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -44,6 +38,30 @@ if ($method !== 'GET') {
     SwimResponse::error('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
 }
 
+// Public endpoint -- auth is optional
+swim_init_auth(false, false);
+
+// MySQL connection (always needed for ACL/visibility checks)
+global $conn_sqli;
+
+// Prefer SWIM_API (isolated external database), fallback to MySQL
+$conn_swim_api = get_conn_swim();
+$using_swim = false;
+
+if ($conn_swim_api) {
+    $checkStmt = sqlsrv_query($conn_swim_api, "SELECT TOP 1 1 FROM dbo.swim_playbook_plays");
+    if ($checkStmt !== false && sqlsrv_fetch($checkStmt)) {
+        $using_swim = true;
+        sqlsrv_free_stmt($checkStmt);
+    } else {
+        if ($checkStmt !== false) sqlsrv_free_stmt($checkStmt);
+    }
+}
+
+if (!$using_swim && !$conn_sqli) {
+    SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
+}
+
 $id = swim_get_param('id');
 
 if ($id) {
@@ -56,9 +74,9 @@ if ($id) {
 // GET - List Plays (Paginated)
 // ============================================================================
 function handleGetList(): void {
-    global $conn_sqli;
+    global $conn_sqli, $conn_swim_api, $using_swim;
 
-    $auth = tryOptionalAuth();  // Attempt auth if key provided, but don't require it
+    $auth = tryOptionalAuth();
 
     $category = swim_get_param('category');
     $source   = swim_get_param('source');
@@ -70,135 +88,234 @@ function handleGetList(): void {
     $per_page = swim_get_int_param('per_page', 50, 1, 200);
     $offset   = ($page - 1) * $per_page;
 
-    // Resolve API key owner CID for visibility filtering
     $api_cid  = resolveApiKeyCid($auth);
-    $is_admin = ($api_cid !== null) ? checkIsAdmin($api_cid, $conn_sqli) : false;
+    $is_admin = ($api_cid !== null && $conn_sqli) ? checkIsAdmin($api_cid, $conn_sqli) : false;
 
-    // Build WHERE clauses
-    $where  = [];
-    $params = [];
-    $types  = '';
+    if ($using_swim) {
+        // ---- SWIM path: sqlsrv against swim_playbook_plays ----
+        $where  = [];
+        $params = [];
 
-    // Visibility filtering
-    $vis = build_visibility_where($api_cid, $is_admin);
-    if ($vis['sql'] !== '') {
-        $where[] = preg_replace('/^\s*AND\s+/', '', $vis['sql']);
-        $params  = array_merge($params, $vis['params']);
-        $types  .= $vis['types'];
-    }
-
-    // Status filter (default: exclude archived)
-    if ($status !== null && $status !== '') {
-        $where[] = "p.status = ?";
-        $params[] = $status;
-        $types .= 's';
-    } else {
-        $where[] = "p.status != 'archived'";
-    }
-
-    if ($category !== null && $category !== '') {
-        $where[] = "p.category = ?";
-        $params[] = $category;
-        $types .= 's';
-    }
-
-    if ($source !== null && $source !== '') {
-        $where[] = "p.source = ?";
-        $params[] = $source;
-        $types .= 's';
-    }
-
-    if ($search !== null && $search !== '') {
-        $where[] = "(p.play_name LIKE ? OR p.display_name LIKE ? OR p.description LIKE ?)";
-        $like = '%' . $search . '%';
-        $params[] = $like;
-        $params[] = $like;
-        $params[] = $like;
-        $types .= 'sss';
-    }
-
-    if ($artcc !== null && $artcc !== '') {
-        $artcc = strtoupper($artcc);
-        $artcc = normalizeArtccAlias($artcc);
-        $where[] = "FIND_IN_SET(?, p.facilities_involved) > 0";
-        $params[] = $artcc;
-        $types .= 's';
-    }
-
-    $where_sql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-
-    // Count total
-    $count_sql  = "SELECT COUNT(*) AS total FROM playbook_plays p $where_sql";
-    $count_stmt = $conn_sqli->prepare($count_sql);
-    if ($types !== '') {
-        $count_stmt->bind_param($types, ...$params);
-    }
-    $count_stmt->execute();
-    $total = (int)$count_stmt->get_result()->fetch_assoc()['total'];
-    $count_stmt->close();
-
-    // Fetch play IDs for current page
-    $ids_sql    = "SELECT p.play_id FROM playbook_plays p $where_sql ORDER BY p.source ASC, p.play_name ASC LIMIT ? OFFSET ?";
-    $ids_stmt   = $conn_sqli->prepare($ids_sql);
-    $ids_types  = $types . 'ii';
-    $ids_params = array_merge($params, [$per_page, $offset]);
-    $ids_stmt->bind_param($ids_types, ...$ids_params);
-    $ids_stmt->execute();
-    $ids_result = $ids_stmt->get_result();
-
-    $play_ids = [];
-    while ($r = $ids_result->fetch_assoc()) {
-        $play_ids[] = (int)$r['play_id'];
-    }
-    $ids_stmt->close();
-
-    if (empty($play_ids)) {
-        outputResponse([], $total, $page, $per_page, $format);
-        return;
-    }
-
-    // Fetch full play data for the page
-    $id_list = implode(',', $play_ids);
-    $data_sql = "SELECT play_id, play_name, play_name_norm, display_name,
-                        description, category, impacted_area, facilities_involved,
-                        scenario_type, route_format, source, status,
-                        airac_cycle, route_count, org_code, visibility,
-                        created_by, updated_by, updated_at, created_at
-                 FROM playbook_plays
-                 WHERE play_id IN ($id_list)
-                 ORDER BY source ASC, play_name ASC";
-
-    $data_result = $conn_sqli->query($data_sql);
-    $rows = [];
-    while ($row = $data_result->fetch_assoc()) {
-        $rows[] = $row;
-    }
-
-    // Post-filter visibility for private_org rows
-    $filtered = [];
-    foreach ($rows as $row) {
-        if (($row['visibility'] ?? 'public') === 'private_org' && !$is_admin) {
-            if ($api_cid === null || !can_cid_view_play($row, $api_cid, $conn_sqli, false)) {
-                continue;
+        // Visibility (ACL post-filtered in PHP via MySQL)
+        if (!$is_admin) {
+            if ($api_cid === null) {
+                $where[] = "visibility = 'public'";
+            } else {
+                $where[] = "(visibility = 'public' OR (visibility = 'local' AND created_by = ?) OR visibility IN ('private_users','private_org'))";
+                $params[] = (string)$api_cid;
             }
         }
-        $filtered[] = formatPlay($row);
-    }
 
-    // Adjust total if rows were removed by post-filter
-    $removed = count($rows) - count($filtered);
-    if ($removed > 0) {
-        $total = max(0, $total - $removed);
-    }
+        if ($status !== null && $status !== '') {
+            $where[] = "status = ?";
+            $params[] = $status;
+        } else {
+            $where[] = "status != 'archived'";
+        }
 
-    outputResponse($filtered, $total, $page, $per_page, $format);
+        if ($category !== null && $category !== '') {
+            $where[] = "category = ?";
+            $params[] = $category;
+        }
+
+        if ($source !== null && $source !== '') {
+            $where[] = "source = ?";
+            $params[] = $source;
+        }
+
+        if ($search !== null && $search !== '') {
+            $where[] = "(play_name LIKE '%' + ? + '%' OR display_name LIKE '%' + ? + '%' OR description LIKE '%' + ? + '%')";
+            $params[] = $search;
+            $params[] = $search;
+            $params[] = $search;
+        }
+
+        if ($artcc !== null && $artcc !== '') {
+            $artcc_val = strtoupper(normalizeArtccAlias($artcc));
+            $where[] = "CHARINDEX(',' + ? + ',', ',' + ISNULL(facilities_involved,'') + ',') > 0";
+            $params[] = $artcc_val;
+        }
+
+        $where_sql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        // Count total
+        $count_sql = "SELECT COUNT(*) AS total FROM dbo.swim_playbook_plays $where_sql";
+        $count_stmt = sqlsrv_query($conn_swim_api, $count_sql, $params);
+        if ($count_stmt === false) {
+            $err = sqlsrv_errors();
+            SwimResponse::error('Database error (count): ' . ($err[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
+        }
+        $total = (int)sqlsrv_fetch_array($count_stmt, SQLSRV_FETCH_ASSOC)['total'];
+        sqlsrv_free_stmt($count_stmt);
+
+        if ($total === 0) {
+            outputResponse([], 0, $page, $per_page, $format);
+            return;
+        }
+
+        // Fetch paginated data
+        $data_sql = "SELECT play_id, play_name, play_name_norm, display_name,
+                            description, category, impacted_area, facilities_involved,
+                            scenario_type, route_format, source, status,
+                            airac_cycle, route_count, org_code, visibility,
+                            created_by, updated_by, updated_at, created_at
+                     FROM dbo.swim_playbook_plays
+                     $where_sql
+                     ORDER BY source ASC, play_name ASC
+                     OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
+        $data_params = array_merge($params, [$offset, $per_page]);
+        $data_stmt = sqlsrv_query($conn_swim_api, $data_sql, $data_params);
+        if ($data_stmt === false) {
+            $err = sqlsrv_errors();
+            SwimResponse::error('Database error: ' . ($err[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
+        }
+
+        $rows = [];
+        while ($row = sqlsrv_fetch_array($data_stmt, SQLSRV_FETCH_ASSOC)) {
+            $rows[] = $row;
+        }
+        sqlsrv_free_stmt($data_stmt);
+
+        // Post-filter non-public visibility using MySQL ACL
+        $filtered = [];
+        foreach ($rows as $row) {
+            $vis = $row['visibility'] ?? 'public';
+            if (($vis === 'private_users' || $vis === 'private_org') && !$is_admin) {
+                if ($api_cid === null || !$conn_sqli || !can_cid_view_play($row, $api_cid, $conn_sqli, false)) {
+                    continue;
+                }
+            }
+            $filtered[] = formatPlay($row);
+        }
+
+        $removed = count($rows) - count($filtered);
+        if ($removed > 0) {
+            $total = max(0, $total - $removed);
+        }
+
+        outputResponse($filtered, $total, $page, $per_page, $format);
+
+    } else {
+        // ---- MySQL fallback ----
+        $where  = [];
+        $params = [];
+        $types  = '';
+
+        $vis = build_visibility_where($api_cid, $is_admin);
+        if ($vis['sql'] !== '') {
+            $where[] = preg_replace('/^\s*AND\s+/', '', $vis['sql']);
+            $params  = array_merge($params, $vis['params']);
+            $types  .= $vis['types'];
+        }
+
+        if ($status !== null && $status !== '') {
+            $where[] = "p.status = ?";
+            $params[] = $status;
+            $types .= 's';
+        } else {
+            $where[] = "p.status != 'archived'";
+        }
+
+        if ($category !== null && $category !== '') {
+            $where[] = "p.category = ?";
+            $params[] = $category;
+            $types .= 's';
+        }
+
+        if ($source !== null && $source !== '') {
+            $where[] = "p.source = ?";
+            $params[] = $source;
+            $types .= 's';
+        }
+
+        if ($search !== null && $search !== '') {
+            $where[] = "(p.play_name LIKE ? OR p.display_name LIKE ? OR p.description LIKE ?)";
+            $like = '%' . $search . '%';
+            $params[] = $like;
+            $params[] = $like;
+            $params[] = $like;
+            $types .= 'sss';
+        }
+
+        if ($artcc !== null && $artcc !== '') {
+            $artcc = strtoupper($artcc);
+            $artcc = normalizeArtccAlias($artcc);
+            $where[] = "FIND_IN_SET(?, p.facilities_involved) > 0";
+            $params[] = $artcc;
+            $types .= 's';
+        }
+
+        $where_sql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $count_sql  = "SELECT COUNT(*) AS total FROM playbook_plays p $where_sql";
+        $count_stmt = $conn_sqli->prepare($count_sql);
+        if ($types !== '') {
+            $count_stmt->bind_param($types, ...$params);
+        }
+        $count_stmt->execute();
+        $total = (int)$count_stmt->get_result()->fetch_assoc()['total'];
+        $count_stmt->close();
+
+        $ids_sql    = "SELECT p.play_id FROM playbook_plays p $where_sql ORDER BY p.source ASC, p.play_name ASC LIMIT ? OFFSET ?";
+        $ids_stmt   = $conn_sqli->prepare($ids_sql);
+        $ids_types  = $types . 'ii';
+        $ids_params = array_merge($params, [$per_page, $offset]);
+        $ids_stmt->bind_param($ids_types, ...$ids_params);
+        $ids_stmt->execute();
+        $ids_result = $ids_stmt->get_result();
+
+        $play_ids = [];
+        while ($r = $ids_result->fetch_assoc()) {
+            $play_ids[] = (int)$r['play_id'];
+        }
+        $ids_stmt->close();
+
+        if (empty($play_ids)) {
+            outputResponse([], $total, $page, $per_page, $format);
+            return;
+        }
+
+        $id_list = implode(',', $play_ids);
+        $data_sql = "SELECT play_id, play_name, play_name_norm, display_name,
+                            description, category, impacted_area, facilities_involved,
+                            scenario_type, route_format, source, status,
+                            airac_cycle, route_count, org_code, visibility,
+                            created_by, updated_by, updated_at, created_at
+                     FROM playbook_plays
+                     WHERE play_id IN ($id_list)
+                     ORDER BY source ASC, play_name ASC";
+
+        $data_result = $conn_sqli->query($data_sql);
+        $rows = [];
+        while ($row = $data_result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+
+        // Post-filter visibility for private_org rows
+        $filtered = [];
+        foreach ($rows as $row) {
+            if (($row['visibility'] ?? 'public') === 'private_org' && !$is_admin) {
+                if ($api_cid === null || !can_cid_view_play($row, $api_cid, $conn_sqli, false)) {
+                    continue;
+                }
+            }
+            $filtered[] = formatPlay($row);
+        }
+
+        $removed = count($rows) - count($filtered);
+        if ($removed > 0) {
+            $total = max(0, $total - $removed);
+        }
+
+        outputResponse($filtered, $total, $page, $per_page, $format);
+    }
 }
 
 // ============================================================================
 // GET - Single Play with Routes
 // ============================================================================
 function handleGetSingle(int $id): void {
-    global $conn_sqli;
+    global $conn_sqli, $conn_swim_api, $using_swim;
 
     $auth = tryOptionalAuth();
 
@@ -210,52 +327,105 @@ function handleGetSingle(int $id): void {
         $include_geometry = in_array('geometry', $include_parts, true);
     }
 
-    // Fetch the play
-    $stmt = $conn_sqli->prepare("SELECT * FROM playbook_plays WHERE play_id = ?");
-    $stmt->bind_param('i', $id);
-    $stmt->execute();
-    $play = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    if (!$play) {
-        SwimResponse::error('Play not found', 404, 'NOT_FOUND');
-    }
-
-    // Visibility check
     $api_cid  = resolveApiKeyCid($auth);
-    $is_admin = ($api_cid !== null) ? checkIsAdmin($api_cid, $conn_sqli) : false;
+    $is_admin = ($api_cid !== null && $conn_sqli) ? checkIsAdmin($api_cid, $conn_sqli) : false;
 
-    $visibility = $play['visibility'] ?? 'public';
-    if ($visibility !== 'public') {
-        if ($api_cid === null) {
-            SwimResponse::error('Authentication required for non-public plays', 401, 'UNAUTHORIZED');
+    if ($using_swim) {
+        // ---- SWIM path ----
+        $play_sql = "SELECT play_id, play_name, play_name_norm, display_name,
+                            description, category, impacted_area, facilities_involved,
+                            scenario_type, route_format, source, status,
+                            airac_cycle, route_count, org_code, visibility,
+                            created_by, updated_by, updated_at, created_at
+                     FROM dbo.swim_playbook_plays WHERE play_id = ?";
+        $play_stmt = sqlsrv_query($conn_swim_api, $play_sql, [$id]);
+        if ($play_stmt === false) {
+            $err = sqlsrv_errors();
+            SwimResponse::error('Database error: ' . ($err[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
         }
-        if (!can_cid_view_play($play, $api_cid, $conn_sqli, $is_admin)) {
-            SwimResponse::error('Access denied to this play', 403, 'FORBIDDEN');
+        $play = sqlsrv_fetch_array($play_stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($play_stmt);
+
+        if (!$play) {
+            SwimResponse::error('Play not found', 404, 'NOT_FOUND');
         }
-    }
 
-    // Fetch routes for this play
-    $route_stmt = $conn_sqli->prepare(
-        "SELECT route_id, route_string, origin, origin_filter, dest, dest_filter,
-                origin_airports, origin_tracons, origin_artccs,
-                dest_airports, dest_tracons, dest_artccs,
-                traversed_artccs, traversed_tracons,
-                traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
-                remarks, sort_order
-         FROM playbook_routes
-         WHERE play_id = ?
-         ORDER BY sort_order ASC"
-    );
-    $route_stmt->bind_param('i', $id);
-    $route_stmt->execute();
-    $route_result = $route_stmt->get_result();
+        // Visibility check (ACL via MySQL)
+        $visibility = $play['visibility'] ?? 'public';
+        if ($visibility !== 'public') {
+            if ($api_cid === null) {
+                SwimResponse::error('Authentication required for non-public plays', 401, 'UNAUTHORIZED');
+            }
+            if (!$conn_sqli || !can_cid_view_play($play, $api_cid, $conn_sqli, $is_admin)) {
+                SwimResponse::error('Access denied to this play', 403, 'FORBIDDEN');
+            }
+        }
 
-    $routes = [];
-    while ($r = $route_result->fetch_assoc()) {
-        $routes[] = formatRoute($r);
+        // Fetch routes
+        $route_sql = "SELECT route_id, route_string, origin, origin_filter, dest, dest_filter,
+                             origin_airports, origin_tracons, origin_artccs,
+                             dest_airports, dest_tracons, dest_artccs,
+                             traversed_artccs, traversed_tracons,
+                             traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
+                             remarks, sort_order
+                      FROM dbo.swim_playbook_routes
+                      WHERE play_id = ?
+                      ORDER BY sort_order ASC";
+        $route_stmt = sqlsrv_query($conn_swim_api, $route_sql, [$id]);
+        if ($route_stmt === false) {
+            $err = sqlsrv_errors();
+            SwimResponse::error('Database error (routes): ' . ($err[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
+        }
+
+        $routes = [];
+        while ($r = sqlsrv_fetch_array($route_stmt, SQLSRV_FETCH_ASSOC)) {
+            $routes[] = formatRoute($r);
+        }
+        sqlsrv_free_stmt($route_stmt);
+
+    } else {
+        // ---- MySQL fallback ----
+        $stmt = $conn_sqli->prepare("SELECT * FROM playbook_plays WHERE play_id = ?");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $play = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$play) {
+            SwimResponse::error('Play not found', 404, 'NOT_FOUND');
+        }
+
+        $visibility = $play['visibility'] ?? 'public';
+        if ($visibility !== 'public') {
+            if ($api_cid === null) {
+                SwimResponse::error('Authentication required for non-public plays', 401, 'UNAUTHORIZED');
+            }
+            if (!can_cid_view_play($play, $api_cid, $conn_sqli, $is_admin)) {
+                SwimResponse::error('Access denied to this play', 403, 'FORBIDDEN');
+            }
+        }
+
+        $route_stmt = $conn_sqli->prepare(
+            "SELECT route_id, route_string, origin, origin_filter, dest, dest_filter,
+                    origin_airports, origin_tracons, origin_artccs,
+                    dest_airports, dest_tracons, dest_artccs,
+                    traversed_artccs, traversed_tracons,
+                    traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
+                    remarks, sort_order
+             FROM playbook_routes
+             WHERE play_id = ?
+             ORDER BY sort_order ASC"
+        );
+        $route_stmt->bind_param('i', $id);
+        $route_stmt->execute();
+        $route_result = $route_stmt->get_result();
+
+        $routes = [];
+        while ($r = $route_result->fetch_assoc()) {
+            $routes[] = formatRoute($r);
+        }
+        $route_stmt->close();
     }
-    $route_stmt->close();
 
     $formatted = formatPlay($play);
     $formatted['routes'] = $routes;
@@ -299,10 +469,19 @@ function formatPlay(array $row): array {
         'metadata'            => [
             'created_by' => $row['created_by'] ?? null,
             'updated_by' => $row['updated_by'] ?? null,
-            'created_at' => $row['created_at'] ?? null,
-            'updated_at' => $row['updated_at'] ?? null,
+            'created_at' => _formatDateVal($row['created_at'] ?? null),
+            'updated_at' => _formatDateVal($row['updated_at'] ?? null),
         ],
     ];
+}
+
+/**
+ * Format a date value from either MySQL (string) or sqlsrv (DateTime object).
+ */
+function _formatDateVal($val): ?string {
+    if ($val === null) return null;
+    if ($val instanceof \DateTime) return $val->format('Y-m-d H:i:s');
+    return (string)$val;
 }
 
 /**

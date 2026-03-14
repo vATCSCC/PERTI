@@ -45,11 +45,35 @@ if ($method !== 'GET') {
 // Public endpoint -- auth is optional
 swim_init_auth(false, false);
 
-// Get REF database connection (lazy-loaded sqlsrv to VATSIM_REF)
-$conn_ref = get_conn_ref();
+// Prefer SWIM_API (isolated external database), fallback to VATSIM_REF
+$conn_swim_api = get_conn_swim();
+$conn_ref = null;
+$swim_table = 'dbo.swim_coded_departure_routes';
+$ref_table  = 'dbo.coded_departure_routes';
+$using_swim = false;
+
+if ($conn_swim_api) {
+    // Verify SWIM table is populated
+    $checkStmt = sqlsrv_query($conn_swim_api, "SELECT TOP 1 1 FROM $swim_table");
+    if ($checkStmt !== false && sqlsrv_fetch($checkStmt)) {
+        $conn_ref = $conn_swim_api;
+        $using_swim = true;
+        sqlsrv_free_stmt($checkStmt);
+    } else {
+        if ($checkStmt !== false) sqlsrv_free_stmt($checkStmt);
+    }
+}
+
+if (!$conn_ref) {
+    // Fallback to VATSIM_REF
+    $conn_ref = get_conn_ref();
+}
+
 if (!$conn_ref) {
     SwimResponse::error('Reference database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
+
+$cdr_table = $using_swim ? $swim_table : $ref_table;
 
 // Parse query parameters
 $origin    = swim_get_param('origin');
@@ -116,7 +140,7 @@ if ($arr_artcc !== null && $arr_artcc !== '') {
 $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
 // Count total matching rows
-$count_sql = "SELECT COUNT(*) AS total FROM dbo.coded_departure_routes $where_sql";
+$count_sql = "SELECT COUNT(*) AS total FROM $cdr_table $where_sql";
 $count_stmt = sqlsrv_query($conn_ref, $count_sql, $params);
 if ($count_stmt === false) {
     $err = sqlsrv_errors();
@@ -130,7 +154,7 @@ $data_sql = "
     SELECT cdr_id, cdr_code, full_route, origin_icao, dest_icao,
            dep_artcc, arr_artcc, direction,
            altitude_min_ft, altitude_max_ft, is_active, source
-    FROM dbo.coded_departure_routes
+    FROM $cdr_table
     $where_sql
     ORDER BY cdr_code ASC
     OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
@@ -169,7 +193,7 @@ SwimResponse::json([
     ],
     'metadata'   => [
         'generated' => gmdate('c'),
-        'source'    => 'vatsim_ref.coded_departure_routes'
+        'source'    => $using_swim ? 'swim_api.swim_coded_departure_routes' : 'vatsim_ref.coded_departure_routes'
     ]
 ], 200);
 
