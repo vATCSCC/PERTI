@@ -1,0 +1,12 @@
+{
+  "files_scanned_total": 2080,
+  "code_files_scanned": 1302,
+  "doc_wiki_files_scanned": 0,
+  "file_to_file_edges": 586,
+  "page_to_js_edges": 72,
+  "file_to_api_edges": 417,
+  "file_to_table_edges": 7332,
+  "file_to_connection_edges": 162,
+  "api_to_connection_table_edges": 2017,
+  "canonical_table_count": 2050
+}

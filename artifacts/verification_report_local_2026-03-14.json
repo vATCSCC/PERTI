@@ -1,0 +1,387 @@
+{
+  "dependency_map": {
+    "status": "partially_verified",
+    "checks": [
+      {
+        "name": "metric_sql_files_scanned",
+        "ok": true,
+        "detail": "doc=435 meta=435"
+      },
+      {
+        "name": "metric_php_files_scanned",
+        "ok": true,
+        "detail": "doc=659 meta=659"
+      },
+      {
+        "name": "metric_js_files_scanned",
+        "ok": true,
+        "detail": "doc=118 meta=118"
+      },
+      {
+        "name": "metric_doc_wiki_files_scanned",
+        "ok": true,
+        "detail": "doc=176 meta=176"
+      },
+      {
+        "name": "metric_canonical_table_count",
+        "ok": true,
+        "detail": "doc=421 meta=421"
+      },
+      {
+        "name": "metric_tables_with_code_refs",
+        "ok": true,
+        "detail": "doc=363 meta=363"
+      },
+      {
+        "name": "metric_tables_with_doc_refs",
+        "ok": true,
+        "detail": "doc=140 meta=140"
+      },
+      {
+        "name": "metric_file_to_file_edges",
+        "ok": true,
+        "detail": "doc=586 meta=586"
+      },
+      {
+        "name": "metric_page_to_js_edges",
+        "ok": true,
+        "detail": "doc=72 meta=72"
+      },
+      {
+        "name": "metric_file_to_api_edges",
+        "ok": true,
+        "detail": "doc=416 meta=416"
+      },
+      {
+        "name": "metric_api_to_connection_table_edges",
+        "ok": true,
+        "detail": "doc=849 meta=849"
+      },
+      {
+        "name": "artifact_exists_meta.json",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\meta.json"
+      },
+      {
+        "name": "artifact_exists_file_to_file_sanitized.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\file_to_file_sanitized.csv"
+      },
+      {
+        "name": "artifact_exists_include_hotspots.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\include_hotspots.csv"
+      },
+      {
+        "name": "artifact_exists_page_to_js.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\page_to_js.csv"
+      },
+      {
+        "name": "artifact_exists_file_to_api.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\file_to_api.csv"
+      },
+      {
+        "name": "artifact_exists_file_to_connection.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\file_to_connection.csv"
+      },
+      {
+        "name": "artifact_exists_api_to_connection_table.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\api_to_connection_table.csv"
+      },
+      {
+        "name": "artifact_exists_file_to_table.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\file_to_table.csv"
+      },
+      {
+        "name": "artifact_exists_table_to_code.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\table_to_code.csv"
+      },
+      {
+        "name": "artifact_exists_table_to_doc_wiki.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\table_to_doc_wiki.csv"
+      },
+      {
+        "name": "artifact_exists_table_summary.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\table_summary.csv"
+      },
+      {
+        "name": "artifact_exists_table_group_summary.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\table_group_summary.csv"
+      },
+      {
+        "name": "artifact_exists_page_impact_summary.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\page_impact_summary.csv"
+      },
+      {
+        "name": "artifact_exists_api_domain_summary.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\api_domain_summary.csv"
+      },
+      {
+        "name": "artifact_exists_connection_summary.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\connection_summary.csv"
+      },
+      {
+        "name": "artifact_exists_doc_wiki_impact_summary.csv",
+        "ok": true,
+        "detail": "c:\\Users\\jerem.DESKTOP-T926IG8\\OneDrive - Virtual Air Traffic Control System Command Center\\Documents - Virtual Air Traffic Control System Command Center\\VATSIM PERTI\\PERTI\\artifacts\\dependency-map-final\\doc_wiki_impact_summary.csv"
+      },
+      {
+        "name": "shared_file_hotspots_table_matches_csv_top20",
+        "ok": false,
+        "detail": "expected_rows=20 actual_rows=0"
+      },
+      {
+        "name": "page_matrix_matches_csv",
+        "ok": false,
+        "detail": "expected_rows=21 actual_rows=0"
+      },
+      {
+        "name": "api_domain_table_matches_csv_top20",
+        "ok": false,
+        "detail": "expected_rows=20 actual_rows=0"
+      },
+      {
+        "name": "connection_table_matches_csv",
+        "ok": false,
+        "detail": "expected_rows=7 actual_rows=0"
+      },
+      {
+        "name": "top_table_groups_matches_csv_top120",
+        "ok": false,
+        "detail": "expected_rows=120 actual_rows=0"
+      },
+      {
+        "name": "docs_hotspots_matches_csv_top50",
+        "ok": false,
+        "detail": "expected_rows=50 actual_rows=0"
+      }
+    ]
+  },
+  "prompt_repo_facts": {
+    "status": "partially_verified",
+    "checks": [
+      {
+        "name": "adl_interval_15s",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:64 needle='interval_seconds' => 15 detail=found_at_line:64"
+      },
+      {
+        "name": "adl_staged_sp_call",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:2718 needle=executeStagedRefreshSP detail=found_at_line:2718"
+      },
+      {
+        "name": "defer_expensive_param",
+        "ok": true,
+        "detail": "adl/procedures/sp_Adl_RefreshFromVatsim_Staged.sql:44 needle=@defer_expensive detail=found_at_line:44"
+      },
+      {
+        "name": "defer_expensive_traj_branch",
+        "ok": true,
+        "detail": "adl/procedures/sp_Adl_RefreshFromVatsim_Staged.sql:827 needle=@defer_expensive = 1 detail=found_at_line:827"
+      },
+      {
+        "name": "defer_expensive_eta_branch",
+        "ok": true,
+        "detail": "adl/procedures/sp_Adl_RefreshFromVatsim_Staged.sql:859 needle=@defer_expensive = 0 detail=found_at_line:859"
+      },
+      {
+        "name": "swim_delta_watermark",
+        "ok": true,
+        "detail": "scripts/swim_sync.php:135 needle=MAX(last_sync_utc) detail=found_at_line:135"
+      },
+      {
+        "name": "swim_delta_query_pos",
+        "ok": true,
+        "detail": "scripts/swim_sync.php:236 needle=pos.position_updated_utc > ? detail=found_at_line:236"
+      },
+      {
+        "name": "swim_delta_query_times",
+        "ok": true,
+        "detail": "scripts/swim_sync.php:238 needle=t.times_updated_utc > ? detail=found_at_line:238"
+      },
+      {
+        "name": "swim_delta_query_tmi",
+        "ok": true,
+        "detail": "scripts/swim_sync.php:240 needle=tmi.tmi_updated_utc > ? detail=found_at_line:240"
+      },
+      {
+        "name": "swim_bulk_sp_exec",
+        "ok": true,
+        "detail": "scripts/swim_sync.php:320 needle=sp_Swim_BulkUpsert detail=found_at_line:320"
+      },
+      {
+        "name": "swim_bulk_sp_create",
+        "ok": true,
+        "detail": "database/migrations/swim/004_swim_bulk_upsert_sp.sql:12 needle=CREATE PROCEDURE dbo.sp_Swim_BulkUpsert detail=found_at_line:12"
+      },
+      {
+        "name": "swim_bulk_unconditional_update",
+        "ok": true,
+        "detail": "database/migrations/swim/004_swim_bulk_upsert_sp.sql:113 needle=WHEN MATCHED THEN UPDATE SET detail=found_at_line:113"
+      },
+      {
+        "name": "refdata_delete_cdr",
+        "ok": true,
+        "detail": "scripts/swim_refdata_sync.php:101 needle=DELETE FROM dbo.swim_coded_departure_routes detail=found_at_line:101"
+      },
+      {
+        "name": "refdata_delete_playbook_routes",
+        "ok": true,
+        "detail": "scripts/swim_refdata_sync.php:200 needle=DELETE FROM dbo.swim_playbook_routes detail=found_at_line:200"
+      },
+      {
+        "name": "refdata_delete_playbook_plays",
+        "ok": true,
+        "detail": "scripts/swim_refdata_sync.php:206 needle=DELETE FROM dbo.swim_playbook_plays detail=found_at_line:206"
+      },
+      {
+        "name": "swim_daemon_primary_cfg",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:162 needle='swim_interval' detail=found_at_line:162"
+      },
+      {
+        "name": "swim_fallback_cfg",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:164 needle='swim_inline_fallback_enabled' => true detail=found_at_line:164"
+      },
+      {
+        "name": "swim_daemon_hb_cfg",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:165 needle=swim_sync_daemon.heartbeat detail=found_at_line:165"
+      },
+      {
+        "name": "swim_tick_in_loop",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:2894 needle=$swimTick detail=found_at_line:2894"
+      },
+      {
+        "name": "ws_event_call",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:2953 needle=swim_processWebSocketEvents detail=found_at_line:2953"
+      },
+      {
+        "name": "ws_server_file_exists",
+        "ok": true,
+        "detail": "scripts/swim_ws_server.php:1 needle=#!/usr/bin/env php detail=#!/usr/bin/env php"
+      },
+      {
+        "name": "prompt_discrepancy_claim_pos_updated_at",
+        "ok": false,
+        "detail": "expected pos.updated_at at line 199; actual=          AND pos.position_updated_utc > ?"
+      }
+    ]
+  },
+  "webopt_repo_mapping": {
+    "status": "partially_verified",
+    "checks": [
+      {
+        "name": "map1_swim_sync_watermark",
+        "ok": true,
+        "detail": "scripts/swim_sync.php:135 needle=MAX(last_sync_utc) detail=found_at_line:135"
+      },
+      {
+        "name": "map1_swim_sync_delta_or",
+        "ok": true,
+        "detail": "scripts/swim_sync.php:236 needle=pos.position_updated_utc > ? detail=found_at_line:236"
+      },
+      {
+        "name": "map2_adl_staged_enabled",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:196 needle='staged_refresh_enabled' => true detail=found_at_line:196"
+      },
+      {
+        "name": "map2_adl_defer_cfg",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:211 needle='defer_expensive'       => true detail=found_at_line:211"
+      },
+      {
+        "name": "map2_staged_sp_call",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:2718 needle=executeStagedRefreshSP detail=found_at_line:2718"
+      },
+      {
+        "name": "map2_swim_bulk_exec",
+        "ok": true,
+        "detail": "scripts/swim_sync.php:320 needle=sp_Swim_BulkUpsert detail=found_at_line:320"
+      },
+      {
+        "name": "map2_swim_bulk_proc",
+        "ok": true,
+        "detail": "database/migrations/swim/004_swim_bulk_upsert_sp.sql:12 needle=CREATE PROCEDURE dbo.sp_Swim_BulkUpsert detail=found_at_line:12"
+      },
+      {
+        "name": "map3_unconditional_update",
+        "ok": true,
+        "detail": "database/migrations/swim/004_swim_bulk_upsert_sp.sql:113 needle=WHEN MATCHED THEN UPDATE SET detail=found_at_line:113"
+      },
+      {
+        "name": "map3_refdata_delete1",
+        "ok": true,
+        "detail": "scripts/swim_refdata_sync.php:101 needle=DELETE FROM dbo.swim_coded_departure_routes detail=found_at_line:101"
+      },
+      {
+        "name": "map3_refdata_delete2",
+        "ok": true,
+        "detail": "scripts/swim_refdata_sync.php:200 needle=DELETE FROM dbo.swim_playbook_routes detail=found_at_line:200"
+      },
+      {
+        "name": "map3_refdata_delete3",
+        "ok": true,
+        "detail": "scripts/swim_refdata_sync.php:206 needle=DELETE FROM dbo.swim_playbook_plays detail=found_at_line:206"
+      },
+      {
+        "name": "map4_ws_event_call",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:2953 needle=swim_processWebSocketEvents detail=found_at_line:2953"
+      },
+      {
+        "name": "map4_ws_server_exists",
+        "ok": true,
+        "detail": "scripts/swim_ws_server.php:1 needle=#!/usr/bin/env php detail=found_at_line:1"
+      },
+      {
+        "name": "map4_ws_positions_default_false",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:176 needle='websocket_positions' => false detail=found_at_line:176"
+      },
+      {
+        "name": "map5_timestamp_claim_updated_at",
+        "ok": false,
+        "detail": "scripts/swim_ws_events.php:199 needle=pos.updated_at detail=not_found_near:199"
+      },
+      {
+        "name": "map5_schema_position_updated_utc",
+        "ok": true,
+        "detail": "adl/migrations/core/001_adl_core_tables.sql:109 needle=position_updated_utc detail=found_at_line:109"
+      },
+      {
+        "name": "map6_pooling_true",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:314 needle=function getTmiConnection detail=found_at_line:314"
+      },
+      {
+        "name": "map6_pooling_option",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:326 needle=ConnectionPooling detail=found_at_line:326"
+      },
+      {
+        "name": "map6_reconnect_logic",
+        "ok": true,
+        "detail": "scripts/vatsim_adl_daemon.php:3117 needle=safeCloseConnection detail=found_at_line:3117"
+      }
+    ]
+  }
+}

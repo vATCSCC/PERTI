@@ -1,0 +1,13 @@
+{
+  "sql_files_scanned": 434,
+  "php_files_scanned": 659,
+  "js_files_scanned": 118,
+  "doc_wiki_files_scanned": 176,
+  "canonical_table_count": 471,
+  "tables_with_code_refs": 470,
+  "tables_with_doc_refs": 160,
+  "file_to_file_edges": 586,
+  "page_to_js_edges": 72,
+  "file_to_api_edges": 416,
+  "api_to_connection_table_edges": 1059
+}

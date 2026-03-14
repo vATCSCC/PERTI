@@ -1,0 +1,9 @@
+{
+  "files_scanned": 1573,
+  "file_to_file_edges": 586,
+  "page_to_js_edges": 72,
+  "file_to_api_edges": 251,
+  "api_to_table_edges": 1824,
+  "file_to_table_edges": 8093,
+  "tables_total": 2241
+}

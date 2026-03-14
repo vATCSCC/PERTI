@@ -1,0 +1,84 @@
+doc_or_wiki_file,table_ref_count,tables
+docs/plans/2026-02-15-vatcan-interop-design.md,35,org_facilities; organizations; p_configs; p_dcc_staffing; p_enroute_constraints; p_enroute_init; p_enroute_init_timeline; p_enroute_init_times; p_enroute_planning; p_enroute_staffing; p_forecast; p_group_flights; p_historical; p_op_goals; p_plans; p_terminal_constraints; p_terminal_init; p_terminal_init_timeline; p_terminal_init_times; p_terminal_planning; p_terminal_staffing; r_comments; r_data; r_ops_data; r_scores; tmi_advisories; tmi_airport_configs; tmi_delay_entries; tmi_entries; tmi_programs
+docs/plans/2026-02-15-vatcan-interop-implementation.md,35,dbo.tmi_entries; org_facilities; p_configs; p_dcc_staffing; p_enroute_constraints; p_enroute_init; p_enroute_init_timeline; p_enroute_init_times; p_enroute_planning; p_enroute_staffing; p_forecast; p_group_flights; p_historical; p_op_goals; p_plans; p_terminal_constraints; p_terminal_init; p_terminal_init_timeline; p_terminal_init_times; p_terminal_planning; p_terminal_staffing; r_comments; r_data; r_ops_data; r_scores; tmi_advisories; tmi_airport_configs; tmi_delay_entries; tmi_entries; tmi_programs
+docs/DEPLOYMENT_GUIDE.md,34,adl_flight_core; artcc_boundaries; dbo.apts; nav_fixes; org_facilities; p_configs; p_dcc_staffing; p_enroute_constraints; p_enroute_init; p_enroute_init_timeline; p_enroute_init_times; p_enroute_planning; p_enroute_staffing; p_forecast; p_group_flights; p_historical; p_op_goals; p_plans; p_terminal_constraints; p_terminal_init; p_terminal_init_timeline; p_terminal_init_times; p_terminal_planning; p_terminal_staffing; playbook_routes; r_comments; r_data; r_ops_data; r_scores; sector_boundaries
+wiki/Navigation-Helper.md,29,adl_boundary; adl_flight_boundary_log; adl_flight_core; airports; artcc_boundaries; boundary_adjacency; nav_fixes; p_configs; p_dcc_staffing; p_enroute_init_timeline; p_enroute_staffing; p_forecast; p_op_goals; p_plans; p_terminal_init_timeline; p_terminal_staffing; playbook_changelog; playbook_plays; playbook_routes; r_comments; r_data; r_ops_data; r_scores; sector_boundaries; tmi_programs; tmi_reroute_compliance_log; tmi_reroute_flights; tmi_reroutes; tracon_boundaries
+wiki/Database-Schema.md,25,adl_boundary; adl_flight_core; airports; artcc_boundaries; boundary_adjacency; nav_fixes; p_plans; playbook_changelog; playbook_plays; playbook_routes; r_tmr_reports; sector_boundaries; splits_areas; splits_configs; tmi_advisories; tmi_airport_configs; tmi_delay_entries; tmi_entries; tmi_programs; tmi_proposals; tmi_public_routes; tmi_reroute_compliance_log; tmi_reroute_flights; tmi_reroutes; tracon_boundaries
+docs/tmi/DATABASE.md,21,adl_flight_core; dbo.adl_flight_core; dbo.adl_flight_tmi; dbo.tmi_advisories; dbo.tmi_advisory_sequences; dbo.tmi_entries; dbo.tmi_events; dbo.tmi_programs; dbo.tmi_public_routes; dbo.tmi_reroute_compliance_log; dbo.tmi_reroute_flights; dbo.tmi_reroutes; dbo.tmi_slots; tmi_advisories; tmi_entries; tmi_programs; tmi_proposals; tmi_public_routes; tmi_reroute_compliance_log; tmi_reroute_flights; tmi_reroutes
+docs/COMPUTATIONAL_REFERENCE.md,19,adl_boundary; adl_boundary_grid; adl_flight_boundary_log; adl_flight_core; artcc_boundaries; dbo.adl_flight_plan; dbo.adl_flight_waypoints; dbo.fn_AirwayDemandBucketed; dbo.fn_AirwaySegmentDemandBucketed; dbo.fn_BatchDemandBucketed; dbo.fn_FixDemand; dbo.fn_RouteSegmentDemand; dbo.fn_ViaDemandBucketed; dbo.tmi_advisory_sequences; nav_fixes; sector_boundaries; tmi_advisories; tmi_programs; tracon_boundaries
+docs/VATSIM_STATS_DATABASE.md,19,analog_similarity_matrix; daily_feature_vectors; daily_pattern_assignments; dim_time; fact_facility_5min; fact_network_5min; historical_network_stats; pattern_archetypes; pattern_clusters; stats_aircraft_daily; stats_airport_daily; stats_carrier_daily; stats_facility_daily; stats_network_daily; stats_network_hourly; stats_network_monthly; stats_network_weekly; stats_network_yearly; traffic_baselines
+docs/STATUS.md,17,adl_boundary; adl_flight_core; artcc_boundaries; nav_fixes; p_plans; playbook_routes; tmi_advisories; tmi_airport_configs; tmi_delay_entries; tmi_entries; tmi_programs; tmi_proposals; tmi_public_routes; tmi_reroute_compliance_log; tmi_reroute_flights; tmi_reroutes; tracon_boundaries
+docs/fmds-comparison.md,17,adl_boundary_grid; adl_flight_core; artcc_boundaries; aviationweather.gov; nav_fixes; p_configs; sector_boundaries; splits_configs; splits_positions; sua_activations; tmi_advisories; tmi_entries; tmi_programs; tmi_proposals; tmi_reroute_compliance_log; tmi_reroutes; tracon_boundaries
+wiki/FMDS-Comparison.md,17,adl_boundary_grid; adl_flight_core; artcc_boundaries; aviationweather.gov; nav_fixes; p_configs; sector_boundaries; splits_configs; splits_positions; sua_activations; tmi_advisories; tmi_entries; tmi_programs; tmi_proposals; tmi_reroute_compliance_log; tmi_reroutes; tracon_boundaries
+wiki/Architecture.md,13,p_configs; p_enroute_init; p_plans; p_terminal_init; playbook_changelog; playbook_plays; playbook_routes; r_comments; r_data; r_scores; r_tmr_reports; splits_configs; splits_positions
+docs/QUICK_REFERENCE.md,12,adl_flight_core; r_tmr_reports; tmi_advisories; tmi_airport_configs; tmi_delay_entries; tmi_entries; tmi_programs; tmi_proposals; tmi_public_routes; tmi_reroute_compliance_log; tmi_reroute_flights; tmi_reroutes
+docs/swim/VATSWIM_Release_Documentation.md,12,adl_flight_core; dbo.adl_flight_aircraft; dbo.adl_flight_core; dbo.adl_flight_plan; dbo.adl_flight_position; dbo.adl_flight_times; dbo.adl_flight_tmi; dbo.swim_api_keys; dbo.swim_audit_log; dbo.swim_flights; dbo.swim_ground_stops; tmi_programs
+docs/tmi/ARCHITECTURE.md,12,dbo.adl_flight_tmi; dbo.tmi_programs; tmi_advisories; tmi_airport_configs; tmi_delay_entries; tmi_entries; tmi_programs; tmi_proposals; tmi_public_routes; tmi_reroute_compliance_log; tmi_reroute_flights; tmi_reroutes
+docs/plans/2026-02-02-tmi-trajectory.md,11,adl_flight_core; artcc_boundaries; dbo.adl_archive_log; dbo.adl_flight_core; dbo.adl_flight_plan; dbo.adl_flight_position; dbo.adl_flight_trajectory; dbo.adl_tmi_trajectory; dbo.adl_trajectory_archive; dbo.perti_events; dbo.ref_artcc_adjacency
+docs/tmi/README.md,10,tmi_advisories; tmi_airport_configs; tmi_delay_entries; tmi_entries; tmi_programs; tmi_proposals; tmi_public_routes; tmi_reroute_compliance_log; tmi_reroute_flights; tmi_reroutes
+wiki/Data-Flow.md,10,adl_flight_core; playbook_changelog; playbook_plays; playbook_routes; splits_configs; splits_positions; tmi_advisories; tmi_entries; tmi_programs; tmi_proposals
+docs/superpowers/specs/2026-03-12-ctp-e26-integration-design.md,9,artcc_boundaries; dbo.ctp_audit_log; nav_fixes; playbook_changelog; playbook_plays; playbook_route_throughput; playbook_routes; sector_boundaries; tracon_boundaries
+wiki/AIRAC-Update.md,8,dbo.airways; dbo.coded_departure_routes; dbo.nav_fixes; dbo.nav_procedures; dbo.playbook_routes; dbo.ref_sync_log; nav_fixes; playbook_routes
+docs/adl-ingest-outage-2026-02-17-claude-brief.md,7,adl_flight_core; dbo.adl_flight_changelog; dbo.adl_flight_core; dbo.adl_flight_plan; dbo.adl_flight_position; dbo.adl_flight_times; dbo.adl_parse_queue
+docs/gdt-tmi-workflow-plan.md,7,dbo.tmi_flight_list; dbo.tmi_program_coordination_log; dbo.tmi_programs; dbo.tmi_proposals; tmi_advisories; tmi_programs; tmi_proposals
+docs/swim/ADL_NORMALIZED_SCHEMA_REFERENCE.md,7,adl_flight_core; dbo.adl_flight_aircraft; dbo.adl_flight_core; dbo.adl_flight_plan; dbo.adl_flight_position; dbo.adl_flight_times; dbo.adl_flight_tmi
+docs/tmi/COST_ANALYSIS.md,7,tmi_advisories; tmi_entries; tmi_programs; tmi_public_routes; tmi_reroute_compliance_log; tmi_reroute_flights; tmi_reroutes
+wiki/Algorithm-Route-Parsing.md,6,adl_flight_core; dbo.adl_flight_core; dbo.adl_flight_plan; dbo.adl_flight_waypoints; dbo.adl_parse_queue; nav_fixes
+wiki/TMI-Historical-Import-Statistics.md,6,tmi_advisories; tmi_airport_configs; tmi_delay_entries; tmi_entries; tmi_programs; tmi_reroutes
+docs/plans/2026-02-09-nod-tmi-facility-flows-design.md,5,nav_fixes; tmi_delay_entries; tmi_entries; tmi_programs; tmi_reroutes
+docs/plans/2026-02-16-holding-detection.md,5,dbo.adl_flight_waypoints; dbo.nav_fixes; dbo.nav_procedure_legs; dbo.nav_procedures; nav_fixes
+docs/route_distance_transition.md,5,adl_flight_core; dbo.adl_flight_core; dbo.adl_flight_plan; dbo.adl_flight_position; dbo.adl_flight_waypoints
+docs/swim/VATSWIM_API_Documentation.md,5,dbo.swim_api_keys; dbo.swim_audit_log; dbo.swim_subscriptions; dbo.swim_webhook_endpoints; tmi_programs
+docs/vATCSCC_Use_Case_Digestible_v5.md,5,adl_flight_core; p_plans; tmi_advisories; tmi_entries; tmi_programs
+wiki/Algorithm-Zone-Detection.md,5,adl_flight_core; dbo.adl_flight_core; dbo.adl_run_log; dbo.adl_zone_events; dbo.airport_geometry
+wiki/Changelog.md,5,nav_fixes; playbook_changelog; playbook_plays; playbook_routes; r_tmr_reports
+wiki/GIS-API.md,5,artcc_boundaries; nav_fixes; playbook_routes; sector_boundaries; tracon_boundaries
+wiki/Troubleshooting.md,5,adl_boundary_grid; adl_flight_core; artcc_boundaries; nav_fixes; tracon_boundaries
+docs/plans/2026-02-02-adl-raw-data-lake-design.md,4,adl_flight_boundary_log; adl_flight_core; dbo.adl_flight_core; dbo.adl_trajectory_archive
+docs/simbrief_parsing_transition.md,4,adl_flight_core; dbo.adl_flight_core; dbo.adl_flight_plan; dbo.adl_flight_stepclimbs
+docs/superpowers/specs/2026-03-13-swim-playbook-cdr-routes-design.md,4,dbo.apts; dbo.coded_departure_routes; playbook_plays; playbook_routes
+wiki/API-Reference.md,4,nav_fixes; playbook_changelog; playbook_plays; playbook_routes
+wiki/Splits.md,4,sector_boundaries; splits_areas; splits_configs; splits_positions
+docs/GDT_Unified_Design_Document_v1.md,3,dbo.ntml; dbo.ntml_info; dbo.ntml_slots
+docs/mysql-8-upgrade-analysis.md,3,p_enroute_init_timeline; p_plans; p_terminal_init_timeline
+docs/plans/2026-02-11-gdt-workflow-enhancement-design.md,3,dbo.tmi_programs; tmi_advisories; tmi_programs
+docs/tmi/GDT_REBUILD_DESIGN.md,3,adl_flight_core; dbo.adl_flight_core; tmi_programs
+docs/tmi/GDT_Session_20260121.md,3,dbo.vw_adl_flights; tmi_advisories; tmi_programs
+docs/tmi/SESSION_TRANSITION_20260117.md,3,dbo.ntml; dbo.tmi_programs; tmi_programs
+docs/tmi/TMI_Publisher_v1.8.0_Transition.md,3,dbo.apts; dbo.vw_airport_config_rates; dbo.vw_airport_config_summary
+docs/tmi/Unified_TMI_Publisher_Design.md,3,dbo.tmi_discord_posts; tmi_advisories; tmi_entries
+wiki/Algorithm-Trajectory-Tiering.md,3,adl_flight_core; dbo.adl_flight_core; dbo.adl_flight_trajectory
+wiki/Analysis.md,3,adl_flight_core; tmi_advisories; tmi_programs
+wiki/Playbook.md,3,playbook_changelog; playbook_plays; playbook_routes
+docs/AZURE_COST_OPTIMIZATION_ANALYSIS.md,2,adl_flight_boundary_log; adl_flight_core
+docs/CODEBASE_REORGANIZATION_CATALOG.md,2,p_plans; playbook_routes
+docs/POWERBI_DATAFLOW_UPDATE.md,2,dbo.Running_VATSIM_Data_2; fact_network_5min
+docs/planned_crossings_performance.md,2,adl_boundary_grid; adl_flight_core
+docs/plans/2026-02-08-airport-groupings-design.md,2,dbo.apts; dbo.ref_major_airports
+docs/plans/2026-02-08-airport-groupings-implementation.md,2,dbo.apts; dbo.ref_major_airports
+docs/tmi/TMI_Publisher_v1.7_Transition.md,2,tmi_advisories; tmi_entries
+wiki/Algorithm-Data-Refresh.md,2,adl_flight_core; dbo.adl_run_log
+wiki/Algorithm-ETA-Calculation.md,2,dbo.adl_flight_times; dbo.adl_run_log
+wiki/Configuration.md,2,aviationweather.gov; playbook_routes
+wiki/Maintenance.md,2,adl_flight_core; tmi_programs
+docs/ATFM_Simulator_Deployment_2026-01-12.md,1,nav_fixes
+docs/ATFM_Simulator_Design_Document_v1.md,1,nav_fixes
+docs/CANOC_ADVISORY_INTEGRATION.md,1,tmi_advisories
+docs/ETA_ACCURACY_ANALYSIS_JAN_MAR_2026.md,1,adl_flight_core
+docs/GDT_GS_Transition_Summary_20260110.md,1,tmi_programs
+docs/HIBERNATION_RUNBOOK.md,1,hibernation_hits
+docs/plans/2026-02-16-holding-detection-design.md,1,nav_fixes
+docs/scaling/COST_OPTIMIZATION.md,1,dbo.swim_flights
+docs/swim/SWIM_Phase2_Phase3_Transition.md,1,dbo.swim_api_keys
+docs/swim/VATSWIM_Design_Document_v1.md,1,dbo.swim_flights
+docs/tmi/ANNOUNCEMENT_TMI_COORDINATION.md,1,tmi_proposals
+docs/tmi/ANNOUNCEMENT_TMI_COORDINATION_DISCORD.md,1,tmi_proposals
+docs/tmi/DEPLOYMENT.md,1,tmi_programs
+docs/tmi/GS_Eligibility_Fix_Transition.md,1,dbo.vw_adl_flights
+docs/tmi/STATUS_WORKFLOW.md,1,tmi_entries
+wiki/ATFM-Training-Simulator.md,1,nav_fixes
+wiki/Code-Style.md,1,adl_flight_core
+wiki/GDT-Ground-Delay-Tool.md,1,tmi_programs
+wiki/NOD-Dashboard.md,1,nav_fixes
+wiki/Route-Plotter.md,1,tmi_public_routes
+wiki/TMI_Status_Demand_Chart_Integration_v2.md,1,adl_flight_core
