@@ -67,6 +67,7 @@
     // Throughput toggle state
     var throughputEnabled = false;
     var throughputData = null;
+    var lastPlottedRouteOrder = []; // DB route_ids in plotting order → map routeId = index+1
 
     // NAT track cache: { 'NATA': 'FIX1 FIX2 ...', ... }
     var natTrackCache = {};
@@ -2218,6 +2219,7 @@
         if (hasSearch) {
             // Search active: plot non-matching first, matching on top for visibility
             var nonMatching = [], matching = [];
+            var nonMatchingIds = [], matchingIds = [];
             selected.forEach(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
@@ -2226,13 +2228,17 @@
                 var routeStr = parts.join(' ');
                 if (routeMatchesSearchClauses(r, currentSearchClauses)) {
                     matching.push(routeStr + ';#C70039');
+                    matchingIds.push(r.route_id);
                 } else {
                     nonMatching.push(routeStr + ';#555555');
+                    nonMatchingIds.push(r.route_id);
                 }
             });
+            lastPlottedRouteOrder = nonMatchingIds.concat(matchingIds);
             text = nonMatching.concat(matching).join('\n');
         } else if (hasGroups) {
             // Groups active: use per-route group colors (skip PB directive path)
+            lastPlottedRouteOrder = selected.map(function(r) { return r.route_id; });
             text = selected.map(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
@@ -2247,6 +2253,7 @@
             // No search, no groups: assemble routes with origin/dest directly.
             // Always use DB route data (which includes origin/dest FIR codes)
             // rather than PB directive expansion (CSV data lacks origin/dest).
+            lastPlottedRouteOrder = selected.map(function(r) { return r.route_id; });
             text = selected.map(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
@@ -3740,44 +3747,49 @@
         var selected = getSelectedRoutes();
         if (!selected.length) return [];
 
-        // Collect route segment features from the map source
-        var segmentsByRouteString = {};
+        // Group map source features by routeId (1-based, matching plotter's ++currentRouteId)
+        var segmentsByMapRouteId = {};
         var map = window.graphic_map;
         if (map && map.getSource('routes')) {
             var source = map.getSource('routes');
             var feats = (source._data && source._data.features) || [];
             feats.forEach(function(f) {
                 if (!f.properties || !f.geometry) return;
-                var rs = f.properties.routeString || '';
-                if (!rs) return;
-                if (!segmentsByRouteString[rs]) segmentsByRouteString[rs] = [];
-                segmentsByRouteString[rs].push(f);
+                var rid = f.properties.routeId || 0;
+                if (!rid) return;
+                if (!segmentsByMapRouteId[rid]) segmentsByMapRouteId[rid] = [];
+                segmentsByMapRouteId[rid].push(f);
             });
         }
 
+        // Build DB route_id → map routeId mapping from stored plot order
+        var dbToMapId = {};
+        lastPlottedRouteOrder.forEach(function(dbId, idx) {
+            dbToMapId[dbId] = idx + 1; // map routeIds are 1-based
+        });
+
         var results = [];
         selected.forEach(function(r) {
-            // Build the route string as plotOnMap does
+            // Build the route string for metadata
             var parts = [];
             if (r.origin) parts.push(r.origin);
             parts.push(r.route_string);
             if (r.dest) parts.push(r.dest);
             var routeStr = parts.join(' ');
 
-            // Try to find matching segments
+            // Match via stored routeId mapping (correct, order-based)
+            var mapRouteId = dbToMapId[r.route_id];
             var segments = [];
             var coords = [];
-            // Match by checking if the route string is contained in any key
-            Object.keys(segmentsByRouteString).forEach(function(key) {
-                if (key === routeStr || key.indexOf(routeStr) !== -1 || routeStr.indexOf(key) !== -1) {
-                    segmentsByRouteString[key].forEach(function(f) {
-                        segments.push(f);
-                        if (f.geometry.type === 'LineString' && f.geometry.coordinates) {
-                            coords.push(f.geometry.coordinates);
-                        }
-                    });
-                }
-            });
+
+            if (mapRouteId && segmentsByMapRouteId[mapRouteId]) {
+                segmentsByMapRouteId[mapRouteId].forEach(function(f) {
+                    segments.push(f);
+                    if (f.geometry.type === 'LineString' && f.geometry.coordinates) {
+                        coords.push(f.geometry.coordinates);
+                    }
+                });
+            }
 
             var tp = throughputData ? throughputData[r.route_id] : null;
 
@@ -3885,13 +3897,194 @@
             });
         });
 
+        // Build route lookup for enriching merged segments
+        var routeById = {};
+        exportData.forEach(function(d) { routeById[d.route.route_id] = d.route; });
+
+        // Layer 3: Merged individual segments — deduplicate identical geometries, flatten metadata
+        var segFeatures = features.filter(function(f) { return f.properties.featureType === 'route_segment'; });
+        var segByGeom = {};
+        segFeatures.forEach(function(f) {
+            var key = JSON.stringify(f.geometry.coordinates);
+            if (!segByGeom[key]) segByGeom[key] = { geometry: f.geometry, entries: [] };
+            segByGeom[key].entries.push(f.properties);
+        });
+
+        var pbMergeVals = function(entries, field) {
+            var vals = [];
+            entries.forEach(function(e) { if (e[field] && e[field] !== '') vals.push(e[field]); });
+            return vals.filter(function(v, i, a) { return a.indexOf(v) === i; }).join('; ');
+        };
+        var pbUniqueArr = function(arr) {
+            return arr.filter(function(v, i, a) { return v && a.indexOf(v) === i; });
+        };
+
+        Object.keys(segByGeom).forEach(function(gKey) {
+            var group = segByGeom[gKey];
+            var entries = group.entries;
+            var first = entries[0];
+
+            // Collect route-level data for all participating routes
+            var routeIds = [], origins = [], dests = [], routeStrings = [];
+            var origTracons = [], origArtccs = [], destTracons = [], destArtccs = [];
+            var travArtccs = [], travTracons = [];
+            entries.forEach(function(e) {
+                routeIds.push(e.routeId);
+                var r = routeById[e.routeId];
+                if (r) {
+                    if (r.origin) origins.push(r.origin);
+                    if (r.dest) dests.push(r.dest);
+                    if (r.route_string) routeStrings.push(r.route_string);
+                    if (r.origin_tracons) origTracons.push(r.origin_tracons);
+                    if (r.origin_artccs) origArtccs.push(r.origin_artccs);
+                    if (r.dest_tracons) destTracons.push(r.dest_tracons);
+                    if (r.dest_artccs) destArtccs.push(r.dest_artccs);
+                    if (r.traversed_artccs) travArtccs.push(r.traversed_artccs);
+                    if (r.traversed_tracons) travTracons.push(r.traversed_tracons);
+                }
+            });
+
+            features.push({
+                type: 'Feature',
+                properties: {
+                    featureType: 'merged_segment',
+                    routeCount: entries.length,
+                    routeIds: pbUniqueArr(routeIds).join(', '),
+                    routeNames: pbMergeVals(entries, 'routeName'),
+                    playName: first.playName || '',
+                    fromFix: first.fromFix,
+                    toFix: first.toFix,
+                    distance: first.distance || 0,
+                    airways: pbMergeVals(entries, 'airway'),
+                    procedures: pbMergeVals(entries, 'procedure'),
+                    origins: pbUniqueArr(origins).join('; '),
+                    destinations: pbUniqueArr(dests).join('; '),
+                    routeStrings: pbUniqueArr(routeStrings).join('; '),
+                    originTracons: pbUniqueArr(origTracons).join('; '),
+                    originArtccs: pbUniqueArr(origArtccs).join('; '),
+                    destTracons: pbUniqueArr(destTracons).join('; '),
+                    destArtccs: pbUniqueArr(destArtccs).join('; '),
+                    traversedArtccs: pbUniqueArr(travArtccs).join('; '),
+                    traversedTracons: pbUniqueArr(travTracons).join('; '),
+                },
+                geometry: group.geometry,
+            });
+        });
+
+        // Layer 4: Merged routes — connect merged segments with shared metadata
+        var mergedSegs = features.filter(function(f) { return f.properties.featureType === 'merged_segment'; });
+        var pbMetaKey = function(p) {
+            return [p.routeIds, p.origins, p.destinations, p.routeStrings].join('||');
+        };
+
+        var pbMetaGroups = {};
+        mergedSegs.forEach(function(f) {
+            var k = pbMetaKey(f.properties);
+            if (!pbMetaGroups[k]) pbMetaGroups[k] = [];
+            pbMetaGroups[k].push(f);
+        });
+
+        var pbPtKey = function(c) { return c[0].toFixed(6) + ',' + c[1].toFixed(6); };
+
+        Object.keys(pbMetaGroups).forEach(function(mk) {
+            var group = pbMetaGroups[mk];
+            if (!group.length) return;
+
+            var segs = group.map(function(f) {
+                return { coords: f.geometry.coordinates, props: f.properties };
+            });
+
+            var byStart = {};
+            segs.forEach(function(s, i) {
+                var sk = pbPtKey(s.coords[0]);
+                if (!byStart[sk]) byStart[sk] = [];
+                byStart[sk].push(i);
+            });
+
+            var used = {};
+            var chains = [];
+
+            for (var i = 0; i < segs.length; i++) {
+                if (used[i]) continue;
+                var chain = [i];
+                used[i] = true;
+
+                var curEnd = pbPtKey(segs[i].coords[segs[i].coords.length - 1]);
+                var seeking = true;
+                while (seeking) {
+                    seeking = false;
+                    var cands = byStart[curEnd] || [];
+                    for (var ci = 0; ci < cands.length; ci++) {
+                        if (!used[cands[ci]]) {
+                            chain.push(cands[ci]);
+                            used[cands[ci]] = true;
+                            curEnd = pbPtKey(segs[cands[ci]].coords[segs[cands[ci]].coords.length - 1]);
+                            seeking = true;
+                            break;
+                        }
+                    }
+                }
+                chains.push(chain);
+            }
+
+            chains.forEach(function(chain) {
+                var firstProps = segs[chain[0]].props;
+                var allFixes = [];
+                var mergedCoords = [];
+                var totalDist = 0;
+
+                chain.forEach(function(idx, ci) {
+                    var s = segs[idx];
+                    allFixes.push(s.props.fromFix);
+                    if (ci === chain.length - 1) allFixes.push(s.props.toFix);
+                    totalDist += s.props.distance || 0;
+
+                    if (ci === 0) {
+                        mergedCoords = s.coords.slice();
+                    } else {
+                        mergedCoords = mergedCoords.concat(s.coords.slice(1));
+                    }
+                });
+
+                features.push({
+                    type: 'Feature',
+                    properties: {
+                        featureType: 'merged_route',
+                        segmentCount: chain.length,
+                        fixes: allFixes.join(', '),
+                        totalDistance: totalDist,
+                        routeCount: firstProps.routeCount,
+                        routeIds: firstProps.routeIds,
+                        routeNames: firstProps.routeNames,
+                        playName: firstProps.playName || '',
+                        origins: firstProps.origins,
+                        destinations: firstProps.destinations,
+                        routeStrings: firstProps.routeStrings || '',
+                        originTracons: firstProps.originTracons || '',
+                        originArtccs: firstProps.originArtccs || '',
+                        destTracons: firstProps.destTracons || '',
+                        destArtccs: firstProps.destArtccs || '',
+                        traversedArtccs: firstProps.traversedArtccs || '',
+                        traversedTracons: firstProps.traversedTracons || '',
+                    },
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: mergedCoords,
+                    },
+                });
+            });
+        });
+
         var geojson = {
             type: 'FeatureCollection',
             properties: {
                 exportType: 'playbook',
                 playName: play.play_name || '',
                 exportedAt: new Date().toISOString(),
-                routeCount: exportData.length
+                routeCount: exportData.length,
+                segmentCount: segFeatures.length,
+                mergedSegmentCount: Object.keys(segByGeom).length,
+                mergedRouteCount: features.filter(function(f) { return f.properties.featureType === 'merged_route'; }).length
             },
             features: features
         };

@@ -3894,6 +3894,7 @@
       "slots": "Slots",
       "peakRate": "Peak/hr"
     },
+    "changelog": "Changelog",
     "changelogTab": {
       "title": "Detailed Change History",
       "loading": "Loading change history...",

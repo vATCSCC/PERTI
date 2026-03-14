@@ -8146,7 +8146,8 @@ $(document).ready(function() {
             });
         });
 
-        // Process each route entry
+        // Process each route entry — use 1-based counter matching map plotter's ++currentRouteId
+        let exportRouteId = 0;
         routeEntries.forEach((entry, routeIdx) => {
             let baseLine = entry.line;
             let color = entry.groupColor;
@@ -8181,7 +8182,8 @@ $(document).ready(function() {
                 // Expand playbook routes
                 const pbRoutes = expandPlaybookDirective(routeUpper.slice(3), isMandatory, color);
                 pbRoutes.forEach((pbRoute, pbIdx) => {
-                    const routeMeta = parseRouteMetadata(pbRoute, routeIdx * 1000 + pbIdx);
+                    exportRouteId++;
+                    const routeMeta = parseRouteMetadata(pbRoute, exportRouteId);
                     routeMeta.groupName = entry.groupName;
                     routeMeta.playbookName = playbookName;
                     routeMeta.playbookOrigins = playbookOrigins;
@@ -8200,7 +8202,8 @@ $(document).ready(function() {
             }
 
             // Parse route metadata
-            const routeMeta = parseRouteMetadata(entry.line, routeIdx);
+            exportRouteId++;
+            const routeMeta = parseRouteMetadata(entry.line, exportRouteId);
             routeMeta.groupName = entry.groupName;
             routeMeta.cdrCode = cdrCode;
             routeMeta.isMandatory = isMandatory;
@@ -8268,6 +8271,112 @@ $(document).ready(function() {
                     fixFeatures = fixSource._data.features || [];
                 }
             } catch (e) {}
+        }
+
+        // Enrich facilitiesTraversed using ARTCC boundary polygon intersection
+        if (graphic_map) {
+            try {
+                const artccSource = graphic_map.getSource('artcc');
+                const artccData = artccSource && artccSource._data;
+                const artccFeatsRaw = artccData && artccData.features ? artccData.features : [];
+                // Filter to detection-level boundaries only (skip sub-areas)
+                const artccFeats = artccFeatsRaw.filter(f =>
+                    f.properties && f.properties.is_detection_level !== false && f.geometry);
+
+                if (artccFeats.length > 0) {
+                    // Pre-compute bounding boxes for fast rejection
+                    const artccBboxes = artccFeats.map(af => {
+                        const bbox = [Infinity, Infinity, -Infinity, -Infinity];
+                        const walkCoords = (coords) => {
+                            if (typeof coords[0] === 'number') {
+                                if (coords[0] < bbox[0]) bbox[0] = coords[0];
+                                if (coords[1] < bbox[1]) bbox[1] = coords[1];
+                                if (coords[0] > bbox[2]) bbox[2] = coords[0];
+                                if (coords[1] > bbox[3]) bbox[3] = coords[1];
+                            } else {
+                                coords.forEach(walkCoords);
+                            }
+                        };
+                        if (af.geometry && af.geometry.coordinates) walkCoords(af.geometry.coordinates);
+                        return bbox;
+                    });
+
+                    // Ray-casting point-in-polygon
+                    const pipRing = (pt, ring) => {
+                        let inside = false;
+                        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                            const xi = ring[i][0], yi = ring[i][1];
+                            const xj = ring[j][0], yj = ring[j][1];
+                            if (((yi > pt[1]) !== (yj > pt[1])) &&
+                                (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) {
+                                inside = !inside;
+                            }
+                        }
+                        return inside;
+                    };
+
+                    const pipGeom = (pt, geom) => {
+                        if (geom.type === 'Polygon') {
+                            if (!pipRing(pt, geom.coordinates[0])) return false;
+                            for (let h = 1; h < geom.coordinates.length; h++) {
+                                if (pipRing(pt, geom.coordinates[h])) return false;
+                            }
+                            return true;
+                        } else if (geom.type === 'MultiPolygon') {
+                            for (const poly of geom.coordinates) {
+                                if (pipRing(pt, poly[0])) {
+                                    let inHole = false;
+                                    for (let h = 1; h < poly.length; h++) {
+                                        if (pipRing(pt, poly[h])) { inHole = true; break; }
+                                    }
+                                    if (!inHole) return true;
+                                }
+                            }
+                        }
+                        return false;
+                    };
+
+                    // Build fix coordinates per route from fixFeatures
+                    const fixCoordsByRoute = {};
+                    fixFeatures.forEach(f => {
+                        const rid = (f.properties || {}).routeId || 0;
+                        if (!fixCoordsByRoute[rid]) fixCoordsByRoute[rid] = [];
+                        if (f.geometry && f.geometry.coordinates) {
+                            fixCoordsByRoute[rid].push(f.geometry.coordinates);
+                        }
+                    });
+
+                    routes.forEach(routeMeta => {
+                        if (routeMeta.facilitiesTraversed) return;
+                        const fixCoords = fixCoordsByRoute[routeMeta.routeId] || [];
+                        if (!fixCoords.length) return;
+
+                        const traversed = [];
+                        fixCoords.forEach(coord => {
+                            for (let a = 0; a < artccFeats.length; a++) {
+                                const bbox = artccBboxes[a];
+                                if (coord[0] < bbox[0] || coord[0] > bbox[2] ||
+                                    coord[1] < bbox[1] || coord[1] > bbox[3]) continue;
+                                if (pipGeom(coord, artccFeats[a].geometry)) {
+                                    const artcc = artccFeats[a].properties.ICAOCODE ||
+                                                  artccFeats[a].properties.FIRname || '';
+                                    if (artcc && (traversed.length === 0 ||
+                                                  traversed[traversed.length - 1] !== artcc)) {
+                                        traversed.push(artcc);
+                                    }
+                                    break;
+                                }
+                            }
+                        });
+
+                        if (traversed.length > 0) {
+                            routeMeta.facilitiesTraversed = traversed.join(',');
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('[EXPORT] ARTCC traversal computation failed:', e);
+            }
         }
 
         lastExportData = {
@@ -8754,6 +8863,165 @@ $(document).ready(function() {
             });
         });
 
+        // Layer 3: Merged individual segments — deduplicate identical geometries, flatten metadata
+        const segFeatures = features.filter(f => f.properties.featureType === 'route_segment');
+        const segByGeom = {};
+        segFeatures.forEach(f => {
+            const key = JSON.stringify(f.geometry.coordinates);
+            if (!segByGeom[key]) segByGeom[key] = { geometry: f.geometry, entries: [] };
+            segByGeom[key].entries.push(f.properties);
+        });
+
+        const mergeVals = (entries, field) => {
+            const vals = entries.map(e => e[field]).filter(v => v && v !== '' && v !== 0);
+            return [...new Set(vals)].join('; ');
+        };
+
+        Object.values(segByGeom).forEach(group => {
+            const entries = group.entries;
+            const first = entries[0];
+
+            features.push({
+                type: 'Feature',
+                properties: {
+                    featureType: 'merged_segment',
+                    routeCount: entries.length,
+                    routeIds: [...new Set(entries.map(e => e.routeId))].join(', '),
+                    routeNames: mergeVals(entries, 'routeName'),
+                    fromFix: first.fromFix,
+                    toFix: first.toFix,
+                    distance_nm: first.distance_nm || 0,
+                    airways: mergeVals(entries, 'airway'),
+                    procedures: mergeVals(entries, 'procedure'),
+                    procedureTypes: mergeVals(entries, 'procedureType'),
+                    groupNames: mergeVals(entries, 'groupName'),
+                    playbookNames: mergeVals(entries, 'playbookName'),
+                    cdrCodes: mergeVals(entries, 'cdrCode'),
+                    origins: mergeVals(entries, 'origins'),
+                    destinations: mergeVals(entries, 'destinations'),
+                    routeStrings: mergeVals(entries, 'routeString'),
+                    fullRouteStrings: mergeVals(entries, 'fullRouteString'),
+                    departureProcs: mergeVals(entries, 'departureProc'),
+                    arrivalProcs: mergeVals(entries, 'arrivalProc'),
+                    originTracons: mergeVals(entries, 'originTracons'),
+                    originArtccs: mergeVals(entries, 'originArtccs'),
+                    destTracons: mergeVals(entries, 'destTracons'),
+                    destArtccs: mergeVals(entries, 'destArtccs'),
+                    facilitiesTraversed: mergeVals(entries, 'facilitiesTraversed'),
+                },
+                geometry: group.geometry,
+            });
+        });
+
+        // Layer 4: Merged routes — connect merged segments sharing the same flattened metadata
+        const mergedSegs = features.filter(f => f.properties.featureType === 'merged_segment');
+        const buildMetaKey = (p) => [
+            p.routeIds, p.origins, p.destinations, p.groupNames,
+            p.playbookNames, p.cdrCodes, p.routeStrings
+        ].join('||');
+
+        const metaGroups = {};
+        mergedSegs.forEach(f => {
+            const k = buildMetaKey(f.properties);
+            if (!metaGroups[k]) metaGroups[k] = [];
+            metaGroups[k].push(f);
+        });
+
+        const ptKey = (c) => c[0].toFixed(6) + ',' + c[1].toFixed(6);
+
+        Object.values(metaGroups).forEach(group => {
+            if (!group.length) return;
+
+            const segs = group.map(f => ({
+                coords: f.geometry.coordinates,
+                props: f.properties,
+            }));
+
+            // Index by start point for chain-building
+            const byStart = {};
+            segs.forEach((s, i) => {
+                const sk = ptKey(s.coords[0]);
+                if (!byStart[sk]) byStart[sk] = [];
+                byStart[sk].push(i);
+            });
+
+            const used = new Set();
+            const chains = [];
+
+            for (let i = 0; i < segs.length; i++) {
+                if (used.has(i)) continue;
+                const chain = [i];
+                used.add(i);
+
+                let curEnd = ptKey(segs[i].coords[segs[i].coords.length - 1]);
+                let extending = true;
+                while (extending) {
+                    extending = false;
+                    for (const j of (byStart[curEnd] || [])) {
+                        if (!used.has(j)) {
+                            chain.push(j);
+                            used.add(j);
+                            curEnd = ptKey(segs[j].coords[segs[j].coords.length - 1]);
+                            extending = true;
+                            break;
+                        }
+                    }
+                }
+                chains.push(chain);
+            }
+
+            chains.forEach(chain => {
+                const firstProps = segs[chain[0]].props;
+                const allFixes = [];
+                let mergedCoords = [];
+                let totalDist = 0;
+
+                chain.forEach((idx, ci) => {
+                    const s = segs[idx];
+                    allFixes.push(s.props.fromFix);
+                    if (ci === chain.length - 1) allFixes.push(s.props.toFix);
+                    totalDist += s.props.distance_nm || 0;
+
+                    if (ci === 0) {
+                        mergedCoords = s.coords.slice();
+                    } else {
+                        mergedCoords = mergedCoords.concat(s.coords.slice(1));
+                    }
+                });
+
+                features.push({
+                    type: 'Feature',
+                    properties: {
+                        featureType: 'merged_route',
+                        segmentCount: chain.length,
+                        fixes: allFixes.join(', '),
+                        totalDistance_nm: totalDist,
+                        routeCount: firstProps.routeCount,
+                        routeIds: firstProps.routeIds,
+                        routeNames: firstProps.routeNames,
+                        origins: firstProps.origins,
+                        destinations: firstProps.destinations,
+                        groupNames: firstProps.groupNames,
+                        playbookNames: firstProps.playbookNames,
+                        cdrCodes: firstProps.cdrCodes,
+                        routeStrings: firstProps.routeStrings,
+                        fullRouteStrings: firstProps.fullRouteStrings,
+                        departureProcs: firstProps.departureProcs,
+                        arrivalProcs: firstProps.arrivalProcs,
+                        originTracons: firstProps.originTracons,
+                        originArtccs: firstProps.originArtccs,
+                        destTracons: firstProps.destTracons,
+                        destArtccs: firstProps.destArtccs,
+                        facilitiesTraversed: firstProps.facilitiesTraversed,
+                    },
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: mergedCoords,
+                    },
+                });
+            });
+        });
+
         const geojson = {
             type: 'FeatureCollection',
             name: 'PERTI_Routes_Export',
@@ -8761,7 +9029,10 @@ $(document).ready(function() {
             metadata: {
                 exportedAt: data.timestamp,
                 routeCount: data.routes.length,
-                segmentCount: data.routeFeatures.length,
+                segmentCount: segFeatures.length,
+                mergedSegmentCount: Object.keys(segByGeom).length,
+                mergedRouteCount: features.filter(f => f.properties.featureType === 'merged_route').length,
+                fixCount: data.fixFeatures.length,
                 source: 'PERTI Route Visualization',
             },
             features: features,
