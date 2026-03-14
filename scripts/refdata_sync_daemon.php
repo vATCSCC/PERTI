@@ -798,6 +798,24 @@ function syncPlaybook(): array {
     $conn_pdo->beginTransaction();
 
     try {
+        // Preserve traversal data before DELETE — keyed by (play_name, sort_order)
+        $savedTraversals = [];
+        if ($isReimport) {
+            $travStmt = $conn_pdo->query("
+                SELECT p.play_name, r.sort_order,
+                    r.traversed_artccs, r.traversed_tracons,
+                    r.traversed_sectors_low, r.traversed_sectors_high, r.traversed_sectors_superhigh
+                FROM playbook_routes r
+                JOIN playbook_plays p ON p.play_id = r.play_id
+                WHERE p.source = 'FAA' AND r.traversed_artccs IS NOT NULL
+            ");
+            while ($t = $travStmt->fetch(PDO::FETCH_ASSOC)) {
+                $key = $t['play_name'] . '|' . $t['sort_order'];
+                $savedTraversals[$key] = $t;
+            }
+            logMsg("Saved traversal data for " . count($savedTraversals) . " routes");
+        }
+
         // Delete existing FAA data (routes cascade via FK, but changelog needs explicit delete)
         if ($isReimport) {
             $conn_pdo->exec("DELETE FROM playbook_changelog WHERE play_id IN (SELECT play_id FROM playbook_plays WHERE source='FAA')");
@@ -888,6 +906,61 @@ function syncPlaybook(): array {
         }
 
         logMsg("Inserted $routeInserted routes");
+
+        // Restore traversal data from pre-DELETE snapshot via temp table
+        if (count($savedTraversals) > 0) {
+            $conn_pdo->exec("CREATE TEMPORARY TABLE _traversal_restore (
+                play_name VARCHAR(100),
+                sort_order INT,
+                traversed_artccs TEXT,
+                traversed_tracons TEXT,
+                traversed_sectors_low TEXT,
+                traversed_sectors_high TEXT,
+                traversed_sectors_superhigh TEXT,
+                PRIMARY KEY (play_name, sort_order)
+            )");
+
+            // Batch insert saved traversals into temp table
+            $tBatch = [];
+            $tParams = [];
+            foreach ($savedTraversals as $key => $t) {
+                $tBatch[] = "(?,?,?,?,?,?,?)";
+                $tParams = array_merge($tParams, [
+                    $t['play_name'], $t['sort_order'],
+                    $t['traversed_artccs'], $t['traversed_tracons'],
+                    $t['traversed_sectors_low'], $t['traversed_sectors_high'],
+                    $t['traversed_sectors_superhigh'],
+                ]);
+
+                if (count($tBatch) >= 500) {
+                    $conn_pdo->prepare(
+                        "INSERT INTO _traversal_restore VALUES " . implode(',', $tBatch)
+                    )->execute($tParams);
+                    $tBatch = [];
+                    $tParams = [];
+                }
+            }
+            if (count($tBatch) > 0) {
+                $conn_pdo->prepare(
+                    "INSERT INTO _traversal_restore VALUES " . implode(',', $tBatch)
+                )->execute($tParams);
+            }
+
+            // Single bulk UPDATE via JOIN
+            $restored = $conn_pdo->exec("
+                UPDATE playbook_routes r
+                JOIN playbook_plays p ON p.play_id = r.play_id
+                JOIN _traversal_restore t ON t.play_name = p.play_name AND t.sort_order = r.sort_order
+                SET r.traversed_artccs = t.traversed_artccs,
+                    r.traversed_tracons = t.traversed_tracons,
+                    r.traversed_sectors_low = t.traversed_sectors_low,
+                    r.traversed_sectors_high = t.traversed_sectors_high,
+                    r.traversed_sectors_superhigh = t.traversed_sectors_superhigh
+            ");
+
+            $conn_pdo->exec("DROP TEMPORARY TABLE IF EXISTS _traversal_restore");
+            logMsg("Restored traversal data for " . count($savedTraversals) . " routes ($restored rows updated)");
+        }
 
         // Changelog entries
         $action  = $isReimport ? 'faa_reimport' : 'faa_import';
