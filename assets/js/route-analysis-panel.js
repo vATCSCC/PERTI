@@ -25,12 +25,14 @@
     var activeRowFacility = null;
     var activeRowFix = null;
     var facilityFilters = { ARTCC: true, FIR: true, TRACON: true, SECTOR_HIGH: true, SECTOR_LOW: true, SECTOR_SUPERHIGH: true };
+    var timeFormat = 'hms'; // 'hms' = hh:mm:ss, 'short' = 1h 23m, 'min' = integer minutes
 
     // ── DOM refs (resolved on first show) ────────────────────────────
     var panel, header, toggle, body, routeLabel, chevron;
-    var summaryEl, facTbody, fixTbody, facFiltersEl;
+    var summaryEl, facTbody, fixTbody, segTbody, facFiltersEl;
     var speedInput, windInput, depTimeInput;
     var exportMenu;
+    var pickerOrigin, pickerDest, pickerRoute, pickerGo, pickerMatches;
 
     function resolveDOM() {
         panel       = document.getElementById('route-analysis-panel');
@@ -41,27 +43,49 @@
         summaryEl   = document.getElementById('ra-summary');
         facTbody    = document.getElementById('ra-facility-tbody');
         fixTbody    = document.getElementById('ra-fix-tbody');
+        segTbody    = document.getElementById('ra-segment-tbody');
         speedInput  = document.getElementById('ra-cruise-speed');
         windInput   = document.getElementById('ra-wind');
         depTimeInput = document.getElementById('ra-dep-time');
         facFiltersEl = document.getElementById('ra-facility-filters');
         exportMenu  = document.getElementById('ra-export-menu');
+        pickerOrigin  = document.getElementById('ra-picker-origin');
+        pickerDest    = document.getElementById('ra-picker-dest');
+        pickerRoute   = document.getElementById('ra-picker-route');
+        pickerGo      = document.getElementById('ra-picker-go');
+        pickerMatches = document.getElementById('ra-picker-matches');
     }
 
     // ── Time formatting ──────────────────────────────────────────────
     function formatTime(minutes) {
         if (minutes == null || isNaN(minutes)) return '--';
-        minutes = Math.round(minutes);
-        if (minutes < 1)  return '< 1m';
-        if (minutes < 60) return minutes + 'm';
-        var h = Math.floor(minutes / 60);
-        var m = minutes % 60;
-        return m === 0 ? h + 'h' : h + 'h ' + m + 'm';
+        if (timeFormat === 'min') {
+            return Math.round(minutes) + 'm';
+        }
+        if (timeFormat === 'short') {
+            minutes = Math.round(minutes);
+            if (minutes < 1)  return '< 1m';
+            if (minutes < 60) return minutes + 'm';
+            var hrs = Math.floor(minutes / 60);
+            var mins = minutes % 60;
+            return mins === 0 ? hrs + 'h' : hrs + 'h ' + mins + 'm';
+        }
+        // Default: hh:mm:ss
+        var totalSec = Math.round(minutes * 60);
+        var h = Math.floor(totalSec / 3600);
+        var m = Math.floor((totalSec % 3600) / 60);
+        var s = totalSec % 60;
+        return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
     }
 
     function formatDist(nm) {
         if (nm == null || isNaN(nm)) return '--';
-        return Math.round(nm).toLocaleString();
+        // 2 significant figures
+        if (nm === 0) return '0';
+        var mag = Math.floor(Math.log10(Math.abs(nm))) + 1;
+        var factor = Math.pow(10, 2 - mag);
+        var rounded = Math.round(nm * factor) / factor;
+        return rounded.toLocaleString(undefined, { maximumFractionDigits: Math.max(0, 2 - mag) });
     }
 
     // ── Departure time / UTC helpers ───────────────────────────────
@@ -140,7 +164,7 @@
         if (types.length <= 1) { facFiltersEl.innerHTML = ''; return; }
 
         var html = '';
-        var order = ['ARTCC', 'FIR', 'TRACON', 'SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH'];
+        var order = ['ARTCC', 'FIR', 'SECTOR_SUPERHIGH', 'SECTOR_HIGH', 'SECTOR_LOW', 'TRACON'];
         for (var o = 0; o < order.length; o++) {
             var typ = order[o];
             if (!counts[typ]) continue;
@@ -195,6 +219,7 @@
         if (facFiltersEl) facFiltersEl.innerHTML = '';
         if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
         if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="9" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
+        if (segTbody) segTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
 
         panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
@@ -205,6 +230,7 @@
         var errMsg = msg || t('routeAnalysis.error') || 'Analysis failed';
         if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-empty"><i class="fas fa-exclamation-triangle"></i> ' + errMsg + '</td></tr>';
         if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="9" class="ra-empty"><i class="fas fa-exclamation-triangle"></i> ' + errMsg + '</td></tr>';
+        if (segTbody) segTbody.innerHTML = '<tr><td colspan="8" class="ra-empty"><i class="fas fa-exclamation-triangle"></i> ' + errMsg + '</td></tr>';
     }
 
     // ── Rendering ────────────────────────────────────────────────────
@@ -255,6 +281,7 @@
         renderFacilityFilters(traversal);
         renderFacilityTable(filterTraversal(traversal), depEpoch);
         renderFixTable(data.fix_analysis || [], data.total_distance_nm, data.total_time_min, depEpoch);
+        renderSegmentTable(data.fix_analysis || [], depEpoch);
 
         // Scroll into view
         panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -269,7 +296,7 @@
         var fixes = data.fix_analysis || [];
         var etdStr = minutesToUtcStr(depEpoch, 0);
         var etaStr = minutesToUtcStr(depEpoch, data.total_time_min);
-        summaryEl.innerHTML =
+        var html =
             '<div class="ra-stat-card">' +
                 '<div class="ra-stat-value">' + formatDist(data.total_distance_nm) + '</div>' +
                 '<div class="ra-stat-label">' + t('routeAnalysis.stat.totalDist') + ' (nm)</div>' +
@@ -294,6 +321,38 @@
                 '<div class="ra-stat-value">' + fixes.length + '</div>' +
                 '<div class="ra-stat-label">' + t('routeAnalysis.stat.fixes') + '</div>' +
             '</div>';
+
+        // Route strings (as-filed and expanded)
+        if (data.route_string) {
+            html += '<div class="ra-route-string-row">' +
+                '<span class="ra-route-string-label">Route (filed)</span>' +
+                '<div class="ra-route-string-value">' + escHtml(data.route_string) + '</div>' +
+                '<button class="ra-copy-btn" title="Copy" data-copy="route_filed"><i class="fas fa-copy"></i></button>' +
+                '</div>';
+        }
+        if (data.expanded_route_string) {
+            html += '<div class="ra-route-string-row">' +
+                '<span class="ra-route-string-label">Route (expanded)</span>' +
+                '<div class="ra-route-string-value">' + escHtml(data.expanded_route_string) + '</div>' +
+                '<button class="ra-copy-btn" title="Copy" data-copy="route_expanded"><i class="fas fa-copy"></i></button>' +
+                '</div>';
+        }
+
+        summaryEl.innerHTML = html;
+
+        // Bind copy buttons
+        summaryEl.querySelectorAll('.ra-copy-btn').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var which = this.getAttribute('data-copy');
+                var text = which === 'route_filed' ? data.route_string : data.expanded_route_string;
+                if (text && navigator.clipboard) {
+                    navigator.clipboard.writeText(text).then(function () {
+                        if (typeof PERTIDialog !== 'undefined') PERTIDialog.toast('Copied');
+                    });
+                }
+            });
+        });
     }
 
     function renderFacilityTable(traversal, depEpoch) {
@@ -327,6 +386,34 @@
         }
     }
 
+    // Client-side facility lookup for a fix based on its cumulative distance
+    function findFacilitiesForDist(dist_nm) {
+        if (!currentData || !currentData.facility_traversal) return [];
+        var traversal = currentData.facility_traversal;
+        var results = [];
+        for (var i = 0; i < traversal.length; i++) {
+            var f = traversal[i];
+            if (facilityFilters[f.type] === false) continue;
+            if (dist_nm >= f.entry_dist_nm && dist_nm <= f.exit_dist_nm) {
+                results.push(f);
+            }
+        }
+        return results;
+    }
+
+    function buildFacilityBadges(facilities) {
+        if (!facilities || facilities.length === 0) return '';
+        var html = '<span class="ra-fix-badges">';
+        for (var i = 0; i < facilities.length; i++) {
+            var f = facilities[i];
+            var pc = pillColors[f.type] || pillColors['FIR'];
+            html += '<span class="ra-fix-badge" style="background:' + pc.bg + '; color:' + pc.color + ';">' +
+                escHtml(f.id) + '</span>';
+        }
+        html += '</span>';
+        return html;
+    }
+
     function renderFixTable(fixAnalysis, totalDist, totalTime, depEpoch) {
         if (!fixTbody) return;
         if (!fixAnalysis || fixAnalysis.length === 0) {
@@ -345,11 +432,11 @@
                 segDist = formatDist(sd);
                 segTime = formatTime(st);
             }
+            // Dynamic facility column based on active filters
+            var facBadges = buildFacilityBadges(findFacilitiesForDist(fx.dist_from_origin_nm));
             html += '<tr data-idx="' + i + '">' +
                 '<td class="ra-idx">' + (i + 1) + '</td>' +
-                '<td><strong>' + escHtml(fx.fix || '') + '</strong>' +
-                    (fx.facility ? '<span class="ra-fix-facility">' + escHtml(fx.facility) + '</span>' : '') +
-                '</td>' +
+                '<td><strong>' + escHtml(fx.fix || '') + '</strong>' + facBadges + '</td>' +
                 '<td class="text-right">' + formatDist(fx.dist_from_origin_nm) + '</td>' +
                 '<td class="text-right">' + formatTime(fx.time_from_origin_min) + '</td>' +
                 '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, fx.time_from_origin_min) + '</td>' +
@@ -370,6 +457,64 @@
         }
     }
 
+    function renderSegmentTable(fixAnalysis, depEpoch) {
+        if (!segTbody) return;
+        if (!fixAnalysis || fixAnalysis.length < 2) {
+            segTbody.innerHTML = '<tr><td colspan="8" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
+            return;
+        }
+        var html = '';
+        for (var i = 1; i < fixAnalysis.length; i++) {
+            var prev = fixAnalysis[i - 1];
+            var curr = fixAnalysis[i];
+            var segDist = curr.dist_from_origin_nm - prev.dist_from_origin_nm;
+            var segTime = curr.time_from_origin_min - prev.time_from_origin_min;
+            var gs = segTime > 0 ? Math.round(segDist / (segTime / 60)) : '--';
+            html += '<tr data-seg-idx="' + i + '">' +
+                '<td class="ra-idx">' + i + '</td>' +
+                '<td>' + escHtml(prev.fix || '') + '</td>' +
+                '<td>' + escHtml(curr.fix || '') + '</td>' +
+                '<td class="text-right">' + formatDist(segDist) + '</td>' +
+                '<td class="text-right">' + formatTime(segTime) + '</td>' +
+                '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, prev.time_from_origin_min) + '</td>' +
+                '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, curr.time_from_origin_min) + '</td>' +
+                '<td class="text-right">' + gs + '</td>' +
+                '</tr>';
+        }
+        segTbody.innerHTML = html;
+
+        // Click to zoom to segment midpoint
+        var rows = segTbody.querySelectorAll('tr');
+        for (var r = 0; r < rows.length; r++) {
+            rows[r].addEventListener('click', (function (idx) {
+                return function () {
+                    var from = fixAnalysis[idx - 1];
+                    var to = fixAnalysis[idx];
+                    if (!from || !to) return;
+                    var map = getMap();
+                    if (!map) return;
+                    // Show both endpoints as highlights
+                    var feats = [];
+                    if (from.lat && from.lon) {
+                        feats.push({ type: 'Feature', properties: { label: from.fix || '' }, geometry: { type: 'Point', coordinates: [from.lon, from.lat] } });
+                    }
+                    if (to.lat && to.lon) {
+                        feats.push({ type: 'Feature', properties: { label: to.fix || '' }, geometry: { type: 'Point', coordinates: [to.lon, to.lat] } });
+                    }
+                    if (map.getSource('route-analysis-highlight')) {
+                        map.getSource('route-analysis-highlight').setData({ type: 'FeatureCollection', features: feats });
+                    }
+                    // Fit bounds to segment
+                    if (from.lat && from.lon && to.lat && to.lon) {
+                        var sw = [Math.min(from.lon, to.lon), Math.min(from.lat, to.lat)];
+                        var ne = [Math.max(from.lon, to.lon), Math.max(from.lat, to.lat)];
+                        map.fitBounds([sw, ne], { padding: 100, duration: 800, maxZoom: 10 });
+                    }
+                };
+            })(r + 1));
+        }
+    }
+
     // ── Click-to-zoom ────────────────────────────────────────────────
     function zoomToFacility(facility, idx) {
         // Highlight active row
@@ -377,6 +522,26 @@
 
         var map = getMap();
         if (!map) return;
+
+        // Show highlight points at entry and exit
+        if (facility.entry_lat && facility.entry_lon) {
+            var features = [];
+            features.push({
+                type: 'Feature',
+                properties: { label: facility.id + ' Entry' },
+                geometry: { type: 'Point', coordinates: [facility.entry_lon, facility.entry_lat] }
+            });
+            if (facility.exit_lat && facility.exit_lon) {
+                features.push({
+                    type: 'Feature',
+                    properties: { label: facility.id + ' Exit' },
+                    geometry: { type: 'Point', coordinates: [facility.exit_lon, facility.exit_lat] }
+                });
+            }
+            if (map.getSource('route-analysis-highlight')) {
+                map.getSource('route-analysis-highlight').setData({ type: 'FeatureCollection', features: features });
+            }
+        }
 
         // Try to get bounds from the map source data
         var sourceId = null;
@@ -398,11 +563,11 @@
         if (sourceId) {
             var source = map.getSource(sourceId);
             if (source && source._data) {
-                var features = (source._data.features || []).filter(function (f) {
+                var features2 = (source._data.features || []).filter(function (f) {
                     return f.properties && f.properties[filterProp] === filterVal;
                 });
-                if (features.length > 0) {
-                    var bbox = turf.bbox(turf.featureCollection(features));
+                if (features2.length > 0) {
+                    var bbox = turf.bbox(turf.featureCollection(features2));
                     map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], {
                         padding: 60,
                         duration: 800
@@ -425,6 +590,9 @@
 
         var map = getMap();
         if (!map || !fix.lat || !fix.lon) return;
+
+        // Show highlight point at fix
+        showHighlightPoint(fix.lat, fix.lon, fix.fix || '');
 
         map.flyTo({
             center: [fix.lon, fix.lat],
@@ -476,7 +644,108 @@
             });
         } catch (e) { /* layer may not exist */ }
 
+        // Dim non-analysis fixes (route-fix points/labels)
+        try {
+            if (currentRouteId != null) {
+                if (map.getLayer('route-fixes-circles')) {
+                    map.setPaintProperty('route-fixes-circles', 'circle-opacity',
+                        ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.15]);
+                }
+                if (map.getLayer('route-fixes-labels')) {
+                    map.setPaintProperty('route-fixes-labels', 'text-opacity',
+                        ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.1]);
+                }
+            } else {
+                // No specific route ID — dim all existing fixes
+                if (map.getLayer('route-fixes-circles')) {
+                    map.setPaintProperty('route-fixes-circles', 'circle-opacity', 0.15);
+                }
+                if (map.getLayer('route-fixes-labels')) {
+                    map.setPaintProperty('route-fixes-labels', 'text-opacity', 0.1);
+                }
+            }
+            // Also dim airports layer
+            if (map.getLayer('airports-triangles')) {
+                if (currentRouteId != null) {
+                    map.setPaintProperty('airports-triangles', 'text-opacity',
+                        ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.15]);
+                } else {
+                    map.setPaintProperty('airports-triangles', 'text-opacity', 0.15);
+                }
+            }
+        } catch (e) { /* ignore */ }
+
+        // Add server-resolved route line overlay (complete, gap-free)
+        addAnalysisRouteOverlay(data);
+
         updateFacilityHighlights();
+    }
+
+    // Build and set the analysis route line from API waypoints
+    function addAnalysisRouteOverlay(data) {
+        var map = getMap();
+        if (!map || !map.getSource('route-analysis')) return;
+
+        var waypoints = data.waypoints || [];
+        if (waypoints.length < 2) {
+            map.getSource('route-analysis').setData({ type: 'FeatureCollection', features: [] });
+            return;
+        }
+
+        // Build coordinate pairs, using turf.greatCircle for long segments
+        var coords = [];
+        for (var i = 0; i < waypoints.length; i++) {
+            var wp = waypoints[i];
+            if (wp.lat == null || wp.lon == null) continue;
+
+            if (coords.length > 0) {
+                var prev = coords[coords.length - 1];
+                var dist = turf.distance([prev[0], prev[1]], [wp.lon, wp.lat], { units: 'nauticalmiles' });
+                if (dist > 100 && typeof turf.greatCircle === 'function') {
+                    try {
+                        var gc = turf.greatCircle([prev[0], prev[1]], [wp.lon, wp.lat], { npoints: Math.max(10, Math.round(dist / 20)) });
+                        var gcCoords = gc.geometry.coordinates;
+                        // Skip first point (duplicate of prev)
+                        for (var j = 1; j < gcCoords.length; j++) {
+                            coords.push(gcCoords[j]);
+                        }
+                        continue;
+                    } catch (e) { /* fall through to straight segment */ }
+                }
+            }
+            coords.push([wp.lon, wp.lat]);
+        }
+
+        if (coords.length < 2) {
+            map.getSource('route-analysis').setData({ type: 'FeatureCollection', features: [] });
+            return;
+        }
+
+        var feature = {
+            type: 'Feature',
+            properties: { kind: 'route' },
+            geometry: { type: 'LineString', coordinates: coords }
+        };
+        map.getSource('route-analysis').setData({ type: 'FeatureCollection', features: [feature] });
+    }
+
+    // Show a highlight point on the map at a given location
+    function showHighlightPoint(lat, lon, label) {
+        var map = getMap();
+        if (!map || !map.getSource('route-analysis-highlight')) return;
+
+        var feature = {
+            type: 'Feature',
+            properties: { label: label || '' },
+            geometry: { type: 'Point', coordinates: [lon, lat] }
+        };
+        map.getSource('route-analysis-highlight').setData({ type: 'FeatureCollection', features: [feature] });
+    }
+
+    function clearHighlightPoint() {
+        var map = getMap();
+        if (!map || !map.getSource('route-analysis-highlight')) return;
+        map.getSource('route-analysis-highlight').setData({ type: 'FeatureCollection', features: [] });
     }
 
     // Update map boundary highlights based on facility filter state
@@ -565,6 +834,26 @@
                 map.setFilter(layerId, ['in', 'label', '']);
             }
         });
+
+        // Restore fix/airport opacity
+        try {
+            if (map.getLayer('route-fixes-circles')) {
+                map.setPaintProperty('route-fixes-circles', 'circle-opacity', 1);
+            }
+            if (map.getLayer('route-fixes-labels')) {
+                map.setPaintProperty('route-fixes-labels', 'text-opacity', 1);
+            }
+            if (map.getLayer('airports-triangles')) {
+                map.setPaintProperty('airports-triangles', 'text-opacity', 1);
+            }
+        } catch (e) { /* ignore */ }
+
+        // Clear analysis route overlay
+        if (map.getSource('route-analysis')) {
+            map.getSource('route-analysis').setData({ type: 'FeatureCollection', features: [] });
+        }
+        // Clear highlight point
+        clearHighlightPoint();
     }
 
     // ── Export ────────────────────────────────────────────────────────
@@ -631,6 +920,31 @@
         return lines;
     }
 
+    function buildSegmentRows(sep, depEpoch) {
+        var lines = [];
+        var fixes = (currentData && currentData.fix_analysis) || [];
+        lines.push(['#', 'From', 'To', 'Dist (nm)', 'Time', 'Time (min)', 'Dep (Z)', 'Arr (Z)', 'GS (kts)'].join(sep));
+        for (var i = 1; i < fixes.length; i++) {
+            var prev = fixes[i - 1];
+            var curr = fixes[i];
+            var segDist = curr.dist_from_origin_nm - prev.dist_from_origin_nm;
+            var segTime = curr.time_from_origin_min - prev.time_from_origin_min;
+            var gs = segTime > 0 ? Math.round(segDist / (segTime / 60)) : '';
+            lines.push([
+                i,
+                prev.fix || '',
+                curr.fix || '',
+                Math.round(segDist),
+                formatTime(segTime),
+                Math.round(segTime * 10) / 10,
+                minutesToUtcStr(depEpoch, prev.time_from_origin_min),
+                minutesToUtcStr(depEpoch, curr.time_from_origin_min),
+                gs
+            ].join(sep));
+        }
+        return lines;
+    }
+
     function buildTextContent(sep) {
         var depEpoch = getDepartureEpoch();
         var lines = [];
@@ -645,6 +959,9 @@
         lines.push('');
         lines.push('FIX ANALYSIS');
         lines = lines.concat(buildFixRows(sep, depEpoch));
+        lines.push('');
+        lines.push('SEGMENT ANALYSIS');
+        lines = lines.concat(buildSegmentRows(sep, depEpoch));
         return lines.join('\n');
     }
 
@@ -847,6 +1164,7 @@
         // Show loading
         if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
         if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="9" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
+        if (segTbody) segTbody.innerHTML = '<tr><td colspan="8" class="ra-loading"><i class="fas fa-spinner fa-spin"></i> ' + t('routeAnalysis.loading') + '</td></tr>';
 
         $.getJSON('api/data/playbook/analysis.php', params, function (resp) {
             if (!resp || resp.status !== 'success') {
@@ -862,6 +1180,7 @@
             renderFacilityFilters(traversal);
             renderFacilityTable(filterTraversal(traversal), depEpoch);
             renderFixTable(resp.fix_analysis || [], resp.total_distance_nm, resp.total_time_min, depEpoch);
+            renderSegmentTable(resp.fix_analysis || [], depEpoch);
             highlightOnMap(resp);
         }).fail(function () {
             if (facTbody) facTbody.innerHTML = '<tr><td colspan="8" class="ra-empty">' + t('routeAnalysis.error') + '</td></tr>';
@@ -875,6 +1194,7 @@
         renderSummary(currentData, depEpoch);
         renderFacilityTable(filterTraversal(currentData.facility_traversal || []), depEpoch);
         renderFixTable(currentData.fix_analysis || [], currentData.total_distance_nm, currentData.total_time_min, depEpoch);
+        renderSegmentTable(currentData.fix_analysis || [], depEpoch);
         updateFacilityHighlights();
     }
 
@@ -949,6 +1269,21 @@
             }
         });
 
+        // Time format toggle
+        var timeFmtBtn = document.getElementById('ra-time-fmt-btn');
+        var timeFmtLabel = document.getElementById('ra-time-fmt-label');
+        if (timeFmtBtn) {
+            timeFmtBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (timeFormat === 'hms') { timeFormat = 'short'; }
+                else if (timeFormat === 'short') { timeFormat = 'min'; }
+                else { timeFormat = 'hms'; }
+                var labels = { hms: 'hh:mm:ss', short: 'short', min: 'minutes' };
+                if (timeFmtLabel) timeFmtLabel.textContent = labels[timeFormat];
+                refreshTimeline();
+            });
+        }
+
         // Recalculate button
         var recalcBtn = document.getElementById('ra-recalc-btn');
         if (recalcBtn) {
@@ -977,7 +1312,136 @@
             });
             depTimeInput.addEventListener('click', function (e) { e.stopPropagation(); });
         }
+
+        // Route picker
+        if (pickerGo) {
+            pickerGo.addEventListener('click', function (e) {
+                e.stopPropagation();
+                pickerAnalyze();
+            });
+        }
+        // Search plotted routes on origin/dest input
+        [pickerOrigin, pickerDest].forEach(function (inp) {
+            if (inp) {
+                inp.addEventListener('input', function () { pickerSearchPlotted(); });
+                inp.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') { e.preventDefault(); pickerAnalyze(); }
+                });
+            }
+        });
+        if (pickerRoute) {
+            pickerRoute.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); pickerAnalyze(); }
+            });
+        }
+
     });
+
+    // ── Route picker ────────────────────────────────────────────────
+    function pickerSearchPlotted() {
+        if (!pickerMatches) return;
+        var origin = (pickerOrigin ? pickerOrigin.value.trim().toUpperCase() : '');
+        var dest = (pickerDest ? pickerDest.value.trim().toUpperCase() : '');
+        if (!origin && !dest) { pickerMatches.innerHTML = ''; return; }
+
+        var routeIndex = {};
+        if (typeof window.MapLibreRoute !== 'undefined' && window.MapLibreRoute.getRouteIndex) {
+            routeIndex = window.MapLibreRoute.getRouteIndex() || {};
+        }
+
+        var matches = [];
+        var ids = Object.keys(routeIndex);
+        for (var i = 0; i < ids.length; i++) {
+            var id = ids[i];
+            var r = routeIndex[id];
+            if (!r) continue;
+            var rOrigin = (r.origin || '').toUpperCase();
+            var rDest = (r.dest || '').toUpperCase();
+            if (origin && rOrigin && rOrigin.indexOf(origin) !== 0) continue;
+            if (dest && rDest && rDest.indexOf(dest) !== 0) continue;
+            // At least one must match non-empty
+            if ((!origin || !rOrigin) && (!dest || !rDest)) continue;
+            matches.push({ id: parseInt(id), origin: rOrigin, dest: rDest, route: r.routeString || '', color: r.color || '#adb5bd' });
+        }
+
+        if (matches.length === 0) {
+            pickerMatches.innerHTML = '<span style="font-size:0.6rem;color:#6c757d;">No plotted routes match</span>';
+            return;
+        }
+
+        var html = '';
+        for (var m = 0; m < Math.min(matches.length, 20); m++) {
+            var match = matches[m];
+            var routePreview = match.route.length > 40 ? match.route.substring(0, 37) + '...' : match.route;
+            html += '<span class="ra-picker-match" data-route-id="' + match.id + '" ' +
+                'data-route="' + escHtml(match.route) + '" ' +
+                'data-origin="' + escHtml(match.origin) + '" ' +
+                'data-dest="' + escHtml(match.dest) + '">' +
+                '<span class="ra-match-color" style="background:' + escHtml(match.color) + ';"></span>' +
+                escHtml(match.origin) + ' &rarr; ' + escHtml(match.dest) +
+                '<span style="color:#6c757d;margin-left:4px;">' + escHtml(routePreview) + '</span>' +
+                '</span>';
+        }
+        if (matches.length > 20) {
+            html += '<span style="font-size:0.6rem;color:#6c757d;">+' + (matches.length - 20) + ' more</span>';
+        }
+        pickerMatches.innerHTML = html;
+
+        // Bind click handlers
+        pickerMatches.querySelectorAll('.ra-picker-match').forEach(function (el) {
+            el.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var rId = parseInt(this.getAttribute('data-route-id'));
+                var rStr = this.getAttribute('data-route') || '';
+                var orig = this.getAttribute('data-origin') || '';
+                var dst = this.getAttribute('data-dest') || '';
+                if (pickerOrigin) pickerOrigin.value = orig;
+                if (pickerDest) pickerDest.value = dst;
+                if (pickerRoute) pickerRoute.value = rStr;
+                pickerMatches.innerHTML = '';
+                triggerAnalysis(rId, rStr, orig, dst);
+            });
+        });
+    }
+
+    function pickerAnalyze() {
+        var origin = (pickerOrigin ? pickerOrigin.value.trim().toUpperCase() : '');
+        var dest = (pickerDest ? pickerDest.value.trim().toUpperCase() : '');
+        var route = (pickerRoute ? pickerRoute.value.trim().toUpperCase() : '');
+
+        if (!route && !origin && !dest) return;
+
+        // If no route string, try to find a matching plotted route
+        if (!route) {
+            var routeIndex = {};
+            if (typeof window.MapLibreRoute !== 'undefined' && window.MapLibreRoute.getRouteIndex) {
+                routeIndex = window.MapLibreRoute.getRouteIndex() || {};
+            }
+            var ids = Object.keys(routeIndex);
+            for (var i = 0; i < ids.length; i++) {
+                var r = routeIndex[ids[i]];
+                if (!r) continue;
+                var rOrigin = (r.origin || '').toUpperCase();
+                var rDest = (r.dest || '').toUpperCase();
+                if (origin && rOrigin === origin && dest && rDest === dest) {
+                    triggerAnalysis(parseInt(ids[i]), r.routeString || '', origin, dest);
+                    return;
+                }
+            }
+        }
+
+        // Direct analysis with whatever we have
+        if (route) {
+            triggerAnalysis(null, route, origin, dest);
+        }
+    }
+
+    function triggerAnalysis(routeId, routeStr, origin, dest) {
+        if (pickerMatches) pickerMatches.innerHTML = '';
+        if (typeof window.showRouteAnalysis === 'function') {
+            window.showRouteAnalysis(routeId, routeStr, origin, dest);
+        }
+    }
 
     // ── Public API ───────────────────────────────────────────────────
     window.RouteAnalysisPanel = {

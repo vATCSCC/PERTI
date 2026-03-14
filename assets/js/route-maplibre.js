@@ -2273,6 +2273,47 @@ $(document).ready(function() {
             minzoom: 5,
         });
 
+        // Route Analysis overlay — server-resolved route line and selection highlight
+        graphic_map.addSource('route-analysis', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        graphic_map.addLayer({
+            id: 'route-analysis-line', type: 'line', source: 'route-analysis',
+            filter: ['==', ['get', 'kind'], 'route'],
+            paint: {
+                'line-color': '#00e5ff',
+                'line-width': 3,
+                'line-dasharray': [6, 3],
+                'line-opacity': 0.85,
+            },
+        });
+        // Highlight marker for selected fix/facility entry/exit point
+        graphic_map.addSource('route-analysis-highlight', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        graphic_map.addLayer({
+            id: 'route-analysis-highlight-circle', type: 'circle', source: 'route-analysis-highlight',
+            paint: {
+                'circle-radius': 8,
+                'circle-color': '#ff5722',
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff',
+                'circle-opacity': 0.9,
+            },
+        });
+        graphic_map.addLayer({
+            id: 'route-analysis-highlight-label', type: 'symbol', source: 'route-analysis-highlight',
+            layout: {
+                'text-field': ['get', 'label'],
+                'text-font': ['Noto Sans Bold'],
+                'text-size': 11,
+                'text-anchor': 'bottom',
+                'text-offset': [0, -1],
+                'text-allow-overlap': true,
+            },
+            paint: {
+                'text-color': '#ffffff',
+                'text-halo-color': '#ff5722',
+                'text-halo-width': 2,
+            },
+        });
+
         console.log('[MAPLIBRE] Dynamic sources added with TSD symbology');
     }
 
@@ -8009,6 +8050,7 @@ $(document).ready(function() {
         },
         resetLabelPositions: resetLabelPositions,
         parseRoutesEnhanced: advParseRoutesEnhanced,
+        getRouteIndex: () => routeStringByRouteId,
     };
 
     // ═══════════════════════════════════════════════════════════════════════════

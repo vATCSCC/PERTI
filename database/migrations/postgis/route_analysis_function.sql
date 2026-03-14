@@ -22,29 +22,37 @@ CREATE OR REPLACE FUNCTION analyze_route_traversal(
     p_route_geom geometry,
     p_facility_types text[] DEFAULT ARRAY['ARTCC','FIR']
 ) RETURNS TABLE (
-    facility_type   text,
-    facility_id     text,
-    facility_name   text,
-    entry_fraction  double precision,
-    exit_fraction   double precision,
-    distance_nm     double precision,
-    entry_lat       double precision,
-    entry_lon       double precision,
-    exit_lat        double precision,
-    exit_lon        double precision,
-    traversal_order int
+    facility_type    text,
+    facility_id      text,
+    facility_name    text,
+    entry_fraction   double precision,
+    exit_fraction    double precision,
+    distance_nm      double precision,
+    entry_lat        double precision,
+    entry_lon        double precision,
+    exit_lat         double precision,
+    exit_lon         double precision,
+    traversal_order  int,
+    floor_altitude   int,
+    ceiling_altitude int
 ) LANGUAGE plpgsql AS $$
 DECLARE
     v_route_length_m  double precision;
     v_route_geog      geography;
+    v_route           geometry;
 BEGIN
     -- Validate input
     IF p_route_geom IS NULL OR ST_IsEmpty(p_route_geom) THEN
         RETURN;
     END IF;
 
+    -- Densify route to approximate great-circle arcs (50km max segment length).
+    -- This prevents Cartesian-vs-geodesic mismatch at higher latitudes where
+    -- straight segments in SRID 4326 deviate from the great circle path.
+    v_route := ST_Segmentize(p_route_geom::geography, 50000)::geometry;
+
     -- Pre-compute route length in meters for NM conversion
-    v_route_geog := p_route_geom::geography;
+    v_route_geog := v_route::geography;
     v_route_length_m := ST_Length(v_route_geog);
 
     IF v_route_length_m < 1 THEN
@@ -53,18 +61,20 @@ BEGIN
 
     RETURN QUERY
     WITH boundary_hits AS (
-        -- ARTCC/FIR boundaries (US ARTCCs have Z__ codes like ZDC, ZNY)
+        -- ARTCC/FIR boundaries (US ARTCCs use KZ__ prefix, Canadian use CZ__)
         SELECT
             CASE
-                WHEN ab.artcc_code ~ '^Z[A-Z]{2}$' THEN 'ARTCC'
+                WHEN ab.artcc_code ~ '^KZ[A-Z]{2}' THEN 'ARTCC'
                 ELSE 'FIR'
             END AS ftype,
             ab.artcc_code::text AS fid,
             ab.fir_name::text AS fname,
-            ST_Intersection(p_route_geom, ST_MakeValid(ab.geom)) AS intersection_geom
+            ST_Intersection(v_route, ST_MakeValid(ab.geom)) AS intersection_geom,
+            ab.floor_altitude AS f_alt,
+            ab.ceiling_altitude AS c_alt
         FROM artcc_boundaries ab
         WHERE ('ARTCC' = ANY(p_facility_types) OR 'FIR' = ANY(p_facility_types))
-          AND ST_Intersects(p_route_geom, ab.geom)
+          AND ST_Intersects(v_route, ST_MakeValid(ab.geom))
           AND ab.geom IS NOT NULL
 
         UNION ALL
@@ -74,10 +84,12 @@ BEGIN
             'TRACON'::text AS ftype,
             tb.tracon_code::text AS fid,
             tb.tracon_name::text AS fname,
-            ST_Intersection(p_route_geom, ST_MakeValid(tb.geom)) AS intersection_geom
+            ST_Intersection(v_route, ST_MakeValid(tb.geom)) AS intersection_geom,
+            tb.floor_altitude AS f_alt,
+            tb.ceiling_altitude AS c_alt
         FROM tracon_boundaries tb
         WHERE 'TRACON' = ANY(p_facility_types)
-          AND ST_Intersects(p_route_geom, tb.geom)
+          AND ST_Intersects(v_route, ST_MakeValid(tb.geom))
           AND tb.geom IS NOT NULL
 
         UNION ALL
@@ -87,57 +99,84 @@ BEGIN
             ('SECTOR_' || UPPER(sb.sector_type))::text AS ftype,
             sb.sector_code::text AS fid,
             COALESCE(sb.sector_name, sb.sector_code || ' (' || sb.parent_artcc || ')')::text AS fname,
-            ST_Intersection(p_route_geom, ST_MakeValid(sb.geom)) AS intersection_geom
+            ST_Intersection(v_route, ST_MakeValid(sb.geom)) AS intersection_geom,
+            sb.floor_altitude AS f_alt,
+            sb.ceiling_altitude AS c_alt
         FROM sector_boundaries sb
         WHERE sb.geom IS NOT NULL
-          AND ST_Intersects(p_route_geom, ST_MakeValid(sb.geom))
+          AND ST_Intersects(v_route, ST_MakeValid(sb.geom))
           AND (
               ('SECTOR_HIGH' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'HIGH')
               OR ('SECTOR_LOW' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'LOW')
               OR ('SECTOR_SUPERHIGH' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'SUPERHIGH')
           )
     ),
-    segments AS (
-        -- Extract line segments from intersections (multi-line results get dumped)
+    extracted AS (
+        -- Extract linestring components from any geometry type (handles GeometryCollections)
         SELECT
             bh.ftype,
             bh.fid,
             bh.fname,
-            (ST_Dump(bh.intersection_geom)).geom AS seg_geom
+            bh.f_alt,
+            bh.c_alt,
+            (ST_Dump(ST_CollectionExtract(bh.intersection_geom, 2))).geom AS seg_geom
         FROM boundary_hits bh
         WHERE NOT ST_IsEmpty(bh.intersection_geom)
-          AND ST_GeometryType(bh.intersection_geom) IN ('ST_LineString','ST_MultiLineString')
     ),
     fractions AS (
         SELECT
             s.ftype,
             s.fid,
             s.fname,
-            ST_LineLocatePoint(p_route_geom, ST_StartPoint(s.seg_geom)) AS entry_frac,
-            ST_LineLocatePoint(p_route_geom, ST_EndPoint(s.seg_geom)) AS exit_frac,
+            s.f_alt,
+            s.c_alt,
+            ST_LineLocatePoint(v_route, ST_StartPoint(s.seg_geom)) AS entry_frac,
+            ST_LineLocatePoint(v_route, ST_EndPoint(s.seg_geom)) AS exit_frac,
             ST_Length(s.seg_geom::geography) / 1852.0 AS dist_nm,
             ST_Y(ST_StartPoint(s.seg_geom)) AS e_lat,
             ST_X(ST_StartPoint(s.seg_geom)) AS e_lon,
             ST_Y(ST_EndPoint(s.seg_geom)) AS x_lat,
             ST_X(ST_EndPoint(s.seg_geom)) AS x_lon
-        FROM segments s
-        WHERE ST_NPoints(s.seg_geom) >= 2
+        FROM extracted s
+        WHERE ST_GeometryType(s.seg_geom) = 'ST_LineString'
+          AND ST_NPoints(s.seg_geom) >= 2
+    ),
+    merged AS (
+        -- Merge duplicate entries from overlapping boundary polygons (e.g. altitude layers)
+        -- Altitude data is incomplete/unreliable so we merge by facility identity only
+        SELECT
+            f.ftype,
+            f.fid,
+            f.fname,
+            MIN(f.f_alt) AS f_alt,
+            MAX(f.c_alt) AS c_alt,
+            MIN(f.entry_frac) AS entry_frac,
+            MAX(f.exit_frac) AS exit_frac,
+            SUM(f.dist_nm) AS dist_nm,
+            (ARRAY_AGG(f.e_lat ORDER BY f.entry_frac ASC))[1] AS e_lat,
+            (ARRAY_AGG(f.e_lon ORDER BY f.entry_frac ASC))[1] AS e_lon,
+            (ARRAY_AGG(f.x_lat ORDER BY f.exit_frac DESC))[1] AS x_lat,
+            (ARRAY_AGG(f.x_lon ORDER BY f.exit_frac DESC))[1] AS x_lon
+        FROM fractions f
+        WHERE f.dist_nm > 0.5
+        GROUP BY f.ftype, f.fid, f.fname
     )
     SELECT
-        f.ftype,
-        f.fid,
-        f.fname,
-        f.entry_frac,
-        f.exit_frac,
-        ROUND(f.dist_nm::numeric, 1)::double precision,
-        ROUND(f.e_lat::numeric, 6)::double precision,
-        ROUND(f.e_lon::numeric, 6)::double precision,
-        ROUND(f.x_lat::numeric, 6)::double precision,
-        ROUND(f.x_lon::numeric, 6)::double precision,
-        ROW_NUMBER() OVER (ORDER BY f.entry_frac ASC)::int AS torder
-    FROM fractions f
-    WHERE f.dist_nm > 0.5  -- Filter out trivial boundary grazes
-    ORDER BY f.entry_frac ASC;
+        m.ftype,
+        m.fid,
+        m.fname,
+        m.entry_frac,
+        m.exit_frac,
+        ROUND(m.dist_nm::numeric, 1)::double precision,
+        ROUND(m.e_lat::numeric, 6)::double precision,
+        ROUND(m.e_lon::numeric, 6)::double precision,
+        ROUND(m.x_lat::numeric, 6)::double precision,
+        ROUND(m.x_lon::numeric, 6)::double precision,
+        ROW_NUMBER() OVER (ORDER BY m.entry_frac ASC)::int AS torder,
+        m.f_alt,
+        m.c_alt
+    FROM merged m
+    ORDER BY m.entry_frac ASC;
 END;
 $$;
 

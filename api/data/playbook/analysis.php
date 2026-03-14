@@ -287,6 +287,8 @@ foreach ($traversal_raw as $t) {
         'exit_lat'         => (float)$t['exit_lat'],
         'exit_lon'         => (float)$t['exit_lon'],
         'order'            => (int)$t['traversal_order'],
+        'floor_altitude'   => isset($t['floor_altitude']) ? (int)$t['floor_altitude'] : null,
+        'ceiling_altitude' => isset($t['ceiling_altitude']) ? (int)$t['ceiling_altitude'] : null,
     ];
 }
 
@@ -305,11 +307,15 @@ foreach ($waypoints as $wp) {
     ];
 }
 
+// Build expanded route string from resolved waypoints
+$expanded_route_string = implode(' ', array_column($waypoints_raw, 'fix_name'));
+
 // Output
 echo json_encode([
     'status'       => 'success',
     'route_id'     => $route_id,
     'route_string' => $route_string,
+    'expanded_route_string' => $expanded_route_string,
     'origin'       => $origin ?: null,
     'dest'         => $dest ?: null,
     'total_distance_nm' => $total_dist_nm,
