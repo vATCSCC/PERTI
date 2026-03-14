@@ -999,6 +999,18 @@ function runFullSync(): array {
         logMsg("Playbook sync OK: " . $pbResult['message']);
     }
 
+    // 3. SWIM reference data sync (CDR + Playbook -> SWIM_API)
+    // Non-fatal: SWIM sync failure does not affect $allOk
+    logMsg("--- Phase 3: SWIM reference data sync ---");
+    require_once __DIR__ . '/swim_refdata_sync.php';
+    $swimResult = runSwimRefdataSync();
+    $results[] = 'SWIM: ' . $swimResult['message'];
+    if (!$swimResult['success']) {
+        logMsg("SWIM refdata sync issue (non-fatal): " . $swimResult['message'], 'WARN');
+    } else {
+        logMsg("SWIM refdata sync OK: " . $swimResult['message']);
+    }
+
     $elapsed = round(microtime(true) - $startTime, 1);
     $summary = implode(' | ', $results) . " [{$elapsed}s]";
 
