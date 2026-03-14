@@ -250,6 +250,8 @@ $(document).ready(function() {
     const routeLabelsVisible = new Set();  // Track which route IDs have labels visible
     let routeFixesByRouteId = {};        // Map routeId -> array of fix features
     let routeStringByRouteId = {};       // Map routeId -> { routeString, color }
+    let routeSegmentsByRouteId = {};     // Map routeId -> array of segment data (pre-dedup, for export)
+    let routePointsByRouteId = {};       // Map routeId -> array of all points incl. airports (for export PIP)
     let currentRouteId = 0;              // Counter for unique route IDs
     let activeRoutePopup = null;         // Track single active popup to prevent stacking
 
@@ -2414,6 +2416,8 @@ $(document).ready(function() {
         routeLabelsVisible.clear();
         routeFixesByRouteId = {};
         routeStringByRouteId = {};
+        routeSegmentsByRouteId = {};
+        routePointsByRouteId = {};
         currentRouteId = 0;
         labelOffsets = {};  // Clear any dragged label positions
 
@@ -2754,6 +2758,9 @@ $(document).ready(function() {
             console.log('[MAPLIBRE] Route resolved', nPoints, 'points from', expandedTokens.length, 'tokens');
             if (nPoints < 2) {return;}
 
+            // Store all points (incl airports) per route for export PIP
+            routePointsByRouteId[thisRouteId] = routePoints.map(p => [p[1], p[2]]); // [lat, lon]
+
             let firstNavIndex = 0;
             while (firstNavIndex < nPoints && isAirportIdent(routePoints[firstNavIndex][0])) {firstNavIndex++;}
             let lastNavIndex = nPoints - 1;
@@ -2977,6 +2984,20 @@ $(document).ready(function() {
             }
         }
 
+        // Track segment data per routeId BEFORE dedup (for export)
+        if (routeId) {
+            if (!routeSegmentsByRouteId[routeId]) routeSegmentsByRouteId[routeId] = [];
+            routeSegmentsByRouteId[routeId].push({
+                coords: coords.map(c => c.slice()),
+                fromFix: fromFix || '',
+                toFix: toFix || '',
+                color: color || '',
+                solid: !!solid,
+                isFan: !!isFan,
+            });
+        }
+
+        // Dedup: skip identical segments for rendering (same geometry + color + style)
         const key = coords.map(c => c[0].toFixed(4) + ',' + c[1].toFixed(4)).join('|') + '|' + color + '|' + solid + '|' + isFan;
         if (seenSegmentKeys.has(key)) {return;}
         seenSegmentKeys.add(key);
@@ -8212,59 +8233,44 @@ $(document).ready(function() {
 
         // Enrich routes with facility data
         routes.forEach(routeMeta => {
-            // For playbook routes, look up facility data from playbookByPlayName
+            // For playbook routes, match by origin/dest airport in playbookByPlayName
             if (routeMeta.playbookName && typeof playbookByPlayName !== 'undefined') {
                 const key = typeof normalizePlayName === 'function' ? normalizePlayName(routeMeta.playbookName) : routeMeta.playbookName.toUpperCase();
                 const pbEntries = playbookByPlayName[key] || [];
                 if (pbEntries.length > 0) {
-                    // Match by route string
-                    const rStr = (routeMeta.routeString || '').toUpperCase();
-                    const match = pbEntries.find(e => (e.routeString || '').toUpperCase() === rStr) || pbEntries[0];
+                    const origApt = ((routeMeta.origins || [])[0] || '').toUpperCase();
+                    const destApt = ((routeMeta.destinations || [])[0] || '').toUpperCase();
+                    // Match by origin AND dest airport
+                    let match = null;
+                    if (origApt && destApt) {
+                        match = pbEntries.find(e =>
+                            (e.originAirports || []).includes(origApt) &&
+                            (e.destAirports || []).includes(destApt));
+                    }
+                    // Fallback: match by dest airport only
+                    if (!match && destApt) {
+                        match = pbEntries.find(e => (e.destAirports || []).includes(destApt));
+                    }
+                    // Fallback: match by origin airport only
+                    if (!match && origApt) {
+                        match = pbEntries.find(e => (e.originAirports || []).includes(origApt));
+                    }
                     if (match) {
                         routeMeta.originTracons = (match.originTracons || []).join(',');
                         routeMeta.originArtccs = (match.originArtccs || []).join(',');
                         routeMeta.destTracons = (match.destTracons || []).join(',');
                         routeMeta.destArtccs = (match.destArtccs || []).join(',');
-                        routeMeta.facilitiesTraversed = (match.traversedArtccs || []).join(',');
+                        if (match.traversedArtccs) {
+                            routeMeta.facilitiesTraversed = (match.traversedArtccs || []).join(',');
+                        }
                     }
                 }
             }
-
-            // For non-playbook routes, use FacilityHierarchy
-            if (!routeMeta.originArtccs && typeof FacilityHierarchy !== 'undefined') {
-                const oArtccs = new Set(), oTracons = new Set();
-                const dArtccs = new Set(), dTracons = new Set();
-                (routeMeta.origins || []).forEach(apt => {
-                    const artcc = FacilityHierarchy.getParentArtcc(apt);
-                    if (artcc) oArtccs.add(artcc);
-                    const tracon = FacilityHierarchy.getTracon ? FacilityHierarchy.getTracon(apt) : null;
-                    if (tracon) oTracons.add(tracon);
-                });
-                (routeMeta.destinations || []).forEach(apt => {
-                    const artcc = FacilityHierarchy.getParentArtcc(apt);
-                    if (artcc) dArtccs.add(artcc);
-                    const tracon = FacilityHierarchy.getTracon ? FacilityHierarchy.getTracon(apt) : null;
-                    if (tracon) dTracons.add(tracon);
-                });
-                routeMeta.originArtccs = [...oArtccs].join(',');
-                routeMeta.originTracons = [...oTracons].join(',');
-                routeMeta.destArtccs = [...dArtccs].join(',');
-                routeMeta.destTracons = [...dTracons].join(',');
-            }
         });
 
-        // Collect GeoJSON features from map sources
-        let routeFeatures = [];
+        // Collect GeoJSON features from map sources (deduplicated — for fix points only)
         let fixFeatures = [];
-
         if (graphic_map) {
-            try {
-                const routeSource = graphic_map.getSource('routes');
-                if (routeSource && routeSource._data) {
-                    routeFeatures = routeSource._data.features || [];
-                }
-            } catch (e) {}
-
             try {
                 const fixSource = graphic_map.getSource('route-fixes');
                 if (fixSource && fixSource._data) {
@@ -8273,18 +8279,46 @@ $(document).ready(function() {
             } catch (e) {}
         }
 
-        // Enrich facilitiesTraversed using ARTCC boundary polygon intersection
+        // Build per-route segment features from pre-dedup data (routeSegmentsByRouteId)
+        // This avoids the map's segment dedup which loses routeId associations
+        let routeFeatures = [];
+        routes.forEach(routeMeta => {
+            const segs = routeSegmentsByRouteId[routeMeta.routeId] || [];
+            segs.forEach(seg => {
+                let segDist = 0;
+                if (seg.coords.length >= 2 && typeof turf !== 'undefined') {
+                    try {
+                        segDist = Math.round(turf.length(turf.lineString(seg.coords), { units: 'nauticalmiles' }));
+                    } catch (e) {}
+                }
+                routeFeatures.push({
+                    type: 'Feature',
+                    properties: {
+                        color: seg.color,
+                        solid: seg.solid,
+                        isFan: seg.isFan,
+                        routeId: routeMeta.routeId,
+                        fromFix: seg.fromFix,
+                        toFix: seg.toFix,
+                        distance: segDist,
+                        routeString: routeMeta.routeString || '',
+                    },
+                    geometry: { type: 'LineString', coordinates: seg.coords },
+                });
+            });
+        });
+
+        // Enrich facilitiesTraversed + origin/dest ARTCC using ARTCC boundary PIP
+        // Uses routePointsByRouteId (pre-dedup, includes airports) instead of map source
         if (graphic_map) {
             try {
                 const artccSource = graphic_map.getSource('artcc');
                 const artccData = artccSource && artccSource._data;
                 const artccFeatsRaw = artccData && artccData.features ? artccData.features : [];
-                // Filter to detection-level boundaries only (skip sub-areas)
                 const artccFeats = artccFeatsRaw.filter(f =>
                     f.properties && f.properties.is_detection_level !== false && f.geometry);
 
                 if (artccFeats.length > 0) {
-                    // Pre-compute bounding boxes for fast rejection
                     const artccBboxes = artccFeats.map(af => {
                         const bbox = [Infinity, Infinity, -Infinity, -Infinity];
                         const walkCoords = (coords) => {
@@ -8301,7 +8335,6 @@ $(document).ready(function() {
                         return bbox;
                     });
 
-                    // Ray-casting point-in-polygon
                     const pipRing = (pt, ring) => {
                         let inside = false;
                         for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -8336,41 +8369,58 @@ $(document).ready(function() {
                         return false;
                     };
 
-                    // Build fix coordinates per route from fixFeatures
-                    const fixCoordsByRoute = {};
-                    fixFeatures.forEach(f => {
-                        const rid = (f.properties || {}).routeId || 0;
-                        if (!fixCoordsByRoute[rid]) fixCoordsByRoute[rid] = [];
-                        if (f.geometry && f.geometry.coordinates) {
-                            fixCoordsByRoute[rid].push(f.geometry.coordinates);
+                    const pipPoint = (lon, lat) => {
+                        const pt = [lon, lat];
+                        for (let a = 0; a < artccFeats.length; a++) {
+                            const bbox = artccBboxes[a];
+                            if (pt[0] < bbox[0] || pt[0] > bbox[2] ||
+                                pt[1] < bbox[1] || pt[1] > bbox[3]) continue;
+                            if (pipGeom(pt, artccFeats[a].geometry)) {
+                                return artccFeats[a].properties.ICAOCODE ||
+                                       artccFeats[a].properties.FIRname || '';
+                            }
                         }
-                    });
+                        return '';
+                    };
 
                     routes.forEach(routeMeta => {
-                        if (routeMeta.facilitiesTraversed) return;
-                        const fixCoords = fixCoordsByRoute[routeMeta.routeId] || [];
-                        if (!fixCoords.length) return;
+                        // Use routePointsByRouteId (pre-dedup, all points incl airports)
+                        const points = routePointsByRouteId[routeMeta.routeId] || [];
+                        if (!points.length) return;
 
-                        const traversed = [];
-                        fixCoords.forEach(coord => {
-                            for (let a = 0; a < artccFeats.length; a++) {
-                                const bbox = artccBboxes[a];
-                                if (coord[0] < bbox[0] || coord[0] > bbox[2] ||
-                                    coord[1] < bbox[1] || coord[1] > bbox[3]) continue;
-                                if (pipGeom(coord, artccFeats[a].geometry)) {
-                                    const artcc = artccFeats[a].properties.ICAOCODE ||
-                                                  artccFeats[a].properties.FIRname || '';
-                                    if (artcc && (traversed.length === 0 ||
-                                                  traversed[traversed.length - 1] !== artcc)) {
-                                        traversed.push(artcc);
-                                    }
-                                    break;
+                        // Compute facilitiesTraversed if not already set by playbook
+                        if (!routeMeta.facilitiesTraversed) {
+                            const traversed = [];
+                            points.forEach(pt => {
+                                // pt = [lat, lon]
+                                const artcc = pipPoint(pt[1], pt[0]);
+                                if (artcc && (traversed.length === 0 ||
+                                              traversed[traversed.length - 1] !== artcc)) {
+                                    traversed.push(artcc);
                                 }
+                            });
+                            if (traversed.length > 0) {
+                                routeMeta.facilitiesTraversed = traversed.join(',');
                             }
-                        });
+                        }
 
-                        if (traversed.length > 0) {
-                            routeMeta.facilitiesTraversed = traversed.join(',');
+                        // Derive origin/dest ARTCC from facilitiesTraversed if not set
+                        if (!routeMeta.originArtccs && routeMeta.facilitiesTraversed) {
+                            const facs = routeMeta.facilitiesTraversed.split(',').filter(f => f);
+                            if (facs.length > 0) {
+                                routeMeta.originArtccs = facs[0];
+                                routeMeta.destArtccs = facs[facs.length - 1];
+                            }
+                        }
+
+                        // If still no origin/dest ARTCC, PIP the first/last points directly
+                        if (!routeMeta.originArtccs && points.length > 0) {
+                            const first = points[0];
+                            routeMeta.originArtccs = pipPoint(first[1], first[0]);
+                        }
+                        if (!routeMeta.destArtccs && points.length > 0) {
+                            const last = points[points.length - 1];
+                            routeMeta.destArtccs = pipPoint(last[1], last[0]);
                         }
                     });
                 }
