@@ -1,0 +1,403 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Route Analysis Panel — Below-map collapsible panel
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Panel container */
+#route-analysis-panel {
+    background: #1a1d21;
+    border: 1px solid #2d3238;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* Header bar — dark gradient with toggle */
+.ra-header {
+    display: flex;
+    align-items: center;
+    padding: 8px 14px;
+    background: linear-gradient(135deg, #1e2126 0%, #282c34 100%);
+    border-bottom: 1px solid #2d3238;
+    cursor: pointer;
+    user-select: none;
+    gap: 10px;
+}
+
+.ra-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #239BCD;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.ra-route-label {
+    font-size: 0.75rem;
+    color: #adb5bd;
+    font-family: 'Inconsolata', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.ra-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.ra-chevron {
+    color: #6c757d;
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+.ra-chevron.collapsed {
+    transform: rotate(180deg);
+}
+
+/* Close button */
+.ra-close-btn {
+    background: none;
+    border: none;
+    color: #6c757d;
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    cursor: pointer;
+    border-radius: 3px;
+    line-height: 1;
+}
+.ra-close-btn:hover {
+    color: #dc3545;
+    background: rgba(220,53,69,0.1);
+}
+
+/* Speed/wind inline inputs */
+.ra-speed-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    color: #adb5bd;
+}
+.ra-speed-group label {
+    margin: 0;
+    font-size: 0.65rem;
+    color: #868e96;
+    white-space: nowrap;
+}
+.ra-speed-input {
+    width: 52px;
+    padding: 1px 4px;
+    font-size: 0.7rem;
+    background: #2d3238;
+    border: 1px solid #495057;
+    color: #e9ecef;
+    border-radius: 3px;
+    text-align: center;
+    font-family: 'Inconsolata', monospace;
+}
+.ra-speed-input:focus {
+    outline: none;
+    border-color: #239BCD;
+}
+.ra-speed-sep {
+    color: #495057;
+    margin: 0 2px;
+}
+
+/* Export dropdown */
+.ra-export-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.ra-export-btn {
+    background: none;
+    border: 1px solid #495057;
+    color: #adb5bd;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ra-export-btn:hover {
+    border-color: #239BCD;
+    color: #239BCD;
+}
+.ra-export-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    background: #282c34;
+    border: 1px solid #495057;
+    border-radius: 4px;
+    z-index: 1000;
+    min-width: 130px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.ra-export-menu.show {
+    display: block;
+}
+.ra-export-menu a {
+    display: block;
+    padding: 6px 12px;
+    color: #e9ecef;
+    font-size: 0.75rem;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.ra-export-menu a:hover {
+    background: #343a40;
+    color: #239BCD;
+}
+.ra-export-menu a i {
+    width: 18px;
+    text-align: center;
+    margin-right: 4px;
+}
+
+/* Body */
+#ra-body {
+    padding: 10px 14px;
+}
+
+/* Summary stats bar */
+.ra-summary {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+.ra-stat-card {
+    background: #282c34;
+    border: 1px solid #2d3238;
+    border-radius: 4px;
+    padding: 6px 12px;
+    flex: 1;
+    min-width: 100px;
+    text-align: center;
+}
+.ra-stat-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #e9ecef;
+    font-family: 'Inconsolata', monospace;
+    line-height: 1.2;
+}
+.ra-stat-label {
+    font-size: 0.65rem;
+    color: #868e96;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Tables container */
+.ra-tables {
+    display: flex;
+    gap: 14px;
+}
+.ra-table-section {
+    flex: 1;
+    min-width: 0;
+}
+.ra-table-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #adb5bd;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #2d3238;
+}
+
+/* Table styles */
+.ra-table-wrap {
+    max-height: 280px;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #2d3238;
+    border-radius: 4px;
+}
+.ra-table-wrap::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+.ra-table-wrap::-webkit-scrollbar-track {
+    background: #1a1d21;
+}
+.ra-table-wrap::-webkit-scrollbar-thumb {
+    background: #495057;
+    border-radius: 3px;
+}
+
+.ra-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+    font-family: 'Inconsolata', monospace;
+}
+.ra-table thead th {
+    position: sticky;
+    top: 0;
+    background: #282c34;
+    color: #868e96;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    padding: 5px 8px;
+    border-bottom: 2px solid #2d3238;
+    white-space: nowrap;
+}
+.ra-table thead th.text-right {
+    text-align: right;
+}
+.ra-table tbody td {
+    padding: 4px 8px;
+    color: #e9ecef;
+    border-bottom: 1px solid #22252a;
+    white-space: nowrap;
+}
+.ra-table tbody td.text-right {
+    text-align: right;
+}
+.ra-table tbody tr {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ra-table tbody tr:hover {
+    background: rgba(35, 155, 205, 0.1);
+}
+.ra-table tbody tr.ra-active-row {
+    background: rgba(35, 155, 205, 0.2);
+}
+
+/* Row index column */
+.ra-table .ra-idx {
+    color: #495057;
+    font-size: 0.6rem;
+    text-align: right;
+    width: 24px;
+    padding-right: 4px;
+}
+
+/* Facility type badges */
+.ra-type-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+.ra-type-artcc   { background: rgba(35,155,205,0.2); color: #239BCD; }
+.ra-type-fir     { background: rgba(108,117,125,0.3); color: #adb5bd; }
+.ra-type-tracon  { background: rgba(255,193,7,0.2); color: #ffc107; }
+.ra-type-sector_high { background: rgba(40,167,69,0.2); color: #28a745; }
+.ra-type-sector_low  { background: rgba(220,53,69,0.2); color: #dc3545; }
+.ra-type-sector_superhigh { background: rgba(111,66,193,0.2); color: #6f42c1; }
+
+/* Fix facility label */
+.ra-fix-facility {
+    font-size: 0.6rem;
+    color: #6c757d;
+    margin-left: 4px;
+}
+
+/* Segment delta columns */
+.ra-seg-delta {
+    color: #868e96;
+    font-size: 0.65rem;
+}
+
+/* Loading/empty states */
+.ra-loading, .ra-empty {
+    text-align: center;
+    color: #6c757d;
+    padding: 20px;
+    font-size: 0.8rem;
+}
+.ra-loading i {
+    margin-right: 6px;
+}
+
+/* Recalculate button */
+.ra-recalc-btn {
+    background: none;
+    border: 1px solid #495057;
+    color: #adb5bd;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+.ra-recalc-btn:hover {
+    border-color: #239BCD;
+    color: #239BCD;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────── */
+@media (max-width: 992px) {
+    .ra-tables {
+        flex-direction: column;
+    }
+    .ra-summary {
+        flex-wrap: wrap;
+    }
+    .ra-stat-card {
+        min-width: 80px;
+    }
+    .ra-speed-group {
+        flex-wrap: wrap;
+    }
+    .ra-header {
+        flex-wrap: wrap;
+    }
+    .ra-controls {
+        width: 100%;
+        justify-content: flex-end;
+        margin-top: 4px;
+    }
+}
+
+@media (max-width: 576px) {
+    .ra-stat-card {
+        min-width: 70px;
+        padding: 4px 8px;
+    }
+    .ra-stat-value {
+        font-size: 0.85rem;
+    }
+    .ra-table {
+        font-size: 0.65rem;
+    }
+}
+
+/* ─── Print ──────────────────────────────────────────────────────── */
+@media print {
+    #route-analysis-panel {
+        border: 1px solid #333;
+        box-shadow: none;
+    }
+    .ra-close-btn,
+    .ra-export-dropdown,
+    .ra-recalc-btn {
+        display: none !important;
+    }
+    #ra-body {
+        display: block !important;
+    }
+    .ra-table-wrap {
+        max-height: none;
+        overflow: visible;
+    }
+}

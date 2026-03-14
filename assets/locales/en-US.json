@@ -4743,6 +4743,55 @@
       "natResolving": "Resolving NAT track..."
     }
   },
+  "routeAnalysis": {
+    "title": "Route Analysis",
+    "close": "Close",
+    "noData": "No analysis data available.",
+    "loading": "Analyzing route...",
+    "error": "Analysis failed",
+    "recalculate": "Recalculate",
+    "facilityTraversal": "Facility Traversal",
+    "fixAnalysis": "Fix Analysis",
+    "col": {
+      "facility": "Facility",
+      "type": "Type",
+      "distNm": "Dist (nm)",
+      "time": "Time",
+      "segment": "Segment",
+      "fix": "Fix",
+      "cumDist": "Cum Dist (nm)",
+      "cumTime": "Cum Time",
+      "segDist": "Seg (nm)",
+      "segTime": "Seg Time",
+      "remDist": "Rem (nm)",
+      "remTime": "Rem Time",
+      "speed": "Speed",
+      "wind": "Wind"
+    },
+    "facilityType": {
+      "artcc": "ARTCC",
+      "fir": "FIR",
+      "tracon": "TRACON",
+      "sectorHigh": "Sector (High)",
+      "sectorLow": "Sector (Low)",
+      "sectorSuperhigh": "Sector (Super High)"
+    },
+    "stat": {
+      "totalDist": "Distance",
+      "totalTime": "Est. Time",
+      "facilities": "Facilities",
+      "fixes": "Fixes"
+    },
+    "export": {
+      "title": "Export",
+      "clipboard": "Copy to Clipboard",
+      "txt": "Text File (.txt)",
+      "csv": "CSV File (.csv)",
+      "xlsx": "Excel File (.xlsx)",
+      "copied": "Analysis copied to clipboard!",
+      "failed": "Copy failed"
+    }
+  },
   "schedule": {
     "assignment": {
       "editFailed": "Not Edited",

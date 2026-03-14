@@ -79,6 +79,23 @@ BEGIN
         WHERE 'TRACON' = ANY(p_facility_types)
           AND ST_Intersects(p_route_geom, tb.geom)
           AND tb.geom IS NOT NULL
+
+        UNION ALL
+
+        -- Sector boundaries (HIGH, LOW, SUPERHIGH)
+        SELECT
+            ('SECTOR_' || UPPER(sb.sector_type))::text AS ftype,
+            sb.sector_code::text AS fid,
+            COALESCE(sb.sector_name, sb.sector_code || ' (' || sb.parent_artcc || ')')::text AS fname,
+            ST_Intersection(p_route_geom, sb.geom) AS intersection_geom
+        FROM sector_boundaries sb
+        WHERE sb.geom IS NOT NULL
+          AND ST_Intersects(p_route_geom, sb.geom)
+          AND (
+              ('SECTOR_HIGH' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'HIGH')
+              OR ('SECTOR_LOW' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'LOW')
+              OR ('SECTOR_SUPERHIGH' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'SUPERHIGH')
+          )
     ),
     segments AS (
         -- Extract line segments from intersections (multi-line results get dumped)
@@ -202,6 +219,6 @@ BEGIN
 END;
 $$;
 
--- Grant execute to app user
-GRANT EXECUTE ON FUNCTION analyze_route_traversal TO adl_api_user;
-GRANT EXECUTE ON FUNCTION route_string_to_linestring TO adl_api_user;
+-- Grant execute to app users (GIS_admin owns; jpeterson for admin access)
+GRANT EXECUTE ON FUNCTION analyze_route_traversal TO jpeterson;
+GRANT EXECUTE ON FUNCTION route_string_to_linestring TO jpeterson;

@@ -1313,6 +1313,8 @@ $is_canoc = (get_org_code() === 'canoc');
 
     <!-- Info Bar Shared Styles -->
     <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">
+    <!-- Route Analysis Panel -->
+    <link rel="stylesheet" href="assets/css/route-analysis.css<?= _v('assets/css/route-analysis.css') ?>">
 
     <!-- Embed Mode Styles -->
     <style>
@@ -1652,77 +1654,7 @@ ROUTE2</pre>
                         </button>
                     </div>
 
-                    <!-- Route Analysis Panel (collapsible) -->
-                    <div class="mt-3 border-top pt-2" id="route_analysis_section" style="display:none;">
-                        <div class="d-flex align-items-center justify-content-between cursor-pointer" id="route_analysis_toggle">
-                            <span class="small text-uppercase font-weight-bold" style="letter-spacing:0.5px; color:#239BCD;">
-                                <i class="fas fa-chart-line mr-1"></i><?= __('route.analysis.title') ?>
-                            </span>
-                            <i class="fas fa-chevron-up small text-muted"></i>
-                        </div>
-                        <div id="route_analysis_body" class="mt-1">
-                            <!-- Route Info Header -->
-                            <div class="small mb-1" id="route_analysis_header"></div>
-
-                            <!-- Total Summary -->
-                            <div class="d-flex align-items-center mb-1" id="route_analysis_summary" style="display:none; gap:0.35rem;">
-                                <span class="badge badge-info" id="route_analysis_total_dist" style="font-size:0.7rem;"></span>
-                                <span class="badge badge-secondary" id="route_analysis_total_time" style="font-size:0.7rem;"></span>
-                                <button class="btn btn-xs btn-outline-light ml-auto" id="route_analysis_copy" title="<?= __('common.copy') ?>" style="font-size:0.6rem; padding:1px 5px;">
-                                    <i class="fas fa-copy"></i>
-                                </button>
-                            </div>
-
-                            <!-- Speed & Wind Config -->
-                            <div class="form-row mb-2" style="font-size:0.7rem;">
-                                <div class="col-6">
-                                    <label class="mb-0"><?= __('playbook.analysis.speed') ?></label>
-                                    <input type="number" class="form-control form-control-sm" id="route_analysis_speed" value="450" min="100" max="600" step="10" style="font-size:0.7rem;">
-                                </div>
-                                <div class="col-6">
-                                    <label class="mb-0"><?= __('playbook.analysis.wind') ?></label>
-                                    <input type="number" class="form-control form-control-sm" id="route_analysis_wind" value="0" min="-200" max="200" step="5" style="font-size:0.7rem;">
-                                    <small class="form-text text-muted" style="font-size:0.55rem; line-height:1.1;"><?= __('playbook.analysis.windHelp') ?></small>
-                                </div>
-                            </div>
-                            <button class="btn btn-xs btn-outline-info btn-block mb-2" id="route_analysis_refresh" style="font-size:0.65rem;">
-                                <i class="fas fa-sync-alt mr-1"></i><?= __('playbook.analysis.recalculate') ?>
-                            </button>
-
-                            <!-- Facility Traversal Table -->
-                            <div class="small font-weight-bold mb-1"><?= __('playbook.analysis.facilityTraversal') ?></div>
-                            <div class="table-responsive" style="max-height:200px; overflow-y:auto;">
-                                <table class="table table-sm table-bordered mb-1" style="font-size:0.65rem;">
-                                    <thead>
-                                        <tr class="text-uppercase">
-                                            <th><?= __('playbook.analysis.facility') ?></th>
-                                            <th><?= __('playbook.analysis.type') ?></th>
-                                            <th class="text-right"><?= __('playbook.analysis.distance') ?></th>
-                                            <th class="text-right"><?= __('playbook.analysis.time') ?></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="route_analysis_facilities"></tbody>
-                                </table>
-                            </div>
-
-                            <!-- Fix Analysis Table -->
-                            <div class="small font-weight-bold mb-1 mt-2"><?= __('playbook.analysis.fixAnalysis') ?></div>
-                            <div class="table-responsive" style="max-height:180px; overflow-y:auto;">
-                                <table class="table table-sm table-bordered mb-0" style="font-size:0.65rem;">
-                                    <thead>
-                                        <tr class="text-uppercase">
-                                            <th><?= __('playbook.analysis.fix') ?></th>
-                                            <th class="text-right"><?= __('playbook.analysis.cumDist') ?></th>
-                                            <th class="text-right"><?= __('playbook.analysis.cumTime') ?></th>
-                                            <th class="text-right"><?= __('playbook.analysis.remDist') ?></th>
-                                            <th class="text-right"><?= __('playbook.analysis.remTime') ?></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="route_analysis_fixes"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Old sidebar analysis removed — now in below-map panel -->
                 </div>
             </div>
 
@@ -2379,6 +2311,87 @@ ROUTE2</pre>
                         </div>
                     </div>
                 </div>
+
+                <!-- ═══════════════════════════════════════════════════════
+                     Route Analysis Panel (below map, collapsible)
+                     ═══════════════════════════════════════════════════════ -->
+                <div id="route-analysis-panel" class="mt-3" style="display:none;">
+                    <div class="ra-header" id="ra-toggle">
+                        <span class="ra-title"><i class="fas fa-chart-line mr-2"></i><?= __('routeAnalysis.title') ?></span>
+                        <span id="ra-route-label" class="ra-route-label"></span>
+                        <div class="ra-controls">
+                            <div class="ra-speed-group">
+                                <label for="ra-cruise-speed"><?= __('routeAnalysis.col.speed') ?></label>
+                                <input type="number" class="ra-speed-input" id="ra-cruise-speed" value="460" min="100" max="600" step="10">
+                                <span class="ra-speed-sep">|</span>
+                                <label for="ra-wind"><?= __('routeAnalysis.col.wind') ?></label>
+                                <input type="number" class="ra-speed-input" id="ra-wind" value="0" min="-200" max="200" step="5">
+                                <button class="ra-recalc-btn" id="ra-recalc-btn" title="<?= __('routeAnalysis.recalculate') ?>">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <div class="ra-export-dropdown">
+                                <button class="ra-export-btn" id="ra-export-btn">
+                                    <i class="fas fa-download mr-1"></i><?= __('routeAnalysis.export.title') ?>
+                                </button>
+                                <div class="ra-export-menu" id="ra-export-menu">
+                                    <a href="#" id="ra-exp-clipboard"><i class="fas fa-clipboard"></i> <?= __('routeAnalysis.export.clipboard') ?></a>
+                                    <a href="#" id="ra-exp-txt"><i class="fas fa-file-alt"></i> <?= __('routeAnalysis.export.txt') ?></a>
+                                    <a href="#" id="ra-exp-csv"><i class="fas fa-file-csv"></i> <?= __('routeAnalysis.export.csv') ?></a>
+                                    <a href="#" id="ra-exp-xlsx"><i class="fas fa-file-excel"></i> <?= __('routeAnalysis.export.xlsx') ?></a>
+                                </div>
+                            </div>
+                            <button class="ra-close-btn" id="ra-close-btn" title="<?= __('routeAnalysis.close') ?>">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <i class="fas fa-chevron-up ra-chevron"></i>
+                    </div>
+                    <div id="ra-body">
+                        <div class="ra-summary" id="ra-summary"></div>
+                        <div class="ra-tables">
+                            <div class="ra-table-section">
+                                <div class="ra-table-title"><?= __('routeAnalysis.facilityTraversal') ?></div>
+                                <div class="ra-table-wrap">
+                                    <table class="ra-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th><?= __('routeAnalysis.col.facility') ?></th>
+                                                <th><?= __('routeAnalysis.col.type') ?></th>
+                                                <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
+                                                <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
+                                                <th class="text-right"><?= __('routeAnalysis.col.segment') ?></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ra-facility-tbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="ra-table-section">
+                                <div class="ra-table-title"><?= __('routeAnalysis.fixAnalysis') ?></div>
+                                <div class="ra-table-wrap">
+                                    <table class="ra-table">
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th><?= __('routeAnalysis.col.fix') ?></th>
+                                                <th class="text-right"><?= __('routeAnalysis.col.cumDist') ?></th>
+                                                <th class="text-right"><?= __('routeAnalysis.col.cumTime') ?></th>
+                                                <th class="text-right"><?= __('routeAnalysis.col.segDist') ?></th>
+                                                <th class="text-right"><?= __('routeAnalysis.col.segTime') ?></th>
+                                                <th class="text-right"><?= __('routeAnalysis.col.remDist') ?></th>
+                                                <th class="text-right"><?= __('routeAnalysis.col.remTime') ?></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ra-fix-tbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -2403,6 +2416,7 @@ include('load/footer.php');
 <script src="assets/js/lib/artcc-hierarchy.js<?= _v('assets/js/lib/artcc-hierarchy.js') ?>"></script>
 <script src="assets/js/lib/route-advisory-parser.js<?= _v('assets/js/lib/route-advisory-parser.js') ?>"></script>
 <script src="assets/js/route-maplibre.js<?= _v('assets/js/route-maplibre.js') ?>"></script>
+<script src="assets/js/route-analysis-panel.js<?= _v('assets/js/route-analysis-panel.js') ?>"></script>
 <script src="assets/js/playbook-dcc-loader.js<?= _v('assets/js/playbook-dcc-loader.js') ?>"></script>
 
 <!-- Simple JS to toggle Plot Routes help panel -->
@@ -2778,181 +2792,23 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ROUTE ANALYSIS PANEL
+    // ROUTE ANALYSIS — delegate to RouteAnalysisPanel module
     // ═══════════════════════════════════════════════════════════════════════
-    var routeAnalysisSection = document.getElementById('route_analysis_section');
-    var routeAnalysisToggle = document.getElementById('route_analysis_toggle');
-    var routeAnalysisBody = document.getElementById('route_analysis_body');
-    var routeAnalysisRefresh = document.getElementById('route_analysis_refresh');
-    var raActiveRouteId = null;
-    var raActiveRouteStr = null;
-    var raActiveOrigin = null;
-    var raActiveDest = null;
-
-    if (routeAnalysisToggle && routeAnalysisBody) {
-        routeAnalysisToggle.addEventListener('click', function() {
-            var isHidden = routeAnalysisBody.style.display === 'none';
-            routeAnalysisBody.style.display = isHidden ? 'block' : 'none';
-            var icon = routeAnalysisToggle.querySelector('.fa-chevron-up, .fa-chevron-down');
-            if (icon) {
-                icon.classList.toggle('fa-chevron-up');
-                icon.classList.toggle('fa-chevron-down');
-            }
-        });
-    }
-
-    if (routeAnalysisRefresh) {
-        routeAnalysisRefresh.addEventListener('click', function() {
-            loadRouteAnalysisData();
-        });
-    }
-
-    var routeAnalysisCopy = document.getElementById('route_analysis_copy');
-    if (routeAnalysisCopy) {
-        routeAnalysisCopy.addEventListener('click', function() {
-            var lines = [];
-            var hdr = raActiveOrigin && raActiveDest
-                ? raActiveOrigin + ' > ' + raActiveDest
-                : (raActiveRouteStr || '');
-            lines.push(hdr);
-            var td = document.getElementById('route_analysis_total_dist');
-            var tt = document.getElementById('route_analysis_total_time');
-            if (td && tt) lines.push('Total: ' + td.textContent + ' / ' + tt.textContent);
-            lines.push('');
-            lines.push('FACILITY\tTYPE\tDIST\tTIME');
-            var facRows = document.querySelectorAll('#route_analysis_facilities tr');
-            facRows.forEach(function(tr) {
-                var cells = tr.querySelectorAll('td');
-                if (cells.length >= 4) {
-                    lines.push(cells[0].textContent.trim() + '\t' + cells[1].textContent.trim() + '\t' +
-                               cells[2].textContent.trim() + '\t' + cells[3].textContent.trim());
-                }
-            });
-            lines.push('');
-            lines.push('FIX\tCUM DIST\tCUM TIME\tREM DIST\tREM TIME');
-            var fixRows = document.querySelectorAll('#route_analysis_fixes tr');
-            fixRows.forEach(function(tr) {
-                var cells = tr.querySelectorAll('td');
-                if (cells.length >= 5) {
-                    lines.push(cells[0].textContent.trim() + '\t' + cells[1].textContent.trim() + '\t' +
-                               cells[2].textContent.trim() + '\t' + cells[3].textContent.trim() + '\t' +
-                               cells[4].textContent.trim());
-                }
-            });
-
-            navigator.clipboard.writeText(lines.join('\n')).then(function() {
-                if (typeof PERTIDialog !== 'undefined') {
-                    PERTIDialog.toast(typeof PERTII18n !== 'undefined' ? PERTII18n.t('common.copied') : 'Copied!');
-                }
-            }).catch(function() {});
-        });
-    }
-
-    function showRouteAnalysis(routeId, routeString, origin, dest) {
-        raActiveRouteId = null;
-        raActiveRouteStr = routeString || null;
-        raActiveOrigin = origin || null;
-        raActiveDest = dest || null;
-
-        if (routeAnalysisSection) {
-            routeAnalysisSection.style.display = 'block';
-        }
-
-        var header = document.getElementById('route_analysis_header');
-        if (header) {
-            var label = '';
-            if (origin) label += origin;
-            if (dest) label += ' \u2192 ' + dest;
-            if (!label && routeString) {
-                label = routeString.length > 50 ? routeString.substring(0, 47) + '...' : routeString;
-            }
-            header.textContent = label;
-        }
-
-        loadRouteAnalysisData();
-    }
-
-    function loadRouteAnalysisData() {
-        var speed = document.getElementById('route_analysis_speed');
-        var wind = document.getElementById('route_analysis_wind');
-
-        var params = {};
-        if (raActiveRouteStr) {
-            params.route_string = raActiveRouteStr;
-            if (raActiveOrigin) params.origin = raActiveOrigin;
-            if (raActiveDest) params.dest = raActiveDest;
-        } else {
-            return;
-        }
-        if (speed && speed.value) params.cruise_kts = parseFloat(speed.value) || 450;
-        if (wind && wind.value) params.wind_component_kts = parseFloat(wind.value) || 0;
-
-        // Reset summary while loading
-        var summaryDiv = document.getElementById('route_analysis_summary');
-        if (summaryDiv) summaryDiv.style.display = 'none';
-
-        var facTbody = document.getElementById('route_analysis_facilities');
-        var fixTbody = document.getElementById('route_analysis_fixes');
-        if (facTbody) facTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-2"><i class="fas fa-spinner fa-spin"></i></td></tr>';
-        if (fixTbody) fixTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-2"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+    window.showRouteAnalysis = function(routeId, routeString, origin, dest) {
+        if (!routeString) return;
+        var params = { route_string: routeString };
+        if (origin) params.origin = origin;
+        if (dest) params.dest = dest;
+        params.cruise_kts = 460;
+        params.facility_types = 'ARTCC,FIR,TRACON';
 
         $.getJSON('api/data/playbook/analysis.php', params, function(resp) {
-            if (!resp || resp.status !== 'success') {
-                if (facTbody) facTbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">' + (typeof PERTII18n !== 'undefined' ? PERTII18n.t('common.error') : 'Error') + '</td></tr>';
-                return;
+            if (!resp || resp.status !== 'success') return;
+            if (typeof RouteAnalysisPanel !== 'undefined') {
+                RouteAnalysisPanel.show(resp, routeString, origin, dest, routeId);
             }
-
-            // Render total summary
-            var summaryDiv = document.getElementById('route_analysis_summary');
-            var totalDistEl = document.getElementById('route_analysis_total_dist');
-            var totalTimeEl = document.getElementById('route_analysis_total_time');
-            if (summaryDiv && resp.total_distance_nm != null) {
-                summaryDiv.style.display = 'flex';
-                if (totalDistEl) totalDistEl.textContent = Math.round(resp.total_distance_nm) + ' nm';
-                if (totalTimeEl) totalTimeEl.textContent = Math.round(resp.total_time_min) + ' min';
-            }
-
-            // Render facilities (API returns facility_traversal)
-            var facilities = resp.facility_traversal || [];
-            if (facTbody) {
-                facTbody.innerHTML = '';
-                facilities.forEach(function(f) {
-                    var tr = document.createElement('tr');
-                    tr.innerHTML = '<td>' + (f.name || '') + '</td>' +
-                        '<td><span class="badge badge-sm badge-' + (f.type === 'ARTCC' ? 'info' : f.type === 'TRACON' ? 'warning' : 'secondary') + '">' + (f.type || '') + '</span></td>' +
-                        '<td class="text-right">' + (f.distance_within_nm != null ? Number(f.distance_within_nm).toFixed(0) + ' nm' : '--') + '</td>' +
-                        '<td class="text-right">' + (f.time_within_min != null ? Number(f.time_within_min).toFixed(0) + ' min' : '--') + '</td>';
-                    facTbody.appendChild(tr);
-                });
-                if (facilities.length === 0) {
-                    facTbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">' + (typeof PERTII18n !== 'undefined' ? PERTII18n.t('playbook.analysis.noData') : 'No data') + '</td></tr>';
-                }
-            }
-
-            // Render fixes (API returns fix_analysis)
-            var fixes = resp.fix_analysis || [];
-            if (fixTbody) {
-                fixTbody.innerHTML = '';
-                fixes.forEach(function(fx) {
-                    var tr = document.createElement('tr');
-                    tr.innerHTML = '<td class="font-weight-bold">' + (fx.fix || '') + '</td>' +
-                        '<td class="text-right">' + (fx.dist_from_origin_nm != null ? Number(fx.dist_from_origin_nm).toFixed(0) : '--') + '</td>' +
-                        '<td class="text-right">' + (fx.time_from_origin_min != null ? Number(fx.time_from_origin_min).toFixed(0) : '--') + '</td>' +
-                        '<td class="text-right">' + (fx.dist_to_dest_nm != null ? Number(fx.dist_to_dest_nm).toFixed(0) : '--') + '</td>' +
-                        '<td class="text-right">' + (fx.time_to_dest_min != null ? Number(fx.time_to_dest_min).toFixed(0) : '--') + '</td>';
-                    fixTbody.appendChild(tr);
-                });
-                if (fixes.length === 0) {
-                    fixTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">' + (typeof PERTII18n !== 'undefined' ? PERTII18n.t('playbook.analysis.noData') : 'No data') + '</td></tr>';
-                }
-            }
-        }).fail(function() {
-            if (facTbody) facTbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">' + (typeof PERTII18n !== 'undefined' ? PERTII18n.t('common.error') : 'Error') + '</td></tr>';
         });
-    }
-
-    // Expose for route-maplibre.js to call when a route is clicked
-    window.showRouteAnalysis = showRouteAnalysis;
+    };
 });
 </script>
 
