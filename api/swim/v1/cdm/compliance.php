@@ -9,10 +9,11 @@
  * GET /api/swim/v1/cdm/compliance?airport=KJFK&status=AT_RISK
  *
  * Access: Requires valid SWIM API key
+ * SWIM-isolated: reads from SWIM_API mirror tables only
  *
  * @package PERTI
  * @subpackage CDM
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 require_once __DIR__ . '/../auth.php';
@@ -21,10 +22,9 @@ require_once __DIR__ . '/../../../../load/services/CDMService.php';
 SwimResponse::handlePreflight();
 $auth = swim_init_auth(true);
 
-$conn_tmi = get_conn_tmi();
-$conn_adl = get_conn_adl();
-if (!$conn_tmi || !$conn_adl) {
-    SwimResponse::error('Database connection not available', 503);
+$conn_swim = get_conn_swim();
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503);
 }
 
 $program_id = swim_get_param('program_id');
@@ -33,20 +33,20 @@ $airport = swim_get_param('airport');
 $status_filter = swim_get_param('status'); // COMPLIANT, NON_COMPLIANT, AT_RISK, PENDING
 $limit = swim_get_int_param('limit', 100, 1, 500);
 
-$cdm = new CDMService($conn_tmi, $conn_adl);
+$cdm = new CDMService($conn_swim);
 
 if ($program_id) {
     // Program compliance summary + individual flight records
     $program_id = (int)$program_id;
     $summary = $cdm->getProgramCompliance($program_id);
 
-    // Get individual records
+    // Get individual records from SWIM mirror
     $sql = "SELECT TOP (?) c.compliance_id, c.flight_uid, c.callsign,
                    c.compliance_type, c.compliance_status, c.risk_level,
                    c.expected_value, c.actual_value, c.delta_minutes,
                    c.tolerance_min, c.tolerance_max,
                    c.evaluated_utc, c.is_final
-            FROM dbo.cdm_compliance_live c
+            FROM dbo.swim_cdm_compliance_live c
             WHERE c.program_id = ?";
     $params = [$limit, $program_id];
 
@@ -57,7 +57,7 @@ if ($program_id) {
 
     $sql .= " ORDER BY c.evaluated_utc DESC";
 
-    $stmt = sqlsrv_query($conn_tmi, $sql, $params);
+    $stmt = sqlsrv_query($conn_swim, $sql, $params);
     $records = [];
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -78,17 +78,17 @@ if ($program_id) {
     ]);
 
 } elseif ($flight_uid) {
-    // Single flight compliance
+    // Single flight compliance from SWIM mirror
     $flight_uid = (int)$flight_uid;
     $sql = "SELECT compliance_type, compliance_status, risk_level,
                    expected_value, actual_value, delta_minutes,
                    tolerance_min, tolerance_max,
                    evaluated_utc, is_final, program_id
-            FROM dbo.cdm_compliance_live
+            FROM dbo.swim_cdm_compliance_live
             WHERE flight_uid = ?
             ORDER BY evaluated_utc DESC";
 
-    $stmt = sqlsrv_query($conn_tmi, $sql, [$flight_uid]);
+    $stmt = sqlsrv_query($conn_swim, $sql, [$flight_uid]);
     $records = [];
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -107,12 +107,12 @@ if ($program_id) {
     ]);
 
 } elseif ($airport) {
-    // Airport at-risk flights
+    // Airport at-risk flights from SWIM mirrors
     $sql = "SELECT TOP (?) c.flight_uid, c.callsign, c.program_id,
                    c.compliance_type, c.compliance_status, c.risk_level,
                    c.expected_value, c.delta_minutes, c.evaluated_utc
-            FROM dbo.cdm_compliance_live c
-            JOIN dbo.tmi_flight_control fc ON c.flight_uid = fc.flight_uid AND c.program_id = fc.program_id
+            FROM dbo.swim_cdm_compliance_live c
+            JOIN dbo.swim_tmi_flight_control fc ON c.flight_uid = fc.flight_uid AND c.program_id = fc.program_id
             WHERE fc.dep_airport = ? AND c.is_final = 0";
     $params = [$limit, $airport];
 
@@ -125,7 +125,7 @@ if ($program_id) {
 
     $sql .= " ORDER BY c.risk_level DESC, c.delta_minutes DESC";
 
-    $stmt = sqlsrv_query($conn_tmi, $sql, $params);
+    $stmt = sqlsrv_query($conn_swim, $sql, $params);
     $records = [];
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -144,9 +144,9 @@ if ($program_id) {
     ]);
 
 } else {
-    // At-risk flights system-wide
-    $sql = "SELECT TOP (?) * FROM dbo.vw_cdm_at_risk_flights ORDER BY risk_level DESC, delta_minutes DESC";
-    $stmt = sqlsrv_query($conn_tmi, $sql, [$limit]);
+    // At-risk flights system-wide from SWIM view
+    $sql = "SELECT TOP (?) * FROM dbo.vw_swim_cdm_at_risk_flights ORDER BY risk_level DESC, delta_minutes DESC";
+    $stmt = sqlsrv_query($conn_swim, $sql, [$limit]);
     $records = [];
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {

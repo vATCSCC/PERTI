@@ -16,13 +16,14 @@
  *
  * @package PERTI
  * @subpackage CDM
- * @version 1.0.0
+ * @version 2.0.0 — SWIM data isolation (reads from SWIM_API mirrors)
  */
 
 class CDMService
 {
-    private $conn_tmi;   // sqlsrv connection to VATSIM_TMI
-    private $conn_adl;   // sqlsrv connection to VATSIM_ADL
+    private $conn_swim;  // sqlsrv connection to SWIM_API (reads)
+    private $conn_tmi;   // sqlsrv connection to VATSIM_TMI (writes via SPs)
+    private $conn_adl;   // sqlsrv connection to VATSIM_ADL (milestone writes)
     private bool $is_hibernation;
     private bool $verbose;
 
@@ -52,12 +53,14 @@ class CDMService
     const TOLERANCE_LATE_MIN  = 15;
 
     /**
-     * @param resource $conn_tmi  sqlsrv connection to VATSIM_TMI
-     * @param resource $conn_adl  sqlsrv connection to VATSIM_ADL
+     * @param resource $conn_swim  sqlsrv connection to SWIM_API (required, all reads)
+     * @param resource|null $conn_tmi  sqlsrv connection to VATSIM_TMI (optional, writes via SPs)
+     * @param resource|null $conn_adl  sqlsrv connection to VATSIM_ADL (optional, milestone writes)
      * @param bool $verbose       Enable debug logging
      */
-    public function __construct($conn_tmi, $conn_adl, bool $verbose = false)
+    public function __construct($conn_swim, $conn_tmi = null, $conn_adl = null, bool $verbose = false)
     {
+        $this->conn_swim = $conn_swim;
         $this->conn_tmi = $conn_tmi;
         $this->conn_adl = $conn_adl;
         $this->is_hibernation = defined('HIBERNATION_MODE') && HIBERNATION_MODE;
@@ -96,6 +99,11 @@ class CDMService
         $valid_states = [self::STATE_PLANNING, self::STATE_BOARDING, self::STATE_READY, self::STATE_TAXIING, self::STATE_CANCELLED];
         if (!in_array($new_state, $valid_states)) {
             $this->log("Invalid readiness state: $new_state");
+            return false;
+        }
+
+        if (!$this->conn_tmi) {
+            $this->log("updateReadiness: TMI connection required for writes");
             return false;
         }
 
@@ -155,8 +163,8 @@ class CDMService
      */
     public function getReadiness(int $flight_uid): ?array
     {
-        $sql = "SELECT TOP 1 * FROM dbo.vw_cdm_current_readiness WHERE flight_uid = ?";
-        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$flight_uid]);
+        $sql = "SELECT TOP 1 * FROM dbo.vw_swim_cdm_current_readiness WHERE flight_uid = ?";
+        $stmt = sqlsrv_query($this->conn_swim, $sql, [$flight_uid]);
         if ($stmt === false) return null;
 
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -170,10 +178,10 @@ class CDMService
     public function getAirportReadiness(string $airport_icao): array
     {
         $sql = "SELECT readiness_state, COUNT(*) AS cnt
-                FROM dbo.vw_cdm_current_readiness
+                FROM dbo.vw_swim_cdm_current_readiness
                 WHERE dep_airport = ?
                 GROUP BY readiness_state";
-        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$airport_icao]);
+        $stmt = sqlsrv_query($this->conn_swim, $sql, [$airport_icao]);
         if ($stmt === false) return [];
 
         $result = [];
@@ -251,9 +259,9 @@ class CDMService
             'tsat_source' => 'calculated'
         ];
 
-        // Get unimpeded taxi time from airport_taxi_reference
-        $taxi_sql = "SELECT unimpeded_taxi_sec FROM dbo.airport_taxi_reference WHERE airport_icao = ?";
-        $taxi_stmt = sqlsrv_query($this->conn_adl, $taxi_sql, [$dep_airport]);
+        // Get unimpeded taxi time from SWIM mirror
+        $taxi_sql = "SELECT unimpeded_taxi_sec FROM dbo.swim_airport_taxi_reference WHERE airport_icao = ?";
+        $taxi_stmt = sqlsrv_query($this->conn_swim, $taxi_sql, [$dep_airport]);
         if ($taxi_stmt !== false) {
             $taxi_row = sqlsrv_fetch_array($taxi_stmt, SQLSRV_FETCH_ASSOC);
             if ($taxi_row) {
@@ -304,6 +312,10 @@ class CDMService
      */
     public function saveMilestones(int $flight_uid, array $milestones): bool
     {
+        if (!$this->conn_adl) {
+            $this->log("saveMilestones: ADL connection required for writes");
+            return false;
+        }
         $sql = "UPDATE dbo.adl_flight_times SET
                     tsat_utc = ?,
                     ttot_utc = ?,
@@ -348,6 +360,10 @@ class CDMService
         ?int $slot_id = null,
         int $expires_minutes = 120
     ): int|false {
+        if (!$this->conn_tmi) {
+            $this->log("queueMessage: TMI connection required for writes");
+            return false;
+        }
         $message_id = 0;
         $sql = "EXEC dbo.sp_CDM_QueueMessage
             @flight_uid = ?,
@@ -416,7 +432,7 @@ class CDMService
      */
     public function getPendingMessages(string $channel = null, int $limit = 50): array
     {
-        $sql = "SELECT TOP (?) * FROM dbo.vw_cdm_pending_messages";
+        $sql = "SELECT TOP (?) * FROM dbo.vw_swim_cdm_pending_messages";
         $params = [$limit];
 
         if ($channel) {
@@ -426,7 +442,7 @@ class CDMService
 
         $sql .= " ORDER BY created_utc ASC";
 
-        $stmt = sqlsrv_query($this->conn_tmi, $sql, $params);
+        $stmt = sqlsrv_query($this->conn_swim, $sql, $params);
         if ($stmt === false) return [];
 
         $messages = [];
@@ -487,36 +503,35 @@ class CDMService
         // Get readiness
         $readiness = $this->getReadiness($flight_uid);
 
-        // Get milestone times from adl_flight_times
+        // Get milestone times from swim_flights
         $times_sql = "SELECT tobt_utc, tsat_utc, ttot_utc, edct_utc,
-                             gate_hold_active, gate_hold_issued_utc, gate_hold_released_utc,
-                             cdm_readiness_state, eta_utc, out_utc, off_utc
-                      FROM dbo.adl_flight_times WHERE flight_uid = ?";
-        $times_stmt = sqlsrv_query($this->conn_adl, $times_sql, [$flight_uid]);
+                             eta_utc, out_utc, off_utc
+                      FROM dbo.swim_flights WHERE flight_uid = ?";
+        $times_stmt = sqlsrv_query($this->conn_swim, $times_sql, [$flight_uid]);
         $times = null;
         if ($times_stmt !== false) {
             $times = sqlsrv_fetch_array($times_stmt, SQLSRV_FETCH_ASSOC);
             sqlsrv_free_stmt($times_stmt);
         }
 
-        // Get active TMI control
+        // Get active TMI control from SWIM mirrors
         $tmi_sql = "SELECT fc.*, p.program_type, p.program_name, p.ctl_element
-                    FROM dbo.tmi_flight_control fc
-                    JOIN dbo.tmi_programs p ON fc.program_id = p.program_id
+                    FROM dbo.swim_tmi_flight_control fc
+                    JOIN dbo.swim_tmi_programs p ON fc.program_id = p.program_id
                     WHERE fc.flight_uid = ? AND p.is_active = 1";
-        $tmi_stmt = sqlsrv_query($this->conn_tmi, $tmi_sql, [$flight_uid]);
+        $tmi_stmt = sqlsrv_query($this->conn_swim, $tmi_sql, [$flight_uid]);
         $tmi_control = null;
         if ($tmi_stmt !== false) {
             $tmi_control = sqlsrv_fetch_array($tmi_stmt, SQLSRV_FETCH_ASSOC);
             sqlsrv_free_stmt($tmi_stmt);
         }
 
-        // Get latest compliance status
+        // Get latest compliance status from SWIM mirror
         $compliance_sql = "SELECT compliance_type, compliance_status, risk_level, delta_minutes
-                          FROM dbo.cdm_compliance_live
+                          FROM dbo.swim_cdm_compliance_live
                           WHERE flight_uid = ? AND is_final = 0
                           ORDER BY evaluated_utc DESC";
-        $comp_stmt = sqlsrv_query($this->conn_tmi, $compliance_sql, [$flight_uid]);
+        $comp_stmt = sqlsrv_query($this->conn_swim, $compliance_sql, [$flight_uid]);
         $compliance = [];
         if ($comp_stmt !== false) {
             while ($row = sqlsrv_fetch_array($comp_stmt, SQLSRV_FETCH_ASSOC)) {
@@ -525,12 +540,12 @@ class CDMService
             sqlsrv_free_stmt($comp_stmt);
         }
 
-        // Get pending/recent messages
+        // Get pending/recent messages from SWIM mirror
         $msg_sql = "SELECT TOP 5 message_type, message_body, delivery_status, ack_type, sent_utc, ack_utc
-                    FROM dbo.cdm_messages
+                    FROM dbo.swim_cdm_messages
                     WHERE flight_uid = ?
                     ORDER BY created_utc DESC";
-        $msg_stmt = sqlsrv_query($this->conn_tmi, $msg_sql, [$flight_uid]);
+        $msg_stmt = sqlsrv_query($this->conn_swim, $msg_sql, [$flight_uid]);
         $messages = [];
         if ($msg_stmt !== false) {
             while ($row = sqlsrv_fetch_array($msg_stmt, SQLSRV_FETCH_ASSOC)) {
@@ -549,12 +564,11 @@ class CDMService
             'flight_uid' => $flight_uid,
             'readiness' => $readiness,
             'times' => $times ? [
-                'tobt_utc' => $this->formatDateTime($times['tobt_utc']),
-                'tsat_utc' => $this->formatDateTime($times['tsat_utc']),
-                'ttot_utc' => $this->formatDateTime($times['ttot_utc']),
-                'edct_utc' => $this->formatDateTime($times['edct_utc']),
-                'eta_utc'  => $this->formatDateTime($times['eta_utc']),
-                'gate_hold_active' => (bool)($times['gate_hold_active'] ?? false),
+                'tobt_utc' => $this->formatDateTime($times['tobt_utc'] ?? null),
+                'tsat_utc' => $this->formatDateTime($times['tsat_utc'] ?? null),
+                'ttot_utc' => $this->formatDateTime($times['ttot_utc'] ?? null),
+                'edct_utc' => $this->formatDateTime($times['edct_utc'] ?? null),
+                'eta_utc'  => $this->formatDateTime($times['eta_utc'] ?? null),
             ] : null,
             'tmi_control' => $tmi_control ? [
                 'program_type' => $tmi_control['program_type'],
@@ -644,11 +658,11 @@ class CDMService
                     compliance_status,
                     COUNT(*) AS cnt,
                     AVG(delta_minutes) AS avg_delta
-                FROM dbo.cdm_compliance_live
+                FROM dbo.swim_cdm_compliance_live
                 WHERE program_id = ? AND is_final = 1
                 GROUP BY compliance_status";
 
-        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$program_id]);
+        $stmt = sqlsrv_query($this->conn_swim, $sql, [$program_id]);
         if ($stmt === false) return [];
 
         $result = [];
@@ -671,10 +685,10 @@ class CDMService
      */
     public function getAirportStatus(string $airport_icao): ?array
     {
-        $sql = "SELECT TOP 1 * FROM dbo.cdm_airport_status
+        $sql = "SELECT TOP 1 * FROM dbo.swim_cdm_airport_status
                 WHERE airport_icao = ?
                 ORDER BY snapshot_utc DESC";
-        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$airport_icao]);
+        $stmt = sqlsrv_query($this->conn_swim, $sql, [$airport_icao]);
         if ($stmt === false) return null;
 
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -743,9 +757,9 @@ class CDMService
                     SUM(CASE WHEN ack_type = 'ROGER' THEN 1 ELSE 0 END) AS roger_count,
                     SUM(CASE WHEN ack_type = 'STANDBY' THEN 1 ELSE 0 END) AS standby_count,
                     AVG(DATEDIFF(SECOND, sent_utc, ack_utc)) AS avg_ack_time_sec
-                FROM dbo.cdm_messages $where";
+                FROM dbo.swim_cdm_messages $where";
 
-        $stmt = sqlsrv_query($this->conn_tmi, $sql, $params);
+        $stmt = sqlsrv_query($this->conn_swim, $sql, $params);
         if ($stmt === false) return [];
 
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -759,12 +773,12 @@ class CDMService
                     source,
                     readiness_state,
                     COUNT(*) AS cnt
-                FROM dbo.cdm_pilot_readiness
-                WHERE reported_utc > DATEADD(HOUR, -24, GETUTCDATE())
+                FROM dbo.swim_cdm_pilot_readiness
+                WHERE reported_utc > DATEADD(HOUR, -24, SYSUTCDATETIME())
                 GROUP BY source, readiness_state
                 ORDER BY source, readiness_state";
 
-        $stmt = sqlsrv_query($this->conn_tmi, $sql);
+        $stmt = sqlsrv_query($this->conn_swim, $sql);
         if ($stmt === false) return [];
 
         $result = [];

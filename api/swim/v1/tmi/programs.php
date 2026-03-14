@@ -5,20 +5,23 @@
  * Returns active Traffic Management Initiative programs (Ground Stops, GDPs).
  *
  * Data Sources:
- * - Ground Stops: Azure SQL (dbo.ntml table - new GDT schema)
- * - GDP Programs: Azure SQL (dbo.ntml for new programs, dbo.gdp_log for legacy)
+ * - Ground Stops: SWIM_API (dbo.swim_ntml table - SWIM mirror)
+ * - GDP Programs: SWIM_API (dbo.swim_ntml for new programs, dbo.gdp_log for legacy)
  *
- * @version 2.0.0 - Updated to use dbo.ntml for Ground Stops (new GDT schema)
+ * @version 3.0.0 - SWIM-isolated: uses SWIM_API mirror tables
  */
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../../../../load/airport_aliases.php';
 
-// Get database connections
-global $conn_sqli, $conn_adl, $conn_swim;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
-// All TMI queries use Azure SQL (SWIM_API or VATSIM_ADL)
-$conn_sql = $conn_swim ?: $conn_adl;
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
+}
+
+$conn_sql = $conn_swim;
 
 $auth = swim_init_auth(true, false);
 
@@ -40,7 +43,7 @@ $response = [
 ];
 
 // ============================================================================
-// GROUND STOPS - Azure SQL (dbo.ntml table - new GDT schema)
+// GROUND STOPS - SWIM_API (dbo.swim_ntml table - SWIM mirror)
 // ============================================================================
 if ($type === 'all' || $type === 'gs') {
     $gs_where = ["n.program_type = 'GS'"];
@@ -100,8 +103,8 @@ if ($type === 'all' || $type === 'gs') {
             n.created_utc,
             a.ARPT_NAME as airport_name,
             a.RESP_ARTCC_ID as artcc
-        FROM dbo.ntml n
-        LEFT JOIN dbo.apts a ON n.ctl_element = a.ICAO_ID
+        FROM dbo.swim_ntml n
+        LEFT JOIN dbo.swim_airports a ON n.ctl_element = a.ICAO_ID
         WHERE " . implode(' AND ', $gs_where) . "
         ORDER BY n.ctl_element, n.start_utc DESC
     ";
@@ -187,10 +190,10 @@ if ($type === 'all' || $type === 'gs') {
 }
 
 // ============================================================================
-// GDP PROGRAMS - Azure SQL (dbo.ntml for new programs + dbo.gdp_log for legacy)
+// GDP PROGRAMS - SWIM_API (dbo.swim_ntml for new programs + dbo.gdp_log for legacy)
 // ============================================================================
 if ($type === 'all' || $type === 'gdp') {
-    // First, query new GDP programs from dbo.ntml (GDP-DAS, GDP-GAAP, GDP-UDP)
+    // First, query new GDP programs from dbo.swim_ntml (GDP-DAS, GDP-GAAP, GDP-UDP)
     $gdp_ntml_where = ["n.program_type LIKE 'GDP%'"];
     $gdp_ntml_params = [];
 
@@ -239,8 +242,8 @@ if ($type === 'all' || $type === 'gdp') {
             n.total_delay_min,
             a.ARPT_NAME as airport_name,
             a.RESP_ARTCC_ID as artcc
-        FROM dbo.ntml n
-        LEFT JOIN dbo.apts a ON n.ctl_element = a.ICAO_ID
+        FROM dbo.swim_ntml n
+        LEFT JOIN dbo.swim_airports a ON n.ctl_element = a.ICAO_ID
         WHERE " . implode(' AND ', $gdp_ntml_where) . "
         ORDER BY n.ctl_element, n.start_utc DESC
     ";
@@ -353,7 +356,7 @@ if ($type === 'all' || $type === 'gdp') {
                g.total_flights, g.affected_flights, g.avg_delay_min, g.max_delay_min,
                a.ARPT_NAME as airport_name, a.RESP_ARTCC_ID as artcc
         FROM dbo.gdp_log g
-        LEFT JOIN dbo.apts a ON g.ctl_element = a.ICAO_ID
+        LEFT JOIN dbo.swim_airports a ON g.ctl_element = a.ICAO_ID
         WHERE " . implode(' AND ', $gdp_where) . "
         ORDER BY g.ctl_element";
 
@@ -406,15 +409,14 @@ $response['summary']['total_controlled_airports'] = count($controlled_airports);
 SwimResponse::success($response, ['source' => 'vatcscc', 'type_filter' => $type]);
 
 function getAirportInfo($icao) {
-    global $conn_adl, $conn_swim;
-    $conn = $conn_swim ?: $conn_adl;
-    if (!$conn) return null;
-    
-    $stmt = sqlsrv_query($conn, "SELECT ICAO_ID, ARPT_NAME, RESP_ARTCC_ID FROM dbo.apts WHERE ICAO_ID = ?", [$icao]);
+    global $conn_swim;
+    if (!$conn_swim) return null;
+
+    $stmt = sqlsrv_query($conn_swim, "SELECT ICAO_ID, ARPT_NAME, RESP_ARTCC_ID FROM dbo.swim_airports WHERE ICAO_ID = ?", [$icao]);
     if ($stmt === false) return null;
     $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);
-    return $row ? ['icao' => $row['ICAO_ID'], 'name' => applyAirportDisplayName($row['ARPT_NAME']), 'artcc' => $row['RESP_ARTCC_ID']] : null;
+    return $row ? ['icao' => $row['ICAO_ID'], 'name' => applyAirportDisplayName($row['ARPT_NAME'] ?? ''), 'artcc' => $row['RESP_ARTCC_ID']] : null;
 }
 
 function formatDT($dt) {
@@ -474,7 +476,7 @@ function getProgramFlights($conn, $program_id, $limit = 500) {
             ctl_exempt_reason,
             gs_held,
             gs_release_utc
-        FROM dbo.tmi_flight_control
+        FROM dbo.swim_tmi_flight_control
         WHERE program_id = ?
         ORDER BY cta_utc ASC, orig_eta_utc ASC
         OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY

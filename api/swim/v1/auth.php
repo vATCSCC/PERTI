@@ -9,9 +9,12 @@
  * @version 1.0.0
  */
 
-// Load PERTI core
+// Load PERTI core — SWIM-only: skip MySQL and non-SWIM Azure connections
 define('PERTI_LOADED', true);
 require_once __DIR__ . '/../../../load/config.php';
+if (!defined('PERTI_SWIM_ONLY')) {
+    define('PERTI_SWIM_ONLY', true);
+}
 require_once __DIR__ . '/../../../load/connect.php';
 require_once __DIR__ . '/../../../load/swim_config.php';
 
@@ -481,18 +484,15 @@ class SwimResponse {
 }
 
 function swim_init_auth($require_auth = true, $require_write = false) {
-    global $conn_swim, $conn_adl;
+    global $conn_swim;
     SwimResponse::handlePreflight();
     if (!$require_auth) return null;
 
-    // Use SWIM_API database if available, fall back to VATSIM_ADL during migration
-    $conn = $conn_swim ?: $conn_adl;
-
-    if (!$conn) {
-        SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
+    if (!$conn_swim) {
+        SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
     }
 
-    $auth = new SwimAuth($conn);
+    $auth = new SwimAuth($conn_swim);
     if (!$auth->authenticate()) {
         SwimResponse::error($auth->getError(), 401, 'UNAUTHORIZED');
     }

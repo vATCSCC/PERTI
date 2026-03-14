@@ -5,6 +5,11 @@
  * Syncs flight data from VATSIM_ADL to SWIM_API database.
  * Called after each ADL refresh cycle (~60 seconds).
  *
+ * V4.0: Expanded to ~121 columns matching sp_Swim_BulkUpsert v2.0
+ *       (migration 026). Adds position, plan, times, TMI, aircraft columns
+ *       needed for full SWIM data isolation (flight.php parity).
+ *       SP v2.0 uses row-hash skip to eliminate no-op updates.
+ *
  * V3.0: Delta sync - only syncs flights that changed since last sync
  *       Reduces sync from 3000+ rows to ~300-500 rows per cycle
  *       Expected improvement: 115s -> 3-5s on Azure SQL Basic
@@ -16,7 +21,7 @@
  *
  * @package PERTI
  * @subpackage SWIM
- * @version 3.0.0
+ * @version 4.0.0
  */
 
 // Can be run standalone or included
@@ -42,6 +47,7 @@ function swim_sync_from_adl() {
         'inserted' => 0,
         'updated' => 0,
         'deleted' => 0,
+        'skipped' => 0,
         'marked_inactive' => 0,
         'errors' => 0,
         'duration_ms' => 0,
@@ -101,6 +107,7 @@ function swim_sync_from_adl() {
         $stats['inserted'] = $result['inserted'] ?? 0;
         $stats['updated'] = $result['updated'] ?? 0;
         $stats['deleted'] = $result['deleted'] ?? 0;
+        $stats['skipped'] = $result['skipped'] ?? 0;
 
         // Step 5: Mark stale flights as inactive (5 min threshold, matches ADL)
         // This is critical because delta sync only sees active flights from ADL
@@ -111,9 +118,9 @@ function swim_sync_from_adl() {
         return [
             'success' => true,
             'message' => sprintf(
-                'Delta sync: %d changed, %d ins, %d upd, %d marked inactive in %dms',
+                'Delta sync: %d changed, %d ins, %d upd, %d skip, %d inactive in %dms',
                 $stats['flights_changed'], $stats['inserted'], $stats['updated'],
-                $stats['marked_inactive'], $stats['duration_ms']
+                $stats['skipped'], $stats['marked_inactive'], $stats['duration_ms']
             ),
             'stats' => $stats
         ];
@@ -199,30 +206,52 @@ function fetch_adl_flights_delta($conn_adl, $lastSync) {
 
     $sql = "
         SELECT
+            -- Core identity (13)
             c.flight_uid, c.flight_key, c.callsign, c.cid, c.flight_id,
             c.phase, c.is_active,
             c.first_seen_utc, c.last_seen_utc, c.logon_time_utc,
             c.current_artcc, c.current_tracon, c.current_zone,
+            c.current_zone_airport, c.current_sector_low, c.current_sector_high,
+            c.weather_impact, c.weather_alert_ids,
 
+            -- Position (17)
             pos.lat, pos.lon, pos.altitude_ft, pos.heading_deg, pos.groundspeed_kts,
             pos.vertical_rate_fpm, pos.dist_to_dest_nm, pos.dist_flown_nm, pos.pct_complete,
+            pos.true_airspeed_kts, pos.mach AS mach_number,
+            pos.altitude_assigned, pos.altitude_cleared, pos.track_deg,
+            pos.qnh_in_hg, pos.qnh_mb,
+            pos.route_dist_to_dest_nm, pos.route_pct_complete,
+            pos.next_waypoint_name, pos.dist_to_next_waypoint_nm,
 
+            -- Flight plan (27)
             fp.fp_dept_icao, fp.fp_dest_icao, fp.fp_alt_icao,
             fp.fp_altitude_ft, fp.fp_tas_kts, fp.fp_route, fp.fp_remarks, fp.fp_rule,
             fp.fp_dept_artcc, fp.fp_dest_artcc, fp.fp_dept_tracon, fp.fp_dest_tracon,
             fp.dfix, fp.dp_name, fp.afix, fp.star_name, fp.dep_runway, fp.arr_runway,
             fp.gcd_nm, fp.route_total_nm, fp.aircraft_type,
+            fp.aircraft_equip AS equipment_qualifier, fp.approach AS approach_procedure,
+            fp.fp_route_expanded, fp.fp_fuel_minutes, fp.dtrsn, fp.strsn,
+            fp.waypoint_count, fp.parse_status, fp.simbrief_id AS simbrief_ofp_id,
 
+            -- Times (24)
             t.eta_utc, t.eta_runway_utc, t.eta_source, t.eta_method, t.etd_utc,
             t.out_utc, t.off_utc, t.on_utc, t.in_utc, t.ete_minutes,
             t.ctd_utc, t.cta_utc, t.edct_utc,
+            t.sta_utc, t.etd_runway_utc, t.etd_source,
+            t.octd_utc, t.octa_utc, t.ate_minutes,
+            t.eta_confidence, t.eta_wind_component_kts,
 
+            -- TMI control (21)
             tmi.gs_held, tmi.gs_release_utc, tmi.ctl_type, tmi.ctl_prgm, tmi.ctl_element,
             tmi.is_exempt, tmi.exempt_reason, tmi.slot_time_utc, tmi.slot_status,
             tmi.program_id, tmi.slot_id, tmi.delay_minutes, tmi.delay_status,
+            tmi.ctl_exempt, tmi.ctl_exempt_reason, tmi.aslot, tmi.delay_source,
+            tmi.is_popup, tmi.popup_detected_utc, tmi.absolute_delay_min, tmi.schedule_variation_min,
 
+            -- Aircraft (10)
             ac.aircraft_icao, ac.aircraft_faa, ac.weight_class, ac.wake_category,
-            ac.engine_type, ac.airline_icao, ac.airline_name
+            ac.engine_type, ac.airline_icao, ac.airline_name,
+            ac.engine_count, ac.cruise_tas_kts, ac.ceiling_ft
 
         FROM dbo.adl_flight_core c
         LEFT JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid
@@ -240,11 +269,15 @@ function fetch_adl_flights_delta($conn_adl, $lastSync) {
               OR tmi.tmi_updated_utc > ?
               -- Or new flight (first seen after last sync)
               OR c.first_seen_utc > ?
+              -- Or flight plan changed (route re-parse, runway update)
+              OR fp.fp_updated_utc > ?
+              -- Or aircraft data changed
+              OR ac.aircraft_updated_utc > ?
           )
     ";
 
     // Use sqlsrv (not PDO) - $conn_adl is a sqlsrv resource
-    $params = [$syncTime, $syncTime, $syncTime, $syncTime];
+    $params = [$syncTime, $syncTime, $syncTime, $syncTime, $syncTime, $syncTime];
     $stmt = @sqlsrv_query($conn_adl, $sql, $params);
 
     if ($stmt === false) {
@@ -339,13 +372,15 @@ function swim_bulk_upsert($conn_swim, string $json) {
     sqlsrv_free_stmt($stmt);
     
     if (!$row) {
-        return ['inserted' => 0, 'updated' => 0, 'deleted' => 0];
+        return ['inserted' => 0, 'updated' => 0, 'deleted' => 0, 'skipped' => 0];
     }
-    
+
     return [
         'inserted' => $row['inserted'] ?? 0,
         'updated' => $row['updated'] ?? 0,
         'deleted' => $row['deleted'] ?? 0,
+        'skipped' => $row['skipped'] ?? 0,
+        'total' => $row['total'] ?? 0,
         'sp_elapsed_ms' => $row['elapsed_ms'] ?? 0,
     ];
 }
@@ -395,30 +430,52 @@ function swim_sync_from_adl_legacy(array $flights, array $stats) {
 function fetch_adl_flights($conn_adl) {
     $sql = "
         SELECT
+            -- Core identity (13)
             c.flight_uid, c.flight_key, c.callsign, c.cid, c.flight_id,
             c.phase, c.is_active,
             c.first_seen_utc, c.last_seen_utc, c.logon_time_utc,
             c.current_artcc, c.current_tracon, c.current_zone,
+            c.current_zone_airport, c.current_sector_low, c.current_sector_high,
+            c.weather_impact, c.weather_alert_ids,
 
+            -- Position (17)
             pos.lat, pos.lon, pos.altitude_ft, pos.heading_deg, pos.groundspeed_kts,
             pos.vertical_rate_fpm, pos.dist_to_dest_nm, pos.dist_flown_nm, pos.pct_complete,
+            pos.true_airspeed_kts, pos.mach AS mach_number,
+            pos.altitude_assigned, pos.altitude_cleared, pos.track_deg,
+            pos.qnh_in_hg, pos.qnh_mb,
+            pos.route_dist_to_dest_nm, pos.route_pct_complete,
+            pos.next_waypoint_name, pos.dist_to_next_waypoint_nm,
 
+            -- Flight plan (27)
             fp.fp_dept_icao, fp.fp_dest_icao, fp.fp_alt_icao,
             fp.fp_altitude_ft, fp.fp_tas_kts, fp.fp_route, fp.fp_remarks, fp.fp_rule,
             fp.fp_dept_artcc, fp.fp_dest_artcc, fp.fp_dept_tracon, fp.fp_dest_tracon,
             fp.dfix, fp.dp_name, fp.afix, fp.star_name, fp.dep_runway, fp.arr_runway,
             fp.gcd_nm, fp.route_total_nm, fp.aircraft_type,
+            fp.aircraft_equip AS equipment_qualifier, fp.approach AS approach_procedure,
+            fp.fp_route_expanded, fp.fp_fuel_minutes, fp.dtrsn, fp.strsn,
+            fp.waypoint_count, fp.parse_status, fp.simbrief_id AS simbrief_ofp_id,
 
+            -- Times (24)
             t.eta_utc, t.eta_runway_utc, t.eta_source, t.eta_method, t.etd_utc,
             t.out_utc, t.off_utc, t.on_utc, t.in_utc, t.ete_minutes,
             t.ctd_utc, t.cta_utc, t.edct_utc,
+            t.sta_utc, t.etd_runway_utc, t.etd_source,
+            t.octd_utc, t.octa_utc, t.ate_minutes,
+            t.eta_confidence, t.eta_wind_component_kts,
 
+            -- TMI control (21)
             tmi.gs_held, tmi.gs_release_utc, tmi.ctl_type, tmi.ctl_prgm, tmi.ctl_element,
             tmi.is_exempt, tmi.exempt_reason, tmi.slot_time_utc, tmi.slot_status,
             tmi.program_id, tmi.slot_id, tmi.delay_minutes, tmi.delay_status,
+            tmi.ctl_exempt, tmi.ctl_exempt_reason, tmi.aslot, tmi.delay_source,
+            tmi.is_popup, tmi.popup_detected_utc, tmi.absolute_delay_min, tmi.schedule_variation_min,
 
+            -- Aircraft (10)
             ac.aircraft_icao, ac.aircraft_faa, ac.weight_class, ac.wake_category,
-            ac.engine_type, ac.airline_icao, ac.airline_name
+            ac.engine_type, ac.airline_icao, ac.airline_name,
+            ac.engine_count, ac.cruise_tas_kts, ac.ceiling_ft
 
         FROM dbo.adl_flight_core c
         LEFT JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid

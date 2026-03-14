@@ -24,8 +24,9 @@
  * @version 1.0.0
  */
 
-// Load PERTI core
+// Load PERTI core — SWIM-only
 define('PERTI_LOADED', true);
+define('PERTI_SWIM_ONLY', true);
 require_once __DIR__ . '/../../../../load/config.php';
 require_once __DIR__ . '/../../../../load/connect.php';
 require_once __DIR__ . '/../../../../load/swim_config.php';
@@ -63,12 +64,13 @@ $pilot_email = $vatsim_user['personal']['email'] ?? null;
 $pilot_rating = $vatsim_user['vatsim']['rating']['short'] ?? 'P0';
 
 // Check if key already exists for this CID and client
-global $conn_swim, $conn_adl;
-$conn = $conn_swim ?: $conn_adl;
+global $conn_swim;
 
-if (!$conn) {
-    SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
+
+$conn = $conn_swim;
 
 $existing_key = getExistingKey($conn, $cid, $client_name);
 

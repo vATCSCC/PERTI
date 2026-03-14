@@ -3,7 +3,7 @@
  * VATSWIM API v1 - TMI Advisories Endpoint
  * 
  * Returns formal TMI advisories (Ground Stop, GDP, Reroute, etc.).
- * Data from VATSIM_TMI database (tmi_advisories table).
+ * Data from SWIM_API database (swim_tmi_advisories mirror table).
  * 
  * GET /api/swim/v1/tmi/advisories
  * GET /api/swim/v1/tmi/advisories?type=GS,GDP
@@ -15,11 +15,11 @@
 
 require_once __DIR__ . '/../auth.php';
 
-// TMI database connection
-global $conn_tmi;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
-if (!$conn_tmi) {
-    SwimResponse::error('TMI database connection not available', 503, 'SERVICE_UNAVAILABLE');
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 $auth = swim_init_auth(true, false);
@@ -77,8 +77,8 @@ if ($status) {
 $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
 // Count total
-$count_sql = "SELECT COUNT(*) as total FROM dbo.tmi_advisories a $where_sql";
-$count_stmt = sqlsrv_query($conn_tmi, $count_sql, $params);
+$count_sql = "SELECT COUNT(*) as total FROM dbo.swim_tmi_advisories a $where_sql";
+$count_stmt = sqlsrv_query($conn_swim, $count_sql, $params);
 if ($count_stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -115,7 +115,7 @@ $sql = "
         a.created_at,
         a.created_by
         $text_columns
-    FROM dbo.tmi_advisories a
+    FROM dbo.swim_tmi_advisories a
     $where_sql
     ORDER BY a.created_at DESC
     OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
@@ -124,7 +124,7 @@ $sql = "
 $params[] = $offset;
 $params[] = $per_page;
 
-$stmt = sqlsrv_query($conn_tmi, $sql, $params);
+$stmt = sqlsrv_query($conn_swim, $sql, $params);
 if ($stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -186,8 +186,8 @@ $response = [
     ],
     'timestamp' => gmdate('c'),
     'meta' => [
-        'source' => 'vatsim_tmi',
-        'table' => 'tmi_advisories'
+        'source' => 'swim_api',
+        'table' => 'swim_tmi_advisories'
     ]
 ];
 

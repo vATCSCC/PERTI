@@ -27,6 +27,16 @@ PERTI exposes **two separate API layers** serving different audiences:
 
 For internal API documentation, see [[API Reference]].
 
+### Data Isolation (v19)
+
+All SWIM API endpoints query exclusively from the `SWIM_API` database. Internal databases (`VATSIM_ADL`, `VATSIM_TMI`, `VATSIM_REF`, `perti_site`) are never accessed directly by API request handlers. Data freshness is maintained by sync daemons:
+
+- **Flight data**: Synced every 2 minutes from VATSIM_ADL (`swim_sync_daemon.php`)
+- **TMI/CDM data**: Synced every 5 minutes from VATSIM_TMI (`swim_tmi_sync_daemon.php`)
+- **Reference data**: Synced daily at 06:00Z from VATSIM_ADL/REF/MySQL (`refdata_sync_daemon.php`)
+
+This isolation ensures external API traffic never competes with internal operational workloads, and SWIM availability is independent of non-SWIM database health.
+
 ---
 
 ## Authentication
@@ -129,7 +139,7 @@ curl -H "Authorization: Bearer YOUR_KEY" \
 
 #### GET /flight
 
-Returns detailed data for a single flight from the normalized ADL tables.
+Returns detailed data for a single flight from the SWIM_API database.
 
 **Auth**: Required (read-only)
 **Formats**: json, fixm
@@ -375,7 +385,7 @@ curl -H "Authorization: Bearer YOUR_KEY" \
 
 ### Routes & Playbook
 
-Reference route data served from the isolated `SWIM_API` database, reimported daily at 06:00Z. CDR and playbook list/detail endpoints are **public**; analysis and throughput require an API key.
+Reference route data served from SWIM mirror tables (`swim_coded_departure_routes`, `swim_playbook_route_throughput`), synced daily at 06:00Z by `refdata_sync_daemon.php`. CDR and playbook list/detail endpoints are **public**; analysis and throughput require an API key.
 
 For full documentation, parameters, response schemas, geometry support, and use cases, see **[[SWIM Routes API]]**.
 

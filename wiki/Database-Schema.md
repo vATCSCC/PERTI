@@ -1,7 +1,7 @@
 # Database Schema
 
-> **Last updated:** March 11, 2026 (v18)
-> **System Mode:** HIBERNATED (since March 9, 2026) -- Azure resources downscaled
+> **Last updated:** March 14, 2026 (v19)
+> **System Mode:** HIBERNATED (SWIM exempt since March 13, 2026)
 
 PERTI uses multiple databases across three engines: MySQL for application data, Azure SQL for flight/ADL and TMI data, and PostgreSQL/PostGIS for spatial queries.
 
@@ -924,6 +924,114 @@ Reference data database for navigation and airspace definitions.
 
 ---
 
+## Azure SQL (SWIM_API)
+
+_Expanded significantly in v19 with data isolation mirror tables._
+
+Dedicated database for the public SWIM API. All SWIM endpoints query exclusively from this database — no cross-database access to VATSIM_TMI, VATSIM_ADL, or MySQL.
+
+**Server:** `vatsim.database.windows.net`
+**Tier:** Basic (5 DTU)
+
+### Core Flight Table
+
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `swim_flights` | Denormalized FIXM-aligned flight snapshot (219+ columns) | ~300-500 active |
+| `swim_api_keys` | API key management with tier-based rate limiting | -- |
+| `swim_audit_log` | Request audit trail | -- |
+| `swim_ground_stops` | Ground stop program records | -- |
+
+### TMI Mirror Tables (v19)
+
+Synced from VATSIM_TMI + VATSIM_ADL every 5 minutes by `swim_tmi_sync_daemon.php`.
+
+| Table | Source | Purpose |
+|-------|--------|---------|
+| `swim_ntml` | VATSIM_ADL `ntml` | National Traffic Management Log mirror |
+| `swim_tmi_programs` | VATSIM_TMI `tmi_programs` | TMI program registry mirror |
+| `swim_tmi_entries` | VATSIM_TMI `tmi_entries` | TMI log entries mirror |
+| `swim_tmi_advisories` | VATSIM_TMI `tmi_advisories` | TMI advisory messages mirror |
+| `swim_tmi_reroutes` | VATSIM_TMI `tmi_reroutes` | Reroute definitions mirror |
+| `swim_tmi_reroute_routes` | VATSIM_TMI `tmi_reroute_routes` | Reroute route strings mirror |
+| `swim_tmi_reroute_flights` | VATSIM_TMI `tmi_reroute_flights` | Reroute flight assignments mirror |
+| `swim_tmi_reroute_compliance_log` | VATSIM_TMI `tmi_reroute_compliance_log` | Reroute compliance history mirror |
+| `swim_tmi_public_routes` | VATSIM_TMI `tmi_public_routes` | Published route visualizations mirror |
+| `swim_tmi_flight_control` | VATSIM_TMI `tmi_flight_control` | Per-flight TMI control mirror |
+
+### Flow Mirror Tables (v19)
+
+| Table | Source | Purpose |
+|-------|--------|---------|
+| `swim_tmi_flow_providers` | VATSIM_TMI `tmi_flow_providers` | ECFMP flow providers mirror |
+| `swim_tmi_flow_events` | VATSIM_TMI `tmi_flow_events` | Flow events mirror |
+| `swim_tmi_flow_event_participants` | VATSIM_TMI `tmi_flow_event_participants` | Flow event participants mirror |
+| `swim_tmi_flow_measures` | VATSIM_TMI `tmi_flow_measures` | Flow measures mirror |
+
+### CDM Mirror Tables (v19)
+
+| Table | Source | Purpose |
+|-------|--------|---------|
+| `swim_cdm_messages` | VATSIM_TMI `cdm_messages` | CDM delivery messages mirror |
+| `swim_cdm_pilot_readiness` | VATSIM_TMI `cdm_pilot_readiness` | Pilot readiness state mirror |
+| `swim_cdm_compliance_live` | VATSIM_TMI `cdm_compliance_live` | EDCT compliance tracking mirror |
+| `swim_cdm_airport_status` | VATSIM_TMI `cdm_airport_status` | Airport CDM status mirror |
+
+### Reference Mirror Tables (v19)
+
+Synced daily at 06:00Z by `refdata_sync_daemon.php`.
+
+| Table | Source | Purpose |
+|-------|--------|---------|
+| `swim_airports` | VATSIM_ADL `apts` | Airport data mirror (~37K airports) |
+| `swim_airport_taxi_reference` | VATSIM_ADL `airport_taxi_reference` | Taxi time reference mirror (~3,628 airports) |
+| `swim_airport_taxi_reference_detail` | VATSIM_ADL `airport_taxi_reference_detail` | Taxi detail breakdowns mirror |
+| `swim_coded_departure_routes` | VATSIM_REF `coded_departure_routes` | CDR data mirror (~41K routes) |
+| `swim_playbook_route_throughput` | MySQL `playbook_route_throughput` | CTP throughput data mirror |
+
+### Infrastructure Tables (v19)
+
+| Table | Purpose |
+|-------|---------|
+| `swim_change_feed` | Monotonic event log for multi-consumer replay (seq, entity_type, entity_id, changed_cols, event_utc) |
+| `swim_sync_watermarks` | Consumer progress tracking (consumer_id, last_seq, consumer_type) |
+| `swim_sync_state` | Per-table sync progress (table_name, last_sync_utc, last_row_count, sync_mode, error_count) |
+
+### SWIM Views (v19)
+
+Active-filter views matching source database view logic:
+
+| View | Definition |
+|------|-----------|
+| `vw_swim_active_flights` | Active flights (is_active = 1) |
+| `vw_swim_flights_oooi_compat` | OOOI-compatible flight view |
+| `vw_swim_tmi_controlled` | TMI-controlled flights |
+| `vw_swim_active_entries` | Active TMI entries (status = 'ACTIVE', not expired) |
+| `vw_swim_active_programs` | Active TMI programs (status IN PROPOSED/MODELING/ACTIVE/PAUSED, not archived) |
+| `vw_swim_active_advisories` | Active advisories (not expired) |
+| `vw_swim_active_reroutes` | Active reroutes (status = 2, not expired) |
+| `vw_swim_active_public_routes` | Active public routes (status = 1, not expired) |
+| `vw_swim_active_flow_events` | Active ECFMP flow events |
+| `vw_swim_active_flow_measures` | Active ECFMP flow measures |
+| `vw_swim_recent_entries` | TMI entries from last 24 hours |
+| `vw_swim_cdm_current_readiness` | Current (non-superseded) pilot readiness |
+| `vw_swim_cdm_pending_messages` | Pending CDM delivery messages |
+| `vw_swim_cdm_at_risk_flights` | At-risk CDM compliance flights |
+
+### Key Stored Procedures
+
+| Procedure | Purpose |
+|-----------|---------|
+| `sp_Swim_BulkUpsert` | MERGE flight data with row-hash skip (skips unchanged rows via `row_hash BINARY(20)` comparison) and change feed emission |
+
+### v19 Migration
+
+| Migration | Database | Purpose |
+|-----------|----------|---------|
+| `database/migrations/swim/026_swim_data_isolation.sql` | SWIM_API | +34 new columns on swim_flights, +row_hash column, DROP 14 unused indexes, CREATE 25 mirror tables, CREATE 14 views, ALTER sp_Swim_BulkUpsert (row-hash skip + change feed + 60 new columns) |
+
+---
+
 ## PostgreSQL (VATSIM_GIS)
 
 Dedicated PostGIS-enabled database for spatial route analysis and boundary queries.
@@ -1145,6 +1253,13 @@ Apply in numerical order within each category.
 | `database/migrations/playbook/002_add_source_enum.sql` | perti_site (MySQL) | Add ECFMP/CANOC to source enum |
 | `database/migrations/playbook/003_add_org_code.sql` | perti_site (MySQL) | Add org_code column for multi-org |
 | `database/migrations/playbook/004_add_route_remarks.sql` | perti_site (MySQL) | Add remarks column to playbook_routes |
+
+### v19 Migrations
+
+| Migration | Database | Purpose |
+|-----------|----------|---------|
+| `database/migrations/swim/025_swim_refdata_tables.sql` | SWIM_API | Reference data mirror tables (CDRs, airports) |
+| `database/migrations/swim/026_swim_data_isolation.sql` | SWIM_API | SWIM data isolation: +34 cols on swim_flights, row_hash, 14 index drops, 25 mirror tables, 14 views, SP update |
 
 ### Earlier Migration Directories
 

@@ -13,10 +13,11 @@
  * Valid states: PLANNING, BOARDING, READY, TAXIING, CANCELLED
  *
  * Access: Requires valid SWIM API key (write access for POST)
+ * SWIM-isolated: reads from SWIM_API mirror tables; writes require TMI/ADL connections
  *
  * @package PERTI
  * @subpackage CDM
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 require_once __DIR__ . '/../auth.php';
@@ -27,19 +28,18 @@ SwimResponse::handlePreflight();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET') {
-    // Read current readiness
+    // Read current readiness — SWIM-only
     $auth = swim_init_auth(true);
 
     $callsign = swim_get_param('callsign');
     $airport = swim_get_param('airport');
 
-    $conn_tmi = get_conn_tmi();
-    $conn_adl = get_conn_adl();
-    if (!$conn_tmi || !$conn_adl) {
-        SwimResponse::error('Database connection not available', 503);
+    $conn_swim = get_conn_swim();
+    if (!$conn_swim) {
+        SwimResponse::error('SWIM database connection not available', 503);
     }
 
-    $cdm = new CDMService($conn_tmi, $conn_adl);
+    $cdm = new CDMService($conn_swim);
 
     if ($airport) {
         // Airport-wide readiness summary
@@ -50,9 +50,9 @@ if ($method === 'GET') {
             'timestamp' => gmdate('c')
         ]);
     } elseif ($callsign) {
-        // Resolve flight_uid
-        $sql = "SELECT TOP 1 flight_uid FROM dbo.adl_flight_core WHERE callsign = ? AND is_active = 1 ORDER BY last_seen_utc DESC";
-        $stmt = sqlsrv_query($conn_adl, $sql, [$callsign]);
+        // Resolve flight_uid via swim_flights
+        $sql = "SELECT TOP 1 flight_uid FROM dbo.swim_flights WHERE callsign = ? AND is_active = 1 ORDER BY last_seen_utc DESC";
+        $stmt = sqlsrv_query($conn_swim, $sql, [$callsign]);
         $flight_uid = null;
         if ($stmt !== false) {
             $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -75,7 +75,7 @@ if ($method === 'GET') {
     }
 
 } elseif ($method === 'POST') {
-    // Update readiness — requires write access
+    // Update readiness — requires write access + TMI/ADL connections
     $auth = swim_init_auth(true, true);
 
     $data = swim_get_json_body();
@@ -97,22 +97,27 @@ if ($method === 'GET') {
         SwimResponse::error('Invalid state. Must be one of: ' . implode(', ', $valid_states), 400);
     }
 
+    $conn_swim = get_conn_swim();
     $conn_tmi = get_conn_tmi();
     $conn_adl = get_conn_adl();
-    if (!$conn_tmi || !$conn_adl) {
+    if (!$conn_swim || !$conn_tmi || !$conn_adl) {
         SwimResponse::error('Database connection not available', 503);
     }
 
-    // Resolve flight_uid
-    $sql = "SELECT TOP 1 flight_uid, cid FROM dbo.adl_flight_core WHERE callsign = ? AND is_active = 1 ORDER BY last_seen_utc DESC";
-    $stmt = sqlsrv_query($conn_adl, $sql, [$callsign]);
+    // Resolve flight_uid via swim_flights
+    $sql = "SELECT TOP 1 flight_uid, cid, fp_dept_icao, fp_dest_icao FROM dbo.swim_flights WHERE callsign = ? AND is_active = 1 ORDER BY last_seen_utc DESC";
+    $stmt = sqlsrv_query($conn_swim, $sql, [$callsign]);
     $flight_uid = null;
     $cid = null;
+    $dep = null;
+    $arr = null;
     if ($stmt !== false) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         if ($row) {
             $flight_uid = (int)$row['flight_uid'];
             $cid = $row['cid'] ? (int)$row['cid'] : null;
+            $dep = $row['fp_dept_icao'];
+            $arr = $row['fp_dest_icao'];
         }
         sqlsrv_free_stmt($stmt);
     }
@@ -121,21 +126,7 @@ if ($method === 'GET') {
         SwimResponse::error("No active flight found for callsign: $callsign", 404);
     }
 
-    // Get airport info
-    $sql = "SELECT fp_dept_icao, fp_dest_icao FROM dbo.adl_flight_plan WHERE flight_uid = ?";
-    $stmt = sqlsrv_query($conn_adl, $sql, [$flight_uid]);
-    $dep = null;
-    $arr = null;
-    if ($stmt !== false) {
-        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        if ($row) {
-            $dep = $row['fp_dept_icao'];
-            $arr = $row['fp_dest_icao'];
-        }
-        sqlsrv_free_stmt($stmt);
-    }
-
-    $cdm = new CDMService($conn_tmi, $conn_adl);
+    $cdm = new CDMService($conn_swim, $conn_tmi, $conn_adl);
     $readiness_id = $cdm->updateReadiness(
         $flight_uid, $callsign, $state, $source,
         $cid, $tobt_utc, $dep, $arr
@@ -152,9 +143,9 @@ if ($method === 'GET') {
     // If READY, compute milestones
     $milestones = null;
     if ($state === 'READY' && $dep) {
-        // Check for EDCT
-        $edct_sql = "SELECT edct_utc FROM dbo.adl_flight_times WHERE flight_uid = ?";
-        $edct_stmt = sqlsrv_query($conn_adl, $edct_sql, [$flight_uid]);
+        // Check for EDCT from swim_flights
+        $edct_sql = "SELECT edct_utc FROM dbo.swim_flights WHERE flight_uid = ?";
+        $edct_stmt = sqlsrv_query($conn_swim, $edct_sql, [$flight_uid]);
         $edct = null;
         if ($edct_stmt !== false) {
             $edct_row = sqlsrv_fetch_array($edct_stmt, SQLSRV_FETCH_ASSOC);

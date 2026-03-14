@@ -3,7 +3,7 @@
  * VATSWIM API v1 - TMI Entries Endpoint
  * 
  * Returns NTML log entries (MIT, MINIT, STOP, APREQ, CFR, TBM, DELAY, CONFIG).
- * Data from VATSIM_TMI database (tmi_entries table).
+ * Data from SWIM_API database (swim_tmi_entries mirror table).
  * 
  * GET /api/swim/v1/tmi/entries
  * GET /api/swim/v1/tmi/entries?type=MIT,STOP
@@ -15,11 +15,11 @@
 
 require_once __DIR__ . '/../auth.php';
 
-// TMI database connection
-global $conn_tmi;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
-if (!$conn_tmi) {
-    SwimResponse::error('TMI database connection not available', 503, 'SERVICE_UNAVAILABLE');
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 $auth = swim_init_auth(true, false);
@@ -76,8 +76,8 @@ if ($status) {
 $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
 // Count total
-$count_sql = "SELECT COUNT(*) as total FROM dbo.tmi_entries e $where_sql";
-$count_stmt = sqlsrv_query($conn_tmi, $count_sql, $params);
+$count_sql = "SELECT COUNT(*) as total FROM dbo.swim_tmi_entries e $where_sql";
+$count_stmt = sqlsrv_query($conn_swim, $count_sql, $params);
 if ($count_stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -117,7 +117,7 @@ $sql = "
         e.raw_input,
         e.created_at,
         e.created_by
-    FROM dbo.tmi_entries e
+    FROM dbo.swim_tmi_entries e
     $where_sql
     ORDER BY e.created_at DESC
     OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
@@ -126,7 +126,7 @@ $sql = "
 $params[] = $offset;
 $params[] = $per_page;
 
-$stmt = sqlsrv_query($conn_tmi, $sql, $params);
+$stmt = sqlsrv_query($conn_swim, $sql, $params);
 if ($stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -183,8 +183,8 @@ $response = [
     ],
     'timestamp' => gmdate('c'),
     'meta' => [
-        'source' => 'vatsim_tmi',
-        'table' => 'tmi_entries'
+        'source' => 'swim_api',
+        'table' => 'swim_tmi_entries'
     ]
 ];
 

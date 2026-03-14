@@ -3,8 +3,8 @@
  * VATSWIM API v1 - Unified TMI Measures Endpoint
  *
  * Returns ALL traffic management measures from both:
- *   - vATCSCC (USA): tmi_programs (GS/GDP/AFP), tmi_entries (MIT/MINIT)
- *   - External providers: tmi_flow_measures (ECFMP, NavCanada, VATPAC, etc.)
+ *   - vATCSCC (USA): swim_tmi_programs (GS/GDP/AFP), swim_tmi_entries (MIT/MINIT)
+ *   - External providers: swim_tmi_flow_measures (ECFMP, NavCanada, VATPAC, etc.)
  *
  * Unified TFMS/FIXM-aligned output format for global interoperability.
  *
@@ -19,10 +19,11 @@
 
 require_once __DIR__ . '/../auth.php';
 
-global $conn_tmi;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
-if (!$conn_tmi) {
-    SwimResponse::error('TMI database connection not available', 503, 'SERVICE_UNAVAILABLE');
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 $auth = swim_init_auth(false, false);
@@ -62,7 +63,7 @@ if ($source === 'usa') {
 }
 
 // ============================================================================
-// USA TMI Data (vATCSCC) - from tmi_programs
+// USA TMI Data (vATCSCC) - from swim_tmi_programs
 // ============================================================================
 if ($include_vatcscc) {
     $usa_where = [];
@@ -120,12 +121,12 @@ if ($include_vatcscc) {
             scope_centers,
             status,
             created_at
-        FROM dbo.tmi_programs
+        FROM dbo.swim_tmi_programs
         $usa_where_sql
         ORDER BY start_utc DESC
     ";
 
-    $usa_stmt = sqlsrv_query($conn_tmi, $usa_sql, $usa_params);
+    $usa_stmt = sqlsrv_query($conn_swim, $usa_sql, $usa_params);
     if ($usa_stmt !== false) {
         while ($row = sqlsrv_fetch_array($usa_stmt, SQLSRV_FETCH_ASSOC)) {
             // Normalize program type to TFMS standard
@@ -188,7 +189,7 @@ if ($include_vatcscc) {
                 'withdrawnAt' => null,
 
                 '_source' => 'usa',
-                '_table' => 'tmi_programs',
+                '_table' => 'swim_tmi_programs',
                 '_created_at' => formatDT($row['created_at'])
             ];
 
@@ -204,7 +205,7 @@ if ($include_vatcscc) {
         sqlsrv_free_stmt($usa_stmt);
     }
 
-    // Also include tmi_entries (MIT, MINIT) as measures
+    // Also include swim_tmi_entries (MIT, MINIT) as measures
     $entry_types = [];
     if ($measure_type) {
         $type_list = array_map('trim', explode(',', strtoupper($measure_type)));
@@ -255,12 +256,12 @@ if ($include_vatcscc) {
                 valid_until,
                 status,
                 created_at
-            FROM dbo.tmi_entries
+            FROM dbo.swim_tmi_entries
             $entry_where_sql
             ORDER BY created_at DESC
         ";
 
-        $entry_stmt = sqlsrv_query($conn_tmi, $entry_sql, $entry_params);
+        $entry_stmt = sqlsrv_query($conn_swim, $entry_sql, $entry_params);
         if ($entry_stmt !== false) {
             while ($row = sqlsrv_fetch_array($entry_stmt, SQLSRV_FETCH_ASSOC)) {
                 $entry_type = $row['entry_type'];
@@ -305,7 +306,7 @@ if ($include_vatcscc) {
                     'withdrawnAt' => null,
 
                     '_source' => 'usa',
-                    '_table' => 'tmi_entries',
+                    '_table' => 'swim_tmi_entries',
                     '_created_at' => formatDT($row['created_at'])
                 ];
 
@@ -384,14 +385,14 @@ if ($include_external) {
             m.status,
             m.withdrawn_at,
             m.created_at
-        FROM dbo.tmi_flow_measures m
-        JOIN dbo.tmi_flow_providers p ON m.provider_id = p.provider_id
-        LEFT JOIN dbo.tmi_flow_events e ON m.event_id = e.event_id
+        FROM dbo.swim_tmi_flow_measures m
+        JOIN dbo.swim_tmi_flow_providers p ON m.provider_id = p.provider_id
+        LEFT JOIN dbo.swim_tmi_flow_events e ON m.event_id = e.event_id
         $ext_where_sql
         ORDER BY m.start_utc DESC
     ";
 
-    $ext_stmt = sqlsrv_query($conn_tmi, $ext_sql, $ext_params);
+    $ext_stmt = sqlsrv_query($conn_swim, $ext_sql, $ext_params);
     if ($ext_stmt !== false) {
         while ($row = sqlsrv_fetch_array($ext_stmt, SQLSRV_FETCH_ASSOC)) {
             $filters = json_decode($row['filters_json'] ?? '{}', true) ?: [];
@@ -453,7 +454,7 @@ if ($include_external) {
                 'withdrawnAt' => formatDT($row['withdrawn_at']),
 
                 '_source' => 'external',
-                '_table' => 'tmi_flow_measures',
+                '_table' => 'swim_tmi_flow_measures',
                 '_created_at' => formatDT($row['created_at'])
             ];
 
@@ -499,13 +500,13 @@ $response = [
         'active_only' => $active_only
     ],
     'sources' => [
-        'usa' => ['tmi_programs', 'tmi_entries'],
-        'external' => ['tmi_flow_measures']
+        'usa' => ['swim_tmi_programs', 'swim_tmi_entries'],
+        'external' => ['swim_tmi_flow_measures']
     ]
 ];
 
 SwimResponse::success($response, [
-    'source' => 'vatsim_tmi',
+    'source' => 'swim_api',
     'unified' => true
 ]);
 

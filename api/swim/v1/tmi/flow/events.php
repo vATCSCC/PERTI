@@ -16,10 +16,11 @@
 
 require_once __DIR__ . '/../../auth.php';
 
-global $conn_tmi;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
-if (!$conn_tmi) {
-    SwimResponse::error('TMI database connection not available', 503, 'SERVICE_UNAVAILABLE');
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 $auth = swim_init_auth(false, false);
@@ -79,11 +80,11 @@ $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
 // Count total
 $count_sql = "
     SELECT COUNT(*) as total
-    FROM dbo.tmi_flow_events e
-    JOIN dbo.tmi_flow_providers p ON e.provider_id = p.provider_id
+    FROM dbo.swim_tmi_flow_events e
+    JOIN dbo.swim_tmi_flow_providers p ON e.provider_id = p.provider_id
     $where_sql
 ";
-$count_stmt = sqlsrv_query($conn_tmi, $count_sql, $params);
+$count_stmt = sqlsrv_query($conn_swim, $count_sql, $params);
 if ($count_stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -111,8 +112,8 @@ $sql = "
         e.participant_count,
         e.synced_at,
         e.created_at
-    FROM dbo.tmi_flow_events e
-    JOIN dbo.tmi_flow_providers p ON e.provider_id = p.provider_id
+    FROM dbo.swim_tmi_flow_events e
+    JOIN dbo.swim_tmi_flow_providers p ON e.provider_id = p.provider_id
     $where_sql
     ORDER BY e.start_utc DESC
     OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
@@ -121,7 +122,7 @@ $sql = "
 $params[] = $offset;
 $params[] = $per_page;
 
-$stmt = sqlsrv_query($conn_tmi, $sql, $params);
+$stmt = sqlsrv_query($conn_swim, $sql, $params);
 if ($stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -187,12 +188,12 @@ if ($include_participants && !empty($event_ids)) {
             arr_aerodrome,
             flight_uid,
             matched_at
-        FROM dbo.tmi_flow_event_participants
+        FROM dbo.swim_tmi_flow_event_participants
         WHERE event_id IN ($placeholders)
         ORDER BY event_id, dep_aerodrome, arr_aerodrome
     ";
 
-    $participants_stmt = sqlsrv_query($conn_tmi, $participants_sql, $event_ids);
+    $participants_stmt = sqlsrv_query($conn_swim, $participants_sql, $event_ids);
     if ($participants_stmt !== false) {
         $participants_by_event = [];
         while ($row = sqlsrv_fetch_array($participants_stmt, SQLSRV_FETCH_ASSOC)) {
@@ -255,8 +256,8 @@ $response = [
 ];
 
 SwimResponse::success($response, [
-    'source' => 'vatsim_tmi',
-    'table' => 'tmi_flow_events'
+    'source' => 'swim_api',
+    'table' => 'swim_tmi_flow_events'
 ]);
 
 function formatDT($dt) {

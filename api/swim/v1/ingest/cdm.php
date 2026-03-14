@@ -77,11 +77,13 @@ $not_found = 0;
 $readiness_updated = 0;
 $errors = [];
 
-// Get SWIM database connection
-global $conn_swim, $conn_tmi;
+// SWIM database connection (primary — all milestone writes)
+global $conn_swim;
 if (!$conn_swim) {
     SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
+// TMI connection lazy-loaded only if readiness_state updates are present
+$conn_tmi = null;
 
 // Valid CDM readiness states
 $valid_readiness_states = ['PLANNING', 'BOARDING', 'READY', 'TAXIING', 'CANCELLED'];
@@ -248,7 +250,10 @@ function processCdmUpdate($conn_swim, $conn_tmi, $record, $source, $valid_readin
         }
     }
 
-    // Update pilot readiness state in VATSIM_TMI if provided
+    // Update pilot readiness state in VATSIM_TMI if provided (lazy connect)
+    if (!empty($record['readiness_state'])) {
+        if ($conn_tmi === null) $conn_tmi = get_conn_tmi();
+    }
     if (!empty($record['readiness_state']) && $conn_tmi) {
         $state = strtoupper(trim($record['readiness_state']));
         if (in_array($state, $valid_readiness_states)) {

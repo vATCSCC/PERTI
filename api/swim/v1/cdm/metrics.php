@@ -9,10 +9,11 @@
  * GET /api/swim/v1/cdm/metrics?program_id=123
  *
  * Access: Requires valid SWIM API key
+ * SWIM-isolated: reads from SWIM_API mirror tables only
  *
  * @package PERTI
  * @subpackage CDM
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 require_once __DIR__ . '/../auth.php';
@@ -21,16 +22,15 @@ require_once __DIR__ . '/../../../../load/services/CDMService.php';
 SwimResponse::handlePreflight();
 $auth = swim_init_auth(true);
 
-$conn_tmi = get_conn_tmi();
-$conn_adl = get_conn_adl();
-if (!$conn_tmi || !$conn_adl) {
-    SwimResponse::error('Database connection not available', 503);
+$conn_swim = get_conn_swim();
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503);
 }
 
 $program_id = swim_get_param('program_id');
 if ($program_id) $program_id = (int)$program_id;
 
-$cdm = new CDMService($conn_tmi, $conn_adl);
+$cdm = new CDMService($conn_swim);
 $metrics = $cdm->getMetrics($program_id);
 
 SwimResponse::success([

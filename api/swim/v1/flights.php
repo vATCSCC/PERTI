@@ -21,14 +21,14 @@
 
 require_once __DIR__ . '/auth.php';
 
-// Get database connection - prefer SWIM_API, fall back to VATSIM_ADL during migration
-global $conn_swim, $conn_adl;
-$conn = $conn_swim ?: $conn_adl;
-$use_swim_db = ($conn_swim !== null);
+// SWIM_API database connection (SWIM-only, no ADL fallback)
+global $conn_swim;
 
-if (!$conn) {
-    SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
+
+$conn = $conn_swim;
 
 $auth = swim_init_auth(true, false);
 
@@ -103,324 +103,152 @@ if (SwimResponse::tryCachedFormatted('flights_list', $cache_params, $format, $fo
     exit; // Cache hit, response already sent
 }
 
-// Build query - different table aliases based on database
+// Build query against swim_flights (SWIM_API database)
 $where_clauses = [];
 $params = [];
+$table_name = 'dbo.swim_flights';
 
-if ($use_swim_db) {
-    // SWIM_API: Simple single-table queries against swim_flights
-    $table_alias = 'f';
-    $table_name = 'dbo.swim_flights';
-    
-    if ($status === 'active') {
-        $where_clauses[] = "f.is_active = 1";
-        // Note: Staleness handled by swim_sync.php marking flights inactive after 5 min
-        // Removed redundant datetime check that caused full table scans
-    } elseif ($status === 'completed') {
-        $where_clauses[] = "f.is_active = 0";
-    }
-    
-    if ($dept_icao) {
-        $dept_list = array_map('trim', explode(',', strtoupper($dept_icao)));
-        $placeholders = implode(',', array_fill(0, count($dept_list), '?'));
-        $where_clauses[] = "f.fp_dept_icao IN ($placeholders)";
-        $params = array_merge($params, $dept_list);
-    }
-    
-    if ($dest_icao) {
-        $dest_list = array_map('trim', explode(',', strtoupper($dest_icao)));
-        $placeholders = implode(',', array_fill(0, count($dest_list), '?'));
-        $where_clauses[] = "f.fp_dest_icao IN ($placeholders)";
-        $params = array_merge($params, $dest_list);
-    }
-    
-    if ($dest_artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($dest_artcc)));
-        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
-        $where_clauses[] = "f.fp_dest_artcc IN ($placeholders)";
-        $params = array_merge($params, $artcc_list);
-    }
-
-    if ($dep_artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($dep_artcc)));
-        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
-        $where_clauses[] = "f.fp_dept_artcc IN ($placeholders)";
-        $params = array_merge($params, $artcc_list);
-    }
-
-    if ($dest_tracon) {
-        $tracon_list = array_map('trim', explode(',', strtoupper($dest_tracon)));
-        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
-        $where_clauses[] = "f.fp_dest_tracon IN ($placeholders)";
-        $params = array_merge($params, $tracon_list);
-    }
-
-    if ($dep_tracon) {
-        $tracon_list = array_map('trim', explode(',', strtoupper($dep_tracon)));
-        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
-        $where_clauses[] = "f.fp_dept_tracon IN ($placeholders)";
-        $params = array_merge($params, $tracon_list);
-    }
-
-    if ($callsign) {
-        $callsign_pattern = strtoupper(str_replace('*', '%', $callsign));
-        $where_clauses[] = "f.callsign LIKE ?";
-        $params[] = $callsign_pattern;
-    }
-    
-    if ($tmi_controlled === 'true' || $tmi_controlled === '1') {
-        $where_clauses[] = "(f.gs_held = 1 OR f.ctl_type IS NOT NULL)";
-    }
-    
-    if ($phase) {
-        $phase_list = array_map('trim', explode(',', strtoupper($phase)));
-        $placeholders = implode(',', array_fill(0, count($phase_list), '?'));
-        $where_clauses[] = "f.phase IN ($placeholders)";
-        $params = array_merge($params, $phase_list);
-    }
-
-    // Current ARTCC filter (position-based, not flight plan destination)
-    if ($current_artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($current_artcc)));
-        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
-        $where_clauses[] = "f.current_artcc IN ($placeholders)";
-        $params = array_merge($params, $artcc_list);
-    }
-
-    // Current TRACON filter
-    if ($current_tracon) {
-        $tracon_list = array_map('trim', explode(',', strtoupper($current_tracon)));
-        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
-        $where_clauses[] = "f.current_tracon IN ($placeholders)";
-        $params = array_merge($params, $tracon_list);
-    }
-
-    // Current sector filter
-    if ($current_sector) {
-        $sector_list = array_map('trim', explode(',', strtoupper($current_sector)));
-        $placeholders = implode(',', array_fill(0, count($sector_list), '?'));
-        $where_clauses[] = "f.current_sector IN ($placeholders)";
-        $params = array_merge($params, $sector_list);
-    }
-
-    // Sector strata filter (based on sector classification, not altitude)
-    // Strata values: 'low', 'high', 'superhigh' - corresponds to sector boundary types
-    if ($strata) {
-        $strata_val = strtolower(trim($strata));
-        if (in_array($strata_val, ['low', 'high', 'superhigh'])) {
-            $where_clauses[] = "f.current_sector_strata = ?";
-            $params[] = $strata_val;
-        }
-    }
-
-    $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
-    
-    // Count total
-    $count_sql = "SELECT COUNT(*) as total FROM $table_name f $where_sql";
-    
-    // Main query - single table, no JOINs needed (FIXM columns only)
-    $sql = "
-        SELECT
-            f.flight_uid, f.flight_key, f.gufi, f.callsign, f.cid, f.flight_id,
-            f.lat, f.lon, f.altitude_ft, f.heading_deg, f.groundspeed_kts, f.vertical_rate_fpm,
-            f.fp_dept_icao, f.fp_dest_icao, f.fp_alt_icao, f.fp_altitude_ft, f.fp_tas_kts,
-            f.fp_route, f.fp_remarks, f.fp_rule,
-            f.fp_dept_artcc, f.fp_dest_artcc, f.fp_dept_tracon, f.fp_dest_tracon,
-            f.dfix, f.dp_name, f.afix, f.star_name, f.dep_runway, f.arr_runway,
-            f.phase, f.is_active, f.dist_to_dest_nm, f.dist_flown_nm, f.pct_complete,
-            f.gcd_nm, f.route_total_nm, f.current_artcc, f.current_tracon, f.current_zone,
-            f.first_seen_utc, f.last_seen_utc, f.logon_time_utc,
-            -- FIXM-aligned time columns
-            f.estimated_time_of_arrival, f.estimated_runway_arrival_time, f.estimated_off_block_time,
-            f.eta_source, f.eta_method, f.ete_minutes,
-            f.actual_off_block_time, f.actual_time_of_departure, f.actual_landing_time, f.actual_in_block_time,
-            f.controlled_time_of_departure, f.controlled_time_of_arrival, f.edct_utc,
-            -- SimTraffic FIXM-aligned times
-            f.taxi_start_time, f.departure_sequence_time, f.hold_short_time, f.runway_entry_time,
-            f.gs_held, f.gs_release_utc, f.ctl_type, f.ctl_prgm, f.ctl_element,
-            f.is_exempt, f.exempt_reason, f.slot_time_utc, f.slot_status,
-            f.program_id, f.slot_id, f.delay_minutes, f.delay_status,
-            f.aircraft_type, f.aircraft_icao, f.aircraft_faa, f.weight_class,
-            f.wake_category, f.engine_type, f.airline_icao, f.airline_name,
-            f.last_sync_utc,
-            -- TBFM Metering fields (FIXM-aligned)
-            f.sequence_number, f.scheduled_time_of_arrival, f.scheduled_time_of_departure,
-            f.metering_point, f.metering_time, f.metering_delay, f.metering_frozen,
-            f.metering_status, f.arrival_stream, f.undelayed_eta,
-            f.eta_vertex, f.sta_vertex, f.vertex_point,
-            f.metering_source, f.metering_updated_at
-        FROM $table_name f
-        $where_sql
-        ORDER BY f.callsign
-        OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
-    ";
-    
-} else {
-    // VATSIM_ADL fallback: JOIN across normalized tables (legacy mode during migration)
-    if ($status === 'active') {
-        $where_clauses[] = "c.is_active = 1";
-        // Staleness handled by sp_Adl_RefreshFromVatsim marking flights inactive after 5 min
-    } elseif ($status === 'completed') {
-        $where_clauses[] = "c.is_active = 0";
-    }
-    
-    if ($dept_icao) {
-        $dept_list = array_map('trim', explode(',', strtoupper($dept_icao)));
-        $placeholders = implode(',', array_fill(0, count($dept_list), '?'));
-        $where_clauses[] = "fp.fp_dept_icao IN ($placeholders)";
-        $params = array_merge($params, $dept_list);
-    }
-    
-    if ($dest_icao) {
-        $dest_list = array_map('trim', explode(',', strtoupper($dest_icao)));
-        $placeholders = implode(',', array_fill(0, count($dest_list), '?'));
-        $where_clauses[] = "fp.fp_dest_icao IN ($placeholders)";
-        $params = array_merge($params, $dest_list);
-    }
-    
-    if ($dest_artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($dest_artcc)));
-        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
-        $where_clauses[] = "fp.fp_dest_artcc IN ($placeholders)";
-        $params = array_merge($params, $artcc_list);
-    }
-
-    if ($dep_artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($dep_artcc)));
-        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
-        $where_clauses[] = "fp.fp_dept_artcc IN ($placeholders)";
-        $params = array_merge($params, $artcc_list);
-    }
-
-    if ($dest_tracon) {
-        $tracon_list = array_map('trim', explode(',', strtoupper($dest_tracon)));
-        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
-        $where_clauses[] = "fp.fp_dest_tracon IN ($placeholders)";
-        $params = array_merge($params, $tracon_list);
-    }
-
-    if ($dep_tracon) {
-        $tracon_list = array_map('trim', explode(',', strtoupper($dep_tracon)));
-        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
-        $where_clauses[] = "fp.fp_dept_tracon IN ($placeholders)";
-        $params = array_merge($params, $tracon_list);
-    }
-
-    if ($callsign) {
-        $callsign_pattern = strtoupper(str_replace('*', '%', $callsign));
-        $where_clauses[] = "c.callsign LIKE ?";
-        $params[] = $callsign_pattern;
-    }
-
-    if ($tmi_controlled === 'true' || $tmi_controlled === '1') {
-        $where_clauses[] = "(tmi.gs_held = 1 OR tmi.ctl_type IS NOT NULL)";
-    }
-
-    if ($phase) {
-        $phase_list = array_map('trim', explode(',', strtoupper($phase)));
-        $placeholders = implode(',', array_fill(0, count($phase_list), '?'));
-        $where_clauses[] = "c.phase IN ($placeholders)";
-        $params = array_merge($params, $phase_list);
-    }
-
-    // Current ARTCC filter (position-based)
-    if ($current_artcc) {
-        $artcc_list = array_map('trim', explode(',', strtoupper($current_artcc)));
-        $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
-        $where_clauses[] = "c.current_artcc IN ($placeholders)";
-        $params = array_merge($params, $artcc_list);
-    }
-
-    // Current TRACON filter
-    if ($current_tracon) {
-        $tracon_list = array_map('trim', explode(',', strtoupper($current_tracon)));
-        $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
-        $where_clauses[] = "c.current_tracon IN ($placeholders)";
-        $params = array_merge($params, $tracon_list);
-    }
-
-    // Current sector filter
-    if ($current_sector) {
-        $sector_list = array_map('trim', explode(',', strtoupper($current_sector)));
-        $placeholders = implode(',', array_fill(0, count($sector_list), '?'));
-        $where_clauses[] = "c.current_sector IN ($placeholders)";
-        $params = array_merge($params, $sector_list);
-    }
-
-    // Altitude strata filter
-    if ($strata) {
-        switch (strtolower($strata)) {
-            case 'low':
-                $where_clauses[] = "pos.altitude_ft < 18000";
-                break;
-            case 'high':
-                $where_clauses[] = "pos.altitude_ft >= 18000 AND pos.altitude_ft < 41000";
-                break;
-            case 'superhigh':
-                $where_clauses[] = "pos.altitude_ft >= 41000";
-                break;
-        }
-    }
-
-    $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
-
-    // Count total (include pos table if strata filter is used)
-    $count_sql = "
-        SELECT COUNT(*) as total
-        FROM dbo.adl_flight_core c
-        LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-        LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
-        " . ($strata ? "LEFT JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid" : "") . "
-        $where_sql
-    ";
-    
-    // Main query using normalized ADL tables (legacy)
-    $sql = "
-        SELECT 
-            c.flight_uid, c.flight_key, c.callsign, c.cid, c.flight_id,
-            c.phase, c.is_active,
-            c.first_seen_utc, c.last_seen_utc, c.logon_time_utc,
-            c.current_artcc, c.current_tracon, c.current_zone,
-            pos.lat, pos.lon, pos.altitude_ft, pos.heading_deg, pos.groundspeed_kts,
-            pos.true_airspeed_kts, pos.vertical_rate_fpm,
-            pos.dist_to_dest_nm, pos.dist_flown_nm, pos.pct_complete,
-            fp.fp_dept_icao, fp.fp_dest_icao, fp.fp_alt_icao,
-            fp.fp_altitude_ft, fp.fp_tas_kts, fp.fp_route, fp.fp_remarks, fp.fp_rule,
-            fp.fp_dept_time_z, fp.fp_enroute_minutes,
-            fp.fp_dept_artcc, fp.fp_dest_artcc, fp.fp_dept_tracon, fp.fp_dest_tracon,
-            fp.dfix, fp.dp_name, fp.afix, fp.star_name,
-            fp.gcd_nm, fp.aircraft_type, fp.route_total_nm,
-            fp.arr_runway, fp.dep_runway,
-            t.eta_utc AS estimated_time_of_arrival,
-            t.eta_runway_utc AS estimated_runway_arrival_time,
-            t.etd_utc AS estimated_off_block_time,
-            t.off_utc AS actual_time_of_departure,
-            t.out_utc AS actual_off_block_time,
-            t.on_utc AS actual_landing_time,
-            t.in_utc AS actual_in_block_time,
-            t.ctd_utc AS controlled_time_of_departure,
-            t.cta_utc AS controlled_time_of_arrival,
-            t.edct_utc,
-            t.ete_minutes,
-            t.eta_source, t.eta_method,
-            tmi.ctl_type, tmi.ctl_prgm, tmi.ctl_element,
-            tmi.is_exempt, tmi.exempt_reason,
-            tmi.slot_time_utc, tmi.delay_minutes, tmi.delay_status,
-            tmi.gs_held, tmi.gs_release_utc,
-            tmi.program_id, tmi.slot_id,
-            ac.aircraft_icao, ac.aircraft_faa, ac.weight_class, ac.wake_category,
-            ac.engine_type, ac.airline_icao, ac.airline_name
-        FROM dbo.adl_flight_core c
-        LEFT JOIN dbo.adl_flight_position pos ON pos.flight_uid = c.flight_uid
-        LEFT JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-        LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
-        LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
-        LEFT JOIN dbo.adl_flight_aircraft ac ON ac.flight_uid = c.flight_uid
-        $where_sql
-        ORDER BY c.callsign
-        OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
-    ";
+if ($status === 'active') {
+    $where_clauses[] = "f.is_active = 1";
+    // Note: Staleness handled by swim_sync.php marking flights inactive after 5 min
+} elseif ($status === 'completed') {
+    $where_clauses[] = "f.is_active = 0";
 }
+
+if ($dept_icao) {
+    $dept_list = array_map('trim', explode(',', strtoupper($dept_icao)));
+    $placeholders = implode(',', array_fill(0, count($dept_list), '?'));
+    $where_clauses[] = "f.fp_dept_icao IN ($placeholders)";
+    $params = array_merge($params, $dept_list);
+}
+
+if ($dest_icao) {
+    $dest_list = array_map('trim', explode(',', strtoupper($dest_icao)));
+    $placeholders = implode(',', array_fill(0, count($dest_list), '?'));
+    $where_clauses[] = "f.fp_dest_icao IN ($placeholders)";
+    $params = array_merge($params, $dest_list);
+}
+
+if ($dest_artcc) {
+    $artcc_list = array_map('trim', explode(',', strtoupper($dest_artcc)));
+    $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+    $where_clauses[] = "f.fp_dest_artcc IN ($placeholders)";
+    $params = array_merge($params, $artcc_list);
+}
+
+if ($dep_artcc) {
+    $artcc_list = array_map('trim', explode(',', strtoupper($dep_artcc)));
+    $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+    $where_clauses[] = "f.fp_dept_artcc IN ($placeholders)";
+    $params = array_merge($params, $artcc_list);
+}
+
+if ($dest_tracon) {
+    $tracon_list = array_map('trim', explode(',', strtoupper($dest_tracon)));
+    $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+    $where_clauses[] = "f.fp_dest_tracon IN ($placeholders)";
+    $params = array_merge($params, $tracon_list);
+}
+
+if ($dep_tracon) {
+    $tracon_list = array_map('trim', explode(',', strtoupper($dep_tracon)));
+    $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+    $where_clauses[] = "f.fp_dept_tracon IN ($placeholders)";
+    $params = array_merge($params, $tracon_list);
+}
+
+if ($callsign) {
+    $callsign_pattern = strtoupper(str_replace('*', '%', $callsign));
+    $where_clauses[] = "f.callsign LIKE ?";
+    $params[] = $callsign_pattern;
+}
+
+if ($tmi_controlled === 'true' || $tmi_controlled === '1') {
+    $where_clauses[] = "(f.gs_held = 1 OR f.ctl_type IS NOT NULL)";
+}
+
+if ($phase) {
+    $phase_list = array_map('trim', explode(',', strtoupper($phase)));
+    $placeholders = implode(',', array_fill(0, count($phase_list), '?'));
+    $where_clauses[] = "f.phase IN ($placeholders)";
+    $params = array_merge($params, $phase_list);
+}
+
+// Current ARTCC filter (position-based, not flight plan destination)
+if ($current_artcc) {
+    $artcc_list = array_map('trim', explode(',', strtoupper($current_artcc)));
+    $placeholders = implode(',', array_fill(0, count($artcc_list), '?'));
+    $where_clauses[] = "f.current_artcc IN ($placeholders)";
+    $params = array_merge($params, $artcc_list);
+}
+
+// Current TRACON filter
+if ($current_tracon) {
+    $tracon_list = array_map('trim', explode(',', strtoupper($current_tracon)));
+    $placeholders = implode(',', array_fill(0, count($tracon_list), '?'));
+    $where_clauses[] = "f.current_tracon IN ($placeholders)";
+    $params = array_merge($params, $tracon_list);
+}
+
+// Current sector filter
+if ($current_sector) {
+    $sector_list = array_map('trim', explode(',', strtoupper($current_sector)));
+    $placeholders = implode(',', array_fill(0, count($sector_list), '?'));
+    $where_clauses[] = "f.current_sector IN ($placeholders)";
+    $params = array_merge($params, $sector_list);
+}
+
+// Sector strata filter (based on sector classification, not altitude)
+// Strata values: 'low', 'high', 'superhigh' - corresponds to sector boundary types
+if ($strata) {
+    $strata_val = strtolower(trim($strata));
+    if (in_array($strata_val, ['low', 'high', 'superhigh'])) {
+        $where_clauses[] = "f.current_sector_strata = ?";
+        $params[] = $strata_val;
+    }
+}
+
+$where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
+
+// Count total
+$count_sql = "SELECT COUNT(*) as total FROM $table_name f $where_sql";
+
+// Main query - single table, no JOINs needed (FIXM columns only)
+$sql = "
+    SELECT
+        f.flight_uid, f.flight_key, f.gufi, f.callsign, f.cid, f.flight_id,
+        f.lat, f.lon, f.altitude_ft, f.heading_deg, f.groundspeed_kts, f.vertical_rate_fpm,
+        f.fp_dept_icao, f.fp_dest_icao, f.fp_alt_icao, f.fp_altitude_ft, f.fp_tas_kts,
+        f.fp_route, f.fp_remarks, f.fp_rule,
+        f.fp_dept_artcc, f.fp_dest_artcc, f.fp_dept_tracon, f.fp_dest_tracon,
+        f.dfix, f.dp_name, f.afix, f.star_name, f.dep_runway, f.arr_runway,
+        f.phase, f.is_active, f.dist_to_dest_nm, f.dist_flown_nm, f.pct_complete,
+        f.gcd_nm, f.route_total_nm, f.current_artcc, f.current_tracon, f.current_zone,
+        f.first_seen_utc, f.last_seen_utc, f.logon_time_utc,
+        -- FIXM-aligned time columns
+        f.estimated_time_of_arrival, f.estimated_runway_arrival_time, f.estimated_off_block_time,
+        f.eta_source, f.eta_method, f.ete_minutes,
+        f.actual_off_block_time, f.actual_time_of_departure, f.actual_landing_time, f.actual_in_block_time,
+        f.controlled_time_of_departure, f.controlled_time_of_arrival, f.edct_utc,
+        -- SimTraffic FIXM-aligned times
+        f.taxi_start_time, f.departure_sequence_time, f.hold_short_time, f.runway_entry_time,
+        f.gs_held, f.gs_release_utc, f.ctl_type, f.ctl_prgm, f.ctl_element,
+        f.is_exempt, f.exempt_reason, f.slot_time_utc, f.slot_status,
+        f.program_id, f.slot_id, f.delay_minutes, f.delay_status,
+        f.aircraft_type, f.aircraft_icao, f.aircraft_faa, f.weight_class,
+        f.wake_category, f.engine_type, f.airline_icao, f.airline_name,
+        f.last_sync_utc,
+        -- TBFM Metering fields (FIXM-aligned)
+        f.sequence_number, f.scheduled_time_of_arrival, f.scheduled_time_of_departure,
+        f.metering_point, f.metering_time, f.metering_delay, f.metering_frozen,
+        f.metering_status, f.arrival_stream, f.undelayed_eta,
+        f.eta_vertex, f.sta_vertex, f.vertex_point,
+        f.metering_source, f.metering_updated_at
+    FROM $table_name f
+    $where_sql
+    ORDER BY f.callsign
+    OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
+";
 
 // Execute count query
 $count_stmt = sqlsrv_query($conn, $count_sql, $params);
@@ -444,7 +272,7 @@ if ($stmt === false) {
 $flights = [];
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     // FIXM format only after transition
-    $flights[] = formatFlightRecordFIXM($row, $use_swim_db);
+    $flights[] = formatFlightRecordFIXM($row, true);
 }
 sqlsrv_free_stmt($stmt);
 

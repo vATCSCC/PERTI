@@ -4750,6 +4750,8 @@
     "loading": "Analyzing route...",
     "error": "Analysis failed",
     "recalculate": "Recalculate",
+    "depTime": "ETD (Z)",
+    "depTimeTitle": "Departure time UTC (HH:MM), blank = now",
     "facilityTraversal": "Facility Traversal",
     "fixAnalysis": "Fix Analysis",
     "col": {
@@ -4759,14 +4761,17 @@
       "time": "Time",
       "segment": "Segment",
       "fix": "Fix",
-      "cumDist": "Cum Dist (nm)",
-      "cumTime": "Cum Time",
+      "cumDist": "Elapsed (nm)",
+      "cumTime": "Elapsed",
       "segDist": "Seg (nm)",
       "segTime": "Seg Time",
       "remDist": "Rem (nm)",
       "remTime": "Rem Time",
       "speed": "Speed",
-      "wind": "Wind"
+      "wind": "Wind",
+      "entryUtc": "Entry (Z)",
+      "exitUtc": "Exit (Z)",
+      "etaUtc": "ETA (Z)"
     },
     "facilityType": {
       "artcc": "ARTCC",
@@ -4780,7 +4785,9 @@
       "totalDist": "Distance",
       "totalTime": "Est. Time",
       "facilities": "Facilities",
-      "fixes": "Fixes"
+      "fixes": "Fixes",
+      "etd": "ETD",
+      "eta": "ETA"
     },
     "export": {
       "title": "Export",

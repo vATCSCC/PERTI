@@ -1,6 +1,6 @@
 # Architecture
 
-> **Version:** v18 (Hibernated) | **Last Updated:** March 11, 2026
+> **Version:** v19 | **Last Updated:** March 14, 2026
 
 PERTI is a multi-tier web application that processes real-time VATSIM flight data and provides traffic flow management tools. The system uses 7 databases across 3 database engines (MySQL, Azure SQL, PostgreSQL/PostGIS) and runs on Azure App Service with PHP 8.2.
 
@@ -71,6 +71,8 @@ Daemons that fetch and ingest external data:
 | `atis_daemon.py` | Python | 15s | ATIS text with runway/weather parsing |
 | `parse_queue_daemon.php` | PHP | 5s | Route expansion queue processing |
 | `import_weather_alerts.php` | PHP | 5min | SIGMET/AIRMET updates |
+| `swim_tmi_sync_daemon.php` | PHP | 5min | TMI/CDM/flow data sync to SWIM_API |
+| `refdata_sync_daemon.php` | PHP | Daily | Reference data sync (airports, CDRs, taxi times) |
 
 ### Database Architecture (7 Databases, 3 Engines)
 
@@ -425,6 +427,21 @@ This skips the initialization of `$conn_adl`, `$conn_swim`, `$conn_tmi`, `$conn_
 
 The `$conn_*` globals remain `null` when skipped, so any code checking them sees falsy values. Endpoints that use Azure SQL connections (`$conn_adl`, `$conn_tmi`, `$conn_swim`, `$conn_ref`, `$conn_gis`) must NOT use this flag.
 
+### PERTI_SWIM_ONLY Connection Optimization
+
+_Added in v19._
+
+SWIM API endpoints define `PERTI_SWIM_ONLY` before including `connect.php` to skip all non-SWIM database connections:
+
+```php
+define('PERTI_SWIM_ONLY', true);
+require_once __DIR__ . '/../../../load/connect.php';
+```
+
+This skips `$conn_pdo`, `$conn_sqli` (MySQL), `$conn_adl`, `$conn_tmi`, `$conn_ref`, and `$conn_gis` — only `$conn_swim` is eagerly connected. Saves approximately **500-1000ms per SWIM API request**.
+
+Applied automatically to all SWIM endpoints via `api/swim/v1/auth.php`, which defines `PERTI_SWIM_ONLY` before loading `connect.php`. Endpoints that need TMI or ADL connections for write operations (e.g., `cdm/readiness.php` POST) use the lazy-loading getters `get_conn_tmi()` / `get_conn_adl()` on demand.
+
 ### Frontend API Parallelization
 
 Page-load API calls are batched using `Promise.all()` to eliminate sequential request waterfalls:
@@ -436,6 +453,76 @@ Page-load API calls are batched using `Promise.all()` to eliminate sequential re
 | Review page | 3 API calls | `review.js` |
 
 This reduces perceived load time significantly on pages that fetch data from many independent endpoints.
+
+---
+
+## SWIM Data Isolation
+
+_Added in v19._
+
+All SWIM API endpoints query exclusively from the `SWIM_API` database. Internal databases (`VATSIM_TMI`, `VATSIM_ADL`, `VATSIM_REF`, `perti_site`) are never accessed directly by API request handlers. Data flows into SWIM_API via sync daemons:
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    INTERNAL DATABASES                                 │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐    │
+│  │ VATSIM_ADL │  │ VATSIM_TMI │  │ VATSIM_REF │  │   MySQL    │    │
+│  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘    │
+│        │               │               │               │            │
+│  ┌─────▼──────────────▼───────────────▼───────────────▼──────┐     │
+│  │              SYNC DAEMONS (app-level watermark sync)        │     │
+│  │  swim_sync_daemon (2min) │ swim_tmi_sync_daemon (5min)     │     │
+│  │  refdata_sync_daemon (daily 06:00Z)                         │     │
+│  └─────────────────────────┬──────────────────────────────────┘     │
+│                             │                                        │
+│                             ▼                                        │
+│             ┌──────────────────────────────────┐                    │
+│             │   SWIM_API (Azure SQL Basic)      │                    │
+│             │ swim_flights (219+ cols)          │                    │
+│             │ swim_tmi_* (10 mirror tables)     │                    │
+│             │ swim_cdm_* (4 mirror tables)      │                    │
+│             │ swim_airports, swim_airport_*     │                    │
+│             │ swim_change_feed (event log)      │                    │
+│             └──────────────┬───────────────────┘                    │
+│                             │                                        │
+└─────────────────────────────┼────────────────────────────────────────┘
+                              │
+                              ▼
+              ┌──────────────────────────────┐
+              │      SWIM API ENDPOINTS       │
+              │  flights, positions, flight   │
+              │  tmi/*, cdm/*, reference/*    │
+              │  playbook/*, routes/*, keys/* │
+              │  WebSocket (port 8090)        │
+              └──────────────────────────────┘
+```
+
+### Sync Daemons
+
+| Daemon | Script | Interval | Source | Targets |
+|--------|--------|----------|--------|---------|
+| Flight Sync | `swim_sync_daemon.php` | 2 min | VATSIM_ADL | `swim_flights` (row-hash skip for DTU optimization) |
+| TMI Sync | `swim_tmi_sync_daemon.php` | 5 min | VATSIM_TMI + VATSIM_ADL | `swim_ntml`, `swim_tmi_programs`, `swim_tmi_entries`, `swim_tmi_advisories`, `swim_tmi_reroutes`, `swim_tmi_flow_*`, `swim_cdm_*`, `swim_tmi_flight_control` |
+| Reference Sync | `refdata_sync_daemon.php` | Daily 06:00Z | VATSIM_ADL + MySQL | `swim_airports`, `swim_airport_taxi_reference`, `swim_playbook_route_throughput`, `swim_coded_departure_routes` |
+
+### Mirror Tables in SWIM_API
+
+| Category | Tables | Source DB |
+|----------|--------|-----------|
+| TMI Programs | `swim_ntml`, `swim_tmi_programs`, `swim_tmi_entries`, `swim_tmi_advisories` | VATSIM_TMI + VATSIM_ADL |
+| TMI Reroutes | `swim_tmi_reroutes`, `swim_tmi_reroute_routes`, `swim_tmi_reroute_flights`, `swim_tmi_reroute_compliance_log` | VATSIM_TMI |
+| TMI Flow | `swim_tmi_flow_providers`, `swim_tmi_flow_events`, `swim_tmi_flow_event_participants`, `swim_tmi_flow_measures` | VATSIM_TMI |
+| CDM | `swim_cdm_messages`, `swim_cdm_pilot_readiness`, `swim_cdm_compliance_live`, `swim_cdm_airport_status` | VATSIM_TMI |
+| Reference | `swim_airports`, `swim_airport_taxi_reference`, `swim_airport_taxi_reference_detail`, `swim_playbook_route_throughput` | VATSIM_ADL + MySQL |
+| Infrastructure | `swim_change_feed`, `swim_sync_watermarks`, `swim_sync_state` | Internal |
+
+### Change Feed
+
+The `swim_change_feed` table provides a monotonic event log for multi-consumer replay. Consumers track their position via `swim_sync_watermarks`. This enables WebSocket fan-out and future external delta streaming without direct database polling.
+
+### Write Operations
+
+CDM write operations (readiness updates, message queuing) still write directly to `VATSIM_TMI` via lazy-loaded connections. The reverse sync daemon (`swim_adl_reverse_sync_daemon.php`) propagates changes back to `VATSIM_ADL`.
 
 ---
 
@@ -457,9 +544,9 @@ The largest cost driver is the VATSIM_ADL Hyperscale Serverless database, which 
 
 ## Hibernation Mode
 
-> **Status:** ACTIVE since March 9, 2026
+> **Status:** ACTIVE since March 13, 2026 (SWIM exempt)
 
-During hibernation, the system operates in reduced capacity:
+During hibernation, the system operates in reduced capacity. SWIM pages and API endpoints remain operational during hibernation. All SWIM sync daemons continue running.
 
 | Component | Normal | Hibernated |
 |-----------|--------|------------|
@@ -468,9 +555,11 @@ During hibernation, the system operates in reduced capacity:
 | Boundary Detection | Active | Suspended |
 | Crossing Calculation | Active | Suspended |
 | Waypoint ETA | Active | Suspended |
-| SWIM Sync | Active (2min) | Suspended |
+| SWIM Sync | Active (2min) | Active (SWIM exempt) |
+| TMI Sync | Active (5min) | Active (SWIM exempt) |
 | Web Pages | Full access | Redirect to /hibernation |
-| SWIM API | Active | Returns 503 |
+| SWIM Pages | Full access | Active (SWIM exempt) |
+| SWIM API | Active | Active (SWIM exempt) |
 | Azure SQL (ADL) | Hyperscale 3-16 vCores | Min 1, Max 4 |
 | MySQL | D2ds_v4 | B1ms (downscaled) |
 | PostgreSQL/PostGIS | B2s | B1ms (downscaled) |

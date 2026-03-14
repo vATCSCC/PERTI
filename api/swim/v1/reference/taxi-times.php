@@ -71,10 +71,10 @@ if (SwimResponse::tryCachedFormatted('reference', $cache_params, $format, $forma
     exit;
 }
 
-// Get ADL database connection
-$conn_adl = get_conn_adl();
-if (!$conn_adl) {
-    SwimResponse::error('ADL database connection not available', 503, 'SERVICE_UNAVAILABLE');
+// SWIM-only: query swim_airport_taxi_reference in SWIM_API
+$conn_swim_api = get_conn_swim();
+if (!$conn_swim_api) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 // Methodology description included in every response
@@ -88,20 +88,20 @@ $methodology = [
 
 if ($airport !== null) {
     // Single airport - include detail breakdown
-    handleSingleAirport($conn_adl, $airport, $confidence_filter, $use_fixm, $format, $cache_params, $format_options, $methodology);
+    handleSingleAirport($conn_swim_api, $airport, $confidence_filter, $use_fixm, $format, $cache_params, $format_options, $methodology);
 } else {
     // List all airports
-    handleAirportList($conn_adl, $confidence_filter, $min_samples, $use_fixm, $format, $cache_params, $format_options, $methodology);
+    handleAirportList($conn_swim_api, $confidence_filter, $min_samples, $use_fixm, $format, $cache_params, $format_options, $methodology);
 }
 
 /**
  * Handle single airport request with dimensional breakdown
  */
 function handleSingleAirport($conn, $airport, $confidence_filter, $use_fixm, $format, $cache_params, $format_options, $methodology) {
-    // Query main taxi reference
+    // Query main taxi reference from SWIM mirror table
     $sql = "SELECT airport_icao, unimpeded_taxi_sec, sample_size, confidence,
                    p05_taxi_sec, p15_taxi_sec, last_refreshed_utc
-            FROM dbo.airport_taxi_reference
+            FROM dbo.swim_airport_taxi_reference
             WHERE airport_icao = ?";
     $params = [$airport];
 
@@ -133,9 +133,9 @@ function handleSingleAirport($conn, $airport, $confidence_filter, $use_fixm, $fo
     // Rename to API field names
     $airport_data = formatAirportRow($row, $use_fixm);
 
-    // Query detail breakdown
+    // Query detail breakdown from SWIM mirror table
     $detail_sql = "SELECT dimension, dimension_value, unimpeded_taxi_sec, sample_size
-                   FROM dbo.airport_taxi_reference_detail
+                   FROM dbo.swim_airport_taxi_reference_detail
                    WHERE airport_icao = ?
                    ORDER BY dimension, sample_size DESC";
     $detail_stmt = sqlsrv_query($conn, $detail_sql, [$airport]);
@@ -179,7 +179,7 @@ function handleAirportList($conn, $confidence_filter, $min_samples, $use_fixm, $
 
     $sql = "SELECT airport_icao, unimpeded_taxi_sec, sample_size, confidence,
                    p05_taxi_sec, p15_taxi_sec, last_refreshed_utc
-            FROM dbo.airport_taxi_reference
+            FROM dbo.swim_airport_taxi_reference
             {$where_sql}
             ORDER BY airport_icao";
 

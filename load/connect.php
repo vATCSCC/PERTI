@@ -42,49 +42,62 @@ if (!function_exists('adl_sql_error_message')) {
 }
 
 // -------------------------------------------------------------------------
-// Primary Website Database (MySQL)
+// PERTI_SWIM_ONLY: Skip MySQL connections entirely
 // -------------------------------------------------------------------------
-
-// Credentials
-$sql_user   = SQL_USERNAME;
-$sql_passwd = SQL_PASSWORD;
-$sql_host   = SQL_HOST;
-$sql_dbname = SQL_DATABASE;
-
-// Establish Connection (PDO)
+// SWIM API endpoints define PERTI_SWIM_ONLY before including connect.php.
+// This skips MySQL (PDO + MySQLi) connections and only eagerly connects
+// to SWIM_API. Saves ~500-1000ms per request.
+// Lazy-load getters (get_conn_tmi(), get_conn_adl(), etc.) remain available
+// for write endpoints that need them.
+// -------------------------------------------------------------------------
 $conn_pdo = null;
-try {
-    $conn_pdo = new PDO("mysql:host={$sql_host};dbname={$sql_dbname};charset=utf8mb4", $sql_user, $sql_passwd);
-    $conn_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (Exception $ex) {
-    error_log('PDO connection failed: ' . $ex->getMessage());
-    $conn_pdo = null;
-}
+$conn_sqli = null;
 
-// Establish Connection (MySQLi)
-$conn_sqli = mysqli_connect($sql_host, $sql_user, $sql_passwd, $sql_dbname);
+if (!defined('PERTI_SWIM_ONLY')) {
+    // -------------------------------------------------------------------------
+    // Primary Website Database (MySQL)
+    // -------------------------------------------------------------------------
 
-if (!$conn_sqli) {
-    error_log('MySQLi connection failed: ' . mysqli_connect_error());
-    $conn_sqli = null;
-} else {
-    mysqli_set_charset($conn_sqli, 'utf8mb4');
-}
+    // Credentials
+    $sql_user   = SQL_USERNAME;
+    $sql_passwd = SQL_PASSWORD;
+    $sql_host   = SQL_HOST;
+    $sql_dbname = SQL_DATABASE;
 
-// If both primary database connections failed, return 503 Service Unavailable
-if ($conn_pdo === null && $conn_sqli === null) {
-    http_response_code(503);
-    error_log('CRITICAL: All primary database connections failed');
-    if (php_sapi_name() !== 'cli') {
-        header('Content-Type: text/html; charset=utf-8');
-        header('Retry-After: 30');
-        echo '<!DOCTYPE html><html><head><title>Service Temporarily Unavailable</title></head>';
-        echo '<body><h1>Service Temporarily Unavailable</h1>';
-        echo '<p>We are experiencing technical difficulties. Please try again in a few moments.</p>';
-        echo '</body></html>';
-        exit;
+    // Establish Connection (PDO)
+    try {
+        $conn_pdo = new PDO("mysql:host={$sql_host};dbname={$sql_dbname};charset=utf8mb4", $sql_user, $sql_passwd);
+        $conn_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    } catch (Exception $ex) {
+        error_log('PDO connection failed: ' . $ex->getMessage());
+        $conn_pdo = null;
     }
-}
+
+    // Establish Connection (MySQLi)
+    $conn_sqli = mysqli_connect($sql_host, $sql_user, $sql_passwd, $sql_dbname);
+
+    if (!$conn_sqli) {
+        error_log('MySQLi connection failed: ' . mysqli_connect_error());
+        $conn_sqli = null;
+    } else {
+        mysqli_set_charset($conn_sqli, 'utf8mb4');
+    }
+
+    // If both primary database connections failed, return 503 Service Unavailable
+    if ($conn_pdo === null && $conn_sqli === null) {
+        http_response_code(503);
+        error_log('CRITICAL: All primary database connections failed');
+        if (php_sapi_name() !== 'cli') {
+            header('Content-Type: text/html; charset=utf-8');
+            header('Retry-After: 30');
+            echo '<!DOCTYPE html><html><head><title>Service Temporarily Unavailable</title></head>';
+            echo '<body><h1>Service Temporarily Unavailable</h1>';
+            echo '<p>We are experiencing technical difficulties. Please try again in a few moments.</p>';
+            echo '</body></html>';
+            exit;
+        }
+    }
+} // end if !PERTI_SWIM_ONLY
 
 // -------------------------------------------------------------------------
 // Azure SQL Databases - LAZY LOADING
@@ -370,7 +383,12 @@ $conn_gis = null;
 // PERTI_MYSQL_ONLY before including connect.php to skip Azure connections.
 // Pages that only need MySQL + ADL can define PERTI_ADL_ONLY to skip
 // SWIM/TMI/REF connections (~1.5s saved per request).
-if (!defined('PERTI_MYSQL_ONLY')) {
+// Pages that only need SWIM can define PERTI_SWIM_ONLY to skip MySQL
+// AND all other Azure connections (~500-1000ms saved per request).
+if (defined('PERTI_SWIM_ONLY')) {
+    // Only eagerly connect to SWIM_API — all other connections via lazy getters
+    $conn_swim = get_conn_swim();
+} elseif (!defined('PERTI_MYSQL_ONLY')) {
     $conn_adl = get_conn_adl();
     if (!defined('PERTI_ADL_ONLY')) {
         $conn_swim = get_conn_swim();

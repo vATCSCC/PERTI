@@ -1,9 +1,9 @@
 # VATSWIM (System Wide Information Management)
 # Design Document v1.3
 
-**Document Status:** PHASE 0 COMPLETE  
-**Version:** 1.3  
-**Date:** 2026-01-16  
+**Document Status:** PHASE 4 COMPLETE (Data Isolation)
+**Version:** 2.0
+**Date:** 2026-03-14  
 **Author:** vATCSCC Development Team  
 **Classification:** Public  
 
@@ -47,7 +47,7 @@ SWIM provides:
 - **Real-Time Distribution**: Sub-second updates via WebSocket/Event streaming
 - **Authoritative Data Model**: Clear ownership rules for each data domain
 - **Open API**: Enabling innovation across the VATSIM ecosystem
-- **Cost-Optimized Infrastructure**: Dedicated cheap database isolates API load from internal systems
+- **Cost-Optimized Infrastructure**: Full data isolation — all API endpoints query only the dedicated SWIM_API database; sync daemons keep data fresh from internal databases
 
 ---
 
@@ -118,6 +118,8 @@ SWIM provides:
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
+
+> **v2.0 Update (March 2026):** Full data isolation achieved. All SWIM API endpoints now query exclusively from `SWIM_API`. The database contains 25+ mirror tables synced from VATSIM_TMI, VATSIM_ADL, VATSIM_REF, and MySQL by three sync daemons (`swim_sync_daemon.php` every 2min, `swim_tmi_sync_daemon.php` every 5min, `refdata_sync_daemon.php` daily). The `sp_Swim_BulkUpsert` procedure uses row-hash comparison to skip unchanged rows, reducing write amplification on the 5 DTU Basic tier. A `swim_change_feed` table provides monotonic event replay for multi-consumer streaming.
 
 ### 3.2 Key Design Principle: Database Isolation
 

@@ -11,12 +11,12 @@
 
 require_once __DIR__ . '/../auth.php';
 
-// TMI database connection
-global $conn_tmi, $conn_adl, $conn_swim;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
 $auth = swim_init_auth(false, false);  // No auth required for index
 
-// Get active counts from VATSIM_TMI if available
+// Get active counts from SWIM_API mirror tables
 $counts = [
     'active_entries' => 0,
     'active_programs' => 0,
@@ -27,62 +27,64 @@ $counts = [
     'active_flow_measures' => 0
 ];
 
-if ($conn_tmi) {
+if ($conn_swim) {
     // Count active entries
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_entries";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_swim_active_entries";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_entries'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Count active programs
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_programs";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_swim_active_programs";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_programs'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Count active advisories
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_advisories";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_swim_active_advisories";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_advisories'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Count active reroutes
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_reroutes";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_swim_active_reroutes";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_reroutes'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Count active public routes
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_public_routes";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_swim_active_public_routes";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_public_routes'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
 
     // Count active flow events (external providers)
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_flow_events";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_swim_active_flow_events";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_flow_events'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
 
     // Count active flow measures (external providers)
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_flow_measures";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_swim_active_flow_measures";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_flow_measures'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
+} else {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 $response = [
@@ -162,8 +164,7 @@ $response = [
     ],
     'active_counts' => $counts,
     'data_sources' => [
-        'primary' => 'VATSIM_TMI',
-        'fallback' => 'VATSIM_ADL (legacy)',
+        'primary' => 'SWIM_API',
         'flight_data' => 'SWIM_API'
     ],
     'timestamp' => gmdate('c')

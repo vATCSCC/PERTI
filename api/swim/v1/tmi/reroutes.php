@@ -3,7 +3,7 @@
  * VATSWIM API v1 - TMI Reroutes Endpoint
  *
  * Returns active reroute definitions and their flight assignments.
- * Data from VATSIM_TMI database (tmi_reroutes, tmi_reroute_flights tables).
+ * Data from SWIM_API database (swim_tmi_reroutes, swim_tmi_reroute_flights mirror tables).
  *
  * GET /api/swim/v1/tmi/reroutes                      - List active reroutes
  * GET /api/swim/v1/tmi/reroutes?active_only=false    - List all reroutes
@@ -18,11 +18,11 @@
 
 require_once __DIR__ . '/../auth.php';
 
-// TMI database connection
-global $conn_tmi;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
-if (!$conn_tmi) {
-    SwimResponse::error('TMI database connection not available', 503, 'SERVICE_UNAVAILABLE');
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 $auth = swim_init_auth(false, false);  // Public read access
@@ -43,9 +43,9 @@ $offset = ($page - 1) * $per_page;
 
 // Single reroute by ID
 if ($id) {
-    $sql = "SELECT * FROM dbo.tmi_reroutes WHERE reroute_id = ?";
+    $sql = "SELECT * FROM dbo.swim_tmi_reroutes WHERE reroute_id = ?";
 
-    $stmt = sqlsrv_query($conn_tmi, $sql, [$id]);
+    $stmt = sqlsrv_query($conn_swim, $sql, [$id]);
     if ($stmt === false) {
         $errors = sqlsrv_errors();
         SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -58,19 +58,19 @@ if ($id) {
         SwimResponse::error('Reroute not found', 404, 'NOT_FOUND');
     }
 
-    $reroute = formatReroute($row, $conn_tmi, $include_advisory);
+    $reroute = formatReroute($row, $conn_swim, $include_advisory);
 
     // Include assigned flights if requested
     if ($include_flights) {
-        $reroute['flights'] = getRerouteFlights($conn_tmi, $id);
+        $reroute['flights'] = getRerouteFlights($conn_swim, $id);
     }
 
     // Include compliance history if requested
     if ($include_compliance) {
-        $reroute['compliance_history'] = getRerouteCompliance($conn_tmi, $id);
+        $reroute['compliance_history'] = getRerouteCompliance($conn_swim, $id);
     }
 
-    SwimResponse::success(['reroute' => $reroute], ['source' => 'vatsim_tmi']);
+    SwimResponse::success(['reroute' => $reroute], ['source' => 'swim_api']);
     exit;
 }
 
@@ -104,8 +104,8 @@ if ($status) {
 $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
 // Count total
-$count_sql = "SELECT COUNT(*) as total FROM dbo.tmi_reroutes $where_sql";
-$count_stmt = sqlsrv_query($conn_tmi, $count_sql, $params);
+$count_sql = "SELECT COUNT(*) as total FROM dbo.swim_tmi_reroutes $where_sql";
+$count_stmt = sqlsrv_query($conn_swim, $count_sql, $params);
 if ($count_stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -116,7 +116,7 @@ sqlsrv_free_stmt($count_stmt);
 // Main query
 $sql = "
     SELECT *
-    FROM dbo.tmi_reroutes
+    FROM dbo.swim_tmi_reroutes
     $where_sql
     ORDER BY
         CASE WHEN status = 2 THEN 0 WHEN status = 3 THEN 1 WHEN status = 1 THEN 2 ELSE 3 END,
@@ -127,7 +127,7 @@ $sql = "
 $params[] = $offset;
 $params[] = $per_page;
 
-$stmt = sqlsrv_query($conn_tmi, $sql, $params);
+$stmt = sqlsrv_query($conn_swim, $sql, $params);
 if ($stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -137,7 +137,7 @@ $reroutes = [];
 $stats = ['by_status' => []];
 
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    $reroute = formatReroute($row, $conn_tmi, $include_advisory);
+    $reroute = formatReroute($row, $conn_swim, $include_advisory);
     $reroutes[] = $reroute;
 
     // Update stats
@@ -164,8 +164,8 @@ $response = [
     ],
     'timestamp' => gmdate('c'),
     'meta' => [
-        'source' => 'vatsim_tmi',
-        'table' => 'tmi_reroutes'
+        'source' => 'swim_api',
+        'table' => 'swim_tmi_reroutes'
     ]
 ];
 
@@ -318,7 +318,7 @@ function getRerouteFlights($conn, $rerouteId) {
             route_distance_original_nm, route_distance_assigned_nm, route_delta_nm,
             ete_original_min, ete_assigned_min, ete_delta_min,
             manual_status, override_by, override_reason
-        FROM dbo.tmi_reroute_flights
+        FROM dbo.swim_tmi_reroute_flights
         WHERE reroute_id = ?
         ORDER BY assigned_utc DESC
     ";
@@ -397,8 +397,8 @@ function getRerouteCompliance($conn, $rerouteId) {
             l.lat, l.lon, l.altitude,
             l.route_string, l.fixes_crossed,
             f.callsign, f.flight_key
-        FROM dbo.tmi_reroute_compliance_log l
-        INNER JOIN dbo.tmi_reroute_flights f ON l.reroute_flight_id = f.flight_id
+        FROM dbo.swim_tmi_reroute_compliance_log l
+        INNER JOIN dbo.swim_tmi_reroute_flights f ON l.reroute_flight_id = f.flight_id
         WHERE f.reroute_id = ?
         ORDER BY l.snapshot_utc DESC
     ";
@@ -460,7 +460,7 @@ function formatDT($dt) {
  */
 function getRerouteRoutes($conn, $rerouteId) {
     // Check if table exists before querying
-    $checkSql = "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'tmi_reroute_routes'";
+    $checkSql = "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'swim_tmi_reroute_routes'";
     $checkStmt = sqlsrv_query($conn, $checkSql);
     if ($checkStmt === false) return [];
 
@@ -471,7 +471,7 @@ function getRerouteRoutes($conn, $rerouteId) {
 
     $sql = "
         SELECT origin, destination, route_string, sort_order, origin_filter, dest_filter
-        FROM dbo.tmi_reroute_routes
+        FROM dbo.swim_tmi_reroute_routes
         WHERE reroute_id = ?
         ORDER BY sort_order
     ";

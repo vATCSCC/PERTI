@@ -12,11 +12,12 @@
 
 require_once __DIR__ . '/../../auth.php';
 
-global $conn_tmi;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
 $auth = swim_init_auth(false, false);  // No auth required for index
 
-// Get active counts if TMI connection available
+// Get active counts from SWIM_API mirror tables
 $counts = [
     'active_providers' => 0,
     'active_events' => 0,
@@ -24,39 +25,41 @@ $counts = [
     'total_participants' => 0
 ];
 
-if ($conn_tmi) {
+if ($conn_swim) {
     // Count active providers
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.tmi_flow_providers WHERE is_active = 1";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.swim_tmi_flow_providers WHERE is_active = 1";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_providers'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
 
     // Count active events
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_flow_events";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_swim_active_flow_events";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_events'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
 
     // Count active measures
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_tmi_active_flow_measures";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.vw_swim_active_flow_measures";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['active_measures'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
 
     // Count participants in active events
-    $sql = "SELECT COUNT(*) as cnt FROM dbo.tmi_flow_event_participants p
-            JOIN dbo.vw_tmi_active_flow_events e ON p.event_id = e.event_id";
-    $stmt = sqlsrv_query($conn_tmi, $sql);
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.swim_tmi_flow_event_participants p
+            JOIN dbo.vw_swim_active_flow_events e ON p.event_id = e.event_id";
+    $stmt = sqlsrv_query($conn_swim, $sql);
     if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         $counts['total_participants'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
+} else {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 $response = [
@@ -127,10 +130,10 @@ $response = [
         'icao' => 'ICAO Doc 4444 ATFM procedures'
     ],
     'data_sources' => [
-        'primary' => 'VATSIM_TMI',
-        'tables' => ['tmi_flow_providers', 'tmi_flow_events', 'tmi_flow_event_participants', 'tmi_flow_measures']
+        'primary' => 'SWIM_API',
+        'tables' => ['swim_tmi_flow_providers', 'swim_tmi_flow_events', 'swim_tmi_flow_event_participants', 'swim_tmi_flow_measures']
     ],
     'timestamp' => gmdate('c')
 ];
 
-SwimResponse::success($response, ['source' => 'vatsim_tmi']);
+SwimResponse::success($response, ['source' => 'swim_api']);

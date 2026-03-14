@@ -2,7 +2,7 @@
 /**
  * VATSWIM API v1 - Coded Departure Routes (CDR) Endpoint
  *
- * Read-only access to coded departure routes from the VATSIM_REF database.
+ * Read-only access to coded departure routes from the SWIM_API database.
  * CDRs define pre-coordinated routes between airport pairs, used for
  * traffic management rerouting and playbook operations.
  *
@@ -45,35 +45,13 @@ if ($method !== 'GET') {
 // Public endpoint -- auth is optional
 swim_init_auth(false, false);
 
-// Prefer SWIM_API (isolated external database), fallback to VATSIM_REF
+// SWIM-only: query swim_coded_departure_routes in SWIM_API
 $conn_swim_api = get_conn_swim();
-$conn_ref = null;
-$swim_table = 'dbo.swim_coded_departure_routes';
-$ref_table  = 'dbo.coded_departure_routes';
-$using_swim = false;
-
-if ($conn_swim_api) {
-    // Verify SWIM table is populated
-    $checkStmt = sqlsrv_query($conn_swim_api, "SELECT TOP 1 1 FROM $swim_table");
-    if ($checkStmt !== false && sqlsrv_fetch($checkStmt)) {
-        $conn_ref = $conn_swim_api;
-        $using_swim = true;
-        sqlsrv_free_stmt($checkStmt);
-    } else {
-        if ($checkStmt !== false) sqlsrv_free_stmt($checkStmt);
-    }
+if (!$conn_swim_api) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
-if (!$conn_ref) {
-    // Fallback to VATSIM_REF
-    $conn_ref = get_conn_ref();
-}
-
-if (!$conn_ref) {
-    SwimResponse::error('Reference database connection not available', 503, 'SERVICE_UNAVAILABLE');
-}
-
-$cdr_table = $using_swim ? $swim_table : $ref_table;
+$cdr_table = 'dbo.swim_coded_departure_routes';
 
 // Parse query parameters
 $origin    = swim_get_param('origin');
@@ -141,7 +119,7 @@ $where_sql = !empty($where_clauses) ? 'WHERE ' . implode(' AND ', $where_clauses
 
 // Count total matching rows
 $count_sql = "SELECT COUNT(*) AS total FROM $cdr_table $where_sql";
-$count_stmt = sqlsrv_query($conn_ref, $count_sql, $params);
+$count_stmt = sqlsrv_query($conn_swim_api, $count_sql, $params);
 if ($count_stmt === false) {
     $err = sqlsrv_errors();
     SwimResponse::error('Database error (count): ' . ($err[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -161,7 +139,7 @@ $data_sql = "
 ";
 
 $data_params = array_merge($params, [$offset, $per_page]);
-$stmt = sqlsrv_query($conn_ref, $data_sql, $data_params);
+$stmt = sqlsrv_query($conn_swim_api, $data_sql, $data_params);
 if ($stmt === false) {
     $err = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($err[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -193,7 +171,7 @@ SwimResponse::json([
     ],
     'metadata'   => [
         'generated' => gmdate('c'),
-        'source'    => $using_swim ? 'swim_api.swim_coded_departure_routes' : 'vatsim_ref.coded_departure_routes'
+        'source'    => 'swim_api.swim_coded_departure_routes'
     ]
 ], 200);
 

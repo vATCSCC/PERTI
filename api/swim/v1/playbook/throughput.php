@@ -20,9 +20,10 @@ $auth = swim_init_auth(true);
 $key_info = $auth->getKeyInfo();
 SwimResponse::setTier($key_info['tier'] ?? 'public');
 
-global $conn_sqli;
-if (!$conn_sqli) {
-    SwimResponse::error('MySQL database connection not available', 503, 'SERVICE_UNAVAILABLE');
+// SWIM-only: query swim_playbook_route_throughput in SWIM_API
+$conn_swim_api = get_conn_swim();
+if (!$conn_swim_api) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -38,7 +39,7 @@ if ($method === 'GET') {
 }
 
 function handleGetThroughput(): void {
-    global $conn_sqli;
+    global $conn_swim_api;
 
     $play_id  = swim_get_int_param('play_id', 0, 0, 999999);
     $route_id = swim_get_int_param('route_id', 0, 0, 999999);
@@ -52,37 +53,39 @@ function handleGetThroughput(): void {
                    t.period_start, t.period_end, t.metadata_json,
                    t.updated_by, t.updated_at, t.created_at,
                    r.route_string, r.origin, r.dest
-            FROM playbook_route_throughput t
-            JOIN playbook_routes r ON t.route_id = r.route_id";
+            FROM dbo.swim_playbook_route_throughput t
+            JOIN dbo.swim_playbook_routes r ON t.route_id = r.route_id";
 
     $where = [];
     $params = [];
-    $types = '';
 
     if ($play_id > 0) {
         $where[] = "t.play_id = ?";
         $params[] = $play_id;
-        $types .= 'i';
     }
 
     if ($route_id > 0) {
         $where[] = "t.route_id = ?";
         $params[] = $route_id;
-        $types .= 'i';
     }
 
     $sql .= ' WHERE ' . implode(' AND ', $where);
     $sql .= ' ORDER BY r.sort_order ASC';
 
-    $stmt = $conn_sqli->prepare($sql);
-    if ($types !== '') {
-        $stmt->bind_param($types, ...$params);
+    $stmt = sqlsrv_query($conn_swim_api, $sql, $params);
+    if ($stmt === false) {
+        $err = sqlsrv_errors();
+        SwimResponse::error('Database error: ' . ($err[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
     }
-    $stmt->execute();
-    $result = $stmt->get_result();
 
     $rows = [];
-    while ($row = $result->fetch_assoc()) {
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        // Format DateTime objects from sqlsrv
+        foreach ($row as $key => $val) {
+            if ($val instanceof \DateTime) {
+                $row[$key] = $val->format('Y-m-d H:i:s');
+            }
+        }
         if ($row['metadata_json']) {
             $row['metadata'] = json_decode($row['metadata_json'], true);
         } else {
@@ -91,7 +94,7 @@ function handleGetThroughput(): void {
         unset($row['metadata_json']);
         $rows[] = $row;
     }
-    $stmt->close();
+    sqlsrv_free_stmt($stmt);
 
     SwimResponse::success([
         'count'      => count($rows),
@@ -100,7 +103,7 @@ function handleGetThroughput(): void {
 }
 
 function handlePostThroughput(): void {
-    global $conn_sqli;
+    global $conn_swim_api;
 
     $raw = file_get_contents('php://input');
     $body = json_decode($raw, true);
@@ -116,14 +119,15 @@ function handlePostThroughput(): void {
     }
 
     // Verify route exists and belongs to play
-    $check = $conn_sqli->prepare("SELECT route_id FROM playbook_routes WHERE route_id = ? AND play_id = ?");
-    $check->bind_param('ii', $route_id, $play_id);
-    $check->execute();
-    if ($check->get_result()->num_rows === 0) {
-        $check->close();
+    $check = sqlsrv_query($conn_swim_api,
+        "SELECT route_id FROM dbo.swim_playbook_routes WHERE route_id = ? AND play_id = ?",
+        [$route_id, $play_id]
+    );
+    if ($check === false || !sqlsrv_fetch($check)) {
+        if ($check !== false) sqlsrv_free_stmt($check);
         SwimResponse::error('Route not found or does not belong to specified play', 404, 'NOT_FOUND');
     }
-    $check->close();
+    sqlsrv_free_stmt($check);
 
     $tp = $body['throughput'] ?? $body;
     $source        = trim($body['source'] ?? 'CTP');
@@ -136,34 +140,44 @@ function handlePostThroughput(): void {
     $metadata      = isset($tp['metadata']) ? json_encode($tp['metadata'], JSON_UNESCAPED_UNICODE) : null;
     $updated_by    = $body['updated_by'] ?? 'swim_api';
 
-    // Upsert: INSERT ON DUPLICATE KEY UPDATE
-    $sql = "INSERT INTO playbook_route_throughput
+    // MERGE upsert (SQL Server equivalent of INSERT ON DUPLICATE KEY UPDATE)
+    $sql = "MERGE dbo.swim_playbook_route_throughput AS t
+            USING (SELECT ? AS route_id, ? AS play_id) AS s
+            ON t.route_id = s.route_id AND t.play_id = s.play_id
+            WHEN MATCHED THEN UPDATE SET
+                source        = ?,
+                planned_count = ?,
+                slot_count    = ?,
+                peak_rate_hr  = ?,
+                avg_rate_hr   = ?,
+                period_start  = ?,
+                period_end    = ?,
+                metadata_json = ?,
+                updated_by    = ?,
+                updated_at    = SYSUTCDATETIME()
+            WHEN NOT MATCHED THEN INSERT
                 (route_id, play_id, source, planned_count, slot_count, peak_rate_hr, avg_rate_hr,
-                 period_start, period_end, metadata_json, updated_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                planned_count = VALUES(planned_count),
-                slot_count    = VALUES(slot_count),
-                peak_rate_hr  = VALUES(peak_rate_hr),
-                avg_rate_hr   = VALUES(avg_rate_hr),
-                period_start  = VALUES(period_start),
-                period_end    = VALUES(period_end),
-                metadata_json = VALUES(metadata_json),
-                updated_by    = VALUES(updated_by)";
+                 period_start, period_end, metadata_json, updated_by, created_at, updated_at)
+            VALUES
+                (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSUTCDATETIME(), SYSUTCDATETIME());";
 
-    $stmt = $conn_sqli->prepare($sql);
-    $stmt->bind_param(
-        'iisiiidssss',
-        $route_id, $play_id, $source,
-        $planned_count, $slot_count, $peak_rate_hr, $avg_rate_hr,
+    $params = [
+        // USING clause
+        $route_id, $play_id,
+        // WHEN MATCHED SET values
+        $source, $planned_count, $slot_count, $peak_rate_hr, $avg_rate_hr,
+        $period_start, $period_end, $metadata, $updated_by,
+        // WHEN NOT MATCHED INSERT values
+        $route_id, $play_id, $source, $planned_count, $slot_count, $peak_rate_hr, $avg_rate_hr,
         $period_start, $period_end, $metadata, $updated_by
-    );
-    $result = $stmt->execute();
-    $stmt->close();
+    ];
 
-    if (!$result) {
-        SwimResponse::error('Failed to store throughput data', 500, 'DB_ERROR');
+    $stmt = sqlsrv_query($conn_swim_api, $sql, $params);
+    if ($stmt === false) {
+        $err = sqlsrv_errors();
+        SwimResponse::error('Failed to store throughput data: ' . ($err[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
     }
+    sqlsrv_free_stmt($stmt);
 
     SwimResponse::success([
         'message'  => 'Throughput data stored',

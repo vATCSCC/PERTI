@@ -3,7 +3,7 @@
  * VATSWIM API v1 - TMI Public Routes Endpoint
  *
  * CRUD operations for public route display data.
- * Data from VATSIM_TMI database (tmi_public_routes table).
+ * Data from SWIM_API database (swim_tmi_public_routes mirror table).
  *
  * GET    /api/swim/v1/tmi/routes              - List routes (public)
  * GET    /api/swim/v1/tmi/routes?format=geojson
@@ -23,11 +23,11 @@ require_once __DIR__ . '/../../../../api/tmi/AdvisoryNumber.php';
 // Discord coordination
 define('DISCORD_COORDINATION_CHANNEL', '1466013550450577491');
 
-// TMI database connection
-global $conn_tmi;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
-if (!$conn_tmi) {
-    SwimResponse::error('TMI database connection not available', 503, 'SERVICE_UNAVAILABLE');
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 // Handle CORS preflight
@@ -76,7 +76,7 @@ switch ($method) {
 // GET - List Routes (Public Access)
 // ============================================================================
 function handleGetList() {
-    global $conn_tmi;
+    global $conn_swim;
 
     $auth = swim_init_auth(false, false);  // Public access allowed
 
@@ -134,12 +134,12 @@ function handleGetList() {
             r.route_geojson, r.created_by, r.created_at, r.updated_at,
             r.coordination_status, r.coordination_proposal_id,
             r.discord_message_id, r.discord_channel_id, r.discord_posted_at
-        FROM dbo.tmi_public_routes r
+        FROM dbo.swim_tmi_public_routes r
         $where_sql
         ORDER BY r.status DESC, r.valid_start_utc DESC
     ";
 
-    $stmt = sqlsrv_query($conn_tmi, $sql, $params);
+    $stmt = sqlsrv_query($conn_swim, $sql, $params);
     if ($stmt === false) {
         $errors = sqlsrv_errors();
         SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -152,7 +152,7 @@ function handleGetList() {
     sqlsrv_free_stmt($stmt);
 
     // Also fetch active REROUTE advisories from tmi_reroutes + tmi_reroute_routes
-    $reroutes = getActiveReroutesForDisplay($conn_tmi, $filter);
+    $reroutes = getActiveReroutesForDisplay($conn_swim, $filter);
 
     // Merge reroutes with public routes
     $allRoutes = array_merge($routes, $reroutes);
@@ -202,7 +202,7 @@ function getActiveReroutesForDisplay($conn, $filter = 'active') {
             rr.advisory_text, rr.color,
             rr.created_by, rr.created_at, rr.updated_at,
             rr.discord_message_id, rr.discord_channel_id
-        FROM dbo.tmi_reroutes rr
+        FROM dbo.swim_tmi_reroutes rr
         $where_sql
         ORDER BY rr.start_utc DESC
     ";
@@ -230,7 +230,7 @@ function getActiveReroutesForDisplay($conn, $filter = 'active') {
         SELECT
             route_id, reroute_id, origin, destination, route_string,
             sort_order, origin_filter, dest_filter, created_at
-        FROM dbo.tmi_reroute_routes
+        FROM dbo.swim_tmi_reroute_routes
         WHERE reroute_id IN ($placeholders)
         ORDER BY reroute_id, sort_order
     ";
@@ -384,12 +384,12 @@ function formatRerouteAsPublicRoute($routeRow, $parentReroute) {
 // GET - Single Route
 // ============================================================================
 function handleGetSingle($id) {
-    global $conn_tmi;
+    global $conn_swim;
 
     $auth = swim_init_auth(false, false);
 
-    $sql = "SELECT * FROM dbo.tmi_public_routes WHERE route_id = ?";
-    $stmt = sqlsrv_query($conn_tmi, $sql, [$id]);
+    $sql = "SELECT * FROM dbo.swim_tmi_public_routes WHERE route_id = ?";
+    $stmt = sqlsrv_query($conn_swim, $sql, [$id]);
 
     if ($stmt === false) {
         SwimResponse::error('Database error', 500, 'DB_ERROR');
@@ -414,7 +414,7 @@ function handleGetSingle($id) {
 // POST - Create Route (Auth Required)
 // ============================================================================
 function handleCreate() {
-    global $conn_tmi;
+    global $conn_swim;
 
     $auth = swim_init_auth(true, true);  // Require auth and write permission
 
@@ -435,7 +435,7 @@ function handleCreate() {
     // Uses centralized AdvisoryNumber class
     $clientAdvNumber = $body['adv_number'] ?? null;
 
-    $advNumHelper = new AdvisoryNumber($conn_tmi, 'sqlsrv');
+    $advNumHelper = new AdvisoryNumber($conn_swim, 'sqlsrv');
     $advNumber = $advNumHelper->reserve();
 
     // Extract the 3-digit number from the server-assigned advisory number
@@ -492,7 +492,7 @@ function handleCreate() {
     $initialCoordinationStatus = (count($facilities) > 1) ? 'PENDING' : null;
 
     // Build insert
-    $sql = "INSERT INTO dbo.tmi_public_routes (
+    $sql = "INSERT INTO dbo.swim_tmi_public_routes (
                 status, name, adv_number, route_string, advisory_text,
                 color, line_weight, line_style,
                 valid_start_utc, valid_end_utc,
@@ -522,7 +522,7 @@ function handleCreate() {
         $initialCoordinationStatus  // coordination_status: PENDING for multi-facility, NULL otherwise
     ];
 
-    $stmt = sqlsrv_query($conn_tmi, $sql, $params);
+    $stmt = sqlsrv_query($conn_swim, $sql, $params);
     if ($stmt === false) {
         $errors = sqlsrv_errors();
         SwimResponse::error('Failed to create route: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -538,8 +538,8 @@ function handleCreate() {
     }
 
     // Fetch created route
-    $sql = "SELECT * FROM dbo.tmi_public_routes WHERE route_id = ?";
-    $stmt = sqlsrv_query($conn_tmi, $sql, [$newId]);
+    $sql = "SELECT * FROM dbo.swim_tmi_public_routes WHERE route_id = ?";
+    $stmt = sqlsrv_query($conn_swim, $sql, [$newId]);
     $created = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);
 
@@ -564,7 +564,7 @@ function handleCreate() {
         ];
 
         $coordinationResult = createRouteCoordinationProposal(
-            $conn_tmi,
+            $conn_swim,
             $newId,
             $routeData,
             $facilities,
@@ -573,11 +573,11 @@ function handleCreate() {
 
         // Link the proposal back to the route
         if ($coordinationResult && $coordinationResult['proposal_id']) {
-            $updateSql = "UPDATE dbo.tmi_public_routes SET coordination_proposal_id = ? WHERE route_id = ?";
-            sqlsrv_query($conn_tmi, $updateSql, [$coordinationResult['proposal_id'], $newId]);
+            $updateSql = "UPDATE dbo.swim_tmi_public_routes SET coordination_proposal_id = ? WHERE route_id = ?";
+            sqlsrv_query($conn_swim, $updateSql, [$coordinationResult['proposal_id'], $newId]);
 
             // Re-fetch the route to get updated coordination fields
-            $stmt = sqlsrv_query($conn_tmi, "SELECT * FROM dbo.tmi_public_routes WHERE route_id = ?", [$newId]);
+            $stmt = sqlsrv_query($conn_swim, "SELECT * FROM dbo.swim_tmi_public_routes WHERE route_id = ?", [$newId]);
             $created = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
             sqlsrv_free_stmt($stmt);
         }
@@ -593,7 +593,7 @@ function handleCreate() {
     // Only publish directly to Discord if not going through coordination
     $discordResult = null;
     if ($directPublish && !empty($advisoryText)) {
-        $discordResult = publishRouteToDiscord($conn_tmi, $newId, $advisoryText, $body['name'] ?? 'Route');
+        $discordResult = publishRouteToDiscord($conn_swim, $newId, $advisoryText, $body['name'] ?? 'Route');
     }
 
     http_response_code(201);
@@ -617,7 +617,7 @@ function handleCreate() {
 // PUT - Update Route (Auth Required)
 // ============================================================================
 function handleUpdate($id) {
-    global $conn_tmi;
+    global $conn_swim;
 
     $auth = swim_init_auth(true, true);
 
@@ -633,7 +633,7 @@ function handleUpdate($id) {
     }
 
     // Check route exists in public_routes
-    $check = sqlsrv_query($conn_tmi, "SELECT route_id FROM dbo.tmi_public_routes WHERE route_id = ?", [$id]);
+    $check = sqlsrv_query($conn_swim, "SELECT route_id FROM dbo.swim_tmi_public_routes WHERE route_id = ?", [$id]);
     if (!$check || !sqlsrv_fetch_array($check, SQLSRV_FETCH_ASSOC)) {
         SwimResponse::error('Route not found', 404, 'NOT_FOUND');
     }
@@ -669,8 +669,8 @@ function handleUpdate($id) {
 
     $params[] = $id;  // WHERE clause param
 
-    $sql = "UPDATE dbo.tmi_public_routes SET " . implode(', ', $updates) . " WHERE route_id = ?";
-    $stmt = sqlsrv_query($conn_tmi, $sql, $params);
+    $sql = "UPDATE dbo.swim_tmi_public_routes SET " . implode(', ', $updates) . " WHERE route_id = ?";
+    $stmt = sqlsrv_query($conn_swim, $sql, $params);
 
     if ($stmt === false) {
         $errors = sqlsrv_errors();
@@ -679,8 +679,8 @@ function handleUpdate($id) {
     sqlsrv_free_stmt($stmt);
 
     // Fetch and return updated route
-    $sql = "SELECT * FROM dbo.tmi_public_routes WHERE route_id = ?";
-    $stmt = sqlsrv_query($conn_tmi, $sql, [$id]);
+    $sql = "SELECT * FROM dbo.swim_tmi_public_routes WHERE route_id = ?";
+    $stmt = sqlsrv_query($conn_swim, $sql, [$id]);
     $updated = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);
 
@@ -691,7 +691,7 @@ function handleUpdate($id) {
 // PUT - Update Reroute Route (handles RR* IDs)
 // ============================================================================
 function handleUpdateReroute($id, $body) {
-    global $conn_tmi;
+    global $conn_swim;
 
     // Parse the reroute route ID format: "RR<route_id>"
     $routeId = (int) substr($id, 2);
@@ -701,10 +701,10 @@ function handleUpdateReroute($id, $body) {
 
     // Find the parent reroute for this route
     $sql = "SELECT rr.reroute_id, rr.name, rr.color
-            FROM dbo.tmi_reroute_routes r
-            INNER JOIN dbo.tmi_reroutes rr ON r.reroute_id = rr.reroute_id
+            FROM dbo.swim_tmi_reroute_routes r
+            INNER JOIN dbo.swim_tmi_reroutes rr ON r.reroute_id = rr.reroute_id
             WHERE r.route_id = ?";
-    $check = sqlsrv_query($conn_tmi, $sql, [$routeId]);
+    $check = sqlsrv_query($conn_swim, $sql, [$routeId]);
     if (!$check) {
         SwimResponse::error('Database error', 500, 'DB_ERROR');
     }
@@ -740,8 +740,8 @@ function handleUpdateReroute($id, $body) {
 
     if (count($updates) > 1) {  // More than just updated_at
         $params[] = $rerouteId;
-        $sql = "UPDATE dbo.tmi_reroutes SET " . implode(', ', $updates) . " WHERE reroute_id = ?";
-        $stmt = sqlsrv_query($conn_tmi, $sql, $params);
+        $sql = "UPDATE dbo.swim_tmi_reroutes SET " . implode(', ', $updates) . " WHERE reroute_id = ?";
+        $stmt = sqlsrv_query($conn_swim, $sql, $params);
 
         if ($stmt === false) {
             $errors = sqlsrv_errors();
@@ -762,12 +762,12 @@ function handleUpdateReroute($id, $body) {
 // DELETE - Delete/Expire Route (Auth Required)
 // ============================================================================
 function handleDelete($id) {
-    global $conn_tmi;
+    global $conn_swim;
 
     $auth = swim_init_auth(true, true);
 
     // Check route exists
-    $check = sqlsrv_query($conn_tmi, "SELECT route_id FROM dbo.tmi_public_routes WHERE route_id = ?", [$id]);
+    $check = sqlsrv_query($conn_swim, "SELECT route_id FROM dbo.swim_tmi_public_routes WHERE route_id = ?", [$id]);
     if (!$check || !sqlsrv_fetch_array($check, SQLSRV_FETCH_ASSOC)) {
         SwimResponse::error('Route not found', 404, 'NOT_FOUND');
     }
@@ -776,14 +776,14 @@ function handleDelete($id) {
     $hard = swim_get_param('hard') === '1';
 
     if ($hard) {
-        $sql = "DELETE FROM dbo.tmi_public_routes WHERE route_id = ?";
+        $sql = "DELETE FROM dbo.swim_tmi_public_routes WHERE route_id = ?";
         $message = 'Route permanently deleted';
     } else {
-        $sql = "UPDATE dbo.tmi_public_routes SET status = 0, updated_at = GETUTCDATE() WHERE route_id = ?";
+        $sql = "UPDATE dbo.swim_tmi_public_routes SET status = 0, updated_at = GETUTCDATE() WHERE route_id = ?";
         $message = 'Route deactivated';
     }
 
-    $stmt = sqlsrv_query($conn_tmi, $sql, [$id]);
+    $stmt = sqlsrv_query($conn_swim, $sql, [$id]);
     if ($stmt === false) {
         SwimResponse::error('Failed to delete route', 500, 'DB_ERROR');
     }
@@ -819,8 +819,8 @@ function outputJSON($routes, $filter = 'all') {
         'statistics' => $stats,
         'timestamp' => gmdate('Y-m-d\TH:i:s\Z'),
         'meta' => [
-            'source' => 'vatsim_tmi',
-            'table' => 'tmi_public_routes'
+            'source' => 'swim_api',
+            'table' => 'swim_tmi_public_routes'
         ]
     ];
 
@@ -846,7 +846,7 @@ function outputGeoJSON($routes) {
         'features' => $features,
         'metadata' => [
             'generated' => gmdate('c'),
-            'source' => 'vatsim_tmi',
+            'source' => 'swim_api',
             'count' => count($features)
         ]
     ];
@@ -1494,7 +1494,7 @@ function publishRouteToDiscord($conn, $routeId, $advisoryText, $routeName) {
 
                     // Update database with Discord message ID
                     if ($conn) {
-                        $updateSql = "UPDATE dbo.tmi_public_routes SET discord_message_id = ? WHERE route_id = ?";
+                        $updateSql = "UPDATE dbo.swim_tmi_public_routes SET discord_message_id = ? WHERE route_id = ?";
                         sqlsrv_query($conn, $updateSql, [$firstMessageId, $routeId]);
                     }
 
@@ -1549,7 +1549,7 @@ function publishRouteToDiscord($conn, $routeId, $advisoryText, $routeName) {
 
                         // Update database with Discord message ID
                         if ($conn) {
-                            $updateSql = "UPDATE dbo.tmi_public_routes SET discord_message_id = ? WHERE route_id = ?";
+                            $updateSql = "UPDATE dbo.swim_tmi_public_routes SET discord_message_id = ? WHERE route_id = ?";
                             sqlsrv_query($conn, $updateSql, [$firstMessageId, $routeId]);
                         }
 

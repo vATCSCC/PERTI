@@ -16,10 +16,11 @@
 
 require_once __DIR__ . '/../../auth.php';
 
-global $conn_tmi;
+// SWIM database connection (SWIM-isolated: uses SWIM_API mirror tables)
+global $conn_swim;
 
-if (!$conn_tmi) {
-    SwimResponse::error('TMI database connection not available', 503, 'SERVICE_UNAVAILABLE');
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
 $auth = swim_init_auth(false, false);
@@ -98,11 +99,11 @@ $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
 // Count total
 $count_sql = "
     SELECT COUNT(*) as total
-    FROM dbo.tmi_flow_measures m
-    JOIN dbo.tmi_flow_providers p ON m.provider_id = p.provider_id
+    FROM dbo.swim_tmi_flow_measures m
+    JOIN dbo.swim_tmi_flow_providers p ON m.provider_id = p.provider_id
     $where_sql
 ";
-$count_stmt = sqlsrv_query($conn_tmi, $count_sql, $params);
+$count_stmt = sqlsrv_query($conn_swim, $count_sql, $params);
 if ($count_stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -138,9 +139,9 @@ $sql = "
         m.withdrawn_at,
         m.synced_at,
         m.created_at
-    FROM dbo.tmi_flow_measures m
-    JOIN dbo.tmi_flow_providers p ON m.provider_id = p.provider_id
-    LEFT JOIN dbo.tmi_flow_events e ON m.event_id = e.event_id
+    FROM dbo.swim_tmi_flow_measures m
+    JOIN dbo.swim_tmi_flow_providers p ON m.provider_id = p.provider_id
+    LEFT JOIN dbo.swim_tmi_flow_events e ON m.event_id = e.event_id
     $where_sql
     ORDER BY m.start_utc DESC
     OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
@@ -149,7 +150,7 @@ $sql = "
 $params[] = $offset;
 $params[] = $per_page;
 
-$stmt = sqlsrv_query($conn_tmi, $sql, $params);
+$stmt = sqlsrv_query($conn_swim, $sql, $params);
 if ($stmt === false) {
     $errors = sqlsrv_errors();
     SwimResponse::error('Database error: ' . ($errors[0]['message'] ?? 'Unknown'), 500, 'DB_ERROR');
@@ -279,8 +280,8 @@ $response = [
 ];
 
 SwimResponse::success($response, [
-    'source' => 'vatsim_tmi',
-    'table' => 'tmi_flow_measures'
+    'source' => 'swim_api',
+    'table' => 'swim_tmi_flow_measures'
 ]);
 
 function formatDT($dt) {

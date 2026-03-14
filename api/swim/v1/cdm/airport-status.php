@@ -9,10 +9,11 @@
  * GET /api/swim/v1/cdm/airport-status?airport=KJFK&history=1  (last 24h snapshots)
  *
  * Access: Requires valid SWIM API key
+ * SWIM-isolated: reads from SWIM_API mirror tables only
  *
  * @package PERTI
  * @subpackage CDM
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 require_once __DIR__ . '/../auth.php';
@@ -34,20 +35,19 @@ if (strlen($airport) !== 4) {
     SwimResponse::error('Airport must be a 4-character ICAO code', 400);
 }
 
-$conn_tmi = get_conn_tmi();
-$conn_adl = get_conn_adl();
-if (!$conn_tmi || !$conn_adl) {
-    SwimResponse::error('Database connection not available', 503);
+$conn_swim = get_conn_swim();
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503);
 }
 
-$cdm = new CDMService($conn_tmi, $conn_adl);
+$cdm = new CDMService($conn_swim);
 
 if ($history) {
-    // Historical snapshots
-    $sql = "SELECT TOP (?) * FROM dbo.cdm_airport_status
+    // Historical snapshots from SWIM mirror
+    $sql = "SELECT TOP (?) * FROM dbo.swim_cdm_airport_status
             WHERE airport_icao = ?
             ORDER BY snapshot_utc DESC";
-    $stmt = sqlsrv_query($conn_tmi, $sql, [$limit, $airport]);
+    $stmt = sqlsrv_query($conn_swim, $sql, [$limit, $airport]);
     $snapshots = [];
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {

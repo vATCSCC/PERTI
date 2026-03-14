@@ -14,6 +14,7 @@
 | Phase 1: REST API & Docs | ✅ COMPLETE | 100% |
 | Phase 2: Real-Time WebSocket | ✅ COMPLETE | 100% |
 | Phase 3: SDKs & Integrations | ✅ COMPLETE | 100% |
+| Phase 4: Data Isolation | ✅ COMPLETE | 100% |
 
 ---
 
@@ -138,6 +139,36 @@ dotnet add package VatSim.Swim.Client
 ```bash
 npm install @vatsim/swim-client
 ```
+
+---
+
+## ✅ Phase 4: Data Isolation (COMPLETE)
+
+_Added March 14, 2026._
+
+All SWIM API endpoints now query exclusively from the `SWIM_API` database. Internal databases (`VATSIM_TMI`, `VATSIM_ADL`, `VATSIM_REF`, `perti_site` MySQL) are never accessed directly by API request handlers.
+
+| Task | Status |
+|------|--------|
+| Migration 026 — swim_flights expansion (+34 cols, row_hash, 14 index drops) | ✅ |
+| Migration 026 — 25 mirror tables (10 TMI + 4 flow + 4 CDM + 4 reference + 3 infrastructure) | ✅ |
+| Migration 026 — 14 SWIM views (active filters, CDM views) | ✅ |
+| Migration 026 — sp_Swim_BulkUpsert update (row-hash skip + change feed + 60 new columns) | ✅ |
+| swim_sync.php update — add ~60 columns to ADL SELECT/JSON mapping | ✅ |
+| swim_tmi_sync_daemon.php — new TMI sync daemon (5min operational, daily reference) | ✅ |
+| refdata_sync_daemon.php — new reference data sync daemon (daily 06:00Z) | ✅ |
+| Endpoint migration — auth.php (remove ADL fallback) | ✅ |
+| Endpoint migration — flights.php, positions.php (remove ADL fallback) | ✅ |
+| Endpoint migration — flight.php (invert to SWIM-only, single-table queries) | ✅ |
+| Endpoint migration — TMI endpoints (10 files, conn_tmi → conn_swim, swim_tmi_* tables) | ✅ |
+| Endpoint migration — CDM endpoints (5 files + CDMService v2.0, SWIM reads) | ✅ |
+| Endpoint migration — reference endpoints (taxi-times, cdrs, throughput, plays) | ✅ |
+| Endpoint migration — keys endpoints (provision.php, revoke.php) | ✅ |
+| Endpoint migration — ingest/cdm.php (lazy TMI connection) | ✅ |
+| PERTI_SWIM_ONLY optimization — connect.php + auth.php (skip MySQL/ADL/TMI) | ✅ |
+| startup.sh — add swim_tmi_sync_daemon + refdata_sync_daemon | ✅ |
+| WebSocket bug fix — pos.updated_at → pos.position_updated_utc | ✅ |
+| Documentation updates | ✅ |
 
 ---
 

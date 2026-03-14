@@ -153,6 +153,15 @@ nohup php "${WWWROOT}/scripts/swim_adl_reverse_sync_daemon.php" --loop --interva
 REVERSE_SYNC_PID=$!
 echo "  swim_adl_reverse_sync_daemon.php started (PID: $REVERSE_SYNC_PID)"
 
+# Start the SWIM TMI sync daemon (syncs TMI/CDM/reference data to SWIM mirrors every 5 min)
+# Offset by 60s from flight sync to avoid DTU contention on Azure SQL Basic
+# Daily reference sync (airports, taxi times) runs 0601-0801Z
+# NOTE: Runs even in hibernation — VATSWIM remains operational
+echo "Starting swim_tmi_sync_daemon.php (sync every 5min, offset 60s)..."
+nohup php "${WWWROOT}/scripts/swim_tmi_sync_daemon.php" --loop --interval=300 >> /home/LogFiles/swim_tmi_sync.log 2>&1 &
+TMI_SYNC_PID=$!
+echo "  swim_tmi_sync_daemon.php started (PID: $TMI_SYNC_PID)"
+
 # =============================================================================
 # DOWNSTREAM DAEMONS (skipped in hibernation mode)
 # =============================================================================
@@ -305,6 +314,7 @@ if [ "$HIBERNATION" = "1" ]; then
     echo "  adl=$ADL_PID, arch=$ARCH_PID, mon=$MON_PID"
     echo "  ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
     echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
+    echo "  tmi_sync=$TMI_SYNC_PID"
     echo "  discord_q=$DISCORD_Q_PID, adl_archive=$ADL_ARCHIVE_PID"
     echo "  ecfmp=$ECFMP_PID"
     echo "  refdata=$REFDATA_PID (daily reimport at 06:00Z)"
@@ -317,6 +327,7 @@ else
     echo "  waypoint=$WAYPOINT_PID, crossing=${CROSSING_PID:-N/A}"
     echo "  ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
     echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
+    echo "  tmi_sync=$TMI_SYNC_PID"
     echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
     echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
     echo "  ecfmp=$ECFMP_PID, cdm=$CDM_PID, vacdm=$VACDM_PID"

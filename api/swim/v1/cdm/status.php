@@ -14,10 +14,11 @@
  *   - External integrations
  *
  * Access: Requires valid SWIM API key
+ * SWIM-isolated: reads from SWIM_API mirror tables only
  *
  * @package PERTI
  * @subpackage CDM
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 require_once __DIR__ . '/../auth.php';
@@ -37,19 +38,18 @@ if (!$callsign && !$flight_uid) {
     SwimResponse::error('Missing required parameter: callsign or flight_uid', 400, 'MISSING_PARAM');
 }
 
-// Resolve flight_uid from callsign if needed
-$conn_adl = get_conn_adl();
-$conn_tmi = get_conn_tmi();
-
-if (!$conn_adl || !$conn_tmi) {
-    SwimResponse::error('Database connection not available', 503, 'SERVICE_UNAVAILABLE');
+// SWIM-only connection
+$conn_swim = get_conn_swim();
+if (!$conn_swim) {
+    SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
+// Resolve flight_uid from callsign via swim_flights
 if ($callsign && !$flight_uid) {
-    $sql = "SELECT TOP 1 flight_uid FROM dbo.adl_flight_core
+    $sql = "SELECT TOP 1 flight_uid FROM dbo.swim_flights
             WHERE callsign = ? AND is_active = 1
             ORDER BY last_seen_utc DESC";
-    $stmt = sqlsrv_query($conn_adl, $sql, [$callsign]);
+    $stmt = sqlsrv_query($conn_swim, $sql, [$callsign]);
     if ($stmt !== false) {
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         if ($row) {
@@ -65,8 +65,8 @@ if ($callsign && !$flight_uid) {
 
 $flight_uid = (int)$flight_uid;
 
-// Get CDM status
-$cdm = new CDMService($conn_tmi, $conn_adl);
+// Get CDM status (read-only, SWIM mirrors)
+$cdm = new CDMService($conn_swim);
 $status = $cdm->getFlightCDMStatus($flight_uid);
 
 if (!$status) {
