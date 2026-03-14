@@ -1344,17 +1344,17 @@
 
         html += '<div class="pb-route-table-wrap">';
         html += '<table class="pb-route-table"><thead><tr>';
-        html += '<th class="pb-route-check" style="width:28px"><input type="checkbox" id="pb_check_all"></th>';
-        if (hasGroups) html += '<th style="width:10px;padding:0;"></th>';
-        html += '<th style="width:13%">Origin</th>';
-        html += '<th style="width:5%">TRACON</th>';
-        html += '<th style="width:5%">ARTCC</th>';
+        html += '<th class="pb-route-check" style="width:24px"><input type="checkbox" id="pb_check_all"></th>';
+        if (hasGroups) html += '<th style="width:8px;padding:0;"></th>';
+        html += '<th style="width:9%">Origin</th>';
+        html += '<th style="width:4%">TRACON</th>';
+        html += '<th style="width:4%">ARTCC</th>';
         html += '<th>' + t('playbook.routeString') + '</th>';
-        html += '<th style="width:13%">Dest</th>';
-        html += '<th style="width:5%">TRACON</th>';
-        html += '<th style="width:5%">ARTCC</th>';
-        html += '<th style="width:7%">Traversed</th>';
-        html += '<th style="width:5%">Remarks</th>';
+        html += '<th style="width:9%">Dest</th>';
+        html += '<th style="width:4%">TRACON</th>';
+        html += '<th style="width:4%">ARTCC</th>';
+        html += '<th style="width:5%">Traversed</th>';
+        html += '<th style="width:4%">Remarks</th>';
         html += '</tr></thead><tbody>';
 
         sortedRoutes.forEach(function(r) {
@@ -1449,13 +1449,13 @@
 
         html += '<div class="pb-route-table-wrap">';
         html += '<table class="pb-route-table"><thead><tr>';
-        html += '<th class="pb-route-check" style="width:28px"><input type="checkbox" id="pb_check_all"></th>';
-        html += '<th style="width:15%">Origin</th>';
-        html += '<th style="width:7%">ARTCC</th>';
+        html += '<th class="pb-route-check" style="width:24px"><input type="checkbox" id="pb_check_all"></th>';
+        html += '<th style="width:10%">Origin</th>';
+        html += '<th style="width:5%">ARTCC</th>';
         html += '<th>' + t('playbook.routeString') + '</th>';
-        html += '<th style="width:15%">Dest</th>';
-        html += '<th style="width:7%">ARTCC</th>';
-        html += '<th style="width:8%">Traversed</th>';
+        html += '<th style="width:10%">Dest</th>';
+        html += '<th style="width:5%">ARTCC</th>';
+        html += '<th style="width:6%">Traversed</th>';
         html += '</tr></thead><tbody>';
 
         groups.forEach(function(g) {
@@ -4782,7 +4782,7 @@
             $('#pb_map_section').toggleClass('pb-collapsed', !show);
             // Resize map when re-shown so tiles render correctly
             if (show && window.graphic_map) {
-                setTimeout(function() { window.graphic_map.resize(); }, 50);
+                setTimeout(function() { window.graphic_map.resize(); }, 350);
             }
         });
         $(document).on('click', '#pb_toggle_routes', function() {

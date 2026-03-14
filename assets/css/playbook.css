@@ -1638,20 +1638,53 @@
 
 /* Collapsed section states */
 .pb-map-section.pb-collapsed {
-    height: 0 !important;
-    min-height: 0 !important;
     padding-top: 0 !important;
-    overflow: hidden;
-    transition: height 0.3s ease, min-height 0.3s ease, padding-top 0.3s ease;
+    min-height: 0 !important;
+    background: #12122a;
+}
+
+.pb-map-section.pb-collapsed #map_wrapper {
+    display: none;
+}
+
+/* In collapsed mode, flow overlays instead of absolute positioning */
+.pb-map-section.pb-collapsed .pb-catalog-overlay {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: 100%;
+    max-width: none;
+    max-height: 300px;
+    border-radius: 0;
+    box-shadow: none;
+    background: rgba(30, 30, 50, 0.98);
+}
+
+.pb-map-section.pb-collapsed .pb-catalog-overlay .pb-overlay-titlebar {
+    cursor: default;
+    background: rgba(0,0,0,0.15);
+    border-bottom: 1px solid #2a2a4a;
+}
+
+.pb-map-section.pb-collapsed .pb-catalog-overlay .pb-overlay-title {
+    color: #ccc;
+}
+
+.pb-map-section.pb-collapsed .pb-info-overlay {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    max-width: none;
+    max-height: 200px;
+    border-radius: 0;
+    box-shadow: none;
+    background: rgba(30, 30, 50, 0.98);
+    border-top: 1px solid #2a2a4a;
 }
 
 #pb_detail_section.pb-collapsed {
-    max-height: 0 !important;
-    opacity: 0;
-    overflow: hidden;
-    padding: 0 !important;
-    margin: 0 !important;
-    transition: max-height 0.3s ease, opacity 0.2s ease;
+    display: none !important;
 }
 
 /* ── Cursor pointer utility ───────────────────────────────────────── */

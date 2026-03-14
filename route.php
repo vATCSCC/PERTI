@@ -2830,17 +2830,15 @@ document.addEventListener('DOMContentLoaded', function () {
         var wind = document.getElementById('route_analysis_wind');
 
         var params = {};
-        if (raActiveRouteId) {
-            params.route_id = raActiveRouteId;
-        } else if (raActiveRouteStr) {
+        if (raActiveRouteStr) {
             params.route_string = raActiveRouteStr;
             if (raActiveOrigin) params.origin = raActiveOrigin;
             if (raActiveDest) params.destination = raActiveDest;
         } else {
             return;
         }
-        if (speed && speed.value) params.speed_kts = speed.value;
-        if (wind && wind.value) params.wind = wind.value;
+        if (speed && speed.value) params.cruise_kts = speed.value;
+        if (wind && wind.value) params.wind_component_kts = wind.value;
 
         var facTbody = document.getElementById('route_analysis_facilities');
         var fixTbody = document.getElementById('route_analysis_fixes');
