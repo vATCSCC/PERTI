@@ -2313,7 +2313,6 @@ ROUTE2</pre>
                 </div>
 
             </div>
-        </div>
 
         <!-- ═══════════════════════════════════════════════════════════════
              Route Analysis Panel (below map row, full width, collapsible)
@@ -2403,6 +2402,8 @@ ROUTE2</pre>
                 </div>
             </div>
         </div>
+
+    </div><!-- /.container-fluid -->
 
 <?php
 include('load/footer.php');
