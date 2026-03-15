@@ -192,8 +192,8 @@ if (!empty($routes)) {
          dest_airports, dest_tracons, dest_artccs,
          traversed_artccs, traversed_tracons,
          traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
-         remarks, sort_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+         route_geometry, remarks, sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
     $sort = 0;
     foreach ($routes as $r) {
@@ -212,20 +212,21 @@ if (!empty($routes)) {
 
         if ($rs === '') continue;
 
-        // Compute traversed facilities using PostGIS route expansion
+        // Compute traversed facilities + frozen geometry using PostGIS route expansion
         $tf = computeTraversedFacilities($rs, $oar, $dar, $orig, $dst, $oa, $da);
         $traversed = $tf['artccs'];
         $trav_tracons = $tf['tracons'];
         $trav_sec_low = $tf['sectors_low'];
         $trav_sec_high = $tf['sectors_high'];
         $trav_sec_superhigh = $tf['sectors_superhigh'];
+        $route_geom = $tf['route_geometry'];
 
-        $route_stmt->bind_param('isssssssssssssssssi',
+        $route_stmt->bind_param('issssssssssssssssssi',
             $play_id, $rs, $orig, $orig_filter, $dst, $dst_filter,
             $oa, $ot, $oar, $da, $dt, $dar,
             $traversed, $trav_tracons,
             $trav_sec_low, $trav_sec_high, $trav_sec_superhigh,
-            $remarks_r, $sort);
+            $route_geom, $remarks_r, $sort);
         $route_stmt->execute();
         $sort++;
     }

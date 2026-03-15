@@ -93,13 +93,14 @@ if ($action === 'add') {
         exit;
     }
 
-    // Compute traversed facilities using PostGIS route expansion
+    // Compute traversed facilities + frozen geometry using PostGIS route expansion
     $tf = computeTraversedFacilities($rs, $oar, $dar, $orig, $dst, $oa, $da);
     $trav_artccs = $tf['artccs'];
     $trav_tracons = $tf['tracons'];
     $trav_sec_low = $tf['sectors_low'];
     $trav_sec_high = $tf['sectors_high'];
     $trav_sec_superhigh = $tf['sectors_superhigh'];
+    $route_geom = $tf['route_geometry'];
 
     $stmt = $conn_sqli->prepare("INSERT INTO playbook_routes
         (play_id, route_string, origin, origin_filter, dest, dest_filter,
@@ -107,14 +108,14 @@ if ($action === 'add') {
          dest_airports, dest_tracons, dest_artccs,
          traversed_artccs, traversed_tracons,
          traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
-         remarks, sort_order)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-    $stmt->bind_param('isssssssssssssssssi',
+         route_geometry, remarks, sort_order)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    $stmt->bind_param('issssssssssssssssssi',
         $play_id, $rs, $orig, $orig_filter, $dst, $dst_filter,
         $oa, $ot, $oar, $da, $dt, $dar,
         $trav_artccs, $trav_tracons,
         $trav_sec_low, $trav_sec_high, $trav_sec_superhigh,
-        $remarks_r, $sort);
+        $route_geom, $remarks_r, $sort);
     $stmt->execute();
     $new_route_id = (int)$conn_sqli->insert_id;
     $stmt->close();
@@ -166,13 +167,14 @@ if ($action === 'add') {
     $dar = normalizeCanadianArtccCsv(trim($body['dest_artccs'] ?? ($old['dest_artccs'] ?? '')));
     $remarks_r = trim($body['remarks'] ?? ($old['remarks'] ?? ''));
 
-    // Recompute traversed facilities using PostGIS route expansion
+    // Recompute traversed facilities + frozen geometry using PostGIS route expansion
     $tf = computeTraversedFacilities($rs, $oar, $dar, $orig, $dst, $oa, $da);
     $trav_artccs = $tf['artccs'];
     $trav_tracons = $tf['tracons'];
     $trav_sec_low = $tf['sectors_low'];
     $trav_sec_high = $tf['sectors_high'];
     $trav_sec_superhigh = $tf['sectors_superhigh'];
+    $route_geom = $tf['route_geometry'];
 
     $stmt = $conn_sqli->prepare("UPDATE playbook_routes SET
         route_string=?, origin=?, origin_filter=?, dest=?, dest_filter=?,
@@ -180,14 +182,14 @@ if ($action === 'add') {
         dest_airports=?, dest_tracons=?, dest_artccs=?,
         traversed_artccs=?, traversed_tracons=?,
         traversed_sectors_low=?, traversed_sectors_high=?, traversed_sectors_superhigh=?,
-        remarks=?
+        route_geometry=?, remarks=?
         WHERE route_id=?");
     $stmt->bind_param('ssssssssssssssssssi',
         $rs, $orig, $orig_filter, $dst, $dst_filter,
         $oa, $ot, $oar, $da, $dt, $dar,
         $trav_artccs, $trav_tracons,
         $trav_sec_low, $trav_sec_high, $trav_sec_superhigh,
-        $remarks_r, $route_id);
+        $route_geom, $remarks_r, $route_id);
     $stmt->execute();
     $stmt->close();
 

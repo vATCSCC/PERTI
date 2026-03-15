@@ -42,7 +42,8 @@ echo "Processing $total routes" . ($dryRun ? " (DRY RUN)" : "") . "...\n";
 
 $update_stmt = $conn_sqli->prepare("UPDATE playbook_routes SET
     traversed_artccs = ?, traversed_tracons = ?,
-    traversed_sectors_low = ?, traversed_sectors_high = ?, traversed_sectors_superhigh = ?
+    traversed_sectors_low = ?, traversed_sectors_high = ?, traversed_sectors_superhigh = ?,
+    route_geometry = ?
     WHERE route_id = ?");
 
 // Prepare the PostGIS query once — reuse for every route
@@ -71,6 +72,10 @@ $gis_sql = "WITH route AS (
                      ELSE 3 END,
                 sub.trav_order";
 $gis_stmt = $conn_gis->prepare($gis_sql);
+
+// Prepare geometry extraction query (frozen GeoJSON for AIRAC resilience)
+$geom_sql = "SELECT ST_AsGeoJSON(route_geometry) as geojson FROM expand_route_with_artccs(?)";
+$geom_stmt = $conn_gis->prepare($geom_sql);
 
 $processed = 0;
 $updated = 0;
@@ -182,6 +187,14 @@ while ($row = $result->fetch_assoc()) {
         }
     }
 
+    // Extract frozen GeoJSON geometry
+    $route_geom = null;
+    try {
+        $geom_stmt->execute([$fullRoute]);
+        $gr = $geom_stmt->fetch(PDO::FETCH_ASSOC);
+        if ($gr && $gr['geojson']) $route_geom = $gr['geojson'];
+    } catch (Exception $e) { /* geometry optional */ }
+
     // Merge origin ARTCCs BEFORE GIS results, dest ARTCCs AFTER.
     // array_unique() preserves first occurrence, so insertion order matters:
     // origin → GIS spatial → destination gives correct traversal ordering.
@@ -204,10 +217,10 @@ while ($row = $result->fetch_assoc()) {
     $trav_sec_superhigh = implode(',', array_unique(array_filter($sectors_superhigh)));
 
     if (!$dryRun) {
-        $update_stmt->bind_param('sssssi',
+        $update_stmt->bind_param('ssssssi',
             $trav_artccs, $trav_tracons,
             $trav_sec_low, $trav_sec_high, $trav_sec_superhigh,
-            $route_id);
+            $route_geom, $route_id);
         $update_stmt->execute();
         $updated++;
     }
