@@ -4308,20 +4308,30 @@ function activateProposal($conn, $proposalId) {
                 $advNumberDigits = str_pad($advNum->parse($advNumber) ?? 1, 3, '0', STR_PAD_LEFT);
                 $log("Reserved advisory number for reroute: $advNumber (digits: $advNumberDigits)");
 
-                // Update reroute status to ACTIVE (2) AND set the advisory number
-                // Note: TMI database uses _at suffix for date columns
+                // Update reroute status to ACTIVE (2), set advisory number,
+                // and ensure start_utc/end_utc are populated so the reroute
+                // appears in vw_tmi_active_reroutes.
+                $startUtcVal = $validFrom ?: (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+                // If proposal has no end time and existing end_utc is NULL/past, default to +24h
+                $endUtcVal = $validUntil
+                    ?: (new DateTime('now +24 hours', new DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+
                 $updateRerouteSql = "UPDATE dbo.tmi_reroutes SET
                                          status = 2,
                                          adv_number = :adv_number,
+                                         start_utc = COALESCE(start_utc, :start_utc),
+                                         end_utc = :end_utc,
                                          activated_at = SYSUTCDATETIME(),
                                          updated_at = SYSUTCDATETIME()
                                      WHERE reroute_id = :reroute_id";
                 $updateRerouteStmt = $conn->prepare($updateRerouteSql);
                 $updateRerouteStmt->execute([
                     ':reroute_id' => $rerouteId,
-                    ':adv_number' => $advNumberDigits
+                    ':adv_number' => $advNumberDigits,
+                    ':start_utc' => $startUtcVal,
+                    ':end_utc' => $endUtcVal,
                 ]);
-                $log("Reroute status set to ACTIVE (2) with adv_number: $advNumberDigits for reroute_id: $rerouteId");
+                $log("Reroute status set to ACTIVE (2) with adv_number: $advNumberDigits, start_utc: $startUtcVal, end_utc: $endUtcVal for reroute_id: $rerouteId");
 
                 // Update the rawText with the actual reserved advisory number
                 // Replace patterns like "ADVZY 004" or "RRDCC004" with the real number
@@ -4368,14 +4378,29 @@ function activateProposal($conn, $proposalId) {
 
             if ($routeId) {
                 // TMI AUTHORITATIVE: Update route coordination_status to APPROVED
-                // This makes the route visible to API consumers (filter=active now includes it)
+                // and ensure valid_start_utc/valid_end_utc are populated so the route
+                // appears in vw_tmi_active_public_routes (filters on status=1 AND valid_end_utc > now).
+                $routeStartVal = $validFrom ?: (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+                $routeEndVal = $validUntil
+                    ?: (new DateTime('now +24 hours', new DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+
                 $updateRouteSql = "UPDATE dbo.tmi_public_routes SET
                                        coordination_status = 'APPROVED',
+                                       valid_start_utc = COALESCE(valid_start_utc, :start_utc),
+                                       valid_end_utc = CASE
+                                           WHEN valid_end_utc IS NULL OR valid_end_utc < SYSUTCDATETIME()
+                                           THEN :end_utc
+                                           ELSE valid_end_utc
+                                       END,
                                        updated_at = SYSUTCDATETIME()
                                    WHERE route_id = :route_id";
                 $updateRouteStmt = $conn->prepare($updateRouteSql);
-                $updateRouteStmt->execute([':route_id' => $routeId]);
-                $log("Route coordination_status set to APPROVED for route_id: $routeId");
+                $updateRouteStmt->execute([
+                    ':route_id' => $routeId,
+                    ':start_utc' => $routeStartVal,
+                    ':end_utc' => $routeEndVal,
+                ]);
+                $log("Route coordination_status set to APPROVED, valid_end_utc ensured for route_id: $routeId");
 
                 // Publish to Discord only if not scheduled for later
                 if (!$shouldSchedule) {
