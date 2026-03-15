@@ -13,6 +13,7 @@
  *   tsat  -> target_startup_approval_time (TSAT - Target Startup Approval Time)
  *   ttot  -> target_takeoff_time (TTOT - Target Takeoff Time)
  *   asat  -> actual_startup_approval_time (ASAT - Actual Startup Approval Time)
+ *   asrt  -> actual_startup_request_time (ASRT - Actual Startup Request Time)
  *   exot  -> expected_taxi_out_time (EXOT - Expected Taxi Out Time, minutes)
  *
  * Expected payload:
@@ -26,6 +27,7 @@
  *       "tsat": "2026-03-05T14:35:00Z",
  *       "ttot": "2026-03-05T14:40:00Z",
  *       "asat": "2026-03-05T14:36:00Z",
+ *       "asrt": "2026-03-05T14:32:00Z",
  *       "exot": 5,
  *       "readiness_state": "READY",
  *       "source": "VACDM"
@@ -210,6 +212,12 @@ function processCdmUpdate($conn_swim, $conn_tmi, $record, $source, $valid_readin
         $update_params[] = $record['asat'];
     }
 
+    // ASRT - Actual Startup Request Time (when pilot requests startup)
+    if (!empty($record['asrt'])) {
+        $set_clauses[] = 'actual_startup_request_time = TRY_CONVERT(datetime2, ?)';
+        $update_params[] = $record['asrt'];
+    }
+
     // EXOT - Expected Taxi Out Time (minutes)
     if (isset($record['exot']) && is_numeric($record['exot'])) {
         $exot = intval($record['exot']);
@@ -217,6 +225,22 @@ function processCdmUpdate($conn_swim, $conn_tmi, $record, $source, $valid_readin
             $set_clauses[] = 'expected_taxi_out_time = ?';
             $update_params[] = $exot;
         }
+    }
+
+    // ATFCM regulatory flags (boolean: true/false or 1/0)
+    if (isset($record['atfcm_excluded']) && is_bool_like($record['atfcm_excluded'])) {
+        $set_clauses[] = 'eu_atfcm_excluded = ?';
+        $update_params[] = filter_var($record['atfcm_excluded'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+    }
+
+    if (isset($record['atfcm_ready']) && is_bool_like($record['atfcm_ready'])) {
+        $set_clauses[] = 'eu_atfcm_ready = ?';
+        $update_params[] = filter_var($record['atfcm_ready'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+    }
+
+    if (isset($record['atfcm_slot_improvement']) && is_bool_like($record['atfcm_slot_improvement'])) {
+        $set_clauses[] = 'eu_atfcm_slot_improvement = ?';
+        $update_params[] = filter_var($record['atfcm_slot_improvement'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
     }
 
     // Always update source tracking when we have CDM fields
@@ -289,4 +313,12 @@ function processCdmUpdate($conn_swim, $conn_tmi, $record, $source, $valid_readin
     }
 
     return $result;
+}
+
+/**
+ * Check if a value is boolean-like (true/false, 1/0).
+ * Non-boolean values (strings like "yes", arrays, etc.) return false.
+ */
+function is_bool_like($value): bool {
+    return is_bool($value) || $value === 1 || $value === 0;
 }

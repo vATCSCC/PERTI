@@ -162,7 +162,7 @@ function viff_fetch(string $url): ?array {
  * @param array $urls Associative array of key => URL
  * @return array Associative array of key => decoded JSON (null on failure)
  */
-function viff_fetch_multi(array $urls): array {
+function viff_fetch_multi(array $urls, bool $recordErrors = true): array {
     $apiKey = defined('VIFF_API_KEY') ? VIFF_API_KEY : '';
 
     $headers = [
@@ -208,13 +208,13 @@ function viff_fetch_multi(array $urls): array {
 
         if ($response === false || $httpCode !== 200) {
             viff_log("HTTP $httpCode from {$urls[$key]}" . ($error ? ": $error" : ''), 'ERROR');
-            viff_record_error();
+            if ($recordErrors) viff_record_error();
             $results[$key] = null;
         } else {
             $data = json_decode($response, true);
             if ($data === null) {
                 viff_log("Invalid JSON from {$urls[$key]}", 'ERROR');
-                viff_record_error();
+                if ($recordErrors) viff_record_error();
             }
             $results[$key] = $data;
         }
@@ -412,6 +412,37 @@ function viff_match_flight_fallback($conn_swim, array $flight): ?array {
     return null;
 }
 
+/**
+ * Update actual_startup_request_time (ASRT) for a matched flight.
+ *
+ * @param resource $conn_swim SWIM database connection
+ * @param int $flightUid Matched flight UID
+ * @param string $asrtIso ISO 8601 datetime for ASRT
+ * @param bool $debug Debug logging
+ * @return bool True if row was updated
+ */
+function viff_update_asrt($conn_swim, int $flightUid, string $asrtIso, bool $debug): bool {
+    $sql = "UPDATE dbo.swim_flights
+            SET actual_startup_request_time = TRY_CONVERT(datetime2, ?),
+                cdm_source = 'VIFF_CDM',
+                cdm_updated_at = GETUTCDATE(),
+                last_sync_utc = GETUTCDATE()
+            WHERE flight_uid = ?";
+    $stmt = sqlsrv_query($conn_swim, $sql, [$asrtIso, $flightUid]);
+    if ($stmt === false) {
+        $err = sqlsrv_errors();
+        viff_log("ASRT update failed for uid=$flightUid: " . ($err[0]['message'] ?? 'Unknown'), 'ERROR');
+        return false;
+    }
+    $rows = sqlsrv_rows_affected($stmt);
+    sqlsrv_free_stmt($stmt);
+
+    if ($debug && $rows > 0) {
+        viff_log("  ASRT updated: uid=$flightUid asrt=$asrtIso", 'DEBUG');
+    }
+    return $rows > 0;
+}
+
 // ============================================================================
 // Main Poll Function
 // ============================================================================
@@ -438,6 +469,7 @@ function viff_poll(bool $debug = false): array {
         'skipped'     => 0,
         'errors'      => 0,
         'cache_hits'  => 0,
+        'asrt_updated' => 0,
     ];
 
     if (!$conn_swim) {
@@ -494,6 +526,104 @@ function viff_poll(bool $debug = false): array {
         }
         if ($debug) viff_log("  /ifps/allStatus: " . count($statusMap) . " statuses", 'DEBUG');
     }
+
+    // -------------------------------------------------------------------------
+    // Step A2: Fetch ASRT data from /ifps/depAirport (per-airport)
+    // -------------------------------------------------------------------------
+    $asrtUpdated = 0;
+
+    // Extract unique departure airports from CDM flights
+    $cdmAirports = [];
+    foreach ($flights as $f) {
+        if (!empty($f['isCdm']) && !empty($f['departure'])) {
+            $dept = strtoupper(trim($f['departure']));
+            if ($dept !== '') {
+                $cdmAirports[$dept] = true;
+            }
+        }
+    }
+    $cdmAirports = array_keys($cdmAirports);
+
+    if (count($cdmAirports) > 50) {
+        viff_log("ASRT poll: " . count($cdmAirports) . " airports exceeds cap of 50 — skipping", 'WARN');
+        $cdmAirports = [];
+    }
+
+    if (!empty($cdmAirports)) {
+        // Build per-airport URLs
+        $airportUrls = [];
+        foreach ($cdmAirports as $icao) {
+            $airportUrls["dep_$icao"] = VIFF_API_BASE . '/ifps/depAirport?airport=' . $icao;
+        }
+
+        if ($debug) viff_log("  ASRT poll: " . count($airportUrls) . " airports", 'DEBUG');
+
+        // Fetch all in parallel (recordErrors=false: per-airport failures don't trip breaker)
+        $airportResponses = viff_fetch_multi($airportUrls, false);
+
+        // Load ASRT cache (separate from main flight hash cache)
+        $asrtCache = [];
+        if (file_exists(VIFF_CACHE_FILE)) {
+            $allCache = json_decode(file_get_contents(VIFF_CACHE_FILE), true) ?: [];
+            foreach ($allCache as $k => $v) {
+                if (strpos($k, 'ASRT:') === 0) {
+                    $asrtCache[$k] = $v;
+                }
+            }
+        }
+        $newAsrtCache = [];
+
+        foreach ($airportResponses as $key => $data) {
+            if ($data === null || !is_array($data)) continue;
+
+            $icao = substr($key, 4); // strip "dep_" prefix
+
+            foreach ($data as $record) {
+                $callsign = strtoupper(trim($record['callsign'] ?? ''));
+                if ($callsign === '') continue;
+
+                $reqAsrt = trim($record['cdmData']['reqAsrt'] ?? '');
+                if ($reqAsrt === '' || $reqAsrt === '0' || $reqAsrt === '0000') continue;
+
+                // Convert HHMM to ISO 8601
+                $asrtIso = viff_time_to_iso($reqAsrt);
+                if ($asrtIso === null) continue;
+
+                // Cache check: skip if unchanged
+                $cacheKey = "ASRT:$callsign:$icao";
+                $newAsrtCache[$cacheKey] = $asrtIso;
+                if (isset($asrtCache[$cacheKey]) && $asrtCache[$cacheKey] === $asrtIso) {
+                    continue;
+                }
+
+                // Skip airborne flights (atot present means already departed)
+                $atot = trim($record['atot'] ?? '');
+                if ($atot !== '' && $atot !== '0' && $atot !== '0000') continue;
+
+                // Match flight to swim_flights
+                $match = viff_match_flight_fallback($conn_swim, [
+                    'callsign' => $callsign,
+                    'departure' => $icao,
+                    'arrival' => '',
+                ]);
+
+                if (!$match) {
+                    if ($debug) viff_log("  ASRT not found: $callsign ($icao)", 'DEBUG');
+                    continue;
+                }
+
+                // Write ASRT
+                if (viff_update_asrt($conn_swim, $match['flight_uid'], $asrtIso, $debug)) {
+                    $asrtUpdated++;
+                }
+            }
+        }
+
+        // Store ASRT cache entries for merging later
+        $stats['_asrtCache'] = $newAsrtCache;
+    }
+
+    $stats['asrt_updated'] = $asrtUpdated;
 
     // -------------------------------------------------------------------------
     // Step B: Load cache (hash + cached flight_uid mappings)
@@ -556,6 +686,13 @@ function viff_poll(bool $debug = false): array {
 
     if (empty($changedFlights)) {
         if ($debug) viff_log("  No changed flights — skipping DB operations", 'DEBUG');
+        // Merge ASRT cache entries before writing (even when no main flights changed)
+        if (!empty($stats['_asrtCache'])) {
+            foreach ($stats['_asrtCache'] as $k => $v) {
+                $newCache[$k] = $v;
+            }
+            unset($stats['_asrtCache']);
+        }
         @file_put_contents(VIFF_CACHE_FILE, json_encode($newCache), LOCK_EX);
         viff_update_provider_sync($stats);
         return $stats;
@@ -652,6 +789,13 @@ function viff_poll(bool $debug = false): array {
     // -------------------------------------------------------------------------
     // Step F: Finalize
     // -------------------------------------------------------------------------
+    // Merge ASRT cache entries into main cache before writing
+    if (!empty($stats['_asrtCache'])) {
+        foreach ($stats['_asrtCache'] as $k => $v) {
+            $newCache[$k] = $v;
+        }
+        unset($stats['_asrtCache']);
+    }
     @file_put_contents(VIFF_CACHE_FILE, json_encode($newCache), LOCK_EX);
     viff_update_provider_sync($stats);
 
@@ -670,9 +814,10 @@ function viff_update_provider_sync(array $stats): void {
     $conn_tmi = get_conn_tmi();
     if (!$conn_tmi) return;
 
-    $syncMsg = sprintf('%d fetched, %d updated, %d not found, %d unchanged, %d skipped, %d cache_hits',
+    $syncMsg = sprintf('%d fetched, %d updated, %d not found, %d unchanged, %d skipped, %d cache_hits, %d asrt',
         $stats['fetched'], $stats['updated'], $stats['not_found'],
-        $stats['unchanged'], $stats['skipped'], $stats['cache_hits']);
+        $stats['unchanged'], $stats['skipped'], $stats['cache_hits'],
+        $stats['asrt_updated'] ?? 0);
     $syncSql = "UPDATE dbo.tmi_flow_providers SET
                     last_sync_utc = GETUTCDATE(),
                     last_sync_status = ?,
@@ -788,6 +933,18 @@ function viff_update_flight($conn_swim, array $match, array $f, bool $debug): bo
     if ($atfcmStatus !== null) {
         $setClauses[] = 'eu_atfcm_status = ?';
         $params[] = $atfcmStatus;
+    }
+
+    // ATFCM sub-fields (individual regulatory flags from atfcmData)
+    if (isset($f['atfcmData']) && is_array($f['atfcmData'])) {
+        $setClauses[] = 'eu_atfcm_excluded = ?';
+        $params[] = !empty($f['atfcmData']['excluded']) ? 1 : 0;
+
+        $setClauses[] = 'eu_atfcm_ready = ?';
+        $params[] = !empty($f['atfcmData']['isRea']) ? 1 : 0;
+
+        $setClauses[] = 'eu_atfcm_slot_improvement = ?';
+        $params[] = !empty($f['atfcmData']['SIR']) ? 1 : 0;
     }
 
     // Flow measure identification (mostPenalizingAirspace = regulation name)
@@ -906,9 +1063,10 @@ do {
     try {
         $stats = viff_poll($debug);
 
-        $msg = sprintf('fetched=%d updated=%d not_found=%d unchanged=%d skipped=%d cache_hits=%d errors=%d',
+        $msg = sprintf('fetched=%d updated=%d not_found=%d unchanged=%d skipped=%d cache_hits=%d errors=%d asrt=%d',
             $stats['fetched'], $stats['updated'], $stats['not_found'],
-            $stats['unchanged'], $stats['skipped'], $stats['cache_hits'], $stats['errors']);
+            $stats['unchanged'], $stats['skipped'], $stats['cache_hits'], $stats['errors'],
+            $stats['asrt_updated']);
         viff_log("  $msg");
 
         viff_write_heartbeat($stats);
