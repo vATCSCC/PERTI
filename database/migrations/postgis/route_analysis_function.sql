@@ -80,10 +80,16 @@ BEGIN
         UNION ALL
 
         -- TRACON boundaries
+        -- sector_code = parent TRACON facility (N90, D01), tracon_code = area (JFK, EWR)
+        -- Include area code in name to disambiguate multi-area TRACONs
         SELECT
             'TRACON'::text AS ftype,
             tb.tracon_code::text AS fid,
-            tb.tracon_name::text AS fname,
+            CASE
+                WHEN tb.sector_code IS NOT NULL AND tb.sector_code <> tb.tracon_code
+                THEN tb.tracon_name || ' (' || tb.tracon_code || ')'
+                ELSE tb.tracon_name
+            END::text AS fname,
             ST_Intersection(v_route, ST_MakeValid(tb.geom)) AS intersection_geom,
             tb.floor_altitude AS f_alt,
             tb.ceiling_altitude AS c_alt

@@ -7,6 +7,7 @@ Performs the complete AIRAC update process:
   Step 2: Scrape FAA Playbook and update playbook_routes.csv
   Step 3: Import all data to VATSIM_REF and sync to VATSIM_ADL
   Step 4: Sync reference data to PostGIS (VATSIM_GIS)
+  Step 5: Update CDM sector and TRACON boundaries from upstream repos
 
 Usage:
     python airac_full_update.py                   # Full update
@@ -15,13 +16,16 @@ Usage:
     python airac_full_update.py --step 2          # Run only step 2 (Playbook)
     python airac_full_update.py --step 3          # Run only step 3 (Database)
     python airac_full_update.py --step 4          # Run only step 4 (PostGIS)
+    python airac_full_update.py --step 5          # Run only step 5 (Boundaries)
     python airac_full_update.py --skip-playbook   # Skip playbook scrape
     python airac_full_update.py --skip-database   # Skip database import
+    python airac_full_update.py --skip-boundaries # Skip boundary update
 
 Requirements:
     - Python 3.8+
     - pyodbc (for database import)
     - psycopg2 (for PostGIS sync)
+    - requests, shapely (for boundary update)
     - Internet access (for FAA data download)
 
 Run from project root directory.
@@ -45,6 +49,7 @@ SCRIPTS = {
     'playbook': SCRIPT_DIR / "scripts" / "update_playbook_routes.py",
     'database': SCRIPT_DIR / "adl" / "scripts" / "airac_update.py",
     'postgis': SCRIPT_DIR / "scripts" / "postgis" / "sync_ref_to_postgis.py",
+    'boundaries': SCRIPT_DIR / "scripts" / "update_boundaries.py",
 }
 
 
@@ -198,6 +203,34 @@ def step4_postgis_sync(dry_run: bool = False) -> bool:
     return run_step("PostGIS Sync", SCRIPTS['postgis'], dry_run=dry_run)
 
 
+def step5_boundary_update(dry_run: bool = False, skip_cdm: bool = False,
+                          skip_tracon: bool = False) -> bool:
+    """
+    Step 5: Update CDM sector and TRACON boundaries from upstream repos.
+
+    Updates:
+      - assets/geojson/high.json, low.json, superhigh.json (CDM sectors)
+      - assets/geojson/tracon.json (TRACON boundaries)
+      - assets/geojson/boundary_hierarchy.json (hierarchy edges)
+    """
+    print("\n" + "=" * 70)
+    print("  STEP 5: Boundary Update (CDM + TRACON)")
+    print("=" * 70)
+    print("  CDM sectors from vIFF (rpuig2001/vIFF-Capacity-Availability-Document)")
+    print("  TRACONs from SimAware (vatsimnetwork/simaware-tracon-project)")
+    print("  Updates: high.json, low.json, superhigh.json, tracon.json,")
+    print("           boundary_hierarchy.json")
+    print()
+
+    args = []
+    if skip_cdm:
+        args.append("--tracon-only")
+    if skip_tracon:
+        args.append("--cdm-only")
+
+    return run_step("Boundary Update", SCRIPTS['boundaries'], args, dry_run)
+
+
 # ==============================================================================
 # Main
 # ==============================================================================
@@ -209,12 +242,13 @@ def print_banner():
     print("            AIRAC FULL UPDATE - Master Script")
     print("=" * 70)
     print()
-    print("  This script performs the complete AIRAC update in four steps:")
+    print("  This script performs the complete AIRAC update in five steps:")
     print()
     print("    1. NASR Update     - Download FAA navdata, update CSVs")
     print("    2. Playbook Update - Scrape FAA playbook, update routes")
     print("    3. Database Import - Import to VATSIM_REF, sync to VATSIM_ADL")
     print("    4. PostGIS Sync    - Sync ref data to VATSIM_GIS (PostGIS)")
+    print("    5. Boundary Update - CDM sectors + TRACONs from upstream repos")
     print()
 
 
@@ -230,25 +264,33 @@ Examples:
   python airac_full_update.py --step 2          # Only run Playbook update
   python airac_full_update.py --step 3          # Only run Database import
   python airac_full_update.py --step 4          # Only run PostGIS sync
+  python airac_full_update.py --step 5          # Only run Boundary update
   python airac_full_update.py --skip-playbook   # Skip playbook (faster)
   python airac_full_update.py --skip-database   # Only update local files
+  python airac_full_update.py --skip-boundaries # Skip boundary update
   python airac_full_update.py --force           # Force re-download of NASR data
 
 After running, don't forget to:
-  1. Review the changes in assets/data/
-  2. Commit and push the updated CSV/JS files
+  1. Review the changes in assets/data/ and assets/geojson/
+  2. Commit and push the updated CSV/JS/GeoJSON files
   3. Deploy to production
 """
     )
 
     parser.add_argument('--dry-run', action='store_true',
                         help='Preview without making changes')
-    parser.add_argument('--step', type=int, choices=[1, 2, 3, 4],
-                        help='Run only a specific step (1=NASR, 2=Playbook, 3=Database, 4=PostGIS)')
+    parser.add_argument('--step', type=int, choices=[1, 2, 3, 4, 5],
+                        help='Run only a specific step (1=NASR, 2=Playbook, 3=Database, 4=PostGIS, 5=Boundaries)')
     parser.add_argument('--skip-playbook', action='store_true',
                         help='Skip playbook update (Step 2)')
     parser.add_argument('--skip-database', action='store_true',
                         help='Skip database import (Step 3)')
+    parser.add_argument('--skip-boundaries', action='store_true',
+                        help='Skip boundary update (Step 5)')
+    parser.add_argument('--skip-cdm', action='store_true',
+                        help='Skip CDM sector update (Step 5)')
+    parser.add_argument('--skip-tracon', action='store_true',
+                        help='Skip TRACON boundary update (Step 5)')
     parser.add_argument('--force', action='store_true',
                         help='Force re-download of NASR data even if cached')
     parser.add_argument('--skip-xp12', action='store_true',
@@ -274,6 +316,7 @@ After running, don't forget to:
     run_step2 = (args.step is None or args.step == 2) and not args.skip_playbook
     run_step3 = (args.step is None or args.step == 3) and not args.skip_database
     run_step4 = (args.step is None or args.step == 4) and not args.skip_database
+    run_step5 = (args.step is None or args.step == 5) and not args.skip_boundaries
 
     # Step 1: NASR Update + XP12 merge
     if run_step1:
@@ -300,6 +343,13 @@ After running, don't forget to:
         results['PostGIS Sync'] = 'SUCCESS' if success else 'FAILED'
         if not success and args.step is None:
             print("\n  WARNING: PostGIS sync failed, continuing...")
+
+    # Step 5: Boundary Update
+    if run_step5:
+        success = step5_boundary_update(args.dry_run, args.skip_cdm, args.skip_tracon)
+        results['Boundary Update'] = 'SUCCESS' if success else 'FAILED'
+        if not success and args.step is None:
+            print("\n  WARNING: Boundary update failed, continuing...")
 
     # Summary
     elapsed = time.time() - start_time

@@ -193,15 +193,27 @@ def import_sector_boundaries(conn, geojson: dict, sector_type: str, dry_run: boo
         sector = props.get("sector", props.get("SECTOR", ""))
         sector_code = f"{artcc}{sector}" if artcc and sector else sector or "UNK"
 
+        # Coerce numeric values (some GeoJSON sources have double-quoted numbers)
+        def _num_or_none(v, as_int=True):
+            if v is None:
+                return None
+            if isinstance(v, (int, float)):
+                return int(v) if as_int else v
+            try:
+                cleaned = str(v).strip('"').strip()
+                return int(cleaned) if as_int else float(cleaned)
+            except (ValueError, TypeError):
+                return None
+
         row = (
             sector_code[:50],
             props.get("label", props.get("name", ""))[:64] or None,
             artcc or None,
             canonical_type,
-            props.get("floor") or props.get("min_fl"),
-            props.get("ceiling") or props.get("max_fl"),
-            props.get("label_lat"),
-            props.get("label_lon"),
+            _num_or_none(props.get("floor") or props.get("min_fl"), as_int=True),
+            _num_or_none(props.get("ceiling") or props.get("max_fl"), as_int=True),
+            _num_or_none(props.get("label_lat"), as_int=False),
+            _num_or_none(props.get("label_lon"), as_int=False),
             json.dumps(geom),
         )
         rows.append(row)
