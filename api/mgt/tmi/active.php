@@ -316,7 +316,7 @@ function formatDatetime($value) {
  * Get currently active NTML entries
  */
 function getActiveNtmlEntries($conn, $limit, $includeStaging = false, $stagingOnly = false) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
@@ -380,7 +380,7 @@ function getActiveNtmlEntries($conn, $limit, $includeStaging = false, $stagingOn
  * status but future valid_from (e.g., CONFIG entries published for a future time)
  */
 function getScheduledNtmlEntries($conn, $limit, $includeStaging = false, $stagingOnly = false) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
@@ -447,7 +447,7 @@ function getScheduledNtmlEntries($conn, $limit, $includeStaging = false, $stagin
  * Get recently cancelled NTML entries
  */
 function getCancelledNtmlEntries($conn, $hours, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
@@ -503,7 +503,7 @@ function getCancelledNtmlEntries($conn, $hours, $limit) {
  * Get currently active advisories
  */
 function getActiveAdvisories($conn, $limit, $includeStaging = false, $stagingOnly = false) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
@@ -560,7 +560,7 @@ function getActiveAdvisories($conn, $limit, $includeStaging = false, $stagingOnl
  * Get scheduled advisories
  */
 function getScheduledAdvisories($conn, $limit, $includeStaging = false, $stagingOnly = false) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
@@ -616,7 +616,7 @@ function getScheduledAdvisories($conn, $limit, $includeStaging = false, $staging
  * Get recently cancelled advisories
  */
 function getCancelledAdvisories($conn, $hours, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
@@ -815,7 +815,7 @@ function buildAdvisorySummary($row) {
  * Get currently active GDT programs
  */
 function getActivePrograms($conn, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_programs')) {
         return [];
     }
@@ -869,7 +869,7 @@ function getActivePrograms($conn, $limit) {
  * Get scheduled (future) GDT programs
  */
 function getScheduledPrograms($conn, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_programs')) {
         return [];
     }
@@ -921,7 +921,7 @@ function getScheduledPrograms($conn, $limit) {
  * Get recently cancelled/completed GDT programs
  */
 function getCancelledPrograms($conn, $hours, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_programs')) {
         return [];
     }
@@ -1055,7 +1055,7 @@ function buildProgramSummary($row) {
  * Uses aliases to normalize column names for formatReroute()
  */
 function getActiveReroutes($conn, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
@@ -1107,7 +1107,7 @@ function getActiveReroutes($conn, $limit) {
  * Get scheduled (future) reroutes
  */
 function getScheduledReroutes($conn, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
@@ -1157,7 +1157,7 @@ function getScheduledReroutes($conn, $limit) {
  * Get recently cancelled/expired reroutes
  */
 function getCancelledReroutes($conn, $hours, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
@@ -1387,7 +1387,7 @@ function collectScopeTokens($value, &$tokens) {
  * Get currently active public routes
  */
 function getActivePublicRoutes($conn, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
@@ -1435,7 +1435,7 @@ function getActivePublicRoutes($conn, $limit) {
  * Get scheduled (future) public routes
  */
 function getScheduledPublicRoutes($conn, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
@@ -1482,7 +1482,7 @@ function getScheduledPublicRoutes($conn, $limit) {
  * Get recently cancelled/expired public routes
  */
 function getCancelledPublicRoutes($conn, $hours, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
@@ -1603,7 +1603,7 @@ function buildPublicRouteSummary($row) {
  * Get NTML entries that were active on a specific date
  */
 function getHistoricalNtmlEntries($conn, $dateStart, $dateEnd, $limit, $includeStaging = false, $stagingOnly = false) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_entries')) {
         return [];
     }
@@ -1662,7 +1662,7 @@ function getHistoricalNtmlEntries($conn, $dateStart, $dateEnd, $limit, $includeS
  * Get advisories that were active on a specific date
  */
 function getHistoricalAdvisories($conn, $dateStart, $dateEnd, $limit, $includeStaging = false, $stagingOnly = false) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_advisories')) {
         return [];
     }
@@ -1718,7 +1718,7 @@ function getHistoricalAdvisories($conn, $dateStart, $dateEnd, $limit, $includeSt
  * Get GDT programs that were active on a specific date
  */
 function getHistoricalPrograms($conn, $dateStart, $dateEnd, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_programs')) {
         return [];
     }
@@ -1758,7 +1758,7 @@ function getHistoricalPrograms($conn, $dateStart, $dateEnd, $limit) {
  * Get reroutes that were active on a specific date
  */
 function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
@@ -1803,7 +1803,7 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
  * Get public routes that were active on a specific date
  */
 function getHistoricalPublicRoutes($conn, $dateStart, $dateEnd, $limit) {
-    global $org_code;
+    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }

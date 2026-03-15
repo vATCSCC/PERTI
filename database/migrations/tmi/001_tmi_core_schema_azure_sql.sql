@@ -737,12 +737,12 @@ GO
 
 CREATE VIEW dbo.vw_tmi_active_reroutes AS
 SELECT * FROM dbo.tmi_reroutes
-WHERE status = 2 AND end_utc > SYSUTCDATETIME();
+WHERE status = 2 AND (end_utc IS NULL OR end_utc > SYSUTCDATETIME());
 GO
 
 CREATE VIEW dbo.vw_tmi_active_public_routes AS
 SELECT * FROM dbo.tmi_public_routes
-WHERE status = 1 AND valid_end_utc > SYSUTCDATETIME();
+WHERE status = 1 AND (valid_end_utc IS NULL OR valid_end_utc > SYSUTCDATETIME());
 GO
 
 CREATE VIEW dbo.vw_tmi_recent_entries AS
