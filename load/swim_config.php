@@ -107,6 +107,7 @@ $SWIM_DATA_SOURCES = [
     // CDM sources (A-CDM milestone data)
     'VACDM'           => 'vacdm',            // vACDM instances (TOBT/TSAT/TTOT)
     'CDM_PLUGIN'      => 'cdm_plugin',       // CDM Plugin (departure sequencing)
+    'VIFF_CDM'        => 'viff_cdm',         // vIFF ATFCM System (EU CDM milestones)
 ];
 
 /**
@@ -280,6 +281,7 @@ $SWIM_SOURCE_PRIORITY = [
     // CDM milestone data (TOBT/TSAT/TTOT/ASAT/EXOT)
     'cdm' => [
         'vacdm'      => 1,  // vACDM instances are primary CDM source
+        'viff_cdm'   => 1,  // vIFF ATFCM System (EU CDM — non-overlapping with vACDM)
         'cdm_plugin' => 2,  // CDM Plugin (departure sequencing)
         'vatcscc'    => 3,  // PERTI manual/automated CDM
     ],
@@ -348,6 +350,8 @@ $SWIM_FIELD_MERGE_BEHAVIOR = [
     'target_landing_time'            => 'variable',    // SWIM column: TLDT
     'actual_startup_approval_time'   => 'once',        // SWIM column: ASAT (set once at pushback)
     'expected_taxi_out_time'         => 'variable',    // SWIM column: EXOT minutes
+    'eu_atfcm_status'                => 'variable',    // SWIM column: EU ATFCM status (REA/FLS/SIR/EXCLUDED)
+    'controlled_time_of_departure'   => 'variable',    // SWIM column: CTD (EU CTOT / NA EDCT via CDM)
 
     // TMI fields - immutable (only vATCSCC can set)
     'gs_held'          => 'immutable',
@@ -441,6 +445,8 @@ $SWIM_FIELD_AUTHORITY_MAP = [
     'target_landing_time'            => 'cdm',   // SWIM column: TLDT
     'actual_startup_approval_time'   => 'cdm',   // SWIM column: ASAT
     'expected_taxi_out_time'         => 'cdm',   // SWIM column: EXOT
+    'eu_atfcm_status'                => 'cdm',   // SWIM column: EU ATFCM status
+    'controlled_time_of_departure'   => 'cdm',   // SWIM column: CTD (writable by CDM sources)
 
     // Metering fields - metering authority (SimTraffic primary)
     'sequence'          => 'metering',

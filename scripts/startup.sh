@@ -106,6 +106,19 @@ nohup php "${WWWROOT}/scripts/ecfmp_poll_daemon.php" --loop --interval=300 >> /h
 ECFMP_PID=$!
 echo "  ecfmp_poll_daemon.php started (PID: $ECFMP_PID)"
 
+# vIFF CDM poll daemon — fetches EU CDM milestone data from vIFF ATFCM system
+# Polls /etfms/relevant, /etfms/restricted, /ifps/allStatus every 30s
+# Runs even in hibernation (SWIM exempt) — external CDM data always captured
+if [ -n "$VIFF_CDM_ENABLED" ] && [ "$VIFF_CDM_ENABLED" = "1" ]; then
+    echo "Starting vIFF CDM polling daemon..."
+    nohup php "${WWWROOT}/scripts/viff_cdm_poll_daemon.php" --loop --interval=${VIFF_POLL_INTERVAL:-30} >> /home/LogFiles/viff_cdm_poll.log 2>&1 &
+    VIFF_PID=$!
+    echo "  viff_cdm_poll_daemon.php started (PID: $VIFF_PID)"
+else
+    echo "Skipping vIFF CDM daemon (VIFF_CDM_ENABLED not set)"
+    VIFF_PID="DISABLED"
+fi
+
 # Start the playbook export daemon (daily backup of all playbook data)
 # MySQL-only — runs even in hibernation. Exports JSON + text to backups/playbook/.
 # 5-min initial delay, then every 24h. Change detection skips if no updates.
@@ -316,7 +329,7 @@ if [ "$HIBERNATION" = "1" ]; then
     echo "  st_poll=$ST_POLL_PID, reverse_sync=$REVERSE_SYNC_PID"
     echo "  tmi_sync=$TMI_SYNC_PID"
     echo "  discord_q=$DISCORD_Q_PID, adl_archive=$ADL_ARCHIVE_PID"
-    echo "  ecfmp=$ECFMP_PID"
+    echo "  ecfmp=$ECFMP_PID, viff=$VIFF_PID"
     echo "  refdata=$REFDATA_PID (daily reimport at 06:00Z)"
     echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
@@ -330,7 +343,7 @@ else
     echo "  tmi_sync=$TMI_SYNC_PID"
     echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
     echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
-    echo "  ecfmp=$ECFMP_PID, cdm=$CDM_PID, vacdm=$VACDM_PID"
+    echo "  ecfmp=$ECFMP_PID, viff=$VIFF_PID, cdm=$CDM_PID, vacdm=$VACDM_PID"
     echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
     echo "  refdata=$REFDATA_PID (daily reimport at 06:00Z)"
     echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"

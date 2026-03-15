@@ -24,6 +24,7 @@ class ConnectorRegistry
         'hoppie'           => 'HoppieConnector',
         'vatis'            => 'VATISConnector',
         'virtual_airline'  => 'VirtualAirlineConnector',
+        'viff_cdm'         => 'VIFFConnector',
     ];
 
     /**

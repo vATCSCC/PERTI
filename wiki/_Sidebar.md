@@ -39,6 +39,7 @@
 - [[SWIM API]]
 - [[SWIM Routes API]]
 - [[SWIM Playbook API]]
+- [[CDM Connector Guide]]
 
 **PERTI API** (Internal)
 - [[API Reference]]
