@@ -7918,26 +7918,33 @@
                 }
             });
 
-            // Count how many live routes are playbook-sourced vs not
-            const originalRouteCount = originalRoutes.length;
-            const liveRouteCount = liveRoutes.length;
+            // Build sets of unique normalized route strings for comparison
+            // Using sets prevents false positives from grouping (which merges
+            // duplicate rows) and auto-filters (which don't change route text).
             const hasPlaybook = playbookNames.length > 0;
+            const liveRouteCount = liveRoutes.length;
 
-            // Determine how many original playbook routes remain in live table
+            const origRouteStrings = new Set(
+                originalRoutes.map(r => (r.route || '').toUpperCase().trim()).filter(Boolean)
+            );
+            const liveRouteStrings = new Set(
+                liveRoutes.map(r => (r.route || '').toUpperCase().trim()).filter(Boolean)
+            );
+
+            // Count how many original route strings still exist in live table
             let pbRoutesRemaining = 0;
             let nonPbRoutes = 0;
-            if (hasPlaybook && originalRouteCount > 0) {
-                // Compare live routes against original playbook routes
-                const origRouteStrings = new Set(originalRoutes.map(r => (r.route || '').toUpperCase().trim()));
-                liveRoutes.forEach(r => {
-                    const rStr = (r.route || '').toUpperCase().trim();
-                    if (origRouteStrings.has(rStr)) {
+            if (hasPlaybook && origRouteStrings.size > 0) {
+                liveRouteStrings.forEach(rs => {
+                    if (origRouteStrings.has(rs)) {
                         pbRoutesRemaining++;
                     } else {
                         nonPbRoutes++;
                     }
                 });
             }
+
+            const originalUniqueCount = origRouteStrings.size;
 
             let autoName = '';
 
@@ -7947,7 +7954,7 @@
                 if (nonPbRoutes > 0) {
                     // Mix of playbook + non-playbook routes
                     autoName = pbName + '_MODIFIED';
-                } else if (pbRoutesRemaining < originalRouteCount && pbRoutesRemaining > 0) {
+                } else if (pbRoutesRemaining < originalUniqueCount && pbRoutesRemaining > 0) {
                     // Only some playbook routes remain
                     autoName = pbName + '_PARTIAL';
                 } else if (pbRoutesRemaining === 0 && liveRouteCount === 0) {
@@ -8568,6 +8575,13 @@
             // Check the appropriate international orgs
             if (hasCanadianFIR || hasCanadianFIRRoute || hasCanadianAirport) {
                 $('#rr_fac_VATCAN').prop('checked', true);
+                // Also check individual Canadian FIR checkboxes from GIS data
+                const canFIRs = canadianFIRs;
+                upperFacilities.forEach(f => {
+                    if (canFIRs.includes(f)) {
+                        $('#rr_fac_' + f).prop('checked', true);
+                    }
+                });
             }
             if (hasMexicanFIR || hasMexicanFIRRoute || hasMexicanAirport) {
                 $('#rr_fac_VATMEX').prop('checked', true);
@@ -10332,34 +10346,39 @@
          * Extracts unique ARTCC/FIR/TRACON codes from route origin fields.
          */
         autoGenerateFacilitiesIncluded: function() {
-            const routes = this.collectRoutes();
             const facilities = new Set();
 
-            routes.forEach(r => {
-                // Extract from origin (may be slash or space separated)
-                const origTokens = (r.origin || '').toUpperCase().split(/[\s/]+/).filter(Boolean);
-                origTokens.forEach(t => {
-                    if (this.isFacilityCode(t)) {facilities.add(t);}
-                });
-                // Also check destination for facilities (FIR-to-FIR routes)
-                const destTokens = (r.destination || '').toUpperCase().split(/[\s/]+/).filter(Boolean);
-                destTokens.forEach(t => {
-                    if (this.isFacilityCode(t)) {facilities.add(t);}
-                });
-                // For airport origins, look up parent ARTCC if FacilityHierarchy available
-                origTokens.forEach(t => {
-                    if (this.isAirportCode(t) && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.AIRPORT_TO_ARTCC) {
-                        const artcc = FacilityHierarchy.AIRPORT_TO_ARTCC[t];
-                        if (artcc) {facilities.add(artcc);}
-                    }
-                });
-                destTokens.forEach(t => {
-                    if (this.isAirportCode(t) && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.AIRPORT_TO_ARTCC) {
-                        const artcc = FacilityHierarchy.AIRPORT_TO_ARTCC[t];
-                        if (artcc) {facilities.add(artcc);}
-                    }
-                });
+            // Primary source: GIS-derived facilities from route plotter
+            // These represent all ARTCCs traversed by the routes (L1 only)
+            const gisFacilities = (this.rerouteData && this.rerouteData.facilities) || [];
+            gisFacilities.forEach(f => {
+                const upper = f.toUpperCase();
+                // Normalize US ICAO (KZNY) to FAA (ZNY)
+                if (/^KZ[A-Z]{2}$/.test(upper)) {
+                    facilities.add(upper.substring(1));
+                } else {
+                    facilities.add(upper);
+                }
             });
+
+            // Fallback: extract from origin/dest fields if no GIS data
+            if (facilities.size === 0) {
+                const routes = this.collectRoutes();
+                routes.forEach(r => {
+                    const tokens = [
+                        ...(r.origin || '').toUpperCase().split(/[\s/]+/).filter(Boolean),
+                        ...(r.destination || '').toUpperCase().split(/[\s/]+/).filter(Boolean),
+                    ];
+                    tokens.forEach(t => {
+                        if (this.isFacilityCode(t)) {
+                            facilities.add(t);
+                        } else if (this.isAirportCode(t) && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.AIRPORT_TO_ARTCC) {
+                            const artcc = FacilityHierarchy.AIRPORT_TO_ARTCC[t];
+                            if (artcc) { facilities.add(artcc); }
+                        }
+                    });
+                });
+            }
 
             if (facilities.size) {
                 $('#rr_facilities_included').val(Array.from(facilities).sort().join('/'));
