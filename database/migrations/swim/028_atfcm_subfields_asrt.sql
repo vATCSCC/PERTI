@@ -57,9 +57,13 @@ IF NOT EXISTS (
     SELECT 1 FROM sys.indexes
     WHERE name = 'IX_swim_flights_atfcm_flags' AND object_id = OBJECT_ID('dbo.swim_flights')
 )
+-- Note: Filtered indexes cannot use OR predicates in SQL Server.
+-- Using eu_atfcm_excluded = 1 as the filter since EXCLUDED is the most
+-- common regulatory state queried independently.
 CREATE NONCLUSTERED INDEX IX_swim_flights_atfcm_flags
 ON dbo.swim_flights (eu_atfcm_excluded, eu_atfcm_ready, eu_atfcm_slot_improvement)
-WHERE eu_atfcm_excluded = 1 OR eu_atfcm_ready = 1 OR eu_atfcm_slot_improvement = 1;
+INCLUDE (callsign, fp_dept_icao)
+WHERE eu_atfcm_excluded = 1;
 GO
 
 -- Backfill: sync eu_atfcm_excluded with existing eu_atfcm_status = 'EXCLUDED'
