@@ -756,6 +756,19 @@ $perm = true;
                                 </div>
                                 <?php endforeach; ?>
                             </div>
+                            <!-- Canadian FIRs -->
+                            <hr class="my-2">
+                            <div class="d-flex flex-wrap" id="rr_can_facilities_grid">
+                                <?php foreach (PERTI_CANADIAN_FIRS as $fir): ?>
+                                <div class="custom-control custom-checkbox mr-3 mb-2">
+                                    <input type="checkbox" class="custom-control-input rr-facility-cb rr-can-fir"
+                                           id="rr_fac_<?= $fir ?>" value="<?= $fir ?>">
+                                    <label class="custom-control-label" for="rr_fac_<?= $fir ?>">
+                                        <?= $fir ?>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
                             <!-- International Organizations -->
                             <hr class="my-2">
                             <div class="d-flex flex-wrap" id="rr_intl_facilities_grid">

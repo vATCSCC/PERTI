@@ -2960,18 +2960,29 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
             $fullAdvisory = trim((string) buildNtmlText($entry));
 
             try {
-                $plotter = buildRoutePlotterUrl($entry, $fullAdvisory);
-                if (!empty($plotter['url'])) {
-                    $plotterLines = ["**Route Plotter**", $plotter['url']];
-                    if (!empty($plotter['truncated'])) {
-                        $plotterLines[] = "_Preloaded with first routes due URL length limits._";
-                    } elseif (!empty($plotter['prefilled'])) {
-                        $plotterLines[] = "_Preloaded from this proposal._";
-                    }
+                // Try saved route share first (short, persistent URL)
+                $seedText = trim((string) buildRoutePlotterSeedText($entry, $fullAdvisory));
+                $shareUrl = ($seedText !== '') ? createRouteShare($seedText, $proposalId) : null;
+
+                if ($shareUrl) {
+                    $plotterLines = ["**Route Plotter**", $shareUrl, "_Saved route share \u{2014} click to view all routes._"];
                     $discord->sendMessageToThread($threadId, ['content' => implode("\n", $plotterLines)]);
-                    $starterResult['route_plotter_url'] = $plotter['url'];
+                    $starterResult['route_plotter_url'] = $shareUrl;
+                } else {
+                    // Fallback to URL-encoded route params
+                    $plotter = buildRoutePlotterUrl($entry, $fullAdvisory);
+                    if (!empty($plotter['url'])) {
+                        $plotterLines = ["**Route Plotter**", $plotter['url']];
+                        if (!empty($plotter['truncated'])) {
+                            $plotterLines[] = "_Note: Some routes omitted from prefill due to URL length limits._";
+                        } elseif (!empty($plotter['prefilled'])) {
+                            $plotterLines[] = "_Preloaded from this proposal._";
+                        }
+                        $discord->sendMessageToThread($threadId, ['content' => implode("\n", $plotterLines)]);
+                        $starterResult['route_plotter_url'] = $plotter['url'];
+                    }
                 }
-            } catch (Throwable $e) {
+            } catch (\Throwable $e) {
                 $log("Route plotter error: " . $e->getMessage());
             }
         }
@@ -4154,6 +4165,56 @@ function buildRoutePlotterUrl($entry, $fallbackAdvisory = '') {
         'prefilled' => false,
         'truncated' => true,
     ];
+}
+
+/**
+ * Create a route share in MySQL and return the share URL.
+ * Returns null on failure (non-fatal - caller falls back to buildRoutePlotterUrl).
+ */
+function createRouteShare(string $routeText, int $proposalId): ?string {
+    if (trim($routeText) === '' || strlen($routeText) > 65536) {
+        return null;
+    }
+
+    try {
+        $mysqli = new mysqli(SQL_HOST, SQL_USERNAME, SQL_PASSWORD, SQL_DATABASE);
+        if ($mysqli->connect_error) { return null; }
+        $mysqli->set_charset('utf8mb4');
+
+        $label = date('Ymd') . '-coord-' . $proposalId;
+        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($label));
+        $slug = trim($slug, '-');
+
+        // Generate unique code with retry
+        $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $suffix = '';
+            for ($i = 0; $i < 4; $i++) {
+                $suffix .= $chars[random_int(0, strlen($chars) - 1)];
+            }
+            $code = $slug . '-' . $suffix;
+
+            $stmt = $mysqli->prepare(
+                "INSERT INTO route_shares (code, label, suffix, route_text, created_by_cid) VALUES (?, ?, ?, ?, ?)"
+            );
+            $cid = 'system';
+            $stmt->bind_param('sssss', $code, $label, $suffix, $routeText, $cid);
+
+            if ($stmt->execute()) {
+                $stmt->close();
+                $mysqli->close();
+                $base = getPublicSiteBaseUrl();
+                $baseUrl = ($base !== '' ? rtrim($base, '/') : 'https://perti.vatcscc.org');
+                return $baseUrl . '/route.php?s=' . urlencode($code);
+            }
+            $stmt->close();
+        }
+
+        $mysqli->close();
+    } catch (\Throwable $e) {
+        // Non-fatal: fall back to URL encoding
+    }
+    return null;
 }
 
 /**

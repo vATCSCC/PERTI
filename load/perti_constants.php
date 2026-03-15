@@ -129,6 +129,9 @@ const PERTI_ARTCC_ALL = [
     'ZAK', 'ZAP', 'ZHO', 'ZMO', 'ZUA', 'ZWY',
 ];
 
+/** Canadian FIR codes for coordination grid (individual facility checkboxes) */
+const PERTI_CANADIAN_FIRS = ['CZEG', 'CZVR', 'CZWG', 'CZYZ', 'CZQM', 'CZQX', 'CZQO', 'CZUL'];
+
 /** International organizations for coordination (mirrors perti.js COORDINATION.INTL_ORGS) */
 const PERTI_INTL_ORGS = [
     'VATCAN' => 'Canada',
