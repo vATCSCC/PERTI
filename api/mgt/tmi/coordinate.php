@@ -2128,9 +2128,11 @@ function handleEditProposal($input) {
             try {
                 $discord = new DiscordAPI();
                 if ($discord->isConfigured()) {
-                    $editNotice = "**PROPOSAL EDITED** by {$userName}\n"
-                        . "All previous approvals have been cleared. Please re-review.\n"
-                        . "New deadline: <t:{$newDeadline->getTimestamp()}:F> (<t:{$newDeadline->getTimestamp()}:R>)";
+                    // Build edit notice embed with changes
+                    $editDescParts = [];
+                    $editDescParts[] = "Edited by {$userName}";
+                    $editDescParts[] = "All previous approvals have been cleared. Please re-review.";
+                    $editDescParts[] = "New deadline: <t:{$newDeadline->getTimestamp()}:F> (<t:{$newDeadline->getTimestamp()}:R>)";
 
                     // Show what changed
                     $changes = [];
@@ -2144,14 +2146,23 @@ function handleEditProposal($input) {
                         $oldVal = trim((string)($oldData[$field] ?? ''));
                         $newVal = trim((string)($updates[$field] ?? $oldData[$field] ?? ''));
                         if ($oldVal !== $newVal && ($oldVal || $newVal)) {
-                            $changes[] = "**{$label}:** `{$oldVal}` -> `{$newVal}`";
+                            $changes[] = "**{$label}:** `{$oldVal}` \u{2192} `{$newVal}`";
                         }
                     }
                     if (!empty($changes)) {
-                        $editNotice .= "\n\n" . implode("\n", $changes);
+                        $editDescParts[] = "";
+                        foreach ($changes as $change) {
+                            $editDescParts[] = $change;
+                        }
                     }
 
-                    $discord->sendMessageToThread($existingThreadId, ['content' => $editNotice]);
+                    $editNoticeEmbed = [
+                        'title'       => "\u{26A0}\u{FE0F} PROPOSAL EDITED",
+                        'description' => implode("\n", $editDescParts),
+                        'color'       => 0xFFC107,
+                        'timestamp'   => gmdate('Y-m-d\TH:i:s\Z'),
+                    ];
+                    $discord->sendMessageToThread($existingThreadId, ['embeds' => [$editNoticeEmbed]]);
 
                     // Re-add facility emoji reactions to the thread message for re-approval
                     $facSql = "SELECT facility_code FROM dbo.tmi_proposal_facilities WHERE proposal_id = :id";
@@ -2159,11 +2170,11 @@ function handleEditProposal($input) {
                     $facStmt->execute([':id' => $proposalId]);
                     $facilityCodes = $facStmt->fetchAll(PDO::FETCH_COLUMN);
 
-                    // Post re-formatted coordination details
+                    // Post re-formatted coordination details as embed
                     $updatedEntryData = json_decode($params[':entry_data'], true) ?: $entryData;
                     $facilityList = array_map(function($f) { return ['code' => $f]; }, $facilityCodes);
-                    $content = formatProposalMessage($proposalId, $updatedEntryData, $newDeadline, $facilityList, $userName . ' (EDITED)');
-                    $threadMsg = $discord->sendMessageToThread($existingThreadId, ['content' => $content]);
+                    $editEmbed = formatProposalEmbed($proposalId, $updatedEntryData, $newDeadline, $facilityList, $userName, 'EDITED');
+                    $threadMsg = $discord->sendMessageToThread($existingThreadId, ['embeds' => [$editEmbed]]);
 
                     // Add reactions to the new thread message for re-approval
                     if ($threadMsg && isset($threadMsg['id'])) {
@@ -2255,32 +2266,30 @@ function updateProposalDiscordMessage($proposalId, $conn, $oldValues = null, $ne
         $facStmt->execute([':id' => $proposalId]);
         $facilities = $facStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Build updated message
+        // Build updated embed with edit warning
         $entryData = json_decode($proposal['entry_data_json'], true) ?: [];
         $deadline = new DateTime($proposal['approval_deadline_utc'], new DateTimeZone('UTC'));
         $facilityList = array_map(function($f) { return ['code' => $f['facility_code']]; }, $facilities);
 
-        // Format with EDITED marker
-        $message = formatProposalMessage(
+        // Build edit embed with summary fields
+        $editEmbed = formatProposalEmbed(
             $proposalId,
             $entryData,
             $deadline,
             $facilityList,
-            $proposal['created_by_name'] ?? 'Unknown'
+            $proposal['created_by_name'] ?? 'Unknown',
+            'EDITED'
         );
 
-        // Build edit summary section
-        $editSummary = [];
-        $editSummary[] = "```diff";
-        $editSummary[] = "- ⚠️ THIS PROPOSAL HAS BEEN EDITED";
-        $editSummary[] = "- All previous approvals cleared - please re-review";
-        $editSummary[] = "```";
+        // Build description with edit warning and changes
+        $descParts = [];
+        $descParts[] = "```diff";
+        $descParts[] = "- THIS PROPOSAL HAS BEEN EDITED";
+        $descParts[] = "- All previous approvals cleared - please re-review";
+        $descParts[] = "```";
 
-        // Show what changed if we have the values
         if ($oldValues && $newValues) {
             $changes = [];
-
-            // Compare key fields
             $fieldLabels = [
                 'ctl_element' => 'Control Element',
                 'requesting_facility' => 'Requesting Facility',
@@ -2296,60 +2305,57 @@ function updateProposalDiscordMessage($proposalId, $conn, $oldValues = null, $ne
             foreach ($fieldLabels as $field => $label) {
                 $oldVal = $oldValues[$field] ?? '';
                 $newVal = $newValues[$field] ?? '';
-
-                // Normalize for comparison
                 $oldNorm = is_string($oldVal) ? trim($oldVal) : $oldVal;
                 $newNorm = is_string($newVal) ? trim($newVal) : $newVal;
 
                 if ($oldNorm !== $newNorm && ($oldNorm || $newNorm)) {
-                    // Truncate long values for display
                     $oldDisplay = strlen($oldNorm) > 50 ? substr($oldNorm, 0, 47) . '...' : $oldNorm;
                     $newDisplay = strlen($newNorm) > 50 ? substr($newNorm, 0, 47) . '...' : $newNorm;
-
-                    $changes[] = "**{$label}:** `{$oldDisplay}` → `{$newDisplay}`";
+                    $changes[] = "**{$label}:** `{$oldDisplay}` \u{2192} `{$newDisplay}`";
                 }
             }
 
             if (!empty($changes)) {
-                $editSummary[] = "";
-                $editSummary[] = "**📝 Changes Made:**";
+                $descParts[] = "";
                 foreach ($changes as $change) {
-                    $editSummary[] = "› " . $change;
+                    $descParts[] = $change;
                 }
             }
         }
 
-        // Add edit metadata
         if ($editedBy || $editReason) {
-            $editSummary[] = "";
-            if ($editedBy) $editSummary[] = "**Edited by:** {$editedBy}";
-            if ($editReason) $editSummary[] = "**Reason:** {$editReason}";
+            $descParts[] = "";
+            if ($editedBy) $descParts[] = "**Edited by:** {$editedBy}";
+            if ($editReason) $descParts[] = "**Reason:** {$editReason}";
         }
 
-        $editSummary[] = "";
-        $editSummary[] = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-
-        // Prepend edit summary to message
-        $message = implode("\n", $editSummary) . "\n" . $message;
+        // Set description on the embed (prepend to any existing description)
+        $existingDesc = $editEmbed['description'] ?? '';
+        $editEmbed['description'] = implode("\n", $descParts) . ($existingDesc ? "\n\n{$existingDesc}" : '');
+        $editEmbed['color'] = 0xFFC107; // Amber for edited
+        $editEmbed['timestamp'] = gmdate('Y-m-d\TH:i:s\Z');
 
         // Update Discord message(s)
         $discord = new DiscordAPI();
         if ($discord->isConfigured()) {
             $discordChannelId = $proposal['discord_channel_id'] ?? DISCORD_COORDINATION_CHANNEL;
-            // Edit primary action message
+            // Edit primary action message with embed
             $discord->editMessage($discordChannelId, $proposal['discord_message_id'], [
-                'content' => $message
+                'embeds' => [$editEmbed]
             ]);
-            // If there are overflow action messages, post an edit notice to the thread
+            // If there are overflow action messages, supersede them
             $extraIds = !empty($proposal['discord_action_message_ids'])
                 ? json_decode($proposal['discord_action_message_ids'], true)
                 : null;
             if (is_array($extraIds) && count($extraIds) > 1) {
-                $noticeLines = ["⚠️ **This proposal has been edited.** See the updated message above."];
                 foreach (array_slice($extraIds, 1) as $extraId) {
                     try {
+                        $supersededEmbed = [
+                            'description' => '*This actions message has been superseded by an edit — see above*',
+                            'color' => 0x7F8C8D,
+                        ];
                         $discord->editMessage($discordChannelId, $extraId, [
-                            'content' => "*(This actions message has been superseded by an edit — see above)*"
+                            'embeds' => [$supersededEmbed]
                         ]);
                     } catch (Throwable $e) {
                         // Non-critical
@@ -2435,14 +2441,17 @@ function handleRescindProposal() {
                     try {
                         $discord = new DiscordAPI();
                         if ($discord->isConfigured()) {
-                            $reopenNotice = "**PROPOSAL REOPENED** by {$userName}\n"
-                                . "All previous approvals have been cleared. Please re-review.\n"
-                                . "New deadline: <t:{$newDeadline->getTimestamp()}:F> (<t:{$newDeadline->getTimestamp()}:R>)";
-                            $discord->sendMessageToThread($existingThreadId, ['content' => $reopenNotice]);
+                            $reopenEmbed = [
+                                'title'       => "\u{1F504} PROPOSAL REOPENED",
+                                'description' => "Reopened by {$userName}\nAll previous approvals have been cleared. Please re-review.\nNew deadline: <t:{$newDeadline->getTimestamp()}:F> (<t:{$newDeadline->getTimestamp()}:R>)",
+                                'color'       => 0xFFC107,
+                                'timestamp'   => gmdate('Y-m-d\TH:i:s\Z'),
+                            ];
+                            $discord->sendMessageToThread($existingThreadId, ['embeds' => [$reopenEmbed]]);
 
-                            // Post re-formatted coordination details
-                            $content = formatProposalMessage($proposalId, $entryData, $newDeadline, $facilityList, $userName . ' (REOPENED)');
-                            $threadMsg = $discord->sendMessageToThread($existingThreadId, ['content' => $content]);
+                            // Post re-formatted coordination details as embed
+                            $reopenSummaryEmbed = formatProposalEmbed($proposalId, $entryData, $newDeadline, $facilityList, $userName, 'REOPENED');
+                            $threadMsg = $discord->sendMessageToThread($existingThreadId, ['embeds' => [$reopenSummaryEmbed]]);
 
                             // Add reactions for re-approval
                             if ($threadMsg && isset($threadMsg['id'])) {
@@ -2693,19 +2702,34 @@ function updateCoordinationMessageOnApproval($conn, $proposalId, $proposal) {
         // 1. Update the starter message (main channel) to show APPROVED status
         $starterMsgId = $proposal['discord_starter_message_id'] ?? null;
         if ($starterMsgId) {
-            // Fetch the original starter message to update the status line
             try {
                 $channelForStarter = DISCORD_COORDINATION_CHANNEL;
-                $origMsg = $discord->getMessage($channelForStarter, $starterMsgId);
-                $origContent = $origMsg['content'] ?? '';
 
-                // Replace "PENDING" with "APPROVED" in the second line
-                $newContent = preg_replace('/\| PENDING \|/', '| ✅ APPROVED |', $origContent, 1);
-                if ($newContent !== $origContent) {
-                    $discord->editMessage($channelForStarter, $starterMsgId, [
-                        'content' => $newContent
-                    ]);
-                }
+                // Reconstruct the starter embed with APPROVED status
+                $entryData = json_decode($proposal['entry_data_json'], true) ?: [];
+                $deadline = new DateTime($proposal['approval_deadline_utc'], new DateTimeZone('UTC'));
+
+                // Get facility list for display
+                $facSql = "SELECT facility_code FROM dbo.tmi_proposal_facilities WHERE proposal_id = :id";
+                $facStmt = $conn->prepare($facSql);
+                $facStmt->execute([':id' => $proposalId]);
+                $facilityCodes = $facStmt->fetchAll(PDO::FETCH_COLUMN);
+                $facilityList = array_map(function($f) { return ['code' => $f]; }, $facilityCodes);
+
+                $proposerString = buildProposerString(
+                    $proposal['created_by_name'] ?? 'Unknown',
+                    $proposal['created_by_user_id'] ?? null,
+                    $proposal['created_by_oi'] ?? null,
+                    $proposal['requesting_facility'] ?? null
+                );
+
+                $approvedEmbed = buildCoordStarterEmbed(
+                    $proposalId, $entryData, $deadline, $facilityList,
+                    $proposerString, 'APPROVED'
+                );
+                $discord->editMessage($channelForStarter, $starterMsgId, [
+                    'embeds' => [$approvedEmbed]
+                ]);
             } catch (Exception $e) {
                 error_log("Failed to update starter message status: " . $e->getMessage());
             }
@@ -2717,11 +2741,14 @@ function updateCoordinationMessageOnApproval($conn, $proposalId, $proposal) {
         // 3. Post an approval notification to the thread
         if ($threadId) {
             $unixTime = time();
-            $approvalNotice = "## ✅ PROPOSAL APPROVED\n"
-                . "All facilities have approved. <t:{$unixTime}:f> (<t:{$unixTime}:R>)\n"
-                . "Ready for publication in TMI Publisher queue.";
+            $approvalEmbed = [
+                'title'       => "\u{2705} PROPOSAL APPROVED",
+                'description' => "All facilities have approved. <t:{$unixTime}:f> (<t:{$unixTime}:R>)\nReady for publication in TMI Publisher queue.",
+                'color'       => 0x2ECC71,
+                'timestamp'   => gmdate('Y-m-d\TH:i:s\Z'),
+            ];
             try {
-                $discord->sendMessageToThread($threadId, ['content' => $approvalNotice]);
+                $discord->sendMessageToThread($threadId, ['embeds' => [$approvalEmbed]]);
             } catch (Exception $e) {
                 error_log("Failed to post approval notice to thread: " . $e->getMessage());
             }
@@ -2768,10 +2795,10 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         $threadTitle = buildCoordinationThreadTitle($proposalId, $entry, $deadline, $facilities);
         $log("Thread title: {$threadTitle}");
 
-        // ── Step 1: Post Title (starter message) to main channel ──
-        $starterContent = buildCoordStarterContent($proposalId, $entry, $deadline, $facilities, $proposerString);
+        // ── Step 1: Post Title (starter embed) to main channel ──
+        $starterEmbed = buildCoordStarterEmbed($proposalId, $entry, $deadline, $facilities, $proposerString);
         $starterResult = $discord->createMessage(DISCORD_COORDINATION_CHANNEL, [
-            'content' => $starterContent
+            'embeds' => [$starterEmbed]
         ]);
 
         if (!$starterResult || !isset($starterResult['id'])) {
@@ -2797,17 +2824,17 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         $starterResult['thread_id'] = $threadId;
         $log("Thread created: {$threadId}");
 
-        // ── Step 3: Post Message 1 (Summary) ──
-        $summaryContent = buildCoordSummaryMessage($entry, $facilities, $orgCode);
-        $summaryMsg = $discord->sendMessageToThread($threadId, ['content' => $summaryContent]);
+        // ── Step 3: Post Message 1 (Summary embed) ──
+        $summaryEmbed = buildCoordSummaryEmbed($entry, $facilities, $orgCode);
+        $summaryMsg = $discord->sendMessageToThread($threadId, ['embeds' => [$summaryEmbed]]);
         if ($summaryMsg && isset($summaryMsg['id'])) {
             $log("Summary message posted: " . $summaryMsg['id']);
         }
         usleep(200000);
 
-        // ── Step 4: Post Message 2 (Body / raw text) ──
-        $bodyContent = buildCoordBodyMessage($entry);
-        $bodyMsg = $discord->sendMessageToThread($threadId, ['content' => $bodyContent]);
+        // ── Step 4: Post Message 2 (Body embed / raw text) ──
+        $bodyEmbed = buildCoordBodyEmbed($entry);
+        $bodyMsg = $discord->sendMessageToThread($threadId, ['embeds' => [$bodyEmbed]]);
         if ($bodyMsg && isset($bodyMsg['id'])) {
             $log("Body message posted: " . $bodyMsg['id']);
         }
@@ -2855,11 +2882,11 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
                 }
             }
 
-            $actionsContent = buildCoordActionsMessage(
+            $actionsEmbed = buildCoordActionsEmbed(
                 $proposalId, $deadline, $chunk, $entry, $orgCode,
                 $pageNum, $totalPages, $facilities, $preChunkEmojis
             );
-            $actionsMsg = $discord->sendMessageToThread($threadId, ['content' => $actionsContent]);
+            $actionsMsg = $discord->sendMessageToThread($threadId, ['embeds' => [$actionsEmbed]]);
 
             $msgId = null;
             if ($actionsMsg && isset($actionsMsg['id'])) {
@@ -2918,10 +2945,10 @@ function postProposalToDiscord($proposalId, $entry, $deadline, $facilities, $use
         $starterResult['reaction_results'] = $reactionResults;
         $starterResult['action_message_ids'] = $actionMessageIds;
 
-        // ── Step 6: Post Message 4 (Coordination Log — auto-updating) ──
+        // ── Step 6: Post Message 4 (Coordination Log embed — auto-updating) ──
         usleep(200000);
-        $logContent = buildCoordLogMessage($proposalId);
-        $logMsg = $discord->sendMessageToThread($threadId, ['content' => $logContent]);
+        $logEmbed = buildCoordLogEmbed($proposalId);
+        $logMsg = $discord->sendMessageToThread($threadId, ['embeds' => [$logEmbed]]);
         if ($logMsg && isset($logMsg['id'])) {
             $starterResult['log_message_id'] = $logMsg['id'];
             $log("Log message posted: " . $logMsg['id']);
@@ -3389,14 +3416,418 @@ function buildCoordActionsMessage($proposalId, $deadline, $facilities, $entry, $
 /**
  * Build Message 4: Coordination Log (initially empty, auto-updated)
  * Uses diff syntax highlighting for color: + green (approved), - red (denied)
+ * @deprecated Use buildCoordLogEmbed() for new Discord posts
  */
 function buildCoordLogMessage($proposalId) {
     return "## COORDINATION LOG\n```diff\n  Awaiting facility responses...\n```";
 }
 
+// =============================================================================
+// Discord Embed Builders (replacements for plain-text coordination messages)
+// =============================================================================
+
+/**
+ * Get the Discord embed color for a TMI entry type or status.
+ *
+ * @param string $type TMI type (MIT, GS, GDP, ROUTE, etc.) or status (APPROVED, DENIED)
+ * @return int Discord color integer
+ */
+function getCoordEmbedColor($type) {
+    return COORD_EMBED_COLORS[strtoupper($type)] ?? 0x95A5A6;
+}
+
+/**
+ * Build the starter embed for the coordination channel (thread entry point).
+ *
+ * @param int $proposalId
+ * @param array $entry Entry data with 'entryType' and 'data' keys
+ * @param DateTime $deadline Approval deadline
+ * @param array $facilities Array of facility code strings or ['code' => ...] arrays
+ * @param string $proposerString Display string from buildProposerString()
+ * @param string $status 'PENDING', 'APPROVED', 'DENIED', etc.
+ * @return array Discord embed array
+ */
+function buildCoordStarterEmbed($proposalId, $entry, $deadline, $facilities, $proposerString, $status = 'PENDING') {
+    $entryType = strtoupper($entry['entryType'] ?? 'TMI');
+    $data = $entry['data'] ?? [];
+
+    // Build facility display
+    $requestor = strtoupper(trim($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC'));
+    $facCodes = [];
+    foreach ($facilities as $fac) {
+        $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+        $facCodes[] = strtoupper(trim($code));
+    }
+
+    if ($entryType === 'ROUTE' || $entryType === 'REROUTE') {
+        $facDisplay = implode(', ', $facCodes);
+    } else {
+        $facDisplay = $requestor . ':' . implode('/', $facCodes);
+    }
+
+    // Valid period
+    $validFrom = $data['valid_from'] ?? null;
+    $validUntil = $data['valid_until'] ?? null;
+    $validPeriod = 'TBD';
+    try {
+        $parts = [];
+        if ($validFrom) $parts[] = formatDdHhmmZ($validFrom);
+        else $parts[] = 'TBD';
+        $parts[] = '-';
+        if ($validUntil) $parts[] = formatDdHhmmZ($validUntil);
+        else $parts[] = 'TBD';
+        $validPeriod = implode('', $parts);
+    } catch (Exception $e) { /* keep TBD */ }
+
+    // Color: use status color if not PENDING, otherwise TMI type color
+    $statusUpper = strtoupper($status);
+    $color = ($statusUpper !== 'PENDING')
+        ? getCoordEmbedColor($statusUpper)
+        : getCoordEmbedColor($entryType);
+
+    // Status display with emoji
+    $statusEmojis = [
+        'PENDING'   => "\u{23F3}",   // hourglass
+        'APPROVED'  => "\u{2705}",   // white check mark
+        'DENIED'    => "\u{274C}",   // cross mark
+        'CANCELLED' => "\u{1F6AB}",  // no entry sign
+        'EXPIRED'   => "\u{231B}",   // hourglass done
+    ];
+    $statusEmoji = $statusEmojis[$statusUpper] ?? '';
+    $statusDisplay = trim("{$statusEmoji} {$statusUpper}");
+
+    // Deadline as Discord relative timestamp
+    $deadlineUnix = $deadline->getTimestamp();
+
+    $embed = [
+        'title'       => "{$entryType} | {$facDisplay} | {$validPeriod}",
+        'description' => "Proposed by {$proposerString}",
+        'color'       => $color,
+        'fields'      => [
+            ['name' => 'TMI ID',  'value' => "#{$proposalId}",                            'inline' => true],
+            ['name' => 'Status',  'value' => $statusDisplay,                               'inline' => true],
+            ['name' => 'Due',     'value' => "<t:{$deadlineUnix}:t> (<t:{$deadlineUnix}:R>)", 'inline' => true],
+        ],
+        'footer'      => ['text' => 'vATCSCC TMI Coordination'],
+        'timestamp'   => gmdate('Y-m-d\TH:i:s\Z'),
+    ];
+
+    return $embed;
+}
+
+/**
+ * Build the summary embed (first thread message with structured fields).
+ *
+ * @param array $entry Entry data
+ * @param array $facilities Facility list
+ * @param string $orgCode Organization code
+ * @return array Discord embed array
+ */
+function buildCoordSummaryEmbed($entry, $facilities, $orgCode = 'VATCSCC') {
+    $entryType = strtoupper($entry['entryType'] ?? 'TMI');
+    $data = $entry['data'] ?? [];
+    $orgDisplay = strtoupper($orgCode ?: 'VATCSCC');
+    $color = getCoordEmbedColor($entryType);
+
+    $fields = [];
+
+    if ($entryType === 'ROUTE' || $entryType === 'REROUTE') {
+        $routeName = strtoupper(trim($data['name'] ?? 'UNNAMED'));
+        $reason = strtoupper(trim($data['reason'] ?? 'VOLUME'));
+
+        $facCodes = [];
+        foreach ($facilities as $fac) {
+            $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+            $facCodes[] = strtoupper(trim($code));
+        }
+        $facDisplay = implode(', ', $facCodes);
+
+        $fields[] = ['name' => 'Route Name',          'value' => $routeName,  'inline' => true];
+        $fields[] = ['name' => 'Facilities Included',  'value' => $facDisplay, 'inline' => true];
+        $fields[] = ['name' => 'Reason',               'value' => $reason,     'inline' => true];
+
+        $validStr = buildValidityString($data['valid_from'] ?? null, $data['valid_until'] ?? null);
+        $fields[] = ['name' => 'Valid', 'value' => $validStr, 'inline' => false];
+
+        // Description: route plotter link if available
+        $description = '';
+        $baseUrl = getPublicSiteBaseUrl();
+        if ($baseUrl) {
+            $plotter = buildRoutePlotterUrl($entry);
+            if (!empty($plotter['url'])) {
+                $description = "[View on Route Plotter]({$plotter['url']})";
+            }
+        }
+
+        return [
+            'title'       => "{$orgDisplay} COORDINATION REQUEST",
+            'description' => $description ?: null,
+            'color'       => $color,
+            'fields'      => $fields,
+        ];
+
+    } elseif (in_array($entryType, ['MIT', 'MINIT', 'AFP', 'GS', 'GDP', 'RESTRICTION'])) {
+        $requestor = strtoupper(trim($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC'));
+        $provider = strtoupper(trim($data['prov_facility'] ?? $data['providing_facility'] ?? ''));
+        $restriction = trim($data['restriction'] ?? $data['ctl_element'] ?? '');
+        $reason = strtoupper(trim($data['reason'] ?? ''));
+        $rawQualifiers = $data['qualifiers'] ?? $data['qualifier'] ?? '';
+        $qualifiers = trim(is_array($rawQualifiers) ? implode(', ', $rawQualifiers) : $rawQualifiers);
+        $rawExclusions = $data['exclusions'] ?? $data['exclusion'] ?? '';
+        $exclusions = trim(is_array($rawExclusions) ? implode(', ', $rawExclusions) : $rawExclusions);
+
+        $provCodes = [];
+        foreach ($facilities as $fac) {
+            $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+            $provCodes[] = strtoupper(trim($code));
+        }
+        $provDisplay = implode(', ', $provCodes);
+
+        $fields[] = ['name' => 'Requestor(s)', 'value' => $requestor,   'inline' => true];
+        $fields[] = ['name' => 'Provider(s)',   'value' => $provDisplay, 'inline' => true];
+        if ($restriction) $fields[] = ['name' => 'Restriction', 'value' => $restriction, 'inline' => false];
+        if ($qualifiers)  $fields[] = ['name' => 'Qualifier(s)', 'value' => $qualifiers, 'inline' => true];
+        if ($exclusions)  $fields[] = ['name' => 'Exclusion(s)', 'value' => $exclusions, 'inline' => true];
+        if ($reason)      $fields[] = ['name' => 'Reason',       'value' => $reason,     'inline' => true];
+
+        $validStr = buildValidityString($data['valid_from'] ?? null, $data['valid_until'] ?? null);
+        $fields[] = ['name' => 'Valid', 'value' => $validStr, 'inline' => false];
+
+        return [
+            'title'  => "{$orgDisplay} COORDINATION REQUEST",
+            'color'  => $color,
+            'fields' => $fields,
+        ];
+
+    } else {
+        return [
+            'title'       => "{$orgDisplay} COORDINATION REQUEST",
+            'description' => '*See following advisory text*',
+            'color'       => $color,
+        ];
+    }
+}
+
+/**
+ * Build the body embed (raw NTML/advisory text in code block).
+ *
+ * @param array $entry Entry data
+ * @return array Discord embed array
+ */
+function buildCoordBodyEmbed($entry) {
+    $entryType = strtoupper($entry['entryType'] ?? 'TMI');
+    $ntmlText = trim((string) buildNtmlText($entry));
+
+    $isAdvisory = in_array($entryType, ['ROUTE', 'REROUTE', 'ADVISORY']);
+    $header = $isAdvisory ? 'ADVISORY TEXT' : 'NTML TEXT';
+
+    if ($ntmlText === '') {
+        return [
+            'title'       => $header,
+            'description' => "```\nNo text available\n```",
+            'color'       => 0x2C3E50,
+        ];
+    }
+
+    // Discord embed description max is 4096 chars; code block fences take ~8 chars
+    $maxCodeLen = 4080;
+    $displayText = $ntmlText;
+    $footer = null;
+
+    if (strlen($ntmlText) > $maxCodeLen) {
+        $displayText = substr($ntmlText, 0, $maxCodeLen);
+        $footer = ['text' => 'Text truncated - see continuation messages below'];
+    }
+
+    $embed = [
+        'title'       => $header,
+        'description' => "```\n{$displayText}\n```",
+        'color'       => 0x2C3E50,
+    ];
+    if ($footer) {
+        $embed['footer'] = $footer;
+    }
+
+    return $embed;
+}
+
+/**
+ * Build the actions required embed (emoji legend + instructions).
+ *
+ * @param int $proposalId
+ * @param DateTime $deadline
+ * @param array $facilities Subset of facilities for THIS message
+ * @param array $entry TMI entry data
+ * @param string $orgCode
+ * @param int $pageNum Current page (1-based)
+ * @param int $totalPages Total action messages
+ * @param array $allFacilities Full facility list (for header on page 1)
+ * @param array $usedEmojisRef Pre-built usedEmojis state
+ * @return array Discord embed array
+ */
+function buildCoordActionsEmbed($proposalId, $deadline, $facilities, $entry, $orgCode = 'VATCSCC', $pageNum = 1, $totalPages = 1, $allFacilities = [], $usedEmojisRef = []) {
+    $data = $entry['data'] ?? [];
+    $entryType = strtoupper($entry['entryType'] ?? 'TMI');
+    $orgDisplay = strtoupper($orgCode ?: 'VATCSCC');
+    $deadlineUnix = $deadline->getTimestamp();
+
+    $requestor = strtoupper(trim($data['req_facility'] ?? $data['requesting_facility'] ?? 'DCC'));
+
+    // This message's facility codes
+    $facCodes = [];
+    foreach ($facilities as $fac) {
+        $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+        $facCodes[] = strtoupper(trim($code));
+    }
+
+    // All facility codes (for "Responses required by" on page 1)
+    $allFacCodes = [];
+    foreach ((!empty($allFacilities) ? $allFacilities : $facilities) as $fac) {
+        $code = is_array($fac) ? ($fac['code'] ?? $fac) : $fac;
+        $allFacCodes[] = strtoupper(trim($code));
+    }
+
+    $title = ($totalPages > 1)
+        ? "ACTIONS REQUIRED ({$pageNum}/{$totalPages})"
+        : "ACTIONS REQUIRED";
+
+    $fields = [];
+
+    if ($pageNum === 1) {
+        $fields[] = ['name' => 'Requestor(s)', 'value' => $requestor, 'inline' => true];
+        $fields[] = ['name' => 'Due By', 'value' => formatDdHhmmZ($deadline) . " | <t:{$deadlineUnix}:t> (<t:{$deadlineUnix}:R>)", 'inline' => true];
+        $fields[] = ['name' => 'Responses Required By', 'value' => implode(', ', $allFacCodes), 'inline' => false];
+    } else {
+        $fields[] = ['name' => 'Due By', 'value' => "<t:{$deadlineUnix}:t> (<t:{$deadlineUnix}:R>)", 'inline' => true];
+    }
+
+    // Build emoji legend
+    $legendLines = [];
+    $usedEmojis = $usedEmojisRef;
+    foreach ($facCodes as $facCode) {
+        $customEmoji = getCustomEmojiName($facCode);
+        $emojiInfo = getEmojiForFacility($facCode, $usedEmojis);
+        $altEmoji = $emojiInfo['emoji'];
+        $parentNote = ($emojiInfo['type'] === 'parent' && !empty($emojiInfo['parent']))
+            ? " ({$emojiInfo['parent']})"
+            : '';
+        $legendLines[] = "**{$facCode}**: {$customEmoji} / {$altEmoji}{$parentNote}";
+    }
+    $fields[] = ['name' => 'Facility Reactions', 'value' => implode("\n", $legendLines), 'inline' => false];
+
+    // Deny/override instructions in description
+    $orgEmoji = getCustomEmojiName($orgDisplay === 'VATCSCC' ? 'DCC' : $orgDisplay);
+    $description = "Facilities must react with their facility's emoji.\n"
+        . "Deny by reacting with \u{274C} or \u{1F6AB}\n"
+        . "{$orgDisplay} override with {$orgEmoji}\n\n"
+        . "[Respond via PERTI TMI Publish](https://perti.vatcscc.org/tmi-publish.php#coordinationPanel)";
+
+    return [
+        'title'       => $title,
+        'description' => $description,
+        'color'       => 0xFFC107,
+        'fields'      => $fields,
+        'footer'      => ['text' => "Proposal #{$proposalId}"],
+    ];
+}
+
+/**
+ * Build the initial coordination log embed (awaiting responses).
+ *
+ * @param int $proposalId
+ * @return array Discord embed array
+ */
+function buildCoordLogEmbed($proposalId) {
+    return [
+        'title'       => 'COORDINATION LOG',
+        'description' => "```diff\n  Awaiting facility responses...\n```",
+        'color'       => 0x95A5A6,
+        'footer'      => ['text' => "Proposal #{$proposalId}"],
+        'timestamp'   => gmdate('Y-m-d\TH:i:s\Z'),
+    ];
+}
+
+/**
+ * Build an updated coordination log embed from current facility states.
+ *
+ * @param mixed $conn Database connection (PDO for TMI)
+ * @param int $proposalId
+ * @return array Discord embed array
+ */
+function buildUpdatedLogEmbed($conn, $proposalId) {
+    $sql = "SELECT facility_code, approval_status, reacted_at, reacted_by_username, reacted_by_oi
+            FROM dbo.tmi_proposal_facilities
+            WHERE proposal_id = :prop_id
+            ORDER BY reacted_at ASC";
+    $stmt = $conn->prepare($sql);
+    $stmt->execute([':prop_id' => $proposalId]);
+    $facilities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $logLines = [];
+    $hasAnyResponse = false;
+    $hasAnyDenied = false;
+    $allResolved = true;
+
+    foreach ($facilities as $fac) {
+        $status = strtoupper($fac['approval_status'] ?? 'PENDING');
+        $code = strtoupper($fac['facility_code'] ?? '');
+
+        if ($status === 'PENDING') {
+            $logLines[] = "  {$code} ... PENDING";
+            $allResolved = false;
+            continue;
+        }
+
+        $hasAnyResponse = true;
+        $timestamp = 'TBD';
+        if ($fac['reacted_at']) {
+            try {
+                $dt = new DateTime($fac['reacted_at'], new DateTimeZone('UTC'));
+                $timestamp = formatDdHhmmZ($dt);
+            } catch (Exception $e) { /* keep TBD */ }
+        }
+
+        $who = trim(($fac['reacted_by_oi'] ?? '') . ' ' . ($fac['reacted_by_username'] ?? ''));
+        if ($who === '') $who = 'Unknown';
+
+        if ($status === 'APPROVED') {
+            $logLines[] = "+ {$timestamp}    {$code} APPROVED    {$who}";
+        } elseif ($status === 'DENIED') {
+            $logLines[] = "- {$timestamp}    {$code} DENIED      {$who}";
+            $hasAnyDenied = true;
+        } else {
+            $logLines[] = "  {$timestamp}    {$code} {$status}    {$who}";
+        }
+    }
+
+    // Dynamic color: gray while pending, green when all approved, red if any denied
+    if (!$hasAnyResponse) {
+        $color = 0x95A5A6;  // Gray
+        $diffContent = "  Awaiting facility responses...";
+    } else {
+        $diffContent = implode("\n", $logLines);
+        if ($hasAnyDenied) {
+            $color = 0xE74C3C;  // Red
+        } elseif ($allResolved) {
+            $color = 0x2ECC71;  // Green
+        } else {
+            $color = 0xF39C12;  // Yellow/amber (in progress)
+        }
+    }
+
+    return [
+        'title'       => 'COORDINATION LOG',
+        'description' => "```diff\n{$diffContent}\n```",
+        'color'       => $color,
+        'footer'      => ['text' => "Proposal #{$proposalId} | Last updated"],
+        'timestamp'   => gmdate('Y-m-d\TH:i:s\Z'),
+    ];
+}
+
 /**
  * Build updated log message content from current facility states.
  * Each response is a line in the diff block.
+ * @deprecated Use buildUpdatedLogEmbed() for new Discord posts
  */
 function buildUpdatedLogContent($conn, $proposalId) {
     $sql = "SELECT facility_code, approval_status, reacted_at, reacted_by_username, reacted_by_oi
@@ -3458,12 +3889,12 @@ function updateCoordLogMessage($conn, $proposalId, $proposal) {
             return;
         }
 
-        $newContent = buildUpdatedLogContent($conn, $proposalId);
+        $logEmbed = buildUpdatedLogEmbed($conn, $proposalId);
 
         $discord = new DiscordAPI();
         if ($discord->isConfigured()) {
             $discord->editMessage($threadId, $logMessageId, [
-                'content' => $newContent
+                'embeds' => [$logEmbed]
             ]);
         }
     } catch (Exception $e) {
@@ -3473,11 +3904,31 @@ function updateCoordLogMessage($conn, $proposalId, $proposal) {
 
 /**
  * Legacy: Format proposal message for Discord (kept for backward compat with thread reuse edits)
- * @deprecated Use buildCoordSummaryMessage + buildCoordBodyMessage + buildCoordActionsMessage
+ * @deprecated Use buildCoordSummaryEmbed()
  */
 function formatProposalMessage($proposalId, $entry, $deadline, $facilities, $userName) {
     // Delegate to new summary format for reuse contexts
     return buildCoordSummaryMessage($entry, $facilities);
+}
+
+/**
+ * Build an embed for thread-reuse contexts (edit/reopen flows).
+ * Delegates to buildCoordSummaryEmbed() for consistent formatting.
+ *
+ * @param int $proposalId
+ * @param array $entry
+ * @param DateTime $deadline
+ * @param array $facilities
+ * @param string $userName
+ * @param string|null $editMarker Optional label like 'EDITED' or 'REOPENED' for title prefix
+ * @return array Discord embed array
+ */
+function formatProposalEmbed($proposalId, $entry, $deadline, $facilities, $userName, $editMarker = null) {
+    $embed = buildCoordSummaryEmbed($entry, $facilities);
+    if ($editMarker) {
+        $embed['title'] = "\u{26A0}\u{FE0F} {$editMarker} | " . ($embed['title'] ?? 'COORDINATION REQUEST');
+    }
+    return $embed;
 }
 
 /**

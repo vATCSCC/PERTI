@@ -50,6 +50,29 @@ const PERTI_TMI_STATUSES = [
     'MODIFIED'  => 'Modified',
 ];
 
+/** Embed colors for Discord coordination messages (left-bar color) */
+const COORD_EMBED_COLORS = [
+    // TMI type colors
+    'MIT'       => 0xFF922B,  // Orange
+    'MINIT'     => 0xFF922B,  // Orange
+    'STOP'      => 0xDC3545,  // Red
+    'GS'        => 0xDC3545,  // Red
+    'GDP'       => 0xFD7E14,  // Amber
+    'DELAY'     => 0xE67E22,  // Dark orange
+    'CONFIG'    => 0x3498DB,  // Blue
+    'ROUTE'     => 0x28A745,  // Green
+    'REROUTE'   => 0x28A745,  // Green
+    'FCA'       => 0x9B59B6,  // Purple
+    'AFP'       => 0x9B59B6,  // Purple
+    'ADVISORY'  => 0x95A5A6,  // Gray
+    'OTHER'     => 0x95A5A6,  // Gray
+    // Status colors (for starter edits + log)
+    'APPROVED'  => 0x2ECC71,  // Green
+    'DENIED'    => 0xE74C3C,  // Red
+    'CANCELLED' => 0x7F8C8D,  // Dark gray
+    'EXPIRED'   => 0x7F8C8D,  // Dark gray
+];
+
 /** Valid advisory types accepted by the API (synced with perti.js ADVISORY_TYPES + API extensions) */
 const PERTI_ADVISORY_TYPES = [
     // TMI Program Types (from perti.js)
