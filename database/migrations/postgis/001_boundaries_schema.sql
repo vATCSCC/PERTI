@@ -66,9 +66,9 @@ DROP TABLE IF EXISTS sector_boundaries CASCADE;
 
 CREATE TABLE sector_boundaries (
     sector_id       SERIAL PRIMARY KEY,
-    sector_code     VARCHAR(16) NOT NULL,           -- e.g., ZNY_42, ZLA_HIGH_31
+    sector_code     VARCHAR(50) NOT NULL,           -- e.g., ZNY_42, ZLA_HIGH_31, EDGGFRK/1
     sector_name     VARCHAR(64),                    -- Human-readable name
-    parent_artcc    VARCHAR(4) NOT NULL,            -- Parent ARTCC code
+    parent_artcc    VARCHAR(10) NOT NULL,           -- Parent ARTCC code (4 for US, up to 10 for CDM)
     sector_type     VARCHAR(16) NOT NULL,           -- HIGH, LOW, SUPERHIGH
     floor_altitude  INT,                            -- Floor in feet
     ceiling_altitude INT,                           -- Ceiling in feet
@@ -180,9 +180,9 @@ CREATE OR REPLACE FUNCTION get_route_sectors(
     sector_type_filter VARCHAR(16) DEFAULT NULL
 )
 RETURNS TABLE (
-    sector_code VARCHAR(16),
+    sector_code VARCHAR(50),
     sector_name VARCHAR(64),
-    parent_artcc VARCHAR(4),
+    parent_artcc VARCHAR(10),
     sector_type VARCHAR(16),
     traversal_order FLOAT
 ) AS $$

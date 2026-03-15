@@ -159,14 +159,16 @@ def import_artcc_boundaries(conn, geojson: dict, dry_run: bool = False):
 
 def import_sector_boundaries(conn, geojson: dict, sector_type: str, dry_run: bool = False):
     """Import sector boundaries from GeoJSON."""
-    print(f"\nImporting {sector_type} sector boundaries...")
+    canonical_type = sector_type.upper()
+
+    print(f"\nImporting {sector_type} sector boundaries (type={canonical_type})...")
 
     cursor = conn.cursor()
 
     if not dry_run:
         cursor.execute(
             "DELETE FROM sector_boundaries WHERE sector_type = %s;",
-            (sector_type.upper(),)
+            (canonical_type,)
         )
 
     insert_sql = """
@@ -185,19 +187,19 @@ def import_sector_boundaries(conn, geojson: dict, sector_type: str, dry_run: boo
         # Extract ARTCC code (normalize to uppercase)
         artcc = props.get("artcc", props.get("ARTCC", ""))
         if artcc:
-            artcc = artcc.upper()[:4]
+            artcc = artcc.upper()[:10]
 
         # Build sector code (no underscore - matches ADL adl_boundary format)
         sector = props.get("sector", props.get("SECTOR", ""))
         sector_code = f"{artcc}{sector}" if artcc and sector else sector or "UNK"
 
         row = (
-            sector_code[:16],
+            sector_code[:50],
             props.get("label", props.get("name", ""))[:64] or None,
             artcc or None,
-            sector_type.upper(),
-            props.get("floor"),
-            props.get("ceiling"),
+            canonical_type,
+            props.get("floor") or props.get("min_fl"),
+            props.get("ceiling") or props.get("max_fl"),
             props.get("label_lat"),
             props.get("label_lon"),
             json.dumps(geom),
@@ -610,6 +612,8 @@ def main():
             "001_boundaries_schema.sql",
             "002_extended_functions.sql",
             "003_airports_table.sql",
+            "006_widen_sector_columns.sql",
+            "007_boundary_hierarchy.sql",
         ]
 
         cursor = conn.cursor()

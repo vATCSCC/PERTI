@@ -27,6 +27,9 @@ scripts/ntml_form.json
 *.swo
 *~
 
+# CDM sector GeoJSON (imported into DB, not needed in repo)
+assets/geojson/cdm_*.json
+
 # Navigation data CSV imports (regenerate from Navigraph)
 adl/php/nav_import/
 

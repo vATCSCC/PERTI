@@ -61,7 +61,7 @@ ALTER TABLE adl_boundary ADD CONSTRAINT CHK_boundary_type
     CHECK (boundary_type IN (
         'ARTCC', 'ARTCC_SUPER', 'ARTCC_SUB',
         'ARTCC_SUB_3', 'ARTCC_SUB_4', 'ARTCC_SUB_5', 'ARTCC_SUB_6',
-        'SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH', 'TRACON'
+        'SECTOR_HIGH', 'SECTOR_LOW', 'SECTOR_SUPERHIGH', 'SUPERCENTER', 'TRACON'
     ));
 PRINT 'Re-created CHK_boundary_type with ARTCC_SUPER and ARTCC_SUB_3..6';
 GO

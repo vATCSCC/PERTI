@@ -606,6 +606,8 @@ function importSectors($conn, $geojsonDir, $type, &$stats, $runId) {
             'boundary_name' => $props['label'] ?? null,
             'parent_artcc' => strtoupper($props['artcc'] ?? ''),
             'sector_number' => $props['sector'] ?? null,
+            'floor_altitude' => $props['min_fl'] ?? null,
+            'ceiling_altitude' => $props['max_fl'] ?? null,
             'geometry' => $feature['geometry'],
             'shape_length' => $props['Shape_Length'] ?? null,
             'shape_area' => $props['Shape_Area'] ?? null,
@@ -781,7 +783,8 @@ $type = $_GET['type'] ?? 'all';
 
 switch ($type) {
     case 'artcc': importArtcc($conn, $geojsonDir, $stats, $runId); break;
-    case 'high': case 'low': case 'superhigh': importSectors($conn, $geojsonDir, $type, $stats, $runId); break;
+    case 'high': case 'low': case 'superhigh':
+        importSectors($conn, $geojsonDir, $type, $stats, $runId); break;
     case 'tracon': importTracon($conn, $geojsonDir, $stats, $runId); break;
     case 'hierarchy': importHierarchy($conn, $geojsonDir, $stats, $runId); break;
     case 'all': default:
