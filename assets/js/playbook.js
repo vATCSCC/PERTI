@@ -2350,6 +2350,62 @@
             return;
         }
 
+        // Frozen geometry path: if all selected routes have stored GeoJSON,
+        // render directly without live PostGIS expansion. This preserves
+        // geometry for routes with deprecated AIRAC fixes.
+        if (window.graphic_map && window.graphic_map.getSource('routes')) {
+            var allHaveGeom = selected.every(function(r) { return r.route_geometry; });
+            if (allHaveGeom) {
+                var hasGroups = routeGroups.length > 0;
+                var hasSearch = currentSearchClauses.length > 0;
+                var features = [];
+                var routeOrder = [];
+                var defaultColor = '#C70039';
+
+                selected.forEach(function(r, idx) {
+                    try {
+                        var geom = JSON.parse(r.route_geometry);
+                        var color = defaultColor;
+                        if (hasSearch) {
+                            color = routeMatchesSearchClauses(r, currentSearchClauses) ? '#C70039' : '#555555';
+                        } else if (hasGroups) {
+                            color = getRouteGroupColor(r.route_id) || defaultColor;
+                        }
+                        features.push({
+                            type: 'Feature',
+                            geometry: geom,
+                            properties: {
+                                color: color,
+                                solid: true,
+                                isFan: false,
+                                routeId: idx + 1,
+                                fromFix: '',
+                                toFix: '',
+                                distance: 0,
+                                routeString: r.route_string || ''
+                            }
+                        });
+                        routeOrder.push(r.route_id);
+                    } catch (e) { /* skip malformed geometry */ }
+                });
+
+                if (features.length === selected.length) {
+                    var fc = { type: 'FeatureCollection', features: features };
+                    window.graphic_map.getSource('routes').setData(fc);
+                    // Clear fixes/airports since frozen geometry skips fix resolution
+                    if (window.graphic_map.getSource('fixes')) {
+                        window.graphic_map.getSource('fixes').setData({ type: 'FeatureCollection', features: [] });
+                    }
+                    if (window.graphic_map.getSource('airports')) {
+                        window.graphic_map.getSource('airports').setData({ type: 'FeatureCollection', features: [] });
+                    }
+                    lastPlottedRouteOrder = routeOrder;
+                    return;
+                }
+            }
+        }
+
+        // Live-resolution fallback path (calls PostGIS via route-maplibre.js)
         var hasSearch = currentSearchClauses.length > 0;
         var hasGroups = routeGroups.length > 0;
         var text;

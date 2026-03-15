@@ -100,6 +100,7 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
         'sectors_low' => '',
         'sectors_high' => '',
         'sectors_superhigh' => '',
+        'route_geometry' => null,
     ];
 
     // Lazy-init GIS connection (only once per request)
@@ -195,6 +196,16 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
                     $sectors_superhigh[] = $code;
                     break;
             }
+        }
+
+        // Extract frozen GeoJSON geometry from the same route expansion
+        $geom_stmt = $conn_gis_cached->prepare(
+            "SELECT ST_AsGeoJSON(route_geometry) as geojson FROM expand_route_with_artccs(?)"
+        );
+        $geom_stmt->execute([$fullRoute]);
+        $geom_row = $geom_stmt->fetch(\PDO::FETCH_ASSOC);
+        if ($geom_row && $geom_row['geojson']) {
+            $result['route_geometry'] = $geom_row['geojson'];
         }
     } catch (\Exception $e) {
         // Silently fail -- traversal data will just be empty
