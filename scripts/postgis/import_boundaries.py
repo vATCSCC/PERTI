@@ -256,12 +256,14 @@ def import_tracon_boundaries(conn, geojson: dict, dry_run: bool = False):
         geom = feature.get("geometry", {})
 
         # Use enriched fields from classification script if available
-        # After enrichment: tracon = facility code, sector = subdivision identifier
-        # Before enrichment: sector = facility code, artcc = airport-derived code
+        # GeoJSON: tracon = facility code (N90), sector = area code (JFK)
+        # DB mapping: tracon_code = area code (spatial intersection key),
+        #             sector_code = facility code (parent facility)
         if "tracon" in props:
             # Enriched GeoJSON (post-classification)
-            tracon_code = props.get("tracon", "")
-            sector_code = props.get("sector", "")
+            # Swap: area code → tracon_code (spatial), facility code → sector_code
+            tracon_code = props.get("sector", "")   # area code (JFK, EWR)
+            sector_code = props.get("tracon", "")    # facility code (N90)
             parent_artcc = props.get("parent_fir", "")
         else:
             # Raw GeoJSON (pre-classification, backward compat)
@@ -337,15 +339,16 @@ def import_boundary_hierarchy(conn, dry_run: bool = False):
 
     cursor.execute("SELECT tracon_id, tracon_code, sector_code FROM tracon_boundaries;")
     tracon_rows = cursor.fetchall()
-    # Map by sector_code (unique per feature) and by tracon_code (facility code)
-    tracon_sector_map = {}  # sector_code -> tracon_id
-    tracon_code_map = {}    # tracon_code -> tracon_id (first match for facility-level)
+    # DB columns: tracon_code = area code (JFK), sector_code = facility code (N90)
+    # Hierarchy edges reference GeoJSON codes: tracon = facility, sector = area
+    tracon_area_map = {}      # area code (tracon_code col) -> tracon_id
+    tracon_facility_map = {}  # facility code (sector_code col) -> tracon_id (first match)
     for row in tracon_rows:
         tid, tcode, scode = row
-        if scode:
-            tracon_sector_map[scode] = tid
-        if tcode and tcode not in tracon_code_map:
-            tracon_code_map[tcode] = tid
+        if tcode:
+            tracon_area_map[tcode] = tid  # tcode = tracon_code col = area code
+        if scode and scode not in tracon_facility_map:
+            tracon_facility_map[scode] = tid  # scode = sector_code col = facility code
 
     cursor.execute("SELECT sector_id, sector_code FROM sector_boundaries;")
     sector_map = {row[1]: row[0] for row in cursor.fetchall()}
@@ -384,17 +387,17 @@ def import_boundary_hierarchy(conn, dry_run: bool = False):
         elif rel_type == "SECTOR_OF":
             # Sector/TRACON -> ARTCC edges
             child_id = artcc_map.get(child_code)
-            # Parent could be a sector or TRACON
+            # Parent could be a sector or TRACON (try area code then facility code)
             parent_id = (sector_map.get(parent_code) or
-                         tracon_sector_map.get(parent_code) or
-                         tracon_code_map.get(parent_code))
+                         tracon_area_map.get(parent_code) or
+                         tracon_facility_map.get(parent_code))
             parent_type = "SECTOR" if parent_code in sector_map else "TRACON"
             child_type = "ARTCC"
         elif rel_type == "TRACON_OF":
-            # TRACON sector -> parent TRACON
-            # Parent is the TRACON facility code, child is subdivision sector
-            parent_id = tracon_code_map.get(parent_code)
-            child_id = tracon_sector_map.get(child_code)
+            # TRACON area -> parent TRACON facility
+            # Parent is the facility code, child is area code
+            parent_id = tracon_facility_map.get(parent_code)
+            child_id = tracon_area_map.get(child_code)
             parent_type = "TRACON"
             child_type = "TRACON"
 
@@ -625,6 +628,7 @@ def main():
             "002_extended_functions.sql",
             "003_airports_table.sql",
             "006_widen_sector_columns.sql",
+            "007_tracon_schema_update.sql",
             "007_boundary_hierarchy.sql",
         ]
 
