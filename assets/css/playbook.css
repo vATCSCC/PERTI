@@ -1113,8 +1113,8 @@
 }
 .pb-changelog-table tbody tr:hover { background: #f8f9fa; }
 .pb-cl-ts {
-    width: 110px;
-    min-width: 90px;
+    width: 140px;
+    min-width: 120px;
     white-space: nowrap;
     color: #888;
     font-variant-numeric: tabular-nums;
@@ -1166,6 +1166,49 @@
     border-radius: 3px;
     white-space: pre-wrap;
     word-break: break-all;
+}
+
+/* ── Changelog Date Group Headers ──────────────────────────────── */
+.pb-cl-group-header td {
+    background: #f0f4f8;
+    font-weight: 600;
+    font-size: 0.7rem;
+    color: #495057;
+    padding: 4px 8px !important;
+    border-bottom: 2px solid #dee2e6;
+    letter-spacing: 0.03em;
+}
+.pb-cl-group-header:hover { background: #f0f4f8 !important; }
+
+.pb-cl-date-divider {
+    font-size: 0.62rem;
+    color: #999;
+    text-align: center;
+    padding: 4px 0 2px;
+    border-bottom: none !important;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+/* ── Changelog Pagination ──────────────────────────────────────── */
+.pb-cl-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 4px;
+    border-top: 1px solid #e9ecef;
+}
+.pb-cl-pagination .pb-cl-page-btn {
+    min-width: 26px;
+    padding: 1px 5px;
+    font-size: 0.7rem;
+}
+.pb-cl-pagination .pb-cl-page-info {
+    font-size: 0.65rem;
+    color: #888;
+    margin: 0 4px;
+    white-space: nowrap;
 }
 
 /* ── Empty / Loading States ──────────────────────────────────────── */

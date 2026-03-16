@@ -52,6 +52,10 @@
     var currentPage = 1;
     var playsPerPage = 200;
     var regionColorEnabled = true;
+
+    // Changelog pagination state
+    var clCompactPage = 1, clCompactPerPage = 20, clCompactPlayId = null;
+    var clDetailPage  = 1, clDetailPerPage  = 25, clDetailPlayId  = null;
     var currentSearchClauses = [];  // Set by applyFilters(), read by route emphasis
 
     // Route group state
@@ -3589,18 +3593,48 @@
     // CHANGELOG
     // =========================================================================
 
-    function loadChangelog(playId) {
+    var _clMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    /** Format a changelog timestamp to "DD Mon YYYY HH:MMZ" */
+    function fmtClTs(raw) {
+        if (!raw) return '-';
+        var d = new Date(raw.replace(' ', 'T') + (raw.indexOf('Z') < 0 ? 'Z' : ''));
+        if (isNaN(d)) return raw;
+        return d.getUTCDate() + ' ' + _clMonths[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + ' ' +
+            String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0') + 'Z';
+    }
+
+    /** Return a date key "DD Mon YYYY" for grouping */
+    function clDateKey(raw) {
+        if (!raw) return '';
+        var d = new Date(raw.replace(' ', 'T') + (raw.indexOf('Z') < 0 ? 'Z' : ''));
+        if (isNaN(d)) return '';
+        return d.getUTCDate() + ' ' + _clMonths[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+    }
+
+    function loadChangelog(playId, page) {
+        if (playId !== clCompactPlayId) clCompactPage = 1;
+        clCompactPlayId = playId;
+        if (typeof page === 'number') clCompactPage = page;
         var container = $('#pb_changelog_content');
         container.html('<div class="pb-loading py-1"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
 
-        $.getJSON(API_LOG + '?play_id=' + playId + '&per_page=20', function(data) {
+        $.getJSON(API_LOG + '?play_id=' + playId + '&per_page=' + clCompactPerPage + '&page=' + clCompactPage, function(data) {
             if (!data || !data.success || !data.data || !data.data.length) {
                 container.html('<div class="small text-muted py-1">' + t('playbook.noChanges') + '</div>');
                 return;
             }
 
+            var totalPages = Math.ceil((data.total || data.data.length) / clCompactPerPage);
+            var lastDateKey = '';
             var html = '<ul class="pb-changelog-list">';
             data.data.forEach(function(entry) {
+                // Date group divider
+                var dk = clDateKey(entry.changed_at);
+                if (dk && dk !== lastDateKey) {
+                    lastDateKey = dk;
+                    html += '<li class="pb-cl-date-divider">&mdash; ' + escHtml(dk) + ' &mdash;</li>';
+                }
                 html += '<li class="pb-changelog-item">';
                 html += '<span class="pb-changelog-action">' + escHtml(entry.action) + '</span>';
                 if (entry.field_name) {
@@ -3613,10 +3647,19 @@
                     if (entry.new_value) html += '<span class="pb-changelog-new">' + escHtml(entry.new_value.substring(0, 80)) + '</span>';
                     html += '</span>';
                 }
-                html += ' <span class="text-muted" style="font-size:0.58rem;">' + escHtml(entry.changed_by || '') + ' ' + escHtml(entry.changed_at || '') + '</span>';
+                html += ' <span class="text-muted" style="font-size:0.58rem;">' + escHtml(entry.changed_by || '') + ' ' + escHtml(fmtClTs(entry.changed_at)) + '</span>';
                 html += '</li>';
             });
             html += '</ul>';
+
+            // Pagination (prev / "Page X of Y" / next)
+            if (totalPages > 1) {
+                html += '<div class="pb-cl-pagination">';
+                html += '<button class="btn btn-xs btn-outline-secondary pb-cl-page-btn" data-clview="compact" data-clpage="prev"' + (clCompactPage <= 1 ? ' disabled' : '') + '><i class="fas fa-chevron-left"></i></button>';
+                html += '<span class="pb-cl-page-info">Page ' + clCompactPage + ' of ' + totalPages + '</span>';
+                html += '<button class="btn btn-xs btn-outline-secondary pb-cl-page-btn" data-clview="compact" data-clpage="next"' + (clCompactPage >= totalPages ? ' disabled' : '') + '><i class="fas fa-chevron-right"></i></button>';
+                html += '</div>';
+            }
             container.html(html);
         });
     }
@@ -4456,7 +4499,10 @@
      * Load and render detailed change history for a play in the changelog panel.
      * Shows timestamp, author, action, field, and color-coded old/new values.
      */
-    function loadPlayChangelog(playId) {
+    function loadPlayChangelog(playId, page) {
+        if (playId !== clDetailPlayId) clDetailPage = 1;
+        clDetailPlayId = playId;
+        if (typeof page === 'number') clDetailPage = page;
         var panel = $('#play-changelog-panel');
         if (!panel.length) return;
 
@@ -4465,7 +4511,7 @@
             '<span class="small text-muted">' + t('playbook.changelogTab.loading') + '</span></div>'
         ).slideDown(150);
 
-        $.getJSON(API_LOG + '?play_id=' + playId + '&per_page=50', function(data) {
+        $.getJSON(API_LOG + '?play_id=' + playId + '&per_page=' + clDetailPerPage + '&page=' + clDetailPage, function(data) {
             if (!data || !data.success || !data.data || !data.data.length) {
                 panel.html(
                     '<div class="small text-muted py-2"><i class="fas fa-history mr-1"></i>' +
@@ -4475,9 +4521,10 @@
             }
 
             var entries = data.data;
+            var totalPages = Math.ceil((data.total || entries.length) / clDetailPerPage);
             var html = '';
             html += '<div class="pb-changelog-tab-header small font-weight-bold mb-1">';
-            html += '<i class="fas fa-history mr-1"></i>' + t('playbook.changelogTab.title') + ' (' + entries.length + ')';
+            html += '<i class="fas fa-history mr-1"></i>' + t('playbook.changelogTab.title') + ' (' + (data.total || entries.length) + ')';
             html += '</div>';
 
             // Human-readable action labels and badge classes
@@ -4519,23 +4566,18 @@
             html += '<th class="pb-cl-chg">' + t('playbook.changelogTab.changes') + '</th>';
             html += '</tr></thead><tbody>';
 
+            var lastDateKey = '';
             entries.forEach(function(entry) {
                 var raw = (entry.action || '').toLowerCase();
                 var mapped = actionMap[raw] || { label: entry.action || '-', cls: 'badge-secondary' };
                 var fieldLabel = fieldMap[entry.field_name] || entry.field_name || '-';
+                var tsText = fmtClTs(entry.changed_at);
 
-                // Format timestamp: "Mar 14 18:32"
-                var tsText = '-';
-                if (entry.changed_at) {
-                    var d = new Date(entry.changed_at.replace(' ', 'T') + (entry.changed_at.indexOf('Z') < 0 ? 'Z' : ''));
-                    if (!isNaN(d)) {
-                        var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
-                        tsText = mon + ' ' + d.getUTCDate() + ' ' +
-                            String(d.getUTCHours()).padStart(2,'0') + ':' +
-                            String(d.getUTCMinutes()).padStart(2,'0') + 'z';
-                    } else {
-                        tsText = entry.changed_at;
-                    }
+                // Date group header row
+                var dk = clDateKey(entry.changed_at);
+                if (dk && dk !== lastDateKey) {
+                    lastDateKey = dk;
+                    html += '<tr class="pb-cl-group-header"><td colspan="5">' + escHtml(dk) + '</td></tr>';
                 }
 
                 // Author: prefer name, fall back to CID
@@ -4549,7 +4591,6 @@
                 html += '<td class="pb-cl-chg">';
 
                 if (entry.old_value || entry.new_value) {
-                    // Stack vertically, full text with graceful wrapping
                     if (entry.old_value) {
                         html += '<div class="pb-cl-old">' + escHtml(entry.old_value) + '</div>';
                     }
@@ -4564,6 +4605,20 @@
             });
 
             html += '</tbody></table></div>';
+
+            // Pagination with numbered page buttons
+            if (totalPages > 1) {
+                html += '<div class="pb-cl-pagination">';
+                html += '<button class="btn btn-xs btn-outline-secondary pb-cl-page-btn" data-clview="detail" data-clpage="prev"' + (clDetailPage <= 1 ? ' disabled' : '') + '><i class="fas fa-chevron-left"></i></button>';
+                var startPg = Math.max(1, clDetailPage - 2);
+                var endPg = Math.min(totalPages, startPg + 4);
+                if (endPg - startPg < 4) startPg = Math.max(1, endPg - 4);
+                for (var pg = startPg; pg <= endPg; pg++) {
+                    html += '<button class="btn btn-xs pb-cl-page-btn' + (pg === clDetailPage ? ' btn-primary' : ' btn-outline-secondary') + '" data-clview="detail" data-clpage="' + pg + '">' + pg + '</button>';
+                }
+                html += '<button class="btn btn-xs btn-outline-secondary pb-cl-page-btn" data-clview="detail" data-clpage="next"' + (clDetailPage >= totalPages ? ' disabled' : '') + '><i class="fas fa-chevron-right"></i></button>';
+                html += '</div>';
+            }
             panel.html(html);
         }).fail(function() {
             panel.html(
@@ -4771,6 +4826,23 @@
             else { currentPage = parseInt(pg); }
             renderPlayList();
             $('#pb_play_list_wrap').scrollTop(0);
+        });
+
+        // Changelog pagination
+        $(document).on('click', '.pb-cl-page-btn', function() {
+            var view = $(this).data('clview');
+            var pg = $(this).data('clpage');
+            if (view === 'compact') {
+                if (pg === 'prev') clCompactPage = Math.max(1, clCompactPage - 1);
+                else if (pg === 'next') clCompactPage++;
+                else clCompactPage = parseInt(pg);
+                if (clCompactPlayId) loadChangelog(clCompactPlayId, clCompactPage);
+            } else if (view === 'detail') {
+                if (pg === 'prev') clDetailPage = Math.max(1, clDetailPage - 1);
+                else if (pg === 'next') clDetailPage++;
+                else clDetailPage = parseInt(pg);
+                if (clDetailPlayId) loadPlayChangelog(clDetailPlayId, clDetailPage);
+            }
         });
 
         // Play row click
