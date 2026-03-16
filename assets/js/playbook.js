@@ -1253,7 +1253,14 @@
             html += '<button class="btn btn-xs btn-outline-primary" id="pb_open_route_page" title="' + t('playbook.openRoutePage') + '"><i class="fas fa-route mr-1"></i>' + t('playbook.openRoutePage') + '</button>';
             html += '<button class="btn btn-xs btn-outline-info" id="pb_activate_reroute" title="' + t('playbook.useInTMI') + '"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.useInTMI') + '</button>';
             html += '<span class="pb-toolbar-sep">|</span>';
+            html += '<div class="btn-group">';
             html += '<button class="btn btn-xs btn-outline-secondary" id="pb_copy_pb_directive" title="' + t('playbook.copyPB') + '"><i class="fas fa-clipboard mr-1"></i>' + t('playbook.copyPB') + '</button>';
+            html += '<button class="btn btn-xs btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="sr-only">Toggle</span></button>';
+            html += '<div class="dropdown-menu dropdown-menu-right">';
+            html += '<a class="dropdown-item" href="#" id="pb_copy_routes_full">' + t('playbook.copyRoutesFull') + '</a>';
+            html += '<a class="dropdown-item" href="#" id="pb_copy_routes_route_only">' + t('playbook.copyRoutesRouteOnly') + '</a>';
+            html += '<a class="dropdown-item" href="#" id="pb_copy_routes_grouped">' + t('playbook.copyRoutesGrouped') + '</a>';
+            html += '</div></div>';
             html += '</div>';
         }
 
@@ -4508,13 +4515,13 @@
                 html += '<td>';
                 if (entry.old_value || entry.new_value) {
                     if (entry.old_value) {
-                        html += '<span class="pb-changelog-diff-old" style="background:#f8d7da;padding:1px 4px;border-radius:2px;text-decoration:line-through;">';
+                        html += '<span class="pb-changelog-diff-old" style="background:#f8d7da;color:#721c24;padding:1px 4px;border-radius:2px;text-decoration:line-through;">';
                         html += escHtml(entry.old_value.substring(0, 120));
                         html += '</span>';
                     }
                     html += ' <i class="fas fa-arrow-right" style="font-size:0.55rem;color:#999;margin:0 3px;"></i> ';
                     if (entry.new_value) {
-                        html += '<span class="pb-changelog-diff-new" style="background:#d4edda;padding:1px 4px;border-radius:2px;">';
+                        html += '<span class="pb-changelog-diff-new" style="background:#d4edda;color:#155724;padding:1px 4px;border-radius:2px;">';
                         html += escHtml(entry.new_value.substring(0, 120));
                         html += '</span>';
                     }
@@ -4861,6 +4868,69 @@
                 text = buildCurrentPBDirective();
             }
             if (!text) return;
+            navigator.clipboard.writeText(text).then(function() {
+                PERTIDialog.toast('common.copied', 'success');
+            });
+        });
+
+        // Copy Routes — Full (Orig Route Dest)
+        $(document).on('click', '#pb_copy_routes_full', function(e) {
+            e.preventDefault();
+            var selected = getSelectedRoutes();
+            if (!selected.length) return;
+            var hasGroups = routeGroups.length > 0;
+            var text = selected.map(function(r) {
+                var parts = [];
+                if (r.origin) parts.push(r.origin);
+                parts.push(r.route_string);
+                if (r.dest) parts.push(r.dest);
+                var line = parts.join(' ');
+                if (hasGroups) {
+                    var color = getRouteGroupColor(r.route_id);
+                    if (color) line += ';' + color;
+                }
+                return line;
+            }).join('\n');
+            navigator.clipboard.writeText(text).then(function() {
+                PERTIDialog.toast('common.copied', 'success');
+            });
+        });
+
+        // Copy Routes — Route String Only (deduplicated)
+        $(document).on('click', '#pb_copy_routes_route_only', function(e) {
+            e.preventDefault();
+            var selected = getSelectedRoutes();
+            if (!selected.length) return;
+            var seen = new Set();
+            var lines = [];
+            selected.forEach(function(r) {
+                var key = (r.route_string || '').trim().toUpperCase();
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    lines.push(r.route_string);
+                }
+            });
+            navigator.clipboard.writeText(lines.join('\n')).then(function() {
+                PERTIDialog.toast('common.copied', 'success');
+            });
+        });
+
+        // Copy Routes — Grouped by Route
+        $(document).on('click', '#pb_copy_routes_grouped', function(e) {
+            e.preventDefault();
+            var selected = getSelectedRoutes();
+            if (!selected.length) return;
+            var groups = consolidateRoutes(selected);
+            var text = Object.keys(groups).map(function(key) {
+                var g = groups[key];
+                var origStr = Array.from(g.origins).sort().join('/');
+                var destStr = Array.from(g.dests).sort().join('/');
+                var parts = [];
+                if (origStr) parts.push(origStr);
+                parts.push(g.route_string);
+                if (destStr) parts.push(destStr);
+                return parts.join(' ');
+            }).join('\n');
             navigator.clipboard.writeText(text).then(function() {
                 PERTIDialog.toast('common.copied', 'success');
             });
