@@ -21,7 +21,7 @@ if (!defined('PERTI_LOADED')) {
     require_once __DIR__ . '/../load/connect.php';
 }
 
-// SQL Server allows max 2100 params per batch; playbook_plays has 22 cols → 2100/22 = 95 max
+// SQL Server allows max 2100 params per batch; playbook_routes has 21 parameterized cols → 2100/21 = 100 max
 define('SWIM_REFDATA_BATCH_SIZE', 90);
 
 /**
@@ -266,7 +266,7 @@ function swimSyncPlaybook(): array {
                   dest_airports, dest_tracons, dest_artccs,
                   traversed_artccs, traversed_tracons,
                   traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
-                  remarks, sort_order, last_sync_utc";
+                  route_geometry, remarks, sort_order, last_sync_utc";
 
     // Use unbuffered query to stream 268K+ routes without OOM
     $conn_pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
@@ -276,7 +276,7 @@ function swimSyncPlaybook(): array {
                 dest_airports, dest_tracons, dest_artccs,
                 traversed_artccs, traversed_tracons,
                 traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
-                remarks, sort_order
+                route_geometry, remarks, sort_order
          FROM playbook_routes"
     );
     $conn_pdo->setAttribute(\PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true); // restore default
@@ -337,7 +337,7 @@ function _insertRouteBatch($connSwim, string $routeCols, array $chunk, int $offs
     $values = [];
     $params = [];
     foreach ($chunk as $r) {
-        $values[] = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSUTCDATETIME())";
+        $values[] = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSUTCDATETIME())";
         $params[] = (int)$r['route_id'];
         $params[] = (int)$r['play_id'];
         $params[] = $r['route_string'];
@@ -356,6 +356,7 @@ function _insertRouteBatch($connSwim, string $routeCols, array $chunk, int $offs
         $params[] = $r['traversed_sectors_low'];
         $params[] = $r['traversed_sectors_high'];
         $params[] = $r['traversed_sectors_superhigh'];
+        $params[] = $r['route_geometry'];
         $params[] = $r['remarks'];
         $params[] = (int)($r['sort_order'] ?? 0);
     }

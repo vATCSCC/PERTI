@@ -46,36 +46,42 @@ $update_stmt = $conn_sqli->prepare("UPDATE playbook_routes SET
     route_geometry = ?
     WHERE route_id = ?");
 
-// Prepare the PostGIS query once — reuse for every route
+// Single PostGIS query: traversal boundaries + geometry + waypoints + distance
 $gis_sql = "WITH route AS (
-                SELECT artccs_traversed, route_geometry AS geom
+                SELECT waypoints, artccs_traversed, route_geometry AS geom,
+                       ST_AsGeoJSON(route_geometry) AS geojson,
+                       ST_Length(route_geometry::geography) / 1852.0 AS distance_nm
                 FROM expand_route_with_artccs(?)
             )
-            SELECT sub.btype, sub.code FROM (
-                SELECT 'artcc' AS btype, u.code, u.ord AS trav_order
-                FROM route, unnest(route.artccs_traversed) WITH ORDINALITY AS u(code, ord)
-                WHERE route.geom IS NOT NULL
-                UNION ALL
-                SELECT 'tracon', t.tracon_code,
-                    ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, t.geom)))
-                FROM route JOIN tracon_boundaries t ON ST_Intersects(route.geom, t.geom)
-                WHERE route.geom IS NOT NULL
-                UNION ALL
-                SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code,
-                    ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, s.geom)))
-                FROM route JOIN sector_boundaries s ON ST_Intersects(route.geom, s.geom)
-                WHERE route.geom IS NOT NULL
-            ) sub
-            ORDER BY
-                CASE WHEN sub.btype = 'artcc' THEN 1
-                     WHEN sub.btype = 'tracon' THEN 2
-                     ELSE 3 END,
-                sub.trav_order";
+            SELECT
+                route.geojson,
+                route.distance_nm,
+                route.waypoints::text AS waypoints_json,
+                sub.btype, sub.code
+            FROM route
+            LEFT JOIN LATERAL (
+                SELECT sub2.btype, sub2.code, sub2.trav_order FROM (
+                    SELECT 'artcc' AS btype, u.code, u.ord AS trav_order
+                    FROM unnest(route.artccs_traversed) WITH ORDINALITY AS u(code, ord)
+                    WHERE route.geom IS NOT NULL
+                    UNION ALL
+                    SELECT 'tracon', t.tracon_code,
+                        ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, t.geom)))
+                    FROM tracon_boundaries t WHERE ST_Intersects(route.geom, t.geom)
+                        AND route.geom IS NOT NULL
+                    UNION ALL
+                    SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code,
+                        ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, s.geom)))
+                    FROM sector_boundaries s WHERE ST_Intersects(route.geom, s.geom)
+                        AND route.geom IS NOT NULL
+                ) sub2
+                ORDER BY
+                    CASE WHEN sub2.btype = 'artcc' THEN 1
+                         WHEN sub2.btype = 'tracon' THEN 2
+                         ELSE 3 END,
+                    sub2.trav_order
+            ) sub ON true";
 $gis_stmt = $conn_gis->prepare($gis_sql);
-
-// Prepare geometry extraction query (frozen GeoJSON for AIRAC resilience)
-$geom_sql = "SELECT ST_AsGeoJSON(route_geometry) as geojson FROM expand_route_with_artccs(?)";
-$geom_stmt = $conn_gis->prepare($geom_sql);
 
 $processed = 0;
 $updated = 0;
@@ -164,11 +170,25 @@ while ($row = $result->fetch_assoc()) {
     $sectors_high = [];
     $sectors_superhigh = [];
 
+    $geojson_raw = null;
+    $distance_nm = null;
+    $waypoints_raw = null;
+
     try {
         $gis_stmt->execute([$fullRoute]);
 
         while ($r = $gis_stmt->fetch(PDO::FETCH_ASSOC)) {
-            $code = $r['code'];
+            // Capture geometry fields from first row (same on all rows)
+            if ($geojson_raw === null) {
+                $geojson_raw = $r['geojson'];
+                $distance_nm = $r['distance_nm'];
+                $waypoints_raw = $r['waypoints_json'];
+            }
+
+            // Boundary data (may be null from LEFT JOIN if no intersections)
+            $code = $r['code'] ?? null;
+            if ($code === null) continue;
+
             switch ($r['btype']) {
                 case 'artcc':
                     $code = normalizeCanadianArtcc($code);
@@ -187,13 +207,17 @@ while ($row = $result->fetch_assoc()) {
         }
     }
 
-    // Extract frozen GeoJSON geometry
+    // Build rich geometry envelope
     $route_geom = null;
-    try {
-        $geom_stmt->execute([$fullRoute]);
-        $gr = $geom_stmt->fetch(PDO::FETCH_ASSOC);
-        if ($gr && $gr['geojson']) $route_geom = $gr['geojson'];
-    } catch (Exception $e) { /* geometry optional */ }
+    if ($geojson_raw) {
+        $envelope = [
+            'geojson' => json_decode($geojson_raw, true),
+            'waypoints' => $waypoints_raw ? json_decode($waypoints_raw, true) : [],
+            'distance_nm' => $distance_nm !== null ? round((float)$distance_nm, 1) : null,
+            'frozen_at' => gmdate('Y-m-d\TH:i:s\Z'),
+        ];
+        $route_geom = json_encode($envelope, JSON_UNESCAPED_SLASHES);
+    }
 
     // Merge origin ARTCCs BEFORE GIS results, dest ARTCCs AFTER.
     // array_unique() preserves first occurrence, so insertion order matters:
