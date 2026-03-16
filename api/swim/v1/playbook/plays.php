@@ -16,7 +16,7 @@
  * GET /api/swim/v1/playbook/plays?format=geojson - GeoJSON output
  * GET /api/swim/v1/playbook/plays?include=geometry - Add route geometry via PostGIS
  *
- * @version 1.2.0
+ * @version 1.3.0
  * @since 2026-03-14
  */
 
@@ -246,7 +246,7 @@ function handleGetSingle(int $id): void {
                          dest_airports, dest_tracons, dest_artccs,
                          traversed_artccs, traversed_tracons,
                          traversed_sectors_low, traversed_sectors_high, traversed_sectors_superhigh,
-                         remarks, sort_order
+                         route_geometry, remarks, sort_order
                   FROM dbo.swim_playbook_routes
                   WHERE play_id = ?
                   ORDER BY sort_order ASC";
@@ -323,6 +323,18 @@ function _formatDateVal($val): ?string {
  * Format a route row for the API response.
  */
 function formatRoute(array $r): array {
+    // Parse frozen geometry envelope if available
+    $frozen = null;
+    if (!empty($r['route_geometry'])) {
+        $decoded = json_decode($r['route_geometry'], true);
+        // Support both envelope format and legacy bare GeoJSON
+        if ($decoded && isset($decoded['geojson'])) {
+            $frozen = $decoded;  // New envelope format
+        } elseif ($decoded && isset($decoded['type'])) {
+            $frozen = ['geojson' => $decoded];  // Legacy bare GeoJSON
+        }
+    }
+
     return [
         'route_id'     => (int)$r['route_id'],
         'route_string' => $r['route_string'],
@@ -345,6 +357,9 @@ function formatRoute(array $r): array {
             'sectors_high'     => csvToArray($r['traversed_sectors_high'] ?? ''),
             'sectors_superhigh'=> csvToArray($r['traversed_sectors_superhigh'] ?? ''),
         ],
+        'geometry'     => $frozen ? ($frozen['geojson'] ?? null) : null,
+        'waypoints'    => $frozen ? ($frozen['waypoints'] ?? null) : null,
+        'distance_nm'  => $frozen ? ($frozen['distance_nm'] ?? null) : null,
         'remarks'      => $r['remarks'] ?: null,
         'sort_order'   => (int)($r['sort_order'] ?? 0),
     ];
@@ -455,23 +470,31 @@ function outputGeoJSONCollection(array $plays): void {
  * Adds geometry, waypoints, distance_nm, artccs_traversed to each route.
  */
 function expandPlaybookRouteGeometry(array $routes): array {
+    // Identify routes that need live PostGIS expansion (no frozen geometry)
+    $needsExpansion = [];
+    $expansionIndices = [];
+    foreach ($routes as $idx => $route) {
+        if ($route['geometry'] === null) {
+            $needsExpansion[] = $route['route_string'];
+            $expansionIndices[] = $idx;
+        }
+    }
+
+    // All routes have frozen geometry -- no PostGIS needed
+    if (empty($needsExpansion)) {
+        return $routes;
+    }
+
+    // Only expand the routes that lack frozen geometry
     require_once __DIR__ . '/../../../../load/services/GISService.php';
 
     $gis = GISService::getInstance();
     if (!$gis) {
-        // GIS unavailable -- return routes with null geometry fields
-        foreach ($routes as &$route) {
-            $route['geometry'] = null;
-            $route['waypoints'] = null;
-            $route['distance_nm'] = null;
-            $route['artccs_traversed'] = null;
-        }
+        // GIS unavailable -- routes without frozen geometry keep null fields (already set by formatRoute)
         return $routes;
     }
 
-    // Collect route strings and batch-expand
-    $routeStrings = array_map(fn($r) => $r['route_string'], $routes);
-    $expanded = $gis->expandRoutesBatch($routeStrings);
+    $expanded = $gis->expandRoutesBatch($needsExpansion);
 
     // Index by route string for lookup
     $geoByRoute = [];
@@ -479,24 +502,19 @@ function expandPlaybookRouteGeometry(array $routes): array {
         $geoByRoute[$result['route']] = $result;
     }
 
-    // Merge geometry into route results
-    foreach ($routes as &$route) {
+    // Merge geometry only into routes that needed expansion
+    foreach ($expansionIndices as $idx) {
+        $route = &$routes[$idx];
         $geo = $geoByRoute[$route['route_string']] ?? null;
         if ($geo && $geo['geojson'] && empty($geo['error'])) {
             $route['geometry'] = $geo['geojson'];
             $route['waypoints'] = extractWaypoints($geo);
             $route['distance_nm'] = $geo['distance_nm'];
-            $route['artccs_traversed'] = $geo['artccs'];
 
             // Populate traversal.artccs from GIS if static data is empty
             if (empty($route['traversal']['artccs']) && !empty($geo['artccs'])) {
                 $route['traversal']['artccs'] = $geo['artccs'];
             }
-        } else {
-            $route['geometry'] = null;
-            $route['waypoints'] = null;
-            $route['distance_nm'] = null;
-            $route['artccs_traversed'] = null;
         }
     }
 

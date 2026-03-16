@@ -145,39 +145,61 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
             $fullRoute = $fullRoute . ' ' . $destEndpoint;
         }
 
-        // Use expand_route_with_artccs() for proper route expansion (handles
-        // airways, DPs/STARs, airports, FBD tokens -- same as route.php).
-        // Then intersect the resulting geometry with TRACON + sector boundaries.
+        // Single PostGIS call: expand route + intersect boundaries + extract geometry/waypoints/distance
         $sql = "WITH route AS (
-                    SELECT artccs_traversed, route_geometry AS geom
+                    SELECT waypoints, artccs_traversed, route_geometry AS geom,
+                           ST_AsGeoJSON(route_geometry) AS geojson,
+                           ST_Length(route_geometry::geography) / 1852.0 AS distance_nm
                     FROM expand_route_with_artccs(?)
                 )
-                SELECT sub.btype, sub.code FROM (
-                    SELECT 'artcc' AS btype, u.code, u.ord AS trav_order
-                    FROM route, unnest(route.artccs_traversed) WITH ORDINALITY AS u(code, ord)
-                    WHERE route.geom IS NOT NULL
-                    UNION ALL
-                    SELECT 'tracon', t.tracon_code,
-                        ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, t.geom)))
-                    FROM route JOIN tracon_boundaries t ON ST_Intersects(route.geom, t.geom)
-                    WHERE route.geom IS NOT NULL
-                    UNION ALL
-                    SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code,
-                        ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, s.geom)))
-                    FROM route JOIN sector_boundaries s ON ST_Intersects(route.geom, s.geom)
-                    WHERE route.geom IS NOT NULL
-                ) sub
-                ORDER BY
-                    CASE WHEN sub.btype = 'artcc' THEN 1
-                         WHEN sub.btype = 'tracon' THEN 2
-                         ELSE 3 END,
-                    sub.trav_order";
+                SELECT
+                    route.geojson,
+                    route.distance_nm,
+                    route.waypoints::text AS waypoints_json,
+                    sub.btype, sub.code
+                FROM route
+                LEFT JOIN LATERAL (
+                    SELECT sub2.btype, sub2.code, sub2.trav_order FROM (
+                        SELECT 'artcc' AS btype, u.code, u.ord AS trav_order
+                        FROM unnest(route.artccs_traversed) WITH ORDINALITY AS u(code, ord)
+                        WHERE route.geom IS NOT NULL
+                        UNION ALL
+                        SELECT 'tracon', t.tracon_code,
+                            ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, t.geom)))
+                        FROM tracon_boundaries t WHERE ST_Intersects(route.geom, t.geom)
+                            AND route.geom IS NOT NULL
+                        UNION ALL
+                        SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code,
+                            ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, s.geom)))
+                        FROM sector_boundaries s WHERE ST_Intersects(route.geom, s.geom)
+                            AND route.geom IS NOT NULL
+                    ) sub2
+                    ORDER BY
+                        CASE WHEN sub2.btype = 'artcc' THEN 1
+                             WHEN sub2.btype = 'tracon' THEN 2
+                             ELSE 3 END,
+                        sub2.trav_order
+                ) sub ON true";
+
+        $geojson_raw = null;
+        $distance_nm = null;
+        $waypoints_raw = null;
 
         $stmt = $conn_gis_cached->prepare($sql);
         $stmt->execute([$fullRoute]);
 
         while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-            $code = $row['code'];
+            // Capture geometry fields from first row (same on all rows)
+            if ($geojson_raw === null) {
+                $geojson_raw = $row['geojson'];
+                $distance_nm = $row['distance_nm'];
+                $waypoints_raw = $row['waypoints_json'];
+            }
+
+            // Boundary data (may be null from LEFT JOIN if no intersections)
+            $code = $row['code'] ?? null;
+            if ($code === null) continue;
+
             switch ($row['btype']) {
                 case 'artcc':
                     $code = normalizeCanadianArtcc($code);
@@ -196,16 +218,6 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
                     $sectors_superhigh[] = $code;
                     break;
             }
-        }
-
-        // Extract frozen GeoJSON geometry from the same route expansion
-        $geom_stmt = $conn_gis_cached->prepare(
-            "SELECT ST_AsGeoJSON(route_geometry) as geojson FROM expand_route_with_artccs(?)"
-        );
-        $geom_stmt->execute([$fullRoute]);
-        $geom_row = $geom_stmt->fetch(\PDO::FETCH_ASSOC);
-        if ($geom_row && $geom_row['geojson']) {
-            $result['route_geometry'] = $geom_row['geojson'];
         }
     } catch (\Exception $e) {
         // Silently fail -- traversal data will just be empty
@@ -231,6 +243,17 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
     $result['sectors_low'] = implode(',', array_unique(array_filter($sectors_low)));
     $result['sectors_high'] = implode(',', array_unique(array_filter($sectors_high)));
     $result['sectors_superhigh'] = implode(',', array_unique(array_filter($sectors_superhigh)));
+
+    // Build rich geometry envelope (GeoJSON + waypoints + distance)
+    if (isset($geojson_raw) && $geojson_raw) {
+        $envelope = [
+            'geojson' => json_decode($geojson_raw, true),
+            'waypoints' => (isset($waypoints_raw) && $waypoints_raw) ? json_decode($waypoints_raw, true) : [],
+            'distance_nm' => (isset($distance_nm) && $distance_nm !== null) ? round((float)$distance_nm, 1) : null,
+            'frozen_at' => gmdate('Y-m-d\TH:i:s\Z'),
+        ];
+        $result['route_geometry'] = json_encode($envelope, JSON_UNESCAPED_SLASHES);
+    }
 
     return $result;
 }

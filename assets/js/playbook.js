@@ -1253,14 +1253,7 @@
             html += '<button class="btn btn-xs btn-outline-primary" id="pb_open_route_page" title="' + t('playbook.openRoutePage') + '"><i class="fas fa-route mr-1"></i>' + t('playbook.openRoutePage') + '</button>';
             html += '<button class="btn btn-xs btn-outline-info" id="pb_activate_reroute" title="' + t('playbook.useInTMI') + '"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.useInTMI') + '</button>';
             html += '<span class="pb-toolbar-sep">|</span>';
-            html += '<div class="btn-group">';
-            html += '<button class="btn btn-xs btn-outline-secondary" id="pb_copy_pb_directive" title="' + t('playbook.copyPB') + '"><i class="fas fa-clipboard mr-1"></i>' + t('playbook.copyPB') + '</button>';
-            html += '<button class="btn btn-xs btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="sr-only">Toggle</span></button>';
-            html += '<div class="dropdown-menu dropdown-menu-right">';
-            html += '<a class="dropdown-item" href="#" id="pb_copy_routes_full">' + t('playbook.copyRoutesFull') + '</a>';
-            html += '<a class="dropdown-item" href="#" id="pb_copy_routes_route_only">' + t('playbook.copyRoutesRouteOnly') + '</a>';
-            html += '<a class="dropdown-item" href="#" id="pb_copy_routes_grouped">' + t('playbook.copyRoutesGrouped') + '</a>';
-            html += '</div></div>';
+            html += '<button class="btn btn-xs btn-outline-secondary" id="pb_copy_menu_trigger" title="' + t('playbook.copy') + '"><i class="fas fa-clipboard mr-1"></i>' + t('playbook.copy') + ' <i class="fas fa-caret-down" style="font-size:0.55rem;margin-left:2px;"></i></button>';
             html += '</div>';
         }
 
@@ -2371,7 +2364,9 @@
 
                 selected.forEach(function(r, idx) {
                     try {
-                        var geom = JSON.parse(r.route_geometry);
+                        var parsed = JSON.parse(r.route_geometry);
+                        var geom = parsed.geojson || parsed; // envelope format or legacy bare GeoJSON
+                        var distance = parsed.distance_nm || 0;
                         var color = defaultColor;
                         if (hasSearch) {
                             color = routeMatchesSearchClauses(r, currentSearchClauses) ? '#C70039' : '#555555';
@@ -2388,7 +2383,7 @@
                                 routeId: idx + 1,
                                 fromFix: '',
                                 toFix: '',
-                                distance: 0,
+                                distance: distance,
                                 routeString: r.route_string || ''
                             }
                         });
@@ -4485,45 +4480,81 @@
             html += '<i class="fas fa-history mr-1"></i>' + t('playbook.changelogTab.title') + ' (' + entries.length + ')';
             html += '</div>';
 
-            html += '<div class="table-responsive">';
-            html += '<table class="table table-sm table-bordered mb-0" style="font-size:0.7rem;">';
+            // Human-readable action labels and badge classes
+            var actionMap = {
+                'play_created':  { label: 'Created',  cls: 'badge-success' },
+                'play_updated':  { label: 'Updated',  cls: 'badge-info' },
+                'play_deleted':  { label: 'Deleted',  cls: 'badge-danger' },
+                'route_added':   { label: 'Route +',  cls: 'badge-success' },
+                'route_updated': { label: 'Route \u0394', cls: 'badge-warning' },
+                'route_deleted': { label: 'Route \u2212', cls: 'badge-danger' },
+                'create':        { label: 'Created',  cls: 'badge-success' },
+                'add':           { label: 'Added',    cls: 'badge-success' },
+                'update':        { label: 'Updated',  cls: 'badge-info' },
+                'edit':          { label: 'Updated',  cls: 'badge-info' },
+                'delete':        { label: 'Deleted',  cls: 'badge-danger' },
+                'remove':        { label: 'Removed',  cls: 'badge-danger' }
+            };
+
+            // Human-readable field labels
+            var fieldMap = {
+                'route_string': 'Route', 'play_name': 'Name', 'display_name': 'Display Name',
+                'description': 'Desc', 'category': 'Category', 'scenario_type': 'Scenario',
+                'route_format': 'Format', 'status': 'Status', 'facilities_involved': 'Facilities',
+                'impacted_area': 'Area', 'remarks': 'Remarks', 'visibility': 'Visibility',
+                'origin': 'Origin', 'dest': 'Dest', 'origin_filter': 'Orig Filter',
+                'dest_filter': 'Dest Filter', 'origin_artccs': 'Orig ARTCCs',
+                'dest_artccs': 'Dest ARTCCs', 'origin_airports': 'Orig Apts',
+                'dest_airports': 'Dest Apts', 'origin_tracons': 'Orig TRACONs',
+                'dest_tracons': 'Dest TRACONs'
+            };
+
+            html += '<div class="pb-changelog-table-wrap">';
+            html += '<table class="pb-changelog-table">';
             html += '<thead><tr>';
-            html += '<th style="width:18%;">' + t('playbook.changelogTab.timestamp') + '</th>';
-            html += '<th style="width:12%;">' + t('playbook.changelogTab.author') + '</th>';
-            html += '<th style="width:12%;">' + t('playbook.changelogTab.action') + '</th>';
-            html += '<th style="width:12%;">' + t('playbook.changelogTab.field') + '</th>';
-            html += '<th>' + t('playbook.changelogTab.changes') + '</th>';
+            html += '<th class="pb-cl-ts">' + t('playbook.changelogTab.timestamp') + '</th>';
+            html += '<th class="pb-cl-who">' + t('playbook.changelogTab.author') + '</th>';
+            html += '<th class="pb-cl-act">' + t('playbook.changelogTab.action') + '</th>';
+            html += '<th class="pb-cl-fld">' + t('playbook.changelogTab.field') + '</th>';
+            html += '<th class="pb-cl-chg">' + t('playbook.changelogTab.changes') + '</th>';
             html += '</tr></thead><tbody>';
 
             entries.forEach(function(entry) {
-                var actionCls = 'badge-secondary';
-                var actionText = entry.action || '';
-                var actionLower = actionText.toLowerCase();
-                if (actionLower === 'create' || actionLower === 'add') {
-                    actionCls = 'badge-success';
-                } else if (actionLower === 'update' || actionLower === 'edit') {
-                    actionCls = 'badge-warning';
-                } else if (actionLower === 'delete' || actionLower === 'remove') {
-                    actionCls = 'badge-danger';
+                var raw = (entry.action || '').toLowerCase();
+                var mapped = actionMap[raw] || { label: entry.action || '-', cls: 'badge-secondary' };
+                var fieldLabel = fieldMap[entry.field_name] || entry.field_name || '-';
+
+                // Format timestamp: "Mar 14 18:32"
+                var tsText = '-';
+                if (entry.changed_at) {
+                    var d = new Date(entry.changed_at.replace(' ', 'T') + (entry.changed_at.indexOf('Z') < 0 ? 'Z' : ''));
+                    if (!isNaN(d)) {
+                        var mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
+                        tsText = mon + ' ' + d.getUTCDate() + ' ' +
+                            String(d.getUTCHours()).padStart(2,'0') + ':' +
+                            String(d.getUTCMinutes()).padStart(2,'0') + 'z';
+                    } else {
+                        tsText = entry.changed_at;
+                    }
                 }
 
+                // Author: prefer name, fall back to CID
+                var author = entry.changed_by_name || entry.changed_by || '-';
+
                 html += '<tr>';
-                html += '<td class="text-muted">' + escHtml(entry.changed_at || '') + '</td>';
-                html += '<td>' + escHtml(entry.changed_by || '-') + '</td>';
-                html += '<td><span class="badge ' + actionCls + '" style="font-size:0.6rem;">' + escHtml(actionText) + '</span></td>';
-                html += '<td>' + escHtml(entry.field_name || '-') + '</td>';
-                html += '<td>';
+                html += '<td class="pb-cl-ts">' + escHtml(tsText) + '</td>';
+                html += '<td class="pb-cl-who" title="CID: ' + escHtml(entry.changed_by || '') + '">' + escHtml(author) + '</td>';
+                html += '<td class="pb-cl-act"><span class="badge ' + mapped.cls + '">' + escHtml(mapped.label) + '</span></td>';
+                html += '<td class="pb-cl-fld">' + escHtml(fieldLabel) + '</td>';
+                html += '<td class="pb-cl-chg">';
+
                 if (entry.old_value || entry.new_value) {
+                    // Stack vertically, full text with graceful wrapping
                     if (entry.old_value) {
-                        html += '<span class="pb-changelog-diff-old" style="background:#f8d7da;color:#721c24;padding:1px 4px;border-radius:2px;text-decoration:line-through;">';
-                        html += escHtml(entry.old_value.substring(0, 120));
-                        html += '</span>';
+                        html += '<div class="pb-cl-old">' + escHtml(entry.old_value) + '</div>';
                     }
-                    html += ' <i class="fas fa-arrow-right" style="font-size:0.55rem;color:#999;margin:0 3px;"></i> ';
                     if (entry.new_value) {
-                        html += '<span class="pb-changelog-diff-new" style="background:#d4edda;color:#155724;padding:1px 4px;border-radius:2px;">';
-                        html += escHtml(entry.new_value.substring(0, 120));
-                        html += '</span>';
+                        html += '<div class="pb-cl-new">' + escHtml(entry.new_value) + '</div>';
                     }
                 } else {
                     html += '<span class="text-muted">-</span>';
@@ -4848,89 +4879,108 @@
         // Route action toolbar
         $(document).on('click', '#pb_open_route_page', openInRoutePage);
         $(document).on('click', '#pb_activate_reroute', activateAsReroute);
-        $(document).on('click', '#pb_copy_pb_directive', function() {
-            var text;
-            if (routeGroups.length > 0) {
-                // Groups active: copy colored route strings
+
+        // ── Copy menu (body-appended to escape overflow clipping) ──
+        (function initCopyMenu() {
+            var $menu = $('<div class="pb-copy-menu" id="pb_copy_menu"></div>');
+            $menu.append('<a href="#" data-copy="pb">' + t('playbook.copyPB') + '</a>');
+            $menu.append('<div class="pb-copy-menu-sep"></div>');
+            $menu.append('<a href="#" data-copy="full"><i class="fas fa-list fa-fw"></i> ' + t('playbook.copyRoutesFull') + '</a>');
+            $menu.append('<a href="#" data-copy="route_only"><i class="fas fa-align-left fa-fw"></i> ' + t('playbook.copyRoutesRouteOnly') + '</a>');
+            $menu.append('<a href="#" data-copy="grouped"><i class="fas fa-compress-arrows-alt fa-fw"></i> ' + t('playbook.copyRoutesGrouped') + '</a>');
+            $('body').append($menu);
+        })();
+
+        function closeCopyMenu() { $('#pb_copy_menu').removeClass('open'); }
+
+        $(document).on('click', '#pb_copy_menu_trigger', function(e) {
+            e.stopPropagation();
+            var $menu = $('#pb_copy_menu');
+            if ($menu.hasClass('open')) { closeCopyMenu(); return; }
+            var rect = this.getBoundingClientRect();
+            // Position above button if near bottom, else below
+            var menuH = $menu.outerHeight() || 140;
+            var spaceBelow = window.innerHeight - rect.bottom;
+            var top = spaceBelow > menuH + 8 ? rect.bottom + 4 : rect.top - menuH - 4;
+            $menu.css({
+                top: top + 'px',
+                right: (window.innerWidth - rect.right) + 'px'
+            }).addClass('open');
+        });
+
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#pb_copy_menu, #pb_copy_menu_trigger').length) closeCopyMenu();
+        });
+
+        $(document).on('click', '#pb_copy_menu a', function(e) {
+            e.preventDefault();
+            var mode = $(this).data('copy');
+            var text = '';
+
+            if (mode === 'pb') {
+                if (routeGroups.length > 0) {
+                    var selected = getSelectedRoutes();
+                    if (!selected.length) { closeCopyMenu(); return; }
+                    text = selected.map(function(r) {
+                        var parts = [];
+                        if (r.origin) parts.push(r.origin);
+                        parts.push(r.route_string);
+                        if (r.dest) parts.push(r.dest);
+                        var routeStr = parts.join(' ');
+                        var color = getRouteGroupColor(r.route_id);
+                        if (color) routeStr += ';' + color;
+                        return routeStr;
+                    }).join('\n');
+                } else {
+                    text = buildCurrentPBDirective();
+                }
+            } else if (mode === 'full') {
                 var selected = getSelectedRoutes();
-                if (!selected.length) return;
+                if (!selected.length) { closeCopyMenu(); return; }
+                var hasGroups = routeGroups.length > 0;
                 text = selected.map(function(r) {
                     var parts = [];
                     if (r.origin) parts.push(r.origin);
                     parts.push(r.route_string);
                     if (r.dest) parts.push(r.dest);
-                    var routeStr = parts.join(' ');
-                    var color = getRouteGroupColor(r.route_id);
-                    if (color) routeStr += ';' + color;
-                    return routeStr;
+                    var line = parts.join(' ');
+                    if (hasGroups) {
+                        var color = getRouteGroupColor(r.route_id);
+                        if (color) line += ';' + color;
+                    }
+                    return line;
                 }).join('\n');
-            } else {
-                text = buildCurrentPBDirective();
+            } else if (mode === 'route_only') {
+                var selected = getSelectedRoutes();
+                if (!selected.length) { closeCopyMenu(); return; }
+                var seen = new Set();
+                var lines = [];
+                selected.forEach(function(r) {
+                    var key = (r.route_string || '').trim().toUpperCase();
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        lines.push(r.route_string);
+                    }
+                });
+                text = lines.join('\n');
+            } else if (mode === 'grouped') {
+                var selected = getSelectedRoutes();
+                if (!selected.length) { closeCopyMenu(); return; }
+                var groups = consolidateRoutes(selected);
+                text = Object.keys(groups).map(function(key) {
+                    var g = groups[key];
+                    var origStr = Array.from(g.origins).sort().join('/');
+                    var destStr = Array.from(g.dests).sort().join('/');
+                    var parts = [];
+                    if (origStr) parts.push(origStr);
+                    parts.push(g.route_string);
+                    if (destStr) parts.push(destStr);
+                    return parts.join(' ');
+                }).join('\n');
             }
+
+            closeCopyMenu();
             if (!text) return;
-            navigator.clipboard.writeText(text).then(function() {
-                PERTIDialog.toast('common.copied', 'success');
-            });
-        });
-
-        // Copy Routes — Full (Orig Route Dest)
-        $(document).on('click', '#pb_copy_routes_full', function(e) {
-            e.preventDefault();
-            var selected = getSelectedRoutes();
-            if (!selected.length) return;
-            var hasGroups = routeGroups.length > 0;
-            var text = selected.map(function(r) {
-                var parts = [];
-                if (r.origin) parts.push(r.origin);
-                parts.push(r.route_string);
-                if (r.dest) parts.push(r.dest);
-                var line = parts.join(' ');
-                if (hasGroups) {
-                    var color = getRouteGroupColor(r.route_id);
-                    if (color) line += ';' + color;
-                }
-                return line;
-            }).join('\n');
-            navigator.clipboard.writeText(text).then(function() {
-                PERTIDialog.toast('common.copied', 'success');
-            });
-        });
-
-        // Copy Routes — Route String Only (deduplicated)
-        $(document).on('click', '#pb_copy_routes_route_only', function(e) {
-            e.preventDefault();
-            var selected = getSelectedRoutes();
-            if (!selected.length) return;
-            var seen = new Set();
-            var lines = [];
-            selected.forEach(function(r) {
-                var key = (r.route_string || '').trim().toUpperCase();
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    lines.push(r.route_string);
-                }
-            });
-            navigator.clipboard.writeText(lines.join('\n')).then(function() {
-                PERTIDialog.toast('common.copied', 'success');
-            });
-        });
-
-        // Copy Routes — Grouped by Route
-        $(document).on('click', '#pb_copy_routes_grouped', function(e) {
-            e.preventDefault();
-            var selected = getSelectedRoutes();
-            if (!selected.length) return;
-            var groups = consolidateRoutes(selected);
-            var text = Object.keys(groups).map(function(key) {
-                var g = groups[key];
-                var origStr = Array.from(g.origins).sort().join('/');
-                var destStr = Array.from(g.dests).sort().join('/');
-                var parts = [];
-                if (origStr) parts.push(origStr);
-                parts.push(g.route_string);
-                if (destStr) parts.push(destStr);
-                return parts.join(' ');
-            }).join('\n');
             navigator.clipboard.writeText(text).then(function() {
                 PERTIDialog.toast('common.copied', 'success');
             });

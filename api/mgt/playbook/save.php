@@ -150,6 +150,17 @@ if ($play_id > 0) {
     }
     $cl_stmt->close();
 
+    // Snapshot old routes before deletion for changelog diffing
+    $old_routes = [];
+    $old_r_stmt = $conn_sqli->prepare("SELECT route_string, origin, origin_filter, dest, dest_filter, origin_airports, origin_tracons, origin_artccs, dest_airports, dest_tracons, dest_artccs, remarks FROM playbook_routes WHERE play_id = ? ORDER BY sort_order");
+    $old_r_stmt->bind_param('i', $play_id);
+    $old_r_stmt->execute();
+    $old_r_result = $old_r_stmt->get_result();
+    while ($or = $old_r_result->fetch_assoc()) {
+        $old_routes[] = $or;
+    }
+    $old_r_stmt->close();
+
     // Replace routes: delete old, insert new
     $del_stmt = $conn_sqli->prepare("DELETE FROM playbook_routes WHERE play_id = ?");
     $del_stmt->bind_param('i', $play_id);
@@ -231,6 +242,115 @@ if (!empty($routes)) {
         $sort++;
     }
     $route_stmt->close();
+}
+
+// Log route-level changes (only for updates where we have old_routes snapshot)
+if (isset($old_routes)) {
+    // Build normalized new route list for comparison
+    $new_routes_norm = [];
+    foreach ($routes as $r) {
+        $rs = normalizeRouteCanadian(trim($r['route_string'] ?? ''));
+        if ($rs === '') continue;
+        $new_routes_norm[] = [
+            'route_string' => $rs,
+            'origin' => trim($r['origin'] ?? ''),
+            'origin_filter' => trim($r['origin_filter'] ?? ''),
+            'dest' => trim($r['dest'] ?? ''),
+            'dest_filter' => trim($r['dest_filter'] ?? ''),
+            'origin_airports' => trim($r['origin_airports'] ?? ''),
+            'origin_tracons' => trim($r['origin_tracons'] ?? ''),
+            'origin_artccs' => normalizeCanadianArtccCsv(trim($r['origin_artccs'] ?? '')),
+            'dest_airports' => trim($r['dest_airports'] ?? ''),
+            'dest_tracons' => trim($r['dest_tracons'] ?? ''),
+            'dest_artccs' => normalizeCanadianArtccCsv(trim($r['dest_artccs'] ?? '')),
+            'remarks' => trim($r['remarks'] ?? ''),
+        ];
+    }
+
+    // Index by uppercased route_string for matching
+    $old_by_key = [];
+    foreach ($old_routes as $or) {
+        $key = strtoupper(trim($or['route_string']));
+        $old_by_key[$key][] = $or;
+    }
+    $new_by_key = [];
+    foreach ($new_routes_norm as $nr) {
+        $key = strtoupper(trim($nr['route_string']));
+        $new_by_key[$key][] = $nr;
+    }
+
+    $rcl = $conn_sqli->prepare("INSERT INTO playbook_changelog
+        (play_id, action, field_name, old_value, new_value, airac_cycle, changed_by, changed_by_name, ip_address)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+    // Deleted routes: in old but not in new
+    foreach ($old_by_key as $key => $entries) {
+        if (!isset($new_by_key[$key])) {
+            foreach ($entries as $or) {
+                $a = 'route_deleted';
+                $fn = null;
+                $ov = $or['route_string'];
+                $nv = null;
+                $rcl->bind_param('issssssss', $play_id, $a, $fn, $ov, $nv, $airac_cycle, $changed_by, $changed_by_name, $client_ip);
+                $rcl->execute();
+            }
+        }
+    }
+
+    // Added routes: in new but not in old
+    foreach ($new_by_key as $key => $entries) {
+        if (!isset($old_by_key[$key])) {
+            foreach ($entries as $nr) {
+                $a = 'route_added';
+                $fn = null;
+                $ov = null;
+                $nv = $nr['route_string'];
+                $rcl->bind_param('issssssss', $play_id, $a, $fn, $ov, $nv, $airac_cycle, $changed_by, $changed_by_name, $client_ip);
+                $rcl->execute();
+            }
+        }
+    }
+
+    // Modified routes: same route_string key, compare fields
+    $route_diff_fields = ['origin', 'dest', 'origin_filter', 'dest_filter',
+        'origin_airports', 'origin_tracons', 'origin_artccs',
+        'dest_airports', 'dest_tracons', 'dest_artccs', 'remarks'];
+    foreach ($new_by_key as $key => $new_entries) {
+        if (!isset($old_by_key[$key])) continue;
+        $old_entries = $old_by_key[$key];
+        $max = min(count($new_entries), count($old_entries));
+        for ($i = 0; $i < $max; $i++) {
+            foreach ($route_diff_fields as $fn) {
+                $ov = (string)($old_entries[$i][$fn] ?? '');
+                $nv = (string)($new_entries[$i][$fn] ?? '');
+                if ($ov !== $nv) {
+                    $a = 'route_updated';
+                    $rcl->bind_param('issssssss', $play_id, $a, $fn, $ov, $nv, $airac_cycle, $changed_by, $changed_by_name, $client_ip);
+                    $rcl->execute();
+                }
+            }
+        }
+        // Extra new entries with same route_string count as additions
+        for ($i = $max; $i < count($new_entries); $i++) {
+            $a = 'route_added';
+            $fn = null;
+            $ov = null;
+            $nv = $new_entries[$i]['route_string'];
+            $rcl->bind_param('issssssss', $play_id, $a, $fn, $ov, $nv, $airac_cycle, $changed_by, $changed_by_name, $client_ip);
+            $rcl->execute();
+        }
+        // Extra old entries with same route_string count as deletions
+        for ($i = $max; $i < count($old_entries); $i++) {
+            $a = 'route_deleted';
+            $fn = null;
+            $ov = $old_entries[$i]['route_string'];
+            $nv = null;
+            $rcl->bind_param('issssssss', $play_id, $a, $fn, $ov, $nv, $airac_cycle, $changed_by, $changed_by_name, $client_ip);
+            $rcl->execute();
+        }
+    }
+
+    $rcl->close();
 }
 
 echo json_encode([
