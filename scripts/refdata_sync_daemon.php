@@ -226,6 +226,56 @@ function normalizeRouteCanadian(string $routeString): string {
     return $changed ? implode(' ', $parts) : $routeString;
 }
 
+/**
+ * Strip leading/trailing tokens from route_string that duplicate the
+ * origin/dest fields (airports or ARTCCs).  Handles K-prefix variants.
+ */
+function stripRouteEndpoints(string $rs, string $origAirports, string $origArtccs,
+                              string $destAirports, string $destArtccs): string {
+    $parts = preg_split('/\s+/', trim($rs));
+    if (count($parts) < 2) return $rs;
+
+    // Build origin code set
+    $origCodes = [];
+    foreach (explode(',', $origAirports) as $c) {
+        $c = strtoupper(trim($c));
+        if ($c === '') continue;
+        $origCodes[] = $c;
+        if (strlen($c) === 3 && ctype_alpha($c)) $origCodes[] = 'K' . $c;
+        if (strlen($c) === 4 && $c[0] === 'K') $origCodes[] = substr($c, 1);
+    }
+    foreach (explode(',', $origArtccs) as $c) {
+        $c = strtoupper(trim($c));
+        if ($c !== '' && $c !== 'UNKN') $origCodes[] = $c;
+    }
+
+    if ($origCodes && in_array(strtoupper($parts[0]), $origCodes)) {
+        array_shift($parts);
+    }
+
+    if (count($parts) < 2) return implode(' ', $parts);
+
+    // Build dest code set
+    $destCodes = [];
+    foreach (explode(',', $destAirports) as $c) {
+        $c = strtoupper(trim($c));
+        if ($c === '') continue;
+        $destCodes[] = $c;
+        if (strlen($c) === 3 && ctype_alpha($c)) $destCodes[] = 'K' . $c;
+        if (strlen($c) === 4 && $c[0] === 'K') $destCodes[] = substr($c, 1);
+    }
+    foreach (explode(',', $destArtccs) as $c) {
+        $c = strtoupper(trim($c));
+        if ($c !== '' && $c !== 'UNKN') $destCodes[] = $c;
+    }
+
+    if ($destCodes && in_array(strtoupper(end($parts)), $destCodes)) {
+        array_pop($parts);
+    }
+
+    return implode(' ', $parts);
+}
+
 // ============================================================================
 // CDR Import
 // ============================================================================
@@ -748,16 +798,26 @@ function syncPlaybook(): array {
             $plays[$playName] = ['routes' => [], 'artccs' => [], 'dest_artccs' => []];
         }
 
+        // Strip embedded origin/dest from route_string (CSV has them in both)
+        $origApts  = trim($row[2]);
+        $destApts  = trim($row[5]);
+        $origArtc  = normalizeArtccCsv(trim($row[4]));
+        $destArtc  = normalizeArtccCsv(trim($row[7]));
+        $cleanRoute = stripRouteEndpoints(
+            normalizeRouteCanadian($routeStr),
+            $origApts, $origArtc, $destApts, $destArtc
+        );
+
         $plays[$playName]['routes'][] = [
-            normalizeRouteCanadian($routeStr),   // route_string
-            trim($row[2]),                        // origin (airports)
-            trim($row[5]),                        // dest (airports)
-            trim($row[2]),                        // origin_airports
+            $cleanRoute,                          // route_string (cleaned)
+            $origApts,                            // origin (airports)
+            $destApts,                            // dest (airports)
+            $origApts,                            // origin_airports
             trim($row[3]),                        // origin_tracons
-            normalizeArtccCsv(trim($row[4])),     // origin_artccs
-            trim($row[5]),                        // dest_airports
+            $origArtc,                            // origin_artccs
+            $destApts,                            // dest_airports
             trim($row[6]),                        // dest_tracons
-            normalizeArtccCsv(trim($row[7])),     // dest_artccs
+            $destArtc,                            // dest_artccs
         ];
 
         // Accumulate unique ARTCCs for the play-level facilities_involved
