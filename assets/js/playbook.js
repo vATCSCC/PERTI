@@ -1298,9 +1298,6 @@
             html += '<div class="pb-empty-state"><i class="fas fa-route"></i>' + t('playbook.noRoutes') + '</div>';
         }
 
-        // Route Analysis panel (populated on route row click)
-        html += '<div id="route-analysis-panel" class="pb-analysis-panel card card-body p-2 mt-2" style="display:none;font-size:0.75rem;"></div>';
-
         // Throughput toggle button
         html += '<div class="mt-2 mb-1">';
         html += '<button class="btn btn-sm btn-outline-info" id="btn-throughput-toggle">';
@@ -1682,6 +1679,7 @@
         routeGroups = [];
         routeViewMode = 'standard';
         activeAnalysisRouteId = null;
+        if (typeof RouteAnalysisPanel !== 'undefined') RouteAnalysisPanel.clear();
         throughputEnabled = false;
         throughputData = null;
         updateUrl(null);
@@ -3665,148 +3663,76 @@
     }
 
     // =========================================================================
-    // ROUTE ANALYSIS PANEL
+    // ROUTE ANALYSIS PANEL (shared module — RouteAnalysisPanel)
     // =========================================================================
 
     /**
-     * Load and display route analysis data in the collapsible panel.
-     * Fetches facility traversal, fix analysis, and distance/time data.
+     * Bridge function: fetches analysis data and delegates to the shared
+     * RouteAnalysisPanel module for rendering.
+     *
+     * @param {number|null} routeId   - DB route_id (used for map routeId lookup)
+     * @param {string}      routeStr  - Filed route string
+     * @param {string}      origin    - Origin ICAO
+     * @param {string}      dest      - Destination ICAO
      */
-    function loadRouteAnalysis(routeId, opts) {
-        var panel = $('#route-analysis-panel');
-        if (!panel.length) return;
+    window.showRouteAnalysis = function(routeId, routeStr, origin, dest) {
+        if (!routeStr && !routeId) return;
+        if (typeof RouteAnalysisPanel === 'undefined') return;
 
-        // If clicking the same route, toggle the panel closed
-        if (activeAnalysisRouteId === routeId && panel.is(':visible')) {
-            panel.slideUp(150);
+        // Toggle off if clicking the same route
+        if (activeAnalysisRouteId === routeId && activeAnalysisRouteId != null) {
+            RouteAnalysisPanel.clear();
             activeAnalysisRouteId = null;
+            $('.pb-route-table tbody tr').removeClass('pb-route-analysis-active');
             return;
         }
         activeAnalysisRouteId = routeId;
 
-        var speed = (opts && opts.speed) ? opts.speed : '';
-        var wind = (opts && opts.wind) ? opts.wind : '';
+        RouteAnalysisPanel.showLoading(routeStr || '', origin, dest);
 
-        var params = 'route_id=' + encodeURIComponent(routeId);
-        if (speed) params += '&speed_kts=' + encodeURIComponent(speed);
-        if (wind) params += '&wind_component=' + encodeURIComponent(wind);
+        // Try client-resolved waypoints from map (map routeId = plotting index + 1)
+        var mapRouteId = null;
+        if (routeId != null) {
+            var plotIdx = lastPlottedRouteOrder.indexOf(routeId);
+            if (plotIdx >= 0) mapRouteId = plotIdx + 1;
+        }
 
-        panel.html(
-            '<div class="pb-loading py-2"><div class="spinner-border spinner-border-sm text-primary"></div> ' +
-            '<span class="small text-muted">' + t('playbook.analysis.loading') + '</span></div>'
-        ).slideDown(150);
-
-        $.getJSON(API_ANALYSIS + '?' + params, function(data) {
-            if (!data || data.status !== 'success') {
-                panel.html(
-                    '<div class="small text-danger py-1"><i class="fas fa-exclamation-triangle mr-1"></i>' +
-                    t('playbook.analysis.loadFailed') + '</div>'
-                );
-                return;
+        var namedPts = null;
+        if (mapRouteId != null && typeof MapLibreRoute !== 'undefined' && MapLibreRoute.getRoutePointsNamed) {
+            var allNamed = MapLibreRoute.getRoutePointsNamed();
+            if (allNamed[mapRouteId] && allNamed[mapRouteId].length >= 2) {
+                namedPts = allNamed[mapRouteId];
             }
+        }
 
-            var html = '';
+        var requestData = {
+            route_waypoints: namedPts,
+            route_string: routeStr || null,
+            route_id: (!namedPts && routeId) ? routeId : null,
+            origin: origin || null,
+            dest: dest || null,
+            cruise_kts: 460,
+            facility_types: 'ARTCC,FIR,TRACON,SECTOR_HIGH,SECTOR_LOW,SECTOR_SUPERHIGH'
+        };
 
-            // Speed/Wind config inputs
-            html += '<div class="pb-analysis-config d-flex align-items-center mb-2" style="gap:0.5rem;">';
-            html += '<label class="small mb-0">' + t('playbook.analysis.speed') + ':</label>';
-            var spProfile = data.speed_profile || {};
-            html += '<input type="number" class="form-control form-control-sm" id="pb_analysis_speed" style="width:80px;" placeholder="450" value="' + escHtml(String(spProfile.cruise_kts || '')) + '">';
-            html += '<label class="small mb-0">' + t('playbook.analysis.wind') + ':</label>';
-            var wProfile = data.wind_profile || {};
-            html += '<input type="number" class="form-control form-control-sm" id="pb_analysis_wind" style="width:80px;" placeholder="0" value="' + escHtml(String(wProfile.component_kts || '')) + '">';
-            html += '<button class="btn btn-xs btn-outline-primary" id="pb_analysis_refresh"><i class="fas fa-sync-alt mr-1"></i>' + t('playbook.analysis.recalculate') + '</button>';
-            html += '</div>';
-
-            // Route info header
-            html += '<div class="pb-analysis-header d-flex flex-wrap mb-2" style="gap:0.75rem;font-size:0.75rem;">';
-            if (data.origin) {
-                html += '<span><strong>' + t('playbook.origin') + ':</strong> ' + escHtml(data.origin) + '</span>';
+        $.ajax({
+            url: API_ANALYSIS,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(requestData),
+            dataType: 'json',
+            success: function(resp) {
+                if (!resp || resp.status !== 'success') {
+                    RouteAnalysisPanel.showError();
+                    return;
+                }
+                RouteAnalysisPanel.show(resp, routeStr, origin, dest, mapRouteId);
+            },
+            error: function() {
+                RouteAnalysisPanel.showError();
             }
-            if (data.dest) {
-                html += '<span><strong>' + t('playbook.destination') + ':</strong> ' + escHtml(data.dest) + '</span>';
-            }
-            if (data.total_distance_nm) {
-                html += '<span><strong>' + t('playbook.analysis.totalDistance') + ':</strong> ' + escHtml(String(data.total_distance_nm)) + ' nm</span>';
-            }
-            if (data.total_time_min) {
-                html += '<span><strong>' + t('playbook.analysis.totalTime') + ':</strong> ' + escHtml(String(data.total_time_min)) + ' min</span>';
-            }
-            html += '</div>';
-
-            // Facility traversal table
-            var facilities = data.facility_traversal || [];
-            if (facilities.length) {
-                html += '<div class="pb-analysis-section mb-2">';
-                html += '<div class="small font-weight-bold mb-1">' + t('playbook.analysis.facilityTraversal') + '</div>';
-                html += '<table class="table table-sm table-bordered mb-0" style="font-size:0.7rem;">';
-                html += '<thead><tr>';
-                html += '<th style="width:5%;">#</th>';
-                html += '<th style="width:25%;">' + t('playbook.analysis.facility') + '</th>';
-                html += '<th style="width:15%;">' + t('playbook.analysis.type') + '</th>';
-                html += '<th style="width:20%;">' + t('playbook.analysis.distance') + '</th>';
-                html += '<th style="width:15%;">' + t('playbook.analysis.time') + '</th>';
-                html += '<th style="width:20%;">' + t('playbook.analysis.entryFix') + '</th>';
-                html += '</tr></thead><tbody>';
-                facilities.forEach(function(fac, idx) {
-                    html += '<tr>';
-                    html += '<td>' + (idx + 1) + '</td>';
-                    html += '<td>' + regionColorWrap(fac.name || '') + '</td>';
-                    html += '<td><span class="badge badge-secondary" style="font-size:0.6rem;">' + escHtml(fac.type || '') + '</span></td>';
-                    html += '<td>' + escHtml(String(fac.distance_nm || '-')) + ' nm</td>';
-                    html += '<td>' + escHtml(String(fac.time_min || '-')) + ' min</td>';
-                    html += '<td>' + escHtml(fac.entry_fix || '-') + '</td>';
-                    html += '</tr>';
-                });
-                html += '</tbody></table>';
-                html += '</div>';
-            }
-
-            // Fix analysis table (expandable)
-            var fixes = data.fix_analysis || [];
-            if (fixes.length) {
-                html += '<div class="pb-analysis-section">';
-                html += '<div class="pb-analysis-fix-toggle small font-weight-bold mb-1" id="pb_fix_analysis_toggle" style="cursor:pointer;">';
-                html += '<i class="fas fa-chevron-right"></i> ' + t('playbook.analysis.fixAnalysis') + ' (' + fixes.length + ' ' + t('playbook.analysis.fixes') + ')';
-                html += '</div>';
-                html += '<div id="pb_fix_analysis_body" style="display:none;">';
-                html += '<table class="table table-sm table-bordered mb-0" style="font-size:0.7rem;">';
-                html += '<thead><tr>';
-                html += '<th style="width:5%;">#</th>';
-                html += '<th style="width:20%;">' + t('playbook.analysis.fixName') + '</th>';
-                html += '<th style="width:20%;">' + t('playbook.analysis.cumDistance') + '</th>';
-                html += '<th style="width:15%;">' + t('playbook.analysis.cumTime') + '</th>';
-                html += '<th style="width:15%;">' + t('playbook.analysis.distToDest') + '</th>';
-                html += '<th style="width:15%;">' + t('playbook.analysis.timeToDest') + '</th>';
-                html += '<th style="width:10%;">' + t('playbook.analysis.facility') + '</th>';
-                html += '</tr></thead><tbody>';
-                fixes.forEach(function(fix, idx) {
-                    html += '<tr>';
-                    html += '<td>' + (idx + 1) + '</td>';
-                    html += '<td><strong>' + escHtml(fix.fix || '') + '</strong></td>';
-                    html += '<td>' + escHtml(String(fix.dist_from_origin_nm || '-')) + ' nm</td>';
-                    html += '<td>' + escHtml(String(fix.time_from_origin_min || '-')) + ' min</td>';
-                    html += '<td>' + escHtml(String(fix.dist_to_dest_nm || '-')) + ' nm</td>';
-                    html += '<td>' + escHtml(String(fix.time_to_dest_min || '-')) + ' min</td>';
-                    html += '<td>' + regionColorWrap(fix.facility || '') + '</td>';
-                    html += '</tr>';
-                });
-                html += '</tbody></table>';
-                html += '</div></div>';
-            }
-
-            if (!facilities.length && !fixes.length) {
-                html += '<div class="small text-muted py-1">' + t('playbook.analysis.noData') + '</div>';
-            }
-
-            panel.html(html);
-        }).fail(function() {
-            panel.html(
-                '<div class="small text-danger py-1"><i class="fas fa-exclamation-triangle mr-1"></i>' +
-                t('playbook.analysis.loadFailed') + '</div>'
-            );
         });
-    }
+    };
 
     // =========================================================================
     // THROUGHPUT TOGGLE
@@ -5328,30 +5254,12 @@
             if (activeAnalysisRouteId !== rid) {
                 $(this).addClass('pb-route-analysis-active');
             }
-            loadRouteAnalysis(rid);
-        });
-
-        // Route analysis: speed/wind recalculate
-        $(document).on('click', '#pb_analysis_refresh', function() {
-            if (!activeAnalysisRouteId) return;
-            var speed = $('#pb_analysis_speed').val() || '';
-            var wind = $('#pb_analysis_wind').val() || '';
-            // Force re-fetch by clearing the active ID comparison
-            var rid = activeAnalysisRouteId;
-            activeAnalysisRouteId = null;
-            loadRouteAnalysis(rid, { speed: speed, wind: wind });
-        });
-
-        // Route analysis: fix analysis toggle
-        $(document).on('click', '#pb_fix_analysis_toggle', function() {
-            var body = $('#pb_fix_analysis_body');
-            if (body.is(':visible')) {
-                body.slideUp(150);
-                $(this).find('i').removeClass('fa-chevron-down').addClass('fa-chevron-right');
-            } else {
-                body.slideDown(150);
-                $(this).find('i').removeClass('fa-chevron-right').addClass('fa-chevron-down');
-            }
+            // Look up route data for the shared module
+            var route = (activePlayData && activePlayData.routes || []).find(function(r) { return r.route_id === rid; });
+            var routeStr = route ? (route.route_string || '') : '';
+            var origin = route ? (route.origin || '') : '';
+            var dest = route ? (route.dest || '') : '';
+            window.showRouteAnalysis(rid, routeStr, origin, dest);
         });
 
         // ── Section toggle (map / detail) ──
