@@ -742,8 +742,8 @@
         var sep = separator || /[,\/]/;
         var codes = str.split(sep).map(function(c) { return c.trim(); }).filter(Boolean);
         if (!codes.length) return '-';
-        var joinSep = (separator === '/') ? '/<wbr>' : ', ';
-        if (!regionColorEnabled) return escHtml(codes.join(separator === '/' ? '/' : ', ')).replace(/\//g, '/<wbr>');
+        var joinSep = (separator === '/') ? '/<wbr>' : ',<wbr> ';
+        if (!regionColorEnabled) return escHtml(codes.join(separator === '/' ? '/' : ', ')).replace(/[,\/]/g, function(m) { return m + '<wbr>'; });
         return codes.map(regionColorWrap).join(joinSep);
     }
 
@@ -1348,15 +1348,15 @@
         html += '<table class="pb-route-table"><thead><tr>';
         html += '<th class="pb-route-check" style="width:24px"><input type="checkbox" id="pb_check_all"></th>';
         if (hasGroups) html += '<th style="width:8px;padding:0;"></th>';
-        html += '<th style="width:9%">Origin</th>';
-        html += '<th style="width:4%">TRACON</th>';
-        html += '<th style="width:4%">ARTCC</th>';
+        html += '<th style="width:8%">Origin</th>';
+        html += '<th style="width:3.5%">TRACON</th>';
+        html += '<th style="width:3.5%">ARTCC</th>';
         html += '<th>' + t('playbook.routeString') + '</th>';
-        html += '<th style="width:9%">Dest</th>';
-        html += '<th style="width:4%">TRACON</th>';
-        html += '<th style="width:4%">ARTCC</th>';
-        html += '<th style="width:5%">Traversed</th>';
-        html += '<th style="width:4%">Remarks</th>';
+        html += '<th style="width:8%">Dest</th>';
+        html += '<th style="width:3.5%">TRACON</th>';
+        html += '<th style="width:3.5%">ARTCC</th>';
+        html += '<th style="width:7%">Traversed</th>';
+        html += '<th style="width:3%">Remarks</th>';
         html += '</tr></thead><tbody>';
 
         sortedRoutes.forEach(function(r) {
@@ -1387,6 +1387,7 @@
             if (hasSearch) rowClasses.push(searchMatch ? 'pb-route-emphasized' : 'pb-route-dimmed');
             var groupColor = getRouteGroupColor(r.route_id);
             if (groupColor) rowClasses.push('pb-route-grouped');
+            if (activeAnalysisRouteId != null && r.route_id === activeAnalysisRouteId) rowClasses.push('pb-route-analysis-active');
             var rowClass = rowClasses.join(' ');
 
             html += '<tr data-route-id="' + r.route_id + '"' + (rowClass ? ' class="' + rowClass + '"' : '') + (groupColor ? ' style="border-left:4px solid ' + groupColor + ';"' : '') + '>';
@@ -1401,7 +1402,7 @@
             html += '<td class="pb-rt-airports">' + escHtml(destDisplay) + (r.dest_filter ? ' <small class="text-muted">' + escHtml(r.dest_filter) + '</small>' : '') + '</td>';
             html += '<td>' + renderFacilityCodes(destTracon, ',') + '</td>';
             html += '<td>' + renderFacilityCodes(destArtcc, ',') + '</td>';
-            html += '<td>' + renderFacilityCodes(r.traversed_artccs || '-', ',') + '</td>';
+            html += '<td class="pb-rt-traversed">' + renderFacilityCodes(r.traversed_artccs || '-', ',') + '</td>';
             html += '<td style="white-space:pre-wrap;">' + escHtml(r.remarks || '') + '</td>';
             html += '</tr>';
         });
@@ -1457,7 +1458,7 @@
         html += '<th>' + t('playbook.routeString') + '</th>';
         html += '<th style="width:10%">Dest</th>';
         html += '<th style="width:5%">ARTCC</th>';
-        html += '<th style="width:6%">Traversed</th>';
+        html += '<th style="width:7%">Traversed</th>';
         html += '</tr></thead><tbody>';
 
         groups.forEach(function(g) {
@@ -1470,15 +1471,16 @@
             var travStr = Array.from(g.traversed_artccs).join(','); // preserve traversal order
             var allSelected = g.route_ids.every(function(rid) { return selectedRouteIds.has(rid); });
             var badge = g.route_ids.length > 1 ? ' <span class="pb-consolidated-badge">' + t('playbook.consolidatedBadge', { count: g.route_ids.length }) + '</span>' : '';
+            var isActive = activeAnalysisRouteId != null && g.route_ids.indexOf(activeAnalysisRouteId) !== -1;
 
-            html += '<tr data-route-ids="' + g.route_ids.join(',') + '">';
+            html += '<tr data-route-ids="' + g.route_ids.join(',') + '"' + (isActive ? ' class="pb-route-analysis-active"' : '') + '>';
             html += '<td class="pb-route-check"><input type="checkbox" class="pb-route-cb-group" data-ids="' + g.route_ids.join(',') + '"' + (allSelected ? ' checked' : '') + '></td>';
             html += '<td class="pb-rt-airports">' + escHtml(origStr || '-') + (origFilterStr ? ' <small class="text-muted">' + escHtml(origFilterStr) + '</small>' : '') + '</td>';
             html += '<td>' + renderFacilityCodes(origArtccStr || '-', ',') + '</td>';
             html += '<td>' + escHtml(g.route_string) + badge + '</td>';
             html += '<td class="pb-rt-airports">' + escHtml(destStr || '-') + (destFilterStr ? ' <small class="text-muted">' + escHtml(destFilterStr) + '</small>' : '') + '</td>';
             html += '<td>' + renderFacilityCodes(destArtccStr || '-', ',') + '</td>';
-            html += '<td>' + renderFacilityCodes(travStr || '-', ',') + '</td>';
+            html += '<td class="pb-rt-traversed">' + renderFacilityCodes(travStr || '-', ',') + '</td>';
             html += '</tr>';
         });
 
@@ -1604,7 +1606,8 @@
             Object.values(fromGroups).forEach(function(fg) {
                 var origStr = Array.from(fg.origins).sort().join(' / ');
                 var filterStr = Array.from(fg.filters).sort().join(' ');
-                html += '<tr data-route-ids="' + fg.ids.join(',') + '">';
+                var fgActive = activeAnalysisRouteId != null && fg.ids.indexOf(activeAnalysisRouteId) !== -1;
+                html += '<tr data-route-ids="' + fg.ids.join(',') + '"' + (fgActive ? ' class="pb-route-analysis-active"' : '') + '>';
                 html += '<td>' + escHtml(origStr || '-') + (filterStr ? ' <small class="text-muted">' + escHtml(filterStr) + '</small>' : '') + '</td>';
                 html += '<td>' + escHtml(fg.segment) + '</td>';
                 html += '</tr>';
@@ -1629,7 +1632,8 @@
             Object.values(toGroups).forEach(function(tg) {
                 var destStr = Array.from(tg.dests).sort().join(' / ');
                 var filterStr = Array.from(tg.filters).sort().join(' ');
-                html += '<tr data-route-ids="' + tg.ids.join(',') + '">';
+                var tgActive = activeAnalysisRouteId != null && tg.ids.indexOf(activeAnalysisRouteId) !== -1;
+                html += '<tr data-route-ids="' + tg.ids.join(',') + '"' + (tgActive ? ' class="pb-route-analysis-active"' : '') + '>';
                 html += '<td>' + escHtml(destStr || '-') + (filterStr ? ' <small class="text-muted">' + escHtml(filterStr) + '</small>' : '') + '</td>';
                 html += '<td>' + escHtml(tg.segment) + '</td>';
                 html += '</tr>';
@@ -1647,7 +1651,8 @@
             html += '<th style="width:20%;">Dest</th>';
             html += '</tr></thead><tbody>';
             unmatched.forEach(function(r) {
-                html += '<tr data-route-id="' + r.route_id + '">';
+                var umActive = activeAnalysisRouteId != null && r.route_id === activeAnalysisRouteId;
+                html += '<tr data-route-id="' + r.route_id + '"' + (umActive ? ' class="pb-route-analysis-active"' : '') + '>';
                 html += '<td>' + escHtml(r.origin_airports || r.origin || '-') + '</td>';
                 html += '<td>' + escHtml(r.route_string) + '</td>';
                 html += '<td>' + escHtml(r.dest_airports || r.dest || '-') + '</td>';
@@ -3675,15 +3680,21 @@
      * @param {string}      origin    - Origin ICAO
      * @param {string}      dest      - Destination ICAO
      */
-    window.showRouteAnalysis = function(routeId, routeStr, origin, dest) {
+    var PSEUDO_FIXES = { 'UNKN': true, 'VARIOUS': true };
+
+    window.showRouteAnalysis = function(routeId, routeStr, origin, dest, routeObj) {
         if (!routeStr && !routeId) return;
         if (typeof RouteAnalysisPanel === 'undefined') return;
+
+        // Strip pseudo-fix tokens from origin/dest
+        if (origin && PSEUDO_FIXES[origin.toUpperCase()]) origin = '';
+        if (dest && PSEUDO_FIXES[dest.toUpperCase()]) dest = '';
 
         // Toggle off if clicking the same route
         if (activeAnalysisRouteId === routeId && activeAnalysisRouteId != null) {
             RouteAnalysisPanel.clear();
             activeAnalysisRouteId = null;
-            $('.pb-route-table tbody tr').removeClass('pb-route-analysis-active');
+            $('.pb-route-table tbody tr, .pb-compact-table tbody tr').removeClass('pb-route-analysis-active');
             return;
         }
         activeAnalysisRouteId = routeId;
@@ -3703,6 +3714,19 @@
             if (allNamed[mapRouteId] && allNamed[mapRouteId].length >= 2) {
                 namedPts = allNamed[mapRouteId];
             }
+        }
+
+        // Fallback: extract waypoints from stored frozen geometry (routeObj parameter)
+        if (!namedPts && routeObj && routeObj.route_geometry) {
+            try {
+                var parsed = typeof routeObj.route_geometry === 'string'
+                    ? JSON.parse(routeObj.route_geometry) : routeObj.route_geometry;
+                if (parsed.waypoints && parsed.waypoints.length >= 2) {
+                    namedPts = parsed.waypoints.map(function(wp) {
+                        return { fix: wp.fix_name || 'UNK', lat: wp.lat, lon: wp.lon };
+                    });
+                }
+            } catch (e) { /* fall through to Mode 2 */ }
         }
 
         var requestData = {
@@ -5244,13 +5268,18 @@
         $(document).on('click', '#pb_export_csv', exportPlaybookCSV);
 
         // ── Route analysis panel: click route row to load analysis ──
-        $(document).on('click', '.pb-route-table tbody tr', function(e) {
+        $(document).on('click', '.pb-route-table tbody tr, .pb-compact-table tbody tr', function(e) {
             // Skip if clicking a checkbox
             if ($(e.target).is('input[type="checkbox"]') || $(e.target).closest('.pb-route-check').length) return;
             var rid = parseInt($(this).attr('data-route-id'));
-            if (!rid) return;
+            if (!rid || isNaN(rid)) {
+                // Consolidated/compact views use data-route-ids (comma-separated)
+                var ids = $(this).attr('data-route-ids');
+                if (ids) rid = parseInt(ids.split(',')[0]);
+            }
+            if (!rid || isNaN(rid)) return;
             // Highlight the clicked row
-            $('.pb-route-table tbody tr').removeClass('pb-route-analysis-active');
+            $('.pb-route-table tbody tr, .pb-compact-table tbody tr').removeClass('pb-route-analysis-active');
             if (activeAnalysisRouteId !== rid) {
                 $(this).addClass('pb-route-analysis-active');
             }
@@ -5259,7 +5288,7 @@
             var routeStr = route ? (route.route_string || '') : '';
             var origin = route ? (route.origin || '') : '';
             var dest = route ? (route.dest || '') : '';
-            window.showRouteAnalysis(rid, routeStr, origin, dest);
+            window.showRouteAnalysis(rid, routeStr, origin, dest, route);
         });
 
         // ── Section toggle (map / detail) ──

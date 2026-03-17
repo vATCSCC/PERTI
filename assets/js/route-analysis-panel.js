@@ -26,6 +26,7 @@
     var activeRowFix = null;
     var facilityFilters = { ARTCC: true, FIR: true, TRACON: true, SECTOR_HIGH: true, SECTOR_LOW: true, SECTOR_SUPERHIGH: true };
     var timeFormat = 'hms'; // 'hms' = hh:mm:ss, 'short' = 1h 23m, 'min' = integer minutes
+    var PSEUDO_FIXES = { 'UNKN': true, 'VARIOUS': true };
 
     // ── DOM refs (resolved on first show) ────────────────────────────
     var panel, header, toggle, body, routeLabel, chevron;
@@ -80,13 +81,7 @@
 
     function formatDist(nm) {
         if (nm == null || isNaN(nm)) return '--';
-        // 2 significant figures, no thousand separators
-        if (nm === 0) return '0';
-        var mag = Math.floor(Math.log10(Math.abs(nm))) + 1;
-        var factor = Math.pow(10, 2 - mag);
-        var rounded = Math.round(nm * factor) / factor;
-        var decimals = Math.max(0, 2 - mag);
-        return decimals > 0 ? rounded.toFixed(decimals) : String(rounded);
+        return (Math.round(nm * 10) / 10).toFixed(1);
     }
 
     // ── Departure time / UTC helpers ───────────────────────────────
@@ -104,10 +99,12 @@
     function minutesToUtcStr(depEpoch, minutes) {
         if (minutes == null || isNaN(minutes)) return '--:--Z';
         var d = new Date(depEpoch + minutes * 60000);
-        if (typeof PERTIDateTime !== 'undefined' && PERTIDateTime.formatTimeShortZ) {
-            return PERTIDateTime.formatTimeShortZ(d);
+        var h = d.getUTCHours(), m = d.getUTCMinutes(), s = d.getUTCSeconds();
+        var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+        if (timeFormat === 'hms') {
+            return pad(h) + ':' + pad(m) + ':' + pad(s) + 'Z';
         }
-        return d.toISOString().slice(11, 16) + 'Z';
+        return pad(h) + ':' + pad(m) + 'Z';
     }
 
     // Deduplicate fix/waypoint arrays — nav_fixes has multiple entries per fix
@@ -116,7 +113,9 @@
         var seen = {};
         var result = [];
         for (var i = 0; i < arr.length; i++) {
-            var key = (arr[i].fix || '') + '|' + Math.round((arr[i].dist_from_origin_nm || arr[i].cum_dist_nm || 0) * 10);
+            var fixName = (arr[i].fix || '').toUpperCase();
+            if (PSEUDO_FIXES[fixName]) continue;
+            var key = fixName + '|' + Math.round((arr[i].dist_from_origin_nm || arr[i].cum_dist_nm || 0) * 10);
             if (!seen[key]) {
                 seen[key] = true;
                 result.push(arr[i]);
@@ -425,12 +424,18 @@
             return;
         }
         var html = '';
+        var displayIdx = 0;
         for (var i = 0; i < fixAnalysis.length; i++) {
             var fx = fixAnalysis[i];
+            if (PSEUDO_FIXES[(fx.fix || '').toUpperCase()]) continue;
             // Compute segment distance/time from previous fix
             var segDist = '--', segTime = '--';
-            if (i > 0) {
+            if (displayIdx > 0) {
                 var prev = fixAnalysis[i - 1];
+                // Walk back past any pseudo-fixes for accurate delta
+                for (var pi = i - 1; pi >= 0 && PSEUDO_FIXES[(fixAnalysis[pi].fix || '').toUpperCase()]; pi--) {
+                    prev = fixAnalysis[pi > 0 ? pi - 1 : 0];
+                }
                 var sd = fx.dist_from_origin_nm - prev.dist_from_origin_nm;
                 var st = fx.time_from_origin_min - prev.time_from_origin_min;
                 segDist = formatDist(sd);
@@ -439,7 +444,7 @@
             // Dynamic facility column based on active filters
             var facBadges = buildFacilityBadges(findFacilitiesForDist(fx.dist_from_origin_nm));
             html += '<tr data-idx="' + i + '">' +
-                '<td class="ra-idx">' + (i + 1) + '</td>' +
+                '<td class="ra-idx">' + (displayIdx + 1) + '</td>' +
                 '<td><strong>' + escHtml(fx.fix || '') + '</strong>' + facBadges + '</td>' +
                 '<td class="text-right">' + formatDist(fx.dist_from_origin_nm) + '</td>' +
                 '<td class="text-right">' + formatTime(fx.time_from_origin_min) + '</td>' +
@@ -449,6 +454,7 @@
                 '<td class="text-right">' + formatDist(fx.dist_to_dest_nm) + '</td>' +
                 '<td class="text-right">' + formatTime(fx.time_to_dest_min) + '</td>' +
                 '</tr>';
+            displayIdx++;
         }
         fixTbody.innerHTML = html;
 
@@ -467,10 +473,21 @@
             segTbody.innerHTML = '<tr><td colspan="10" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
             return;
         }
+        // Build a filtered list excluding pseudo-fixes
+        var filtered = [];
+        for (var fi = 0; fi < fixAnalysis.length; fi++) {
+            if (!PSEUDO_FIXES[(fixAnalysis[fi].fix || '').toUpperCase()]) {
+                filtered.push(fixAnalysis[fi]);
+            }
+        }
+        if (filtered.length < 2) {
+            segTbody.innerHTML = '<tr><td colspan="10" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
+            return;
+        }
         var html = '';
-        for (var i = 1; i < fixAnalysis.length; i++) {
-            var prev = fixAnalysis[i - 1];
-            var curr = fixAnalysis[i];
+        for (var i = 1; i < filtered.length; i++) {
+            var prev = filtered[i - 1];
+            var curr = filtered[i];
             var segDist = curr.dist_from_origin_nm - prev.dist_from_origin_nm;
             var segTime = curr.time_from_origin_min - prev.time_from_origin_min;
             var gs = segTime > 0 ? Math.round(segDist / (segTime / 60)) : '--';
@@ -494,8 +511,8 @@
         for (var r = 0; r < rows.length; r++) {
             rows[r].addEventListener('click', (function (idx) {
                 return function () {
-                    var from = fixAnalysis[idx - 1];
-                    var to = fixAnalysis[idx];
+                    var from = filtered[idx - 1];
+                    var to = filtered[idx];
                     if (!from || !to) return;
                     setActiveRow('segment', idx);
                     var map = getMap();

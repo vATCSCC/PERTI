@@ -1,6 +1,6 @@
 # Database Schema
 
-> **Last updated:** March 14, 2026 (v19)
+> **Last updated:** March 17, 2026 (v19)
 > **System Mode:** HIBERNATED (SWIM exempt since March 13, 2026)
 
 PERTI uses multiple databases across three engines: MySQL for application data, Azure SQL for flight/ADL and TMI data, and PostgreSQL/PostGIS for spatial queries.
@@ -73,15 +73,19 @@ PERTI uses multiple databases across three engines: MySQL for application data, 
 | `display_name` | VARCHAR(200) | Human-readable display name |
 | `description` | TEXT | Play description |
 | `category` | VARCHAR(50) | Category grouping |
-| `impacted_area` | VARCHAR(200) | Impacted geographic area |
-| `facilities_involved` | VARCHAR(500) | Involved facilities |
+| `impacted_area` | VARCHAR(2000) | Impacted geographic area |
+| `facilities_involved` | VARCHAR(2000) | Involved facilities |
 | `scenario_type` | VARCHAR(50) | WEATHER, VOLUME, CONSTRUCTION, GENERAL |
 | `route_format` | ENUM | `standard` or `split` |
-| `source` | ENUM | `FAA`, `DCC`, `ECFMP`, `CANOC` |
+| `source` | ENUM | `FAA`, `DCC`, `ECFMP`, `CANOC`, `CADENA`, `FAA_HISTORICAL` |
 | `status` | ENUM | `active`, `draft`, `archived` |
+| `visibility` | ENUM | `public`, `local`, `private_users`, `private_org` (default: `public`) |
 | `airac_cycle` | VARCHAR(10) | AIRAC cycle reference |
 | `route_count` | INT | Cached route count |
 | `org_code` | VARCHAR(20) | Organization code (multi-org support) |
+| `ctp_scope` | ENUM | `NA`, `OCEANIC`, `EU` (CTP event scope) |
+| `ctp_session_id` | INT | CTP session identifier |
+| `remarks` | TEXT | Play-level remarks (multi-line) |
 
 #### playbook_routes
 
@@ -94,7 +98,20 @@ PERTI uses multiple databases across three engines: MySQL for application data, 
 | `dest` | VARCHAR(200) | Destination airport(s) |
 | `origin_filter` | VARCHAR(200) | Origin filter criteria |
 | `dest_filter` | VARCHAR(200) | Destination filter criteria |
-| `remarks` | VARCHAR(500) | TMU route remarks/annotations |
+| `origin_airports` | VARCHAR(500) | Expanded origin airport codes |
+| `origin_tracons` | VARCHAR(200) | Origin TRACON codes |
+| `origin_artccs` | VARCHAR(200) | Origin ARTCC codes |
+| `dest_airports` | VARCHAR(500) | Expanded destination airport codes |
+| `dest_tracons` | VARCHAR(200) | Destination TRACON codes |
+| `dest_artccs` | VARCHAR(200) | Destination ARTCC codes |
+| `traversed_artccs` | VARCHAR(500) | En-route ARTCCs traversed (PostGIS-computed) |
+| `traversed_tracons` | VARCHAR(500) | TRACONs traversed (PostGIS-computed) |
+| `traversed_sectors_low` | TEXT | Low-altitude sectors traversed |
+| `traversed_sectors_high` | TEXT | High-altitude sectors traversed |
+| `traversed_sectors_superhigh` | TEXT | Super-high sectors traversed |
+| `route_geometry` | TEXT | Frozen route geometry envelope (JSON: geojson, waypoints, distance_nm, frozen_at) |
+| `remarks` | TEXT | TMU route remarks/annotations (multi-line) |
+| `sort_order` | INT | Display sort order within play |
 
 #### playbook_changelog
 
@@ -987,6 +1004,8 @@ Synced daily at 06:00Z by `refdata_sync_daemon.php`.
 | `swim_airport_taxi_reference` | VATSIM_ADL `airport_taxi_reference` | Taxi time reference mirror (~3,628 airports) |
 | `swim_airport_taxi_reference_detail` | VATSIM_ADL `airport_taxi_reference_detail` | Taxi detail breakdowns mirror |
 | `swim_coded_departure_routes` | VATSIM_REF `coded_departure_routes` | CDR data mirror (~41K routes) |
+| `swim_playbook_plays` | MySQL `playbook_plays` | Playbook play definitions mirror (~3,800 plays) |
+| `swim_playbook_routes` | MySQL `playbook_routes` | Playbook routes mirror (~269K routes, includes traversal + geometry columns) |
 | `swim_playbook_route_throughput` | MySQL `playbook_route_throughput` | CTP throughput data mirror |
 
 ### Infrastructure Tables (v19)
@@ -1120,9 +1139,10 @@ Route expansion and spatial analysis functions.
 
 | Function | Purpose |
 |----------|---------|
-| `resolve_waypoint(fix)` | Resolve fix/airport to coordinates |
+| `resolve_waypoint(fix)` | Resolve fix/airport to coordinates (DB lookup + coordinate token fallback) |
+| `parse_coordinate_token(token)` | Parse aviation coordinate formats (ICAO, NAT slash, ARINC) to lat/lon |
 | `expand_airway(airway, from, to)` | Expand airway segment to waypoints |
-| `expand_route(route_string)` | Parse and expand full route |
+| `expand_route(route_string)` | Parse and expand full route (with slash-token pre-processing) |
 | `expand_route_with_artccs(route)` | Expand route + get traversed ARTCCs |
 | `get_route_artccs(route)` | Lightweight ARTCC list from route |
 | `expand_route_with_boundaries(route, alt)` | Full boundary analysis |
@@ -1253,6 +1273,8 @@ Apply in numerical order within each category.
 | `database/migrations/playbook/002_add_source_enum.sql` | perti_site (MySQL) | Add ECFMP/CANOC to source enum |
 | `database/migrations/playbook/003_add_org_code.sql` | perti_site (MySQL) | Add org_code column for multi-org |
 | `database/migrations/playbook/004_add_route_remarks.sql` | perti_site (MySQL) | Add remarks column to playbook_routes |
+| `database/migrations/playbook/005-013` | perti_site (MySQL) | Traversed facilities, facility widening, source enums, route groups, visibility/ACL, throughput, route geometry |
+| `database/migrations/postgis/008_coordinate_waypoints.sql` | VATSIM_GIS (PostGIS) | Coordinate token parsing in resolve_waypoint, expand_route slash pre-processing |
 
 ### v19 Migrations
 
@@ -1268,7 +1290,7 @@ Apply in numerical order within each category.
 | `database/migrations/tmi/` | TMI programs, slots, procedures, views |
 | `database/migrations/swim/` | SWIM API schema (FIXM tables, telemetry, keys) |
 | `database/migrations/schema/` | ADL schema changes, splits, ACD data |
-| `database/migrations/postgis/` | PostGIS boundary tables |
+| `database/migrations/postgis/` | PostGIS boundary tables, spatial functions, coordinate parsing |
 | `database/migrations/gdp/` | GDP-specific tables |
 | `database/migrations/initiatives/` | Plan initiative timeline |
 | `database/migrations/jatoc/` | Incident reporting |
