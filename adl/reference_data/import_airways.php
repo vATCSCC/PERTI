@@ -218,10 +218,10 @@ while (($line = fgets($handle)) !== false) {
         }
     }
 
-    // Post-validate first fix: if it's >10° from the second fix, re-resolve
+    // Post-validate first fix: if it's >10 deg from the second fix, re-resolve
     // using the second fix as proximity context. This prevents the first fix
     // on an airway from resolving to the wrong hemisphere when it has no
-    // prior context (e.g., CUN on UT11 → Alaska instead of Cancun).
+    // prior context (e.g., CUN on UT11 -> Alaska instead of Cancun).
     if (isset($resolved[0]) && isset($resolved[1])) {
         $d = abs($resolved[0][0] - $resolved[1][0]) + abs($resolved[0][1] - $resolved[1][1]);
         if ($d > 10) {
@@ -229,6 +229,62 @@ while (($line = fgets($handle)) !== false) {
             if ($reResolved) {
                 $resolved[0] = $reResolved;
             }
+        }
+    }
+
+    // Reverse pass: resolve fixes from last to first for comparison.
+    // This catches cases where the forward pass cascades a wrong-hemisphere
+    // first fix through the entire chain (e.g., DARKE=Nepal on A315).
+    $resolvedReverse = [];
+    $prevLat = null;
+    $prevLon = null;
+    for ($i = $fixCount - 1; $i >= 0; $i--) {
+        $coord = resolveFix($fixes[$i], $prevLat, $prevLon);
+        if ($coord) {
+            $resolvedReverse[$i] = $coord;
+            $prevLat = $coord[0];
+            $prevLon = $coord[1];
+        }
+    }
+
+    // Merge: for each fix with both forward and reverse resolutions,
+    // if they disagree by >5 deg, pick the one closer to its neighbors
+    for ($i = 0; $i < $fixCount; $i++) {
+        if (!isset($resolved[$i]) && isset($resolvedReverse[$i])) {
+            $resolved[$i] = $resolvedReverse[$i];
+        } elseif (isset($resolved[$i]) && isset($resolvedReverse[$i])) {
+            $fwd = $resolved[$i];
+            $rev = $resolvedReverse[$i];
+            $disagreement = abs($fwd[0] - $rev[0]) + abs($fwd[1] - $rev[1]);
+            if ($disagreement > 5) {
+                // Pick the resolution most consistent with neighbors
+                $neighborLat = null; $neighborLon = null;
+                if (isset($resolved[$i-1])) { $neighborLat = $resolved[$i-1][0]; $neighborLon = $resolved[$i-1][1]; }
+                if (isset($resolved[$i+1])) {
+                    $neighborLat = $neighborLat !== null ? ($neighborLat + $resolved[$i+1][0]) / 2 : $resolved[$i+1][0];
+                    $neighborLon = $neighborLon !== null ? ($neighborLon + $resolved[$i+1][1]) / 2 : $resolved[$i+1][1];
+                }
+                if ($neighborLat !== null) {
+                    $cosLat = cos(deg2rad($neighborLat));
+                    $dFwd = ($fwd[0] - $neighborLat)**2 + (($fwd[1] - $neighborLon) * $cosLat)**2;
+                    $dRev = ($rev[0] - $neighborLat)**2 + (($rev[1] - $neighborLon) * $cosLat)**2;
+                    if ($dRev < $dFwd) $resolved[$i] = $rev;
+                }
+            }
+        }
+    }
+
+    // Validate: skip segments with unreasonable distances (>1000nm).
+    // This prevents cross-hemisphere coordinate errors from being stored.
+    for ($i = 0; $i < $fixCount - 1; $i++) {
+        if (!isset($resolved[$i]) || !isset($resolved[$i + 1])) continue;
+        $dLat = deg2rad($resolved[$i+1][0] - $resolved[$i][0]);
+        $dLon = deg2rad($resolved[$i+1][1] - $resolved[$i][1]);
+        $avgLat = deg2rad(($resolved[$i][0] + $resolved[$i+1][0]) / 2);
+        $segDistNm = sqrt(pow($dLat * 60 * 180 / M_PI, 2) + pow($dLon * 60 * 180 / M_PI * cos($avgLat), 2));
+        if ($segDistNm > 1000) {
+            // Remove both endpoints of bad segment to prevent cascading
+            unset($resolved[$i], $resolved[$i + 1]);
         }
     }
 
