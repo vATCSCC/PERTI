@@ -568,6 +568,18 @@
     opacity: 0.6;
 }
 
+/* Active route analysis highlight — persistent amber emphasis */
+.pb-route-table tr.pb-route-analysis-active td,
+.pb-compact-table tr.pb-route-analysis-active td {
+    background: rgba(255, 193, 7, 0.12) !important;
+    border-top: 1px solid rgba(255, 193, 7, 0.25);
+    border-bottom: 1px solid rgba(255, 193, 7, 0.25);
+}
+.pb-route-table tr.pb-route-analysis-active td:first-child,
+.pb-compact-table tr.pb-route-analysis-active td:first-child {
+    border-left: 3px solid #ffc107;
+}
+
 .pb-route-table .pb-route-check {
     width: 24px;
     text-align: center;
@@ -772,6 +784,21 @@
     padding: 0 3px;
     border-radius: 2px;
     font-weight: 600;
+}
+
+/* Traversed column: compact inline text, no truncation */
+.pb-route-table td.pb-rt-traversed {
+    font-size: 0.65rem;
+    line-height: 1.2;
+    padding: 2px 4px;
+    word-wrap: break-word;
+}
+
+/* Tighter region-code badges inside traversed cells */
+.pb-route-table td.pb-rt-traversed .pb-region-code {
+    padding: 0 2px;
+    font-size: 0.65rem;
+    font-weight: 500;
 }
 
 /* ── Remarks Column ─────────────────────────────────────────────── */

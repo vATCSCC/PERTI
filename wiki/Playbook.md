@@ -250,6 +250,72 @@ Automatically generates origin and destination filter values based on route patt
 
 ---
 
+## Route Analysis Panel (Shared Module)
+
+The Route Analysis Panel (`route-analysis-panel.js`) provides detailed en-route analysis for individual playbook routes. It uses a two-mode resolution system:
+
+### Mode 1 (Client-Side)
+When the route is plotted on the map or has frozen geometry stored in `route_geometry`, waypoints with coordinates are sent directly to the GIS analysis API. This avoids server-side re-resolution and produces the most accurate results.
+
+### Mode 2 (Server-Side Fallback)
+When no client-resolved waypoints are available, the route string is sent to PostGIS for server-side expansion via `expand_route_with_artccs()`.
+
+### Analysis Output
+- **Facility Traversal Table** — Lists each ARTCC, TRACON, and sector traversed with distance (nm), time (min), and entry/exit UTC times
+- **Fix Analysis Table** — Cumulative distance and ETA at each waypoint along the route
+- **Segment Analysis Table** — Per-segment distances, times, and ground speed between consecutive waypoints
+- **Summary** — Total distance (nm), total time, departure time reference
+
+### Features
+- Configurable cruise speed (kts) and wind component for time calculations
+- Departure time input for absolute UTC ETA computation
+- Time format toggle (HH:MM vs HH:MM:SS)
+- Facility type filters (ARTCC, FIR, TRACON, sectors)
+- Export to clipboard, TXT, CSV, and XLSX formats
+- Standalone route picker for ad-hoc route analysis (origin/dest/route string)
+- Pseudo-fix filtering (UNKN, VARIOUS tokens are auto-skipped)
+- Distance rounded to 1 decimal place (NM)
+
+---
+
+## Frozen Route Geometry
+
+Routes can store a frozen geometry envelope in the `route_geometry` column. This preserves the route's geographic representation independently of AIRAC cycle changes — if a fix is renamed or removed in a future cycle, the frozen geometry still provides the original coordinates.
+
+### Geometry Envelope Format
+```json
+{
+  "geojson": { "type": "LineString", "coordinates": [[lon, lat], ...] },
+  "waypoints": [
+    { "fix_name": "MERIT", "lat": 40.123, "lon": -73.456, "source": "nav_fix" },
+    ...
+  ],
+  "distance_nm": 1234.5,
+  "frozen_at": "2026-03-17T12:00:00Z"
+}
+```
+
+### Traversed Facility Columns
+Computed via PostGIS boundary intersection at save time or by the backfill script:
+- `traversed_artccs` — Comma-separated ARTCC codes
+- `traversed_tracons` — Comma-separated TRACON codes
+- `traversed_sectors_low` — Low-altitude sectors
+- `traversed_sectors_high` — High-altitude sectors
+- `traversed_sectors_superhigh` — Super-high sectors
+
+### Backfill Script
+`scripts/playbook/backfill_geometry.php` — HTTP-triggered batch script that computes frozen geometry and traversed facilities for all routes where `route_geometry IS NULL`. State tracked in MySQL `playbook_backfill_state` table. Uses the same PostGIS `expand_route_with_artccs()` pipeline as the real-time save path.
+
+### Coordinate Token Parsing (PostGIS Migration 008)
+PostGIS `resolve_waypoint()` supports aviation coordinate formats as a fallback when a token doesn't match any database fix:
+- **ICAO compact**: `4520N07350W` (lat 45°20'N, lon 073°50'W)
+- **NAT slash**: `45/73` (45°N, 73°W)
+- **NAT half-degree**: `H4573` (45°30'N, 73°30'W)
+- **ARINC trailing**: `4573N` (45°N, 73°W, northern hemisphere)
+- **ARINC middle**: `45N73` (45°N, 73°W)
+
+---
+
 ## Collapsible Edit Sections & Advisory Parser (PRs #151-152)
 
 ### Collapsible Edit Modal
@@ -303,7 +369,7 @@ DCC plays can be expanded and visualized on the Route Plotter (`route.php`):
 | `/api/data/playbook/get.php` | GET | Session | Get single play with routes (by `id` or `name`) |
 | `/api/data/playbook/categories.php` | GET | None | Distinct categories with counts, plus available sources |
 | `/api/data/playbook/changelog.php` | GET | Session | Playbook audit trail |
-| `/api/data/playbook/analysis.php` | GET | None | Route analysis (facility traversal, distance, time segments via PostGIS) |
+| `/api/data/playbook/analysis.php` | POST | None | Route analysis (facility traversal, fix/segment analysis, distance, time via PostGIS). Accepts `route_waypoints`, `route_string`, `cruise_kts`, `facility_types` |
 
 ### Internal (PERTI) Write Endpoints
 
@@ -332,9 +398,12 @@ Playbook tables reside in **perti_site** MySQL (authoritative source):
 
 | Table | Purpose |
 |-------|---------|
-| `playbook_plays` | Play definitions (name, category, source, scenario, status, org_code) |
-| `playbook_routes` | Routes per play (origin, dest, route string, filters, remarks) |
-| `playbook_changelog` | Audit trail (action, field, old/new values, user, timestamp) |
+| `playbook_plays` | Play definitions (name, category, source, scenario, status, org_code, visibility, CTP scope) |
+| `playbook_routes` | Routes per play (origin, dest, route string, filters, traversed facilities, frozen geometry, remarks) |
+| `playbook_changelog` | Audit trail (action, field, old/new values, user, timestamp, session context) |
+| `playbook_route_groups` | Per-play route grouping with color assignments |
+| `playbook_route_throughput` | CTP throughput data per route |
+| `playbook_play_acl` | Per-play access control list (visibility permissions) |
 
 SWIM API mirrors in **SWIM_API** Azure SQL (isolated external data layer, synced daily at 06:00Z):
 
@@ -347,9 +416,9 @@ SWIM API mirrors in **SWIM_API** Azure SQL (isolated external data layer, synced
 
 ### Key Columns
 
-**`playbook_plays`**: `play_id` PK, `play_name` (unique), `display_name`, `category`, `source` (FAA/DCC/ECFMP/CANOC), `scenario_type` (WEATHER/VOLUME/CONSTRUCTION/GENERAL), `route_format` (standard/split), `status` (active/draft/archived), `route_count`, `org_code`, `description` (text, multi-line), `group_color` (canonical color for DCC region grouping)
+**`playbook_plays`**: `play_id` PK, `play_name` (unique), `display_name`, `category`, `source` (FAA/DCC/ECFMP/CANOC/CADENA/FAA_HISTORICAL), `scenario_type` (WEATHER/VOLUME/CONSTRUCTION/GENERAL), `route_format` (standard/split), `status` (active/draft/archived), `visibility` (public/local/private_users/private_org), `route_count`, `org_code`, `ctp_scope`, `ctp_session_id`, `description` (text), `remarks` (text)
 
-**`playbook_routes`**: `route_id` PK, `play_id` FK (CASCADE), `origin`, `dest`, `origin_filter`, `dest_filter`, `route_string`, `remarks` (text, multi-line), `route_group` (grouping key for color assignment)
+**`playbook_routes`**: `route_id` PK, `play_id` FK (CASCADE), `origin`, `dest`, `origin_filter`, `dest_filter`, `route_string`, `origin_airports`, `origin_tracons`, `origin_artccs`, `dest_airports`, `dest_tracons`, `dest_artccs`, `traversed_artccs`, `traversed_tracons`, `traversed_sectors_low/high/superhigh`, `route_geometry` (frozen JSON envelope), `remarks` (text), `sort_order`
 
 See [[Database Schema]] for full column definitions.
 
@@ -360,12 +429,14 @@ See [[Database Schema]] for full column definitions.
 | File | Purpose |
 |------|---------|
 | `playbook.php` | Page layout with map hero, catalog, detail panel, edit modal |
-| `assets/js/playbook.js` | Core playbook module (catalog, detail, CRUD, search, filter, route grouping, analysis tools) |
+| `assets/js/playbook.js` | Core playbook module (catalog, detail, CRUD, search, filter, route grouping, analysis bridge) |
+| `assets/js/route-analysis-panel.js` | Shared route analysis module (facility traversal, fix/segment analysis, export) |
 | `assets/js/playbook-cdr-search.js` | CDR/playbook route search component |
 | `assets/js/playbook-dcc-loader.js` | DCC play loader with GIS route expansion and FIR pattern expansion |
 | `assets/js/fir-scope.js` | FIR boundary scope with global FIR code registry |
 | `assets/js/fir-integration.js` | FIR data integration and ICAO prefix pattern expansion |
 | `assets/css/playbook.css` | Playbook-specific styles |
+| `assets/css/route-analysis.css` | Route analysis panel styles |
 
 ### Permission Model
 
@@ -378,12 +449,19 @@ The PHP page sets `window.PERTI_PLAYBOOK_PERM` based on the user's session. When
 | Migration | Purpose |
 |-----------|---------|
 | `database/migrations/playbook/001_create_playbook_tables.sql` | Create `playbook_plays`, `playbook_routes`, `playbook_changelog` |
-| `database/migrations/playbook/002_add_source_enum.sql` | Add `ECFMP` and `CANOC` to source enum |
-| `database/migrations/playbook/003_add_org_code.sql` | Add `org_code` for multi-organization support |
+| `database/migrations/playbook/002_add_ecfmp_canoc_sources.sql` | Add `ECFMP` and `CANOC` to source enum |
+| `database/migrations/playbook/003_fix_canadian_fir_classification.sql` | Fix Canadian FIR classification |
 | `database/migrations/playbook/004_add_route_remarks.sql` | Add `remarks` column to `playbook_routes` |
-| `database/migrations/playbook/005_add_grouping_columns.sql` | Add `group_color`, `description`, and `route_group` columns |
-| `database/migrations/playbook/006_add_facility_filters.sql` | Add facility filter index and optimized list loading |
-| `database/migrations/playbook/007_multiline_remarks.sql` | Expand `remarks` and `description` to TEXT for multi-line support |
+| `database/migrations/playbook/005_add_traversed_artccs.sql` | Add `traversed_artccs` column for en-route ARTCC filtering |
+| `database/migrations/playbook/006_add_route_remarks.sql` | Add remarks + `CADENA` source enum |
+| `database/migrations/playbook/007_widen_facilities_columns.sql` | Widen `facilities_involved` and `impacted_area` to 2000 chars |
+| `database/migrations/playbook/008_add_historical_source.sql` | Add `FAA_HISTORICAL` source enum |
+| `database/migrations/playbook/009_route_groups.sql` | Create `playbook_route_groups` table |
+| `database/migrations/playbook/010_widen_remarks.sql` | Widen remarks to TEXT for multi-line |
+| `database/migrations/playbook/011_visibility_acl.sql` | Add visibility column + `playbook_play_acl` table |
+| `database/migrations/playbook/012_analysis_throughput.sql` | Create `playbook_route_throughput` + CTP scope columns |
+| `database/migrations/playbook/013_add_route_geometry.sql` | Add `route_geometry` TEXT column for frozen geometry envelope |
+| `database/migrations/postgis/008_coordinate_waypoints.sql` | Add `parse_coordinate_token()`, update `resolve_waypoint()` and `expand_route()` for coordinate tokens |
 
 ---
 
