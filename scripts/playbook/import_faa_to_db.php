@@ -53,13 +53,22 @@ while (($row = fgetcsv($handle)) !== false) {
 
     if (!isset($plays[$pn])) $plays[$pn] = ['routes' => [], 'artccs' => [], 'dest_artccs' => []];
 
-    $plays[$pn]['routes'][] = [
+    $origApts = trim($row[2]);
+    $destApts = trim($row[5]);
+    $origArtc = normalizeCanadianArtccCsv(trim($row[4]));
+    $destArtc = normalizeCanadianArtccCsv(trim($row[7]));
+    $cleanRoute = stripRouteEndpoints(
         normalizeRouteCanadian(trim($rs)),
-        trim($row[2]), trim($row[5]),
-        trim($row[2]), trim($row[3]),
-        normalizeCanadianArtccCsv(trim($row[4])),
-        trim($row[5]), trim($row[6]),
-        normalizeCanadianArtccCsv(trim($row[7])),
+        $origApts, $origArtc, $destApts, $destArtc
+    );
+
+    $plays[$pn]['routes'][] = [
+        $cleanRoute,
+        $origApts, $destApts,
+        $origApts, trim($row[3]),
+        $origArtc,
+        $destApts, trim($row[6]),
+        $destArtc,
     ];
 
     foreach (explode(',', trim($row[4])) as $a) { $a = normalizeCanadianArtcc(trim($a)); if ($a) $plays[$pn]['artccs'][$a] = 1; }
@@ -108,6 +117,53 @@ function normalizeRouteCanadian($rs) {
         }
     }
     return $changed ? implode(' ', $parts) : $rs;
+}
+
+/**
+ * Strip leading/trailing tokens from route_string that duplicate the
+ * origin/dest fields (airports or ARTCCs).  Handles K-prefix variants.
+ */
+function stripRouteEndpoints($rs, $origAirports, $origArtccs, $destAirports, $destArtccs) {
+    $parts = preg_split('/\s+/', trim($rs));
+    if (count($parts) < 2) return $rs;
+
+    $origCodes = [];
+    foreach (explode(',', $origAirports) as $c) {
+        $c = strtoupper(trim($c));
+        if ($c === '') continue;
+        $origCodes[] = $c;
+        if (strlen($c) === 3 && ctype_alpha($c)) $origCodes[] = 'K' . $c;
+        if (strlen($c) === 4 && $c[0] === 'K') $origCodes[] = substr($c, 1);
+    }
+    foreach (explode(',', $origArtccs) as $c) {
+        $c = strtoupper(trim($c));
+        if ($c !== '' && $c !== 'UNKN') $origCodes[] = $c;
+    }
+
+    if ($origCodes && in_array(strtoupper($parts[0]), $origCodes)) {
+        array_shift($parts);
+    }
+
+    if (count($parts) < 2) return implode(' ', $parts);
+
+    $destCodes = [];
+    foreach (explode(',', $destAirports) as $c) {
+        $c = strtoupper(trim($c));
+        if ($c === '') continue;
+        $destCodes[] = $c;
+        if (strlen($c) === 3 && ctype_alpha($c)) $destCodes[] = 'K' . $c;
+        if (strlen($c) === 4 && $c[0] === 'K') $destCodes[] = substr($c, 1);
+    }
+    foreach (explode(',', $destArtccs) as $c) {
+        $c = strtoupper(trim($c));
+        if ($c !== '' && $c !== 'UNKN') $destCodes[] = $c;
+    }
+
+    if ($destCodes && in_array(strtoupper(end($parts)), $destCodes)) {
+        array_pop($parts);
+    }
+
+    return implode(' ', $parts);
 }
 
 /**
