@@ -30,6 +30,18 @@ include_once(__DIR__ . '/../../load/config.php');
 include_once(__DIR__ . '/../../load/input.php');
 include_once(__DIR__ . '/../../load/connect.php');
 
+// Global error handler to catch fatal errors
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    echo json_encode(['status' => 'error', 'php_error' => "$errstr in $errfile:$errline"]);
+    exit(1);
+});
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        echo json_encode(['status' => 'fatal', 'message' => $error['message'], 'file' => $error['file'], 'line' => $error['line']]);
+    }
+});
+
 $action = $_GET['action'] ?? 'status';
 $batch_size = min((int)($_GET['batch'] ?? 500), 1000);
 if ($batch_size < 1) $batch_size = 500;
@@ -233,12 +245,14 @@ function runBatch($conn_pdo, $conn_sqli, $batch_size) {
                         UNION ALL
                         SELECT 'tracon', t.tracon_code,
                             ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, t.geom)))
-                        FROM tracon_boundaries t WHERE ST_Intersects(route.geom, t.geom)
+                        FROM (SELECT tracon_code, geom FROM tracon_boundaries WHERE ST_IsValid(geom)) t
+                        WHERE ST_Intersects(route.geom, t.geom)
                             AND route.geom IS NOT NULL
                         UNION ALL
                         SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code,
                             ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, s.geom)))
-                        FROM sector_boundaries s WHERE ST_Intersects(route.geom, s.geom)
+                        FROM (SELECT sector_code, sector_type, geom FROM sector_boundaries WHERE ST_IsValid(geom)) s
+                        WHERE ST_Intersects(route.geom, s.geom)
                             AND route.geom IS NOT NULL
                     ) sub2
                     ORDER BY
