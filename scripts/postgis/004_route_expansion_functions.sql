@@ -287,6 +287,41 @@ BEGIN
         END IF;
     END IF;
 
+    -- Spatial coherence check: reject airway range if ANY segment has an
+    -- unreasonable intra-segment jump. This catches cross-hemisphere
+    -- coordinate errors from import (e.g., DARKE=Nepal on Caribbean A315).
+    PERFORM 1
+    FROM airway_segments s
+    WHERE s.airway_id = v_airway_id
+      AND s.sequence_num >= LEAST(v_from_seq, v_to_seq)
+      AND s.sequence_num <= GREATEST(v_from_seq, v_to_seq)
+      AND ST_Distance(
+        ST_SetSRID(ST_MakePoint(s.from_lon, s.from_lat), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(s.to_lon, s.to_lat), 4326)::geography
+      ) > 2000000;  -- 2000km (~1080nm) — no real airway segment exceeds this
+
+    IF FOUND THEN
+        RETURN;  -- Airway has incoherent segments; caller falls through gracefully
+    END IF;
+
+    -- Inter-segment gap check: adjacent segments must connect (to_point ~ next from_point).
+    -- Catches cases where same-named fixes in different regions create fake continuity.
+    PERFORM 1
+    FROM airway_segments a1
+    JOIN airway_segments a2
+      ON a2.airway_id = a1.airway_id AND a2.sequence_num = a1.sequence_num + 1
+    WHERE a1.airway_id = v_airway_id
+      AND a1.sequence_num >= LEAST(v_from_seq, v_to_seq)
+      AND a1.sequence_num < GREATEST(v_from_seq, v_to_seq)
+      AND ST_Distance(
+        ST_SetSRID(ST_MakePoint(a1.to_lon, a1.to_lat), 4326)::geography,
+        ST_SetSRID(ST_MakePoint(a2.from_lon, a2.from_lat), 4326)::geography
+      ) > 500000;  -- 500km — adjacent segments should nearly connect
+
+    IF FOUND THEN
+        RETURN;
+    END IF;
+
     -- Handle forward or reverse traversal
     IF v_from_seq <= v_to_seq THEN
         -- Forward direction
@@ -542,6 +577,15 @@ BEGIN
             LIMIT 1;
 
             IF v_fbd_wp.fix_id IS NOT NULL THEN
+                -- Distance sanity check for FBD tokens
+                IF v_prev_lat IS NOT NULL AND ST_Distance(
+                    ST_SetSRID(ST_MakePoint(v_prev_lon, v_prev_lat), 4326)::geography,
+                    ST_SetSRID(ST_MakePoint(v_fbd_wp.lon, v_fbd_wp.lat), 4326)::geography
+                ) > 7400000 THEN  -- 7400km ~ 4000nm
+                    v_idx := v_idx + 1;
+                    CONTINUE;
+                END IF;
+
                 v_seq := v_seq + 1;
                 waypoint_seq := v_seq;
                 waypoint_id := v_fbd_wp.fix_id;
@@ -587,6 +631,14 @@ BEGIN
                 FROM expand_airway(v_part, v_prev_fix, v_next_fix, v_prev_lat, v_prev_lon) ea
                 WHERE ea.seq > 1
             LOOP
+                -- Skip airway waypoints that jump unreasonably from previous point
+                IF v_prev_lat IS NOT NULL AND ST_Distance(
+                    ST_SetSRID(ST_MakePoint(v_prev_lon, v_prev_lat), 4326)::geography,
+                    ST_SetSRID(ST_MakePoint(v_airway_wp.lon, v_airway_wp.lat), 4326)::geography
+                ) > 7400000 THEN  -- 7400km ~ 4000nm
+                    CONTINUE;  -- Skip this waypoint but continue processing airway
+                END IF;
+
                 v_seq := v_seq + 1;
                 waypoint_seq := v_seq;
                 waypoint_id := v_airway_wp.fix_id;
@@ -674,6 +726,16 @@ BEGIN
             LIMIT 1;
 
             IF v_wp.fix_id IS NOT NULL AND v_wp.lat IS NOT NULL THEN
+                -- Distance sanity check (mirrors client-side confirmReasonableDistance 4000nm cap)
+                IF v_prev_lat IS NOT NULL AND ST_Distance(
+                    ST_SetSRID(ST_MakePoint(v_prev_lon, v_prev_lat), 4326)::geography,
+                    ST_SetSRID(ST_MakePoint(v_wp.lon, v_wp.lat), 4326)::geography
+                ) > 7400000 THEN  -- 7400km ~ 4000nm
+                    -- Skip this waypoint; wrong hemisphere resolution
+                    v_idx := v_idx + 1;
+                    CONTINUE;
+                END IF;
+
                 v_seq := v_seq + 1;
                 waypoint_seq := v_seq;
                 waypoint_id := v_wp.fix_id;
