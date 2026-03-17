@@ -49,6 +49,7 @@ include("sessions/handler.php");
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
     <link rel="stylesheet" href="assets/css/playbook.css<?= _v('assets/css/playbook.css') ?>">
+    <link rel="stylesheet" href="assets/css/route-analysis.css<?= _v('assets/css/route-analysis.css') ?>">
 </head>
 
 <body>
@@ -186,90 +187,124 @@ include("load/nav.php");
         </div>
     </div>
 
-    <!-- Route Analysis Panel (collapsible, shown when route clicked) -->
-    <div class="card mt-2 d-none" id="route-analysis-panel">
-        <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center cursor-pointer" data-toggle="collapse" data-target="#route-analysis-body">
-            <span class="font-weight-bold small">
-                <i class="fas fa-chart-line mr-1"></i>
-                <span data-i18n="playbook.analysis.title">Route Analysis</span>
-            </span>
-            <div>
-                <span class="badge badge-info mr-2" id="analysis-total-dist"></span>
-                <span class="badge badge-secondary" id="analysis-total-time"></span>
-                <button class="btn btn-sm btn-link p-0 ml-2" id="btn-close-analysis" title="Close">
+    <!-- Route Analysis Panel (shared module — route-analysis-panel.js) -->
+    <div id="route-analysis-panel" class="mt-2" style="display:none;">
+        <div class="ra-header" id="ra-toggle">
+            <span class="ra-title"><i class="fas fa-chart-line mr-2"></i><?= __('routeAnalysis.title') ?></span>
+            <span id="ra-route-label" class="ra-route-label"></span>
+            <div class="ra-controls">
+                <div class="ra-speed-group">
+                    <label for="ra-cruise-speed"><?= __('routeAnalysis.col.speed') ?></label>
+                    <input type="number" class="ra-speed-input" id="ra-cruise-speed" value="460" min="100" max="600" step="10">
+                    <span class="ra-speed-sep">|</span>
+                    <label for="ra-wind"><?= __('routeAnalysis.col.wind') ?></label>
+                    <input type="number" class="ra-speed-input" id="ra-wind" value="0" min="-200" max="200" step="5">
+                    <span class="ra-speed-sep">|</span>
+                    <label for="ra-dep-time"><?= __('routeAnalysis.depTime') ?></label>
+                    <input type="text" class="ra-speed-input ra-dep-time-input" id="ra-dep-time"
+                           placeholder="Now" maxlength="5"
+                           title="<?= __('routeAnalysis.depTimeTitle') ?>">
+                    <button class="ra-recalc-btn" id="ra-recalc-btn" title="<?= __('routeAnalysis.recalculate') ?>">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="ra-recalc-btn" id="ra-time-fmt-btn" title="Toggle time format">
+                        <i class="fas fa-clock"></i> <span id="ra-time-fmt-label">hh:mm:ss</span>
+                    </button>
+                </div>
+                <div class="ra-export-dropdown">
+                    <button class="ra-export-btn" id="ra-export-btn">
+                        <i class="fas fa-download mr-1"></i><?= __('routeAnalysis.export.title') ?>
+                    </button>
+                    <div class="ra-export-menu" id="ra-export-menu">
+                        <a href="#" id="ra-exp-clipboard"><i class="fas fa-clipboard"></i> <?= __('routeAnalysis.export.clipboard') ?></a>
+                        <a href="#" id="ra-exp-txt"><i class="fas fa-file-alt"></i> <?= __('routeAnalysis.export.txt') ?></a>
+                        <a href="#" id="ra-exp-csv"><i class="fas fa-file-csv"></i> <?= __('routeAnalysis.export.csv') ?></a>
+                        <a href="#" id="ra-exp-xlsx"><i class="fas fa-file-excel"></i> <?= __('routeAnalysis.export.xlsx') ?></a>
+                    </div>
+                </div>
+                <button class="ra-close-btn" id="ra-close-btn" title="<?= __('routeAnalysis.close') ?>">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
+            <i class="fas fa-chevron-up ra-chevron"></i>
         </div>
-        <div class="collapse show" id="route-analysis-body">
-            <div class="card-body p-2">
-                <!-- Speed/Wind Config (collapsed by default) -->
-                <div class="mb-2">
-                    <a class="small text-muted" data-toggle="collapse" href="#analysis-speed-config">
-                        <i class="fas fa-cog mr-1"></i><span data-i18n="playbook.analysis.speedConfig">Speed &amp; Wind Settings</span>
-                    </a>
-                    <div class="collapse mt-1" id="analysis-speed-config">
-                        <div class="row no-gutters">
-                            <div class="col-3 pr-1">
-                                <label class="small mb-0" data-i18n="playbook.analysis.climbSpeed">Climb (kts)</label>
-                                <input type="number" class="form-control form-control-sm" id="analysis-climb-kts" value="280" min="100" max="600">
-                            </div>
-                            <div class="col-3 pr-1">
-                                <label class="small mb-0" data-i18n="playbook.analysis.cruiseSpeed">Cruise (kts)</label>
-                                <input type="number" class="form-control form-control-sm" id="analysis-cruise-kts" value="460" min="100" max="600">
-                            </div>
-                            <div class="col-3 pr-1">
-                                <label class="small mb-0" data-i18n="playbook.analysis.descentSpeed">Descent (kts)</label>
-                                <input type="number" class="form-control form-control-sm" id="analysis-descent-kts" value="250" min="100" max="600">
-                            </div>
-                            <div class="col-3">
-                                <label class="small mb-0" data-i18n="playbook.analysis.windComponent">Wind (kts)</label>
-                                <input type="number" class="form-control form-control-sm" id="analysis-wind-kts" value="0" min="-200" max="200">
-                            </div>
-                        </div>
-                    </div>
+        <div id="ra-body">
+            <div class="ra-route-picker" id="ra-route-picker">
+                <div class="ra-picker-row">
+                    <input type="text" class="ra-picker-input ra-picker-icao" id="ra-picker-origin" placeholder="Origin" maxlength="4">
+                    <span class="ra-picker-arrow">&rarr;</span>
+                    <input type="text" class="ra-picker-input ra-picker-icao" id="ra-picker-dest" placeholder="Dest" maxlength="4">
+                    <input type="text" class="ra-picker-input ra-picker-route" id="ra-picker-route" placeholder="Route string (or leave blank to use plotted routes)">
+                    <button class="ra-picker-go-btn" id="ra-picker-go" title="Analyze">
+                        <i class="fas fa-search"></i> Analyze
+                    </button>
                 </div>
-                <!-- Route Info -->
-                <div class="small mb-1" id="analysis-route-info"></div>
-                <!-- Facility Traversal Table -->
-                <div class="table-responsive" style="max-height:250px;overflow-y:auto">
-                    <table class="table table-sm table-dark table-bordered mb-0 small" id="analysis-traversal-table">
+                <div class="ra-picker-matches" id="ra-picker-matches"></div>
+            </div>
+            <div class="ra-summary" id="ra-summary"></div>
+            <div class="ra-table-section ra-table-full">
+                <div class="ra-table-title"><?= __('routeAnalysis.facilityTraversal') ?></div>
+                <div class="ra-facility-filters" id="ra-facility-filters"></div>
+                <div class="ra-table-wrap">
+                    <table class="ra-table">
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th data-i18n="playbook.analysis.facilityType">Type</th>
-                                <th data-i18n="playbook.analysis.facilityId">ID</th>
-                                <th data-i18n="playbook.analysis.facilityName">Name</th>
-                                <th data-i18n="playbook.analysis.distWithin">Dist (nm)</th>
-                                <th data-i18n="playbook.analysis.timeWithin">Time (min)</th>
-                                <th data-i18n="playbook.analysis.entryDist">Entry (nm)</th>
-                                <th data-i18n="playbook.analysis.exitDist">Exit (nm)</th>
+                                <th><?= __('routeAnalysis.col.facility') ?></th>
+                                <th><?= __('routeAnalysis.col.type') ?></th>
+                                <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
+                                <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
+                                <th class="text-right"><?= __('routeAnalysis.col.entryUtc') ?></th>
+                                <th class="text-right"><?= __('routeAnalysis.col.exitUtc') ?></th>
+                                <th class="text-right"><?= __('routeAnalysis.col.segment') ?></th>
                             </tr>
                         </thead>
-                        <tbody></tbody>
+                        <tbody id="ra-facility-tbody"></tbody>
                     </table>
                 </div>
-                <!-- Fix Analysis (collapsible) -->
-                <div class="mt-1">
-                    <a class="small text-muted" data-toggle="collapse" href="#analysis-fix-detail">
-                        <i class="fas fa-map-pin mr-1"></i><span data-i18n="playbook.analysis.fixDetail">Fix Detail</span>
-                    </a>
-                    <div class="collapse mt-1" id="analysis-fix-detail">
-                        <div class="table-responsive" style="max-height:200px;overflow-y:auto">
-                            <table class="table table-sm table-dark table-bordered mb-0 small" id="analysis-fix-table">
-                                <thead>
-                                    <tr>
-                                        <th data-i18n="playbook.analysis.fix">Fix</th>
-                                        <th data-i18n="playbook.analysis.distFromOrig">From Orig</th>
-                                        <th data-i18n="playbook.analysis.distToDest">To Dest</th>
-                                        <th data-i18n="playbook.analysis.timeFromOrig">Time+</th>
-                                        <th data-i18n="playbook.analysis.timeToDest">Time-</th>
-                                        <th data-i18n="playbook.analysis.facility">Facility</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
-                        </div>
+            </div>
+            <div class="ra-tables">
+                <div class="ra-table-section">
+                    <div class="ra-table-title"><?= __('routeAnalysis.fixAnalysis') ?></div>
+                    <div class="ra-table-wrap">
+                        <table class="ra-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th><?= __('routeAnalysis.col.fix') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.cumDist') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.cumTime') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.etaUtc') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.segDist') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.segTime') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.remDist') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.remTime') ?></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ra-fix-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="ra-table-section">
+                    <div class="ra-table-title">Segment Analysis</div>
+                    <div class="ra-table-wrap">
+                        <table class="ra-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
+                                    <th class="text-right">Entry Dist</th>
+                                    <th class="text-right">Entry (Z)</th>
+                                    <th class="text-right">Exit Dist</th>
+                                    <th class="text-right">Exit (Z)</th>
+                                    <th class="text-right">GS (kts)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ra-segment-tbody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -541,6 +576,9 @@ include('load/footer.php');
 <script src="assets/js/lib/route-advisory-parser.js<?= _v('assets/js/lib/route-advisory-parser.js') ?>"></script>
 <script src="assets/js/route-maplibre.js<?= _v('assets/js/route-maplibre.js') ?>"></script>
 <script src="assets/js/playbook-dcc-loader.js<?= _v('assets/js/playbook-dcc-loader.js') ?>"></script>
+
+<!-- Route Analysis Panel (shared module) -->
+<script src="assets/js/route-analysis-panel.js<?= _v('assets/js/route-analysis-panel.js') ?>"></script>
 
 <!-- Playbook Module -->
 <script>
