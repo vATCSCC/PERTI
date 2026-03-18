@@ -197,9 +197,9 @@ class MonitoringDaemon
 
             // 3. Touch resolve_waypoint to keep function cache warm
             $r = $this->connGis->query(
-                "SELECT fix_name, lat, lon FROM resolve_waypoint('JFK') LIMIT 1"
+                "SELECT fix_id, lat, lon FROM resolve_waypoint('JFK') LIMIT 1"
             )->fetch();
-            $metrics['probe_fix'] = $r ? $r['fix_name'] : null;
+            $metrics['probe_fix'] = $r ? $r['fix_id'] : null;
 
             $metrics['status'] = 'ok';
         } catch (\PDOException $e) {
