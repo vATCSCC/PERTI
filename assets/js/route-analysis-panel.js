@@ -686,6 +686,10 @@
                     map.setPaintProperty('route-fixes-labels', 'text-opacity',
                         ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.1]);
                 }
+                if (map.getLayer('route-fixes-labels-moved')) {
+                    map.setPaintProperty('route-fixes-labels-moved', 'text-opacity',
+                        ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.1]);
+                }
             } else {
                 // No specific route ID — dim all existing fixes
                 circLayers.forEach(function (lid) {
@@ -696,6 +700,9 @@
                 });
                 if (map.getLayer('route-fixes-labels')) {
                     map.setPaintProperty('route-fixes-labels', 'text-opacity', 0.1);
+                }
+                if (map.getLayer('route-fixes-labels-moved')) {
+                    map.setPaintProperty('route-fixes-labels-moved', 'text-opacity', 0.1);
                 }
             }
             // Also dim airports layer
@@ -890,6 +897,9 @@
             });
             if (map.getLayer('route-fixes-labels')) {
                 map.setPaintProperty('route-fixes-labels', 'text-opacity', 1);
+            }
+            if (map.getLayer('route-fixes-labels-moved')) {
+                map.setPaintProperty('route-fixes-labels-moved', 'text-opacity', 1);
             }
             if (map.getLayer('airports-triangles')) {
                 map.setPaintProperty('airports-triangles', 'text-opacity', 1);

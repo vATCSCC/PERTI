@@ -360,8 +360,8 @@
             map.setPaintProperty(layerId, 'circle-stroke-color', fixes.strokeColor || '#000000');
         });
 
-        // Fix labels (route-fixes-labels layer - route-fix-labels was removed as it doesn't exist)
-        const labelLayerIds = ['route-fixes-labels'];
+        // Fix labels (unmoved + moved label layers)
+        const labelLayerIds = ['route-fixes-labels', 'route-fixes-labels-moved'];
         const labelsVisible = fixes.visible && (fixes.labelsVisible !== false);
         console.log('[DEBUG-LABELS] Symbology applying to label layers:', labelLayerIds);
         console.log('[DEBUG-LABELS] fixes.visible:', fixes.visible, 'fixes.labelsVisible:', fixes.labelsVisible, '-> labelsVisible:', labelsVisible);

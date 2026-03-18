@@ -257,7 +257,7 @@ $(document).ready(function() {
     let activeRoutePopup = null;         // Track single active popup to prevent stacking
 
     // Phase 5: Draggable label support
-    let labelOffsets = {};               // Map "fixName|routeId" -> {dx, dy} offset in pixels
+    let labelOffsets = {};               // Map "uniqueKey" -> {lng, lat, color, origLng, origLat}
     let draggingLabel = null;            // Currently dragged label info
     let dragStartPos = null;             // Starting position for drag
 
@@ -2200,8 +2200,11 @@ $(document).ready(function() {
         // Route fix POINTS source (circles at original positions - never move)
         graphic_map.addSource('route-fix-points', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
-        // Route fix LABELS source (text that can be dragged)
+        // Route fix LABELS source (unmoved text — uses variable-anchor for smart placement)
         graphic_map.addSource('route-fix-labels', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+
+        // Route fix MOVED LABELS source (dragged text — fixed center anchor for exact positioning)
+        graphic_map.addSource('route-fix-labels-moved', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
         // Route fix LEADERS source (lines from moved labels to points)
         graphic_map.addSource('route-fix-leaders', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -2274,6 +2277,36 @@ $(document).ready(function() {
             minzoom: 5,
         });
 
+        // Moved labels layer — fixed center anchor so labels render exactly where dragged
+        // Separate layer required because text-variable-anchor is not data-driven in MapLibre
+        graphic_map.addLayer({
+            id: 'route-fixes-labels-moved', type: 'symbol', source: 'route-fix-labels-moved',
+            layout: {
+                'text-field': ['get', 'name'],
+                'text-font': ['Noto Sans Bold'],
+                'text-size': [
+                    'interpolate', ['linear'], ['zoom'],
+                    5, 9,
+                    8, 10,
+                    12, 11,
+                    16, 12,
+                ],
+                'text-transform': 'uppercase',
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': false,
+                'text-padding': 2,
+                'text-max-width': 50,
+            },
+            paint: {
+                'text-color': ['get', 'color'],
+                'text-halo-color': '#000000',
+                'text-halo-width': 3,
+                'text-halo-blur': 0,
+            },
+            minzoom: 5,
+        });
+
         // Route Analysis overlay — server-resolved route line and selection highlight
         graphic_map.addSource('route-analysis', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         graphic_map.addLayer({
@@ -2335,7 +2368,7 @@ $(document).ready(function() {
         'artcc_super': { layerIds: ['artcc-super-lines'], label: PERTII18n.t('common.hierarchy.superCenters') },
         'artcc_sub': { layerIds: ['artcc-sub-lines'], label: PERTII18n.t('common.hierarchy.subAreas') },
         'artcc_deep': { layerIds: ['artcc-deep-lines'], label: PERTII18n.t('common.hierarchy.deepSubAreas') },
-        'route_labels': { layerIds: ['route-fixes-circles', 'route-fixes-labels', 'route-fix-leaders-lines'], label: PERTII18n.t('route.layer.routeFixLabels'), defaultOn: true },
+        'route_labels': { layerIds: ['route-fixes-circles', 'route-fixes-labels', 'route-fixes-labels-moved', 'route-fix-leaders-lines'], label: PERTII18n.t('route.layer.routeFixLabels'), defaultOn: true },
     };
 
     let layerControlExpanded = false;
@@ -3002,7 +3035,13 @@ $(document).ready(function() {
             });
         }
 
-        // Clear leader lines initially (no labels have been moved yet)
+        // Clear moved labels and leader lines initially (no labels have been moved yet)
+        if (graphic_map.getSource('route-fix-labels-moved')) {
+            graphic_map.getSource('route-fix-labels-moved').setData({
+                type: 'FeatureCollection',
+                features: [],
+            });
+        }
         if (graphic_map.getSource('route-fix-leaders')) {
             graphic_map.getSource('route-fix-leaders').setData({
                 type: 'FeatureCollection',
@@ -3487,10 +3526,11 @@ $(document).ready(function() {
 
         // ─────────────────────────────────────────────────────────────────────
         // DRAGGABLE LABEL SUPPORT
-        // Click and drag on route-fixes-labels to reposition ONLY the label (not the point)
-        // A leader line is drawn from the label to the original point position
+        // Click and drag on route-fixes-labels or route-fixes-labels-moved
+        // to reposition ONLY the label (not the point).
+        // A leader line is drawn from the label to the original point position.
         // ─────────────────────────────────────────────────────────────────────
-        graphic_map.on('mousedown', 'route-fixes-labels', (e) => {
+        function handleLabelDragStart(e) {
             if (!e.features || !e.features[0]) {return;}
 
             const props = e.features[0].properties;
@@ -3515,7 +3555,9 @@ $(document).ready(function() {
 
             // Prevent map panning while dragging label
             graphic_map.dragPan.disable();
-        });
+        }
+        graphic_map.on('mousedown', 'route-fixes-labels', handleLabelDragStart);
+        graphic_map.on('mousedown', 'route-fixes-labels-moved', handleLabelDragStart);
 
         graphic_map.on('mousemove', (e) => {
             if (!draggingLabel) {return;}
@@ -3570,17 +3612,21 @@ $(document).ready(function() {
             }
         });
 
-        // Change cursor on label hover
-        graphic_map.on('mouseenter', 'route-fixes-labels', () => {
+        // Change cursor on label hover (both unmoved and moved layers)
+        function handleLabelMouseEnter() {
             if (!draggingLabel) {
                 graphic_map.getCanvas().style.cursor = 'grab';
             }
-        });
-        graphic_map.on('mouseleave', 'route-fixes-labels', () => {
+        }
+        function handleLabelMouseLeave() {
             if (!draggingLabel) {
                 graphic_map.getCanvas().style.cursor = '';
             }
-        });
+        }
+        graphic_map.on('mouseenter', 'route-fixes-labels', handleLabelMouseEnter);
+        graphic_map.on('mouseenter', 'route-fixes-labels-moved', handleLabelMouseEnter);
+        graphic_map.on('mouseleave', 'route-fixes-labels', handleLabelMouseLeave);
+        graphic_map.on('mouseleave', 'route-fixes-labels-moved', handleLabelMouseLeave);
 
         // ─────────────────────────────────────────────────────────────────────
         // FILTERED AIRWAY CLICK - Show airway name
@@ -3767,7 +3813,8 @@ $(document).ready(function() {
         });
 
         const pointFeatures = [];
-        const labelFeatures = [];
+        const labelFeaturesUnmoved = [];
+        const labelFeaturesMoved = [];
         const leaderFeatures = [];
 
         uniqueFixes.forEach((fix, uniqueKey) => {
@@ -3790,37 +3837,33 @@ $(document).ready(function() {
                 },
             });
 
-            // Label position (original or moved)
-            const labelLon = customPos ? customPos.lng : fix.lon;
-            const labelLat = customPos ? customPos.lat : fix.lat;
+            const labelProps = {
+                name: fix.name,
+                color: fix.color,
+                routeId: fix.routeId,
+                uniqueKey: uniqueKey,
+                origLon: fix.lon,
+                origLat: fix.lat,
+                hasMoved: hasMoved,
+            };
 
-            // Label feature
-            labelFeatures.push({
-                type: 'Feature',
-                properties: {
-                    name: fix.name,
-                    color: fix.color,
-                    routeId: fix.routeId,
-                    uniqueKey: uniqueKey,
-                    origLon: fix.lon,
-                    origLat: fix.lat,
-                    hasMoved: hasMoved,
-                },
-                geometry: {
-                    type: 'Point',
-                    coordinates: [labelLon, labelLat],
-                },
-            });
-
-            // Leader line (only if label has been moved)
             if (hasMoved) {
-                // Calculate leader line start at edge of label bounding box
+                // Moved label — goes to route-fix-labels-moved source (center anchor, exact positioning)
+                labelFeaturesMoved.push({
+                    type: 'Feature',
+                    properties: labelProps,
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [customPos.lng, customPos.lat],
+                    },
+                });
+
+                // Leader line from label bbox edge to original point
                 const leaderStart = getLeaderLineStart(
-                    labelLon, labelLat,
+                    customPos.lng, customPos.lat,
                     fix.lon, fix.lat,
                     fix.name.length,
                 );
-
                 leaderFeatures.push({
                     type: 'Feature',
                     properties: {
@@ -3835,10 +3878,18 @@ $(document).ready(function() {
                         ],
                     },
                 });
+            } else {
+                // Unmoved label — goes to route-fix-labels source (variable-anchor auto-placement)
+                labelFeaturesUnmoved.push({
+                    type: 'Feature',
+                    properties: labelProps,
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [fix.lon, fix.lat],
+                    },
+                });
             }
         });
-
-        console.log('[DEBUG-LABELS] Feature counts - points:', pointFeatures.length, 'labels:', labelFeatures.length, 'leaders:', leaderFeatures.length);
 
         // Update point source (circles - always at original positions)
         if (graphic_map.getSource('route-fix-points')) {
@@ -3846,20 +3897,22 @@ $(document).ready(function() {
                 type: 'FeatureCollection',
                 features: pointFeatures,
             });
-            console.log('[DEBUG-LABELS] Updated route-fix-points source');
-        } else {
-            console.warn('[DEBUG-LABELS] Source route-fix-points NOT FOUND');
         }
 
-        // Update label source (text - can be moved)
+        // Update unmoved label source (variable-anchor auto-placement)
         if (graphic_map.getSource('route-fix-labels')) {
             graphic_map.getSource('route-fix-labels').setData({
                 type: 'FeatureCollection',
-                features: labelFeatures,
+                features: labelFeaturesUnmoved,
             });
-            console.log('[DEBUG-LABELS] Updated route-fix-labels source');
-        } else {
-            console.warn('[DEBUG-LABELS] Source route-fix-labels NOT FOUND');
+        }
+
+        // Update moved label source (center anchor, exact positioning)
+        if (graphic_map.getSource('route-fix-labels-moved')) {
+            graphic_map.getSource('route-fix-labels-moved').setData({
+                type: 'FeatureCollection',
+                features: labelFeaturesMoved,
+            });
         }
 
         // Update leader lines source
@@ -3877,7 +3930,6 @@ $(document).ready(function() {
                 features: pointFeatures,
             });
         }
-        console.log('[DEBUG-LABELS] updateRouteLabelDisplay() complete');
     }
 
     // Reset all label positions to original
