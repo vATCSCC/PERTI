@@ -196,6 +196,7 @@ if ($play_id > 0) {
 }
 
 // Insert routes
+$all_traversed_artccs = [];
 if (!empty($routes)) {
     $route_stmt = $conn_sqli->prepare("INSERT INTO playbook_routes
         (play_id, route_string, origin, origin_filter, dest, dest_filter,
@@ -232,6 +233,12 @@ if (!empty($routes)) {
         $trav_sec_superhigh = $tf['sectors_superhigh'];
         $route_geom = $tf['route_geometry'];
 
+        // Collect traversed ARTCCs for play-level facilities_involved aggregation
+        foreach (explode(',', $traversed) as $a) {
+            $a = trim($a);
+            if ($a !== '') $all_traversed_artccs[$a] = 1;
+        }
+
         $route_stmt->bind_param('issssssssssssssssssi',
             $play_id, $rs, $orig, $orig_filter, $dst, $dst_filter,
             $oa, $ot, $oar, $da, $dt, $dar,
@@ -242,6 +249,19 @@ if (!empty($routes)) {
         $sort++;
     }
     $route_stmt->close();
+}
+
+// Recompute play-level facilities_involved from per-route traversed ARTCCs
+// (overrides client-sent value which may be stale or computed from buggy GIS)
+if (!empty($all_traversed_artccs)) {
+    $agg_artccs = array_keys($all_traversed_artccs);
+    sort($agg_artccs);
+    $agg_fac = implode(',', $agg_artccs);
+    $agg_imp = implode('/', $agg_artccs);
+    $upd = $conn_sqli->prepare("UPDATE playbook_plays SET facilities_involved = ?, impacted_area = ? WHERE play_id = ?");
+    $upd->bind_param('ssi', $agg_fac, $agg_imp, $play_id);
+    $upd->execute();
+    $upd->close();
 }
 
 // Log route-level changes (only for updates where we have old_routes snapshot)

@@ -2373,13 +2373,38 @@
                     try {
                         var parsed = JSON.parse(r.route_geometry);
                         var geom = parsed.geojson || parsed; // envelope format or legacy bare GeoJSON
+                        // Flatten MultiLineString to LineString
+                        if (geom.type === 'MultiLineString' && geom.coordinates) {
+                            geom = { type: 'LineString', coordinates: [].concat.apply([], geom.coordinates) };
+                        }
+                        // Apply great circle interpolation for long segments,
+                        // matching the live-resolution rendering path
+                        if (geom.type === 'LineString' && geom.coordinates && geom.coordinates.length >= 2 && typeof turf !== 'undefined') {
+                            var interpolated = [geom.coordinates[0]];
+                            for (var ci = 1; ci < geom.coordinates.length; ci++) {
+                                var segDist = turf.distance(turf.point(geom.coordinates[ci - 1]), turf.point(geom.coordinates[ci]), { units: 'nauticalmiles' });
+                                if (segDist > 100) {
+                                    try {
+                                        var arc = turf.greatCircle(turf.point(geom.coordinates[ci - 1]), turf.point(geom.coordinates[ci]), { npoints: Math.max(20, Math.round(segDist / 10)) });
+                                        var arcCoords = arc.geometry.type === 'MultiLineString'
+                                            ? [].concat.apply([], arc.geometry.coordinates)
+                                            : arc.geometry.coordinates;
+                                        // Skip first point (duplicate of previous endpoint)
+                                        for (var ai = 1; ai < arcCoords.length; ai++) {
+                                            interpolated.push(arcCoords[ai]);
+                                        }
+                                    } catch (e2) {
+                                        interpolated.push(geom.coordinates[ci]);
+                                    }
+                                } else {
+                                    interpolated.push(geom.coordinates[ci]);
+                                }
+                            }
+                            geom = { type: 'LineString', coordinates: interpolated };
+                        }
                         // Normalize for International Date Line crossings
                         if (window.normalizeForIDL && geom.coordinates) {
-                            if (geom.type === 'LineString') {
-                                geom = { type: 'LineString', coordinates: window.normalizeForIDL(geom.coordinates) };
-                            } else if (geom.type === 'MultiLineString') {
-                                geom = { type: 'LineString', coordinates: window.normalizeForIDL([].concat.apply([], geom.coordinates)) };
-                            }
+                            geom = { type: 'LineString', coordinates: window.normalizeForIDL(geom.coordinates) };
                         }
                         var distance = parsed.distance_nm || 0;
                         var color = defaultColor;
@@ -2704,28 +2729,14 @@
     }
 
     async function autoComputePlayFields(routes) {
+        // Client-side preview only: collect origin/dest ARTCCs.
+        // The server recomputes the authoritative facilities_involved from
+        // per-route PostGIS spatial intersection results after save.
         var allArtccs = new Set();
         routes.forEach(function(r) {
             csvSplit(r.origin_artccs).forEach(function(a) { allArtccs.add(a); });
             csvSplit(r.dest_artccs).forEach(function(a) { allArtccs.add(a); });
         });
-
-        try {
-            var routeStrings = routes.map(function(r) { return r.route_string; }).filter(Boolean);
-            if (routeStrings.length) {
-                var resp = await fetch('/api/gis/boundaries?action=expand_routes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ routes: routeStrings })
-                });
-                var gis = await resp.json();
-                if (gis && gis.artccs_all) {
-                    gis.artccs_all.forEach(function(a) { allArtccs.add(a); });
-                }
-            }
-        } catch (e) {
-            console.warn('[Playbook] GIS facilities calculation failed:', e);
-        }
 
         var sorted = Array.from(allArtccs).sort();
         return {
