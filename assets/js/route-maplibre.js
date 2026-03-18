@@ -2943,7 +2943,8 @@ $(document).ready(function() {
         console.log('[MAPLIBRE] Stored', lastExpandedRoutes.length, 'expanded routes for public routes feature');
 
         graphic_map.getSource('routes').setData({ type: 'FeatureCollection', features: routeFeatures });
-        graphic_map.getSource('fixes').setData({ type: 'FeatureCollection', features: fixFeatures });
+        // fixes source kept empty — route-fix-points/route-fixes-circles replaces fixes-circles
+        graphic_map.getSource('fixes').setData({ type: 'FeatureCollection', features: [] });
         graphic_map.getSource('airports').setData({ type: 'FeatureCollection', features: airportFeatures });
 
         // Populate route-endpoints source for origin/destination icons
@@ -3281,7 +3282,7 @@ $(document).ready(function() {
 
     function setupInteractivity() {
         // Cursor change handlers
-        ['routes-solid', 'routes-dashed', 'routes-fan', 'fixes-circles', 'aircraft-symbols', 'aircraft-circles-fallback', 'filtered-airways-lines', 'flight-routes-ahead', 'flight-routes-behind'].forEach(layerId => {
+        ['routes-solid', 'routes-dashed', 'routes-fan', 'route-fixes-circles', 'aircraft-symbols', 'aircraft-circles-fallback', 'filtered-airways-lines', 'flight-routes-ahead', 'flight-routes-behind'].forEach(layerId => {
             if (!graphic_map.getLayer(layerId)) {return;}
             graphic_map.on('mouseenter', layerId, () => { graphic_map.getCanvas().style.cursor = 'pointer'; });
             graphic_map.on('mouseleave', layerId, () => { graphic_map.getCanvas().style.cursor = ''; });
@@ -3290,7 +3291,7 @@ $(document).ready(function() {
         // ─────────────────────────────────────────────────────────────────────
         // FIX/WAYPOINT CLICK - Enhanced popup with coordinates
         // ─────────────────────────────────────────────────────────────────────
-        graphic_map.on('click', 'fixes-circles', e => {
+        graphic_map.on('click', 'route-fixes-circles', e => {
             if (!e.features || !e.features[0]) {return;}
             const props = e.features[0].properties;
             const coords = e.features[0].geometry.coordinates;
@@ -3545,8 +3546,9 @@ $(document).ready(function() {
                 uniqueKey: uniqueKey,
                 // Store ORIGINAL point coordinates (not current label position)
                 originalPointCoords: [props.origLon || coords[0], props.origLat || coords[1]],
-                // Store current label coordinates for drag calculation
-                currentLabelCoords: coords.slice(),
+                // Use mouse click position as starting label coords — this matches where the
+                // label visually appears (accounts for variable-anchor/radial-offset on unmoved layer)
+                currentLabelCoords: [e.lngLat.lng, e.lngLat.lat],
                 color: props.color,
             };
             dragStartPos = { x: e.point.x, y: e.point.y };

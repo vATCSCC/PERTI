@@ -327,8 +327,8 @@
         // Apply to fix/waypoint layers
         const fixes = currentSymbology.fixes || DEFAULT_SYMBOLOGY.fixes;
 
-        // Fix circles (route-fix-points and fixes-circles)
-        ['route-fix-points', 'fixes-circles', 'route-fixes-circles'].forEach(layerId => {
+        // Fix circles
+        ['route-fixes-circles'].forEach(layerId => {
             if (!map.getLayer(layerId)) {return;}
 
             // Visibility

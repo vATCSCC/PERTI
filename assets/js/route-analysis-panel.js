@@ -670,10 +670,8 @@
         } catch (e) { /* layer may not exist */ }
 
         // Dim non-analysis fixes (route-fix points/labels)
-        // Both 'fixes-circles' (original layer) and 'route-fixes-circles' (Phase 5)
-        // render dots at fix positions — both must be dimmed.
         try {
-            var circLayers = ['route-fixes-circles', 'fixes-circles'];
+            var circLayers = ['route-fixes-circles'];
             if (currentRouteId != null) {
                 var dimExpr = ['case', ['==', ['get', 'routeId'], currentRouteId], 1, 0.1];
                 circLayers.forEach(function (lid) {
@@ -889,7 +887,7 @@
 
         // Restore fix/airport opacity
         try {
-            ['route-fixes-circles', 'fixes-circles'].forEach(function (lid) {
+            ['route-fixes-circles'].forEach(function (lid) {
                 if (map.getLayer(lid)) {
                     map.setPaintProperty(lid, 'circle-opacity', 1);
                     map.setPaintProperty(lid, 'circle-stroke-opacity', 1);
