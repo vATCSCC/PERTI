@@ -29,12 +29,6 @@
             opacity: 0.8,
             dashArray: [1, 3],
         },
-        filterFan: {
-            color: null,
-            width: 1.0,
-            opacity: 0.5,
-            dashArray: [1, 2],
-        },
         // Fix/waypoint symbology
         fixes: {
             visible: true,
@@ -330,24 +324,6 @@
             }
         }
 
-        // Apply to routes-filter-fan layer
-        const filterFan = currentSymbology.filterFan || DEFAULT_SYMBOLOGY.filterFan;
-        if (map.getLayer('routes-filter-fan')) {
-            map.setPaintProperty('routes-filter-fan', 'line-width', global.width ?? filterFan.width);
-            map.setPaintProperty('routes-filter-fan', 'line-opacity', global.opacity ?? filterFan.opacity);
-            if (global.color) {
-                map.setPaintProperty('routes-filter-fan', 'line-color', global.color);
-            } else if (filterFan.color) {
-                map.setPaintProperty('routes-filter-fan', 'line-color', filterFan.color);
-            } else {
-                map.setPaintProperty('routes-filter-fan', 'line-color', ['get', 'color']);
-            }
-            const filterFanDash = filterFan.dashArray || DASH_PATTERNS['dense-dot'];
-            if (filterFanDash) {
-                map.setPaintProperty('routes-filter-fan', 'line-dasharray', filterFanDash);
-            }
-        }
-
         // Apply to fix/waypoint layers
         const fixes = currentSymbology.fixes || DEFAULT_SYMBOLOGY.fixes;
 
@@ -471,10 +447,8 @@
         updatePanelUI();
 
         // Bind change handlers for segment type controls
-        // Map: HTML element ID prefix -> symbology key (filterFan uses 'filter-fan' in IDs)
-        const segTypeMap = { 'solid': 'solid', 'dashed': 'dashed', 'fan': 'fan', 'filter-fan': 'filterFan' };
-        ['solid', 'dashed', 'fan', 'filter-fan'].forEach(segType => {
-            const symbKey = segTypeMap[segType] || segType;
+        ['solid', 'dashed', 'fan'].forEach(segType => {
+            const symbKey = segType;
             // Width slider
             $panel.on('input change', `#symb-${segType}-width`, function() {
                 const val = parseFloat($(this).val());
@@ -647,15 +621,12 @@
         const $panel = $('#route-symbology-panel');
         if (!$panel.length) {return;}
 
-        const uiSegTypeMap = { 'solid': 'solid', 'dashed': 'dashed', 'fan': 'fan', 'filter-fan': 'filterFan' };
-        ['solid', 'dashed', 'fan', 'filter-fan'].forEach(segType => {
-            const symbKey = uiSegTypeMap[segType] || segType;
-            const settings = currentSymbology[symbKey] || {};
-            const defaultWidth = symbKey === 'filterFan' ? 1.0 : 3;
+        ['solid', 'dashed', 'fan'].forEach(segType => {
+            const settings = currentSymbology[segType] || {};
 
             // Width
-            $(`#symb-${segType}-width`).val(settings.width || defaultWidth);
-            $(`#symb-${segType}-width-val`).text((settings.width || defaultWidth).toFixed(1));
+            $(`#symb-${segType}-width`).val(settings.width || 3);
+            $(`#symb-${segType}-width-val`).text((settings.width || 3).toFixed(1));
 
             // Opacity
             $(`#symb-${segType}-opacity`).val(settings.opacity ?? 1.0);

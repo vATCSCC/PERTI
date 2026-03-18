@@ -286,11 +286,6 @@ $is_canoc = (get_org_code() === 'canoc');
         .symb-line-preview.fan {
             background: repeating-linear-gradient(90deg, #C70039, #C70039 1px, transparent 1px, transparent 4px);
         }
-        .symb-line-preview.filter-fan {
-            background: repeating-linear-gradient(90deg, #C70039, #C70039 1px, transparent 1px, transparent 3px);
-            opacity: 0.5;
-        }
-
         .symb-footer {
             border-top: 1px solid #e9ecef;
             padding: 10px 12px;
@@ -2171,54 +2166,6 @@ ROUTE2</pre>
                                                     <option value="dotted" selected><?= __('route.page.dotted') ?></option>
                                                     <option value="dash-dot"><?= __('route.page.dashDot') ?></option>
                                                     <option value="dense-dot"><?= __('route.page.denseDot') ?></option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Filter Fan Segments Section -->
-                                <div class="symb-section" data-type="filter-fan">
-                                    <div class="symb-section-header">
-                                        <span class="symb-section-title"><?= __('route.page.filterFanRadial') ?></span>
-                                        <div class="symb-section-preview">
-                                            <div class="symb-line-preview filter-fan"></div>
-                                            <i class="fas fa-chevron-down" style="font-size: 0.6rem; color: #6c757d;"></i>
-                                        </div>
-                                    </div>
-                                    <div class="symb-section-body">
-                                        <div class="symb-row">
-                                            <span class="symb-label"><?= __('route.page.width') ?></span>
-                                            <div class="symb-control">
-                                                <input type="range" id="symb-filter-fan-width" min="0.5" max="8" step="0.5" value="1.0">
-                                                <span class="symb-value" id="symb-filter-fan-width-val">1.0</span>
-                                            </div>
-                                        </div>
-                                        <div class="symb-row">
-                                            <span class="symb-label"><?= __('route.page.opacity') ?></span>
-                                            <div class="symb-control">
-                                                <input type="range" id="symb-filter-fan-opacity" min="0.1" max="1" step="0.1" value="0.5">
-                                                <span class="symb-value" id="symb-filter-fan-opacity-val">50%</span>
-                                            </div>
-                                        </div>
-                                        <div class="symb-row">
-                                            <span class="symb-label"><?= __('route.page.color') ?></span>
-                                            <div class="symb-control">
-                                                <input type="checkbox" id="symb-filter-fan-color-enable" title="Override route color">
-                                                <input type="color" id="symb-filter-fan-color" value="#C70039" disabled>
-                                                <span class="small text-muted"><?= __('route.page.override') ?></span>
-                                            </div>
-                                        </div>
-                                        <div class="symb-row">
-                                            <span class="symb-label"><?= __('route.page.style') ?></span>
-                                            <div class="symb-control">
-                                                <select id="symb-filter-fan-dash" class="form-control form-control-sm">
-                                                    <option value="solid"><?= __('route.page.solid') ?></option>
-                                                    <option value="dashed"><?= __('route.page.dashed') ?></option>
-                                                    <option value="dotted"><?= __('route.page.dotted') ?></option>
-                                                    <option value="dash-dot"><?= __('route.page.dashDot') ?></option>
-                                                    <option value="dense-dot" selected><?= __('route.page.denseDot') ?></option>
-                                                    <option value="long-dash"><?= __('route.page.longDash') ?></option>
                                                 </select>
                                             </div>
                                         </div>

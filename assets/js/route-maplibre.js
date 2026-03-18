@@ -1983,23 +1983,18 @@ $(document).ready(function() {
         graphic_map.addSource('routes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         graphic_map.addLayer({
             id: 'routes-solid', type: 'line', source: 'routes',
-            filter: ['all', ['==', ['get', 'solid'], true], ['!=', ['get', 'isFan'], true], ['!=', ['get', 'isFilterFan'], true]],
+            filter: ['all', ['==', ['get', 'solid'], true], ['!=', ['get', 'isFan'], true]],
             paint: { 'line-color': ['get', 'color'], 'line-width': 3 },
         });
         graphic_map.addLayer({
             id: 'routes-dashed', type: 'line', source: 'routes',
-            filter: ['all', ['==', ['get', 'solid'], false], ['!=', ['get', 'isFan'], true], ['!=', ['get', 'isFilterFan'], true]],
+            filter: ['all', ['==', ['get', 'solid'], false], ['!=', ['get', 'isFan'], true]],
             paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-dasharray': [4, 4] },
         });
         graphic_map.addLayer({
             id: 'routes-fan', type: 'line', source: 'routes',
-            filter: ['all', ['==', ['get', 'isFan'], true], ['!=', ['get', 'isFilterFan'], true]],
+            filter: ['==', ['get', 'isFan'], true],
             paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-dasharray': [1, 3] },
-        });
-        graphic_map.addLayer({
-            id: 'routes-filter-fan', type: 'line', source: 'routes',
-            filter: ['==', ['get', 'isFilterFan'], true],
-            paint: { 'line-color': ['get', 'color'], 'line-width': 1.0, 'line-dasharray': [1, 2], 'line-opacity': 0.5 },
         });
 
         graphic_map.addSource('fixes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -2080,41 +2075,43 @@ $(document).ready(function() {
         // Create endpoint icons (9 total: 6 base + 3 filter variants)
         const ENDPOINT_ICONS = {
             // Airport - Airplane silhouette (TSD jet style, upward=origin, downward=dest)
-            'airport-origin': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <path d="M10 2 L12 8 L18 10 L12 11 L13 17 L10 15 L7 17 L8 11 L2 10 L8 8 Z" fill="white" stroke="white" stroke-width="0.5"/>
+            // 32x32 canvas for crisp rendering at larger icon-size values
+            'airport-origin': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+                <path d="M16 3 L19 12 L29 16 L19 18 L21 27 L16 24 L11 27 L13 18 L3 16 L13 12 Z" fill="white" stroke="white" stroke-width="0.5"/>
             </svg>`,
-            'airport-dest': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <path d="M10 18 L12 12 L18 10 L12 9 L13 3 L10 5 L7 3 L8 9 L2 10 L8 12 Z" fill="white" stroke="white" stroke-width="0.5"/>
+            'airport-dest': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+                <path d="M16 29 L19 20 L29 16 L19 14 L21 5 L16 8 L11 5 L13 14 L3 16 L13 20 Z" fill="white" stroke="white" stroke-width="0.5"/>
             </svg>`,
             // TRACON - Diamond
-            'tracon-origin': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <polygon points="10,1 19,10 10,19 1,10" fill="white" stroke="white" stroke-width="1"/>
+            'tracon-origin': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+                <polygon points="16,2 30,16 16,30 2,16" fill="white" stroke="white" stroke-width="1"/>
             </svg>`,
-            'tracon-dest': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <polygon points="10,1 19,10 10,19 1,10" fill="none" stroke="white" stroke-width="2"/>
+            'tracon-dest': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+                <polygon points="16,2 30,16 16,30 2,16" fill="none" stroke="white" stroke-width="2.5"/>
             </svg>`,
             // ARTCC - Square
-            'artcc-origin': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <rect x="2" y="2" width="16" height="16" fill="white" stroke="white" stroke-width="1"/>
+            'artcc-origin': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+                <rect x="3" y="3" width="26" height="26" fill="white" stroke="white" stroke-width="1"/>
             </svg>`,
-            'artcc-dest': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <rect x="2" y="2" width="16" height="16" fill="none" stroke="white" stroke-width="2"/>
+            'artcc-dest': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+                <rect x="3" y="3" width="26" height="26" fill="none" stroke="white" stroke-width="2.5"/>
             </svg>`,
-            // Filter variants - base shape + prohibition circle-slash overlay
-            'airport-filter': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <path d="M10 3 L12 8 L17 10 L12 11 L13 16 L10 14 L7 16 L8 11 L3 10 L8 8 Z" fill="white" stroke="white" stroke-width="0.5"/>
-                <circle cx="10" cy="10" r="8" fill="none" stroke="white" stroke-width="1.5"/>
-                <line x1="4" y1="4" x2="16" y2="16" stroke="white" stroke-width="1.5"/>
+            // Filter variants - base shape + bold prohibition circle-slash overlay
+            // 40x40 canvas for larger, more emphatic filter icons
+            'airport-filter': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+                <path d="M20 6 L23 14 L33 18 L23 20 L25 30 L20 27 L15 30 L17 20 L7 18 L17 14 Z" fill="white" stroke="white" stroke-width="0.5"/>
+                <circle cx="20" cy="20" r="17" fill="none" stroke="white" stroke-width="2.5"/>
+                <line x1="8" y1="8" x2="32" y2="32" stroke="white" stroke-width="2.5"/>
             </svg>`,
-            'tracon-filter': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <polygon points="10,3 17,10 10,17 3,10" fill="white" stroke="white" stroke-width="0.5"/>
-                <circle cx="10" cy="10" r="8" fill="none" stroke="white" stroke-width="1.5"/>
-                <line x1="4" y1="4" x2="16" y2="16" stroke="white" stroke-width="1.5"/>
+            'tracon-filter': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+                <polygon points="20,5 35,20 20,35 5,20" fill="white" stroke="white" stroke-width="0.5"/>
+                <circle cx="20" cy="20" r="17" fill="none" stroke="white" stroke-width="2.5"/>
+                <line x1="8" y1="8" x2="32" y2="32" stroke="white" stroke-width="2.5"/>
             </svg>`,
-            'artcc-filter': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <rect x="3" y="3" width="14" height="14" fill="white" stroke="white" stroke-width="0.5"/>
-                <circle cx="10" cy="10" r="8" fill="none" stroke="white" stroke-width="1.5"/>
-                <line x1="4" y1="4" x2="16" y2="16" stroke="white" stroke-width="1.5"/>
+            'artcc-filter': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+                <rect x="5" y="5" width="30" height="30" fill="white" stroke="white" stroke-width="0.5"/>
+                <circle cx="20" cy="20" r="17" fill="none" stroke="white" stroke-width="2.5"/>
+                <line x1="8" y1="8" x2="32" y2="32" stroke="white" stroke-width="2.5"/>
             </svg>`,
         };
 
@@ -2153,9 +2150,10 @@ $(document).ready(function() {
                 ],
                 'icon-size': [
                     'interpolate', ['linear'], ['zoom'],
-                    4, 0.6,
-                    8, 0.8,
-                    12, 1.0,
+                    4, 0.7,
+                    6, 0.85,
+                    8, 1.0,
+                    12, 1.2,
                 ],
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
@@ -2163,7 +2161,7 @@ $(document).ready(function() {
             paint: {
                 'icon-color': ['get', 'color'],
                 'icon-halo-color': '#000000',
-                'icon-halo-width': 1,
+                'icon-halo-width': 1.5,
             },
             minzoom: 4,
         });
@@ -3016,14 +3014,11 @@ $(document).ready(function() {
                 }
             }
 
-            // Generate filter endpoint icons and filter fan connectors
+            // Generate filter endpoint icons (prohibition overlay for excluded facilities)
             const routeMeta = routeStringByRouteId[thisRouteId];
             if (routeMeta && routeMeta.filters && routeMeta.filters.length > 0 && nPoints >= 2) {
                 const originPt = routePoints[0];
                 const destPt = routePoints[nPoints - 1];
-                // Find first/last non-airport waypoint for fan connector target
-                const fanTargetOrigin = hasNonAirport ? routePoints[firstNavIndex] : originPt;
-                const fanTargetDest = hasNonAirport ? routePoints[lastNavIndex] : destPt;
 
                 routeMeta.filters.forEach(function(f) {
                     // Resolve filter code to coordinates
@@ -3057,29 +3052,8 @@ $(document).ready(function() {
                             geometry: { type: 'Point', coordinates: [filterPt[2], filterPt[1]] },
                         });
                     }
-
-                    // Add filter fan connector from filter point to nearest route point
-                    const fanTarget = f.side === 'origin' ? fanTargetOrigin : fanTargetDest;
-                    const fanCoords = [[filterPt[2], filterPt[1]], [fanTarget[2], fanTarget[1]]];
-                    // Validate coordinates
-                    if (isFinite(fanCoords[0][0]) && isFinite(fanCoords[0][1]) && isFinite(fanCoords[1][0]) && isFinite(fanCoords[1][1])) {
-                        routeFeatures.push({
-                            type: 'Feature',
-                            properties: {
-                                color: routeColor,
-                                solid: false,
-                                isFan: false,
-                                isFilterFan: true,
-                                routeId: thisRouteId,
-                                fromFix: f.code,
-                                toFix: fanTarget[0] || '',
-                                distance: 0,
-                                routeString: routeMeta.routeString || '',
-                            },
-                            geometry: { type: 'LineString', coordinates: fanCoords },
-                        });
-                    }
                 });
+
             }
         });
 
@@ -3428,7 +3402,7 @@ $(document).ready(function() {
 
     function setupInteractivity() {
         // Cursor change handlers
-        ['routes-solid', 'routes-dashed', 'routes-fan', 'routes-filter-fan', 'route-fixes-circles', 'aircraft-symbols', 'aircraft-circles-fallback', 'filtered-airways-lines', 'flight-routes-ahead', 'flight-routes-behind'].forEach(layerId => {
+        ['routes-solid', 'routes-dashed', 'routes-fan', 'route-fixes-circles', 'aircraft-symbols', 'aircraft-circles-fallback', 'filtered-airways-lines', 'flight-routes-ahead', 'flight-routes-behind'].forEach(layerId => {
             if (!graphic_map.getLayer(layerId)) {return;}
             graphic_map.on('mouseenter', layerId, () => { graphic_map.getCanvas().style.cursor = 'pointer'; });
             graphic_map.on('mouseleave', layerId, () => { graphic_map.getCanvas().style.cursor = ''; });
@@ -3465,7 +3439,7 @@ $(document).ready(function() {
             // Query ALL route features near this point with 5px bbox tolerance for easier clicking
             const bbox = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]];
             const allFeatures = graphic_map.queryRenderedFeatures(bbox, {
-                layers: ['routes-solid', 'routes-dashed', 'routes-fan', 'routes-filter-fan'],
+                layers: ['routes-solid', 'routes-dashed', 'routes-fan'],
             });
 
             // Group by routeId to find unique routes
