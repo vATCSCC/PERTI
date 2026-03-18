@@ -211,6 +211,16 @@
                 var child = parseUnary(); // allows --X = X
                 // Double negation cancels out
                 if (child.type === 'NOT') return child.child;
+                // Distribute NOT over comma-AND: -(X,Y) → (-X & -Y)
+                if (child.type === 'AND' && child._fromComma) {
+                    return {
+                        type: 'AND',
+                        children: child.children.map(function(c) {
+                            return { type: 'NOT', child: c };
+                        }),
+                        _fromComma: true
+                    };
+                }
                 return { type: 'NOT', child: child };
             }
             return parsePrimary();
