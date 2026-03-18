@@ -2357,97 +2357,12 @@
             return;
         }
 
-        // Frozen geometry path: if all selected routes have stored GeoJSON,
-        // render directly without live PostGIS expansion. This preserves
-        // geometry for routes with deprecated AIRAC fixes.
-        if (window.graphic_map && window.graphic_map.getSource('routes')) {
-            var allHaveGeom = selected.every(function(r) { return r.route_geometry; });
-            if (allHaveGeom) {
-                var hasGroups = routeGroups.length > 0;
-                var hasSearch = currentSearchClauses.length > 0;
-                var features = [];
-                var routeOrder = [];
-                var defaultColor = '#C70039';
-
-                selected.forEach(function(r, idx) {
-                    try {
-                        var parsed = JSON.parse(r.route_geometry);
-                        var geom = parsed.geojson || parsed; // envelope format or legacy bare GeoJSON
-                        // Flatten MultiLineString to LineString
-                        if (geom.type === 'MultiLineString' && geom.coordinates) {
-                            geom = { type: 'LineString', coordinates: [].concat.apply([], geom.coordinates) };
-                        }
-                        // Apply great circle interpolation for long segments,
-                        // matching the live-resolution rendering path
-                        if (geom.type === 'LineString' && geom.coordinates && geom.coordinates.length >= 2 && typeof turf !== 'undefined') {
-                            var interpolated = [geom.coordinates[0]];
-                            for (var ci = 1; ci < geom.coordinates.length; ci++) {
-                                var segDist = turf.distance(turf.point(geom.coordinates[ci - 1]), turf.point(geom.coordinates[ci]), { units: 'nauticalmiles' });
-                                if (segDist > 100) {
-                                    try {
-                                        var arc = turf.greatCircle(turf.point(geom.coordinates[ci - 1]), turf.point(geom.coordinates[ci]), { npoints: Math.max(20, Math.round(segDist / 10)) });
-                                        var arcCoords = arc.geometry.type === 'MultiLineString'
-                                            ? [].concat.apply([], arc.geometry.coordinates)
-                                            : arc.geometry.coordinates;
-                                        // Skip first point (duplicate of previous endpoint)
-                                        for (var ai = 1; ai < arcCoords.length; ai++) {
-                                            interpolated.push(arcCoords[ai]);
-                                        }
-                                    } catch (e2) {
-                                        interpolated.push(geom.coordinates[ci]);
-                                    }
-                                } else {
-                                    interpolated.push(geom.coordinates[ci]);
-                                }
-                            }
-                            geom = { type: 'LineString', coordinates: interpolated };
-                        }
-                        // Normalize for International Date Line crossings
-                        if (window.normalizeForIDL && geom.coordinates) {
-                            geom = { type: 'LineString', coordinates: window.normalizeForIDL(geom.coordinates) };
-                        }
-                        var distance = parsed.distance_nm || 0;
-                        var color = defaultColor;
-                        if (hasSearch) {
-                            color = routeMatchesSearchClauses(r, currentSearchClauses) ? '#C70039' : '#555555';
-                        } else if (hasGroups) {
-                            color = getRouteGroupColor(r.route_id) || defaultColor;
-                        }
-                        features.push({
-                            type: 'Feature',
-                            geometry: geom,
-                            properties: {
-                                color: color,
-                                solid: true,
-                                isFan: false,
-                                routeId: idx + 1,
-                                fromFix: '',
-                                toFix: '',
-                                distance: distance,
-                                routeString: r.route_string || ''
-                            }
-                        });
-                        routeOrder.push(r.route_id);
-                    } catch (e) { /* skip malformed geometry */ }
-                });
-
-                if (features.length === selected.length) {
-                    var fc = { type: 'FeatureCollection', features: features };
-                    window.graphic_map.getSource('routes').setData(fc);
-                    // Clear fixes/airports since frozen geometry skips fix resolution
-                    if (window.graphic_map.getSource('fixes')) {
-                        window.graphic_map.getSource('fixes').setData({ type: 'FeatureCollection', features: [] });
-                    }
-                    if (window.graphic_map.getSource('airports')) {
-                        window.graphic_map.getSource('airports').setData({ type: 'FeatureCollection', features: [] });
-                    }
-                    lastPlottedRouteOrder = routeOrder;
-                    return;
-                }
-            }
-        }
-
-        // Live-resolution fallback path (calls PostGIS via route-maplibre.js)
+        // Live-resolution path (calls PostGIS via route-maplibre.js)
+        // Always use live resolution for proper symbology (fix labels, solid/dashed
+        // segments, fan detection, per-segment coloring). Stored route_geometry is
+        // retained in the database for archival/historical reference but not used
+        // for rendering — PostGIS calls are fast enough (~70ms/route) and the
+        // symbology pipeline provides significantly better UX.
         var hasSearch = currentSearchClauses.length > 0;
         var hasGroups = routeGroups.length > 0;
         var text;

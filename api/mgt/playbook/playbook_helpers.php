@@ -49,7 +49,10 @@ function normalizeRouteCanadian($rs) {
  * PostGIS resolve_waypoint() handles airports (KJFK), TRACONs (A90, PCT),
  * ARTCCs (ZNY, ZBW), and FAA codes (JFK) via nav_fixes + airports + area_centers.
  *
- * Priority: origin_airports (most specific) -> origin label -> origin_artccs (fallback)
+ * Priority: origin_airports (most specific) -> origin label
+ * ARTCC codes are NOT used as fallback — their center points are poor route
+ * endpoints (hundreds of miles from actual route start/end), and they can
+ * cause misresolution in expand_route() when no geographic context exists.
  */
 function _extractRouteEndpoint($label, $airportsCsv = '', $artccsCsv = '') {
     // 1. Try airports CSV first -- most specific endpoint
@@ -60,18 +63,10 @@ function _extractRouteEndpoint($label, $airportsCsv = '', $artccsCsv = '') {
         }
     }
 
-    // 2. Try the label field (airport ICAO, TRACON code, ARTCC code, etc.)
+    // 2. Try the label field (airport ICAO, TRACON code, etc.)
     $label = strtoupper(trim($label));
     if ($label !== '' && preg_match('/^[A-Z][A-Z0-9]{1,4}$/', $label)) {
         return $label;
-    }
-
-    // 3. Fall back to first ARTCC in artccs CSV
-    if ($artccsCsv !== '') {
-        $first = strtoupper(trim(explode(',', $artccsCsv)[0]));
-        if ($first !== '' && $first !== 'UNKN' && preg_match('/^[A-Z]{2,4}$/', $first)) {
-            return $first;
-        }
     }
 
     return '';

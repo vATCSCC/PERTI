@@ -115,16 +115,15 @@ function normalizeRouteCanadian($rs) {
 }
 
 function extractEndpoint($label, $airportsCsv, $artccsCsv) {
+    // 1. Try airports CSV first -- most specific endpoint
     if ($airportsCsv !== '') {
         $first = strtoupper(trim(explode(',', $airportsCsv)[0]));
         if ($first !== '' && preg_match('/^[A-Z]{3,4}$/', $first)) return $first;
     }
+    // 2. Try the label field (airport ICAO, TRACON code, etc.)
+    // ARTCC codes are NOT used as fallback — center points are poor route endpoints
     $label = strtoupper(trim($label));
     if ($label !== '' && preg_match('/^[A-Z][A-Z0-9]{1,4}$/', $label)) return $label;
-    if ($artccsCsv !== '') {
-        $first = strtoupper(trim(explode(',', $artccsCsv)[0]));
-        if ($first !== '' && $first !== 'UNKN' && $first !== 'VARIOUS' && preg_match('/^[A-Z]{2,4}$/', $first)) return $first;
-    }
     return '';
 }
 
