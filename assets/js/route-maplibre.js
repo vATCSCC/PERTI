@@ -260,6 +260,7 @@ $(document).ready(function() {
     let labelOffsets = {};               // Map "uniqueKey" -> {lng, lat, color, origLng, origLat}
     let draggingLabel = null;            // Currently dragged label info
     let dragStartPos = null;             // Starting position for drag
+    let cachedUnmovedFeatures = [];      // Cached unmoved label features for fast drag removal
 
     // Export data storage
     let lastExportData = {
@@ -3557,6 +3558,18 @@ $(document).ready(function() {
 
             // Prevent map panning while dragging label
             graphic_map.dragPan.disable();
+
+            // Immediately remove this label from the unmoved source so it doesn't
+            // flash/ghost at the original position while being dragged
+            if (cachedUnmovedFeatures.length > 0 && graphic_map.getSource('route-fix-labels')) {
+                cachedUnmovedFeatures = cachedUnmovedFeatures.filter(f =>
+                    f.properties.uniqueKey !== uniqueKey
+                );
+                graphic_map.getSource('route-fix-labels').setData({
+                    type: 'FeatureCollection',
+                    features: cachedUnmovedFeatures,
+                });
+            }
         }
         graphic_map.on('mousedown', 'route-fixes-labels', handleLabelDragStart);
         graphic_map.on('mousedown', 'route-fixes-labels-moved', handleLabelDragStart);
@@ -3937,6 +3950,7 @@ $(document).ready(function() {
         }
 
         // Update unmoved label source (variable-anchor auto-placement)
+        cachedUnmovedFeatures = labelFeaturesUnmoved;
         if (graphic_map.getSource('route-fix-labels')) {
             graphic_map.getSource('route-fix-labels').setData({
                 type: 'FeatureCollection',
