@@ -51,8 +51,13 @@ require_once __DIR__ . '/../load/config.php';
 class MonitoringDaemon
 {
     private $conn = null;
+    private $connGis = null;
     private $running = true;
     private $logFile;
+    private int $tickCount = 0;
+
+    /** PostGIS heartbeat interval in ticks (1 tick = 60s, so 5 = every 5 min) */
+    private const GIS_HEARTBEAT_TICKS = 5;
 
     public function __construct()
     {
@@ -103,6 +108,108 @@ class MonitoringDaemon
             sqlsrv_close($this->conn);
             $this->conn = null;
         }
+        $this->connGis = null;
+    }
+
+    /**
+     * Connect to PostGIS (persistent connection, reconnects on failure).
+     */
+    private function connectGis(): bool
+    {
+        if ($this->connGis !== null) {
+            // Test if connection is still alive
+            try {
+                $this->connGis->query('SELECT 1');
+                return true;
+            } catch (\PDOException $e) {
+                $this->connGis = null;
+            }
+        }
+
+        if (!defined('GIS_SQL_HOST') || !defined('GIS_SQL_DATABASE') ||
+            !defined('GIS_SQL_USERNAME') || !defined('GIS_SQL_PASSWORD')) {
+            return false;
+        }
+
+        if (!extension_loaded('pdo_pgsql')) {
+            return false;
+        }
+
+        try {
+            $port = defined('GIS_SQL_PORT') ? GIS_SQL_PORT : '5432';
+            $dsn = "pgsql:host=" . GIS_SQL_HOST . ";port=" . $port . ";dbname=" . GIS_SQL_DATABASE;
+            $this->connGis = new PDO($dsn, GIS_SQL_USERNAME, GIS_SQL_PASSWORD, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_TIMEOUT => 10,
+            ]);
+            return true;
+        } catch (\PDOException $e) {
+            error_log("GIS heartbeat connection failed: " . $e->getMessage());
+            $this->connGis = null;
+            return false;
+        }
+    }
+
+    /**
+     * PostGIS heartbeat — keeps spatial indexes warm by touching boundary tables.
+     * Runs every GIS_HEARTBEAT_TICKS cycles (default 5 min).
+     * Returns metrics or null if skipped this tick.
+     */
+    private function getGisHeartbeat(): ?array
+    {
+        if ($this->tickCount % self::GIS_HEARTBEAT_TICKS !== 0) {
+            return null;
+        }
+
+        $metrics = ['status' => 'skip'];
+
+        if (!$this->connectGis()) {
+            $metrics['status'] = 'conn_fail';
+            return $metrics;
+        }
+
+        $start = microtime(true);
+
+        try {
+            // 1. Touch boundary table counts (loads index pages into shared_buffers)
+            $row = $this->connGis->query(
+                "SELECT
+                    (SELECT COUNT(*) FROM artcc_boundaries) AS artcc,
+                    (SELECT COUNT(*) FROM tracon_boundaries) AS tracon,
+                    (SELECT COUNT(*) FROM sector_boundaries) AS sector,
+                    (SELECT COUNT(*) FROM nav_fixes) AS fixes"
+            )->fetch();
+
+            $metrics['artcc'] = (int)$row['artcc'];
+            $metrics['tracon'] = (int)$row['tracon'];
+            $metrics['sector'] = (int)$row['sector'];
+            $metrics['fixes'] = (int)$row['fixes'];
+
+            // 2. Touch spatial index with a cheap point-in-polygon query (JFK coords)
+            $r = $this->connGis->query(
+                "SELECT a.artcc_code
+                 FROM artcc_boundaries a
+                 WHERE ST_Intersects(a.geom, ST_SetSRID(ST_MakePoint(-73.7781, 40.6413), 4326))
+                 LIMIT 1"
+            )->fetch();
+            $metrics['probe_artcc'] = $r ? $r['artcc_code'] : null;
+
+            // 3. Touch resolve_waypoint to keep function cache warm
+            $r = $this->connGis->query(
+                "SELECT fix_name, lat, lon FROM resolve_waypoint('JFK') LIMIT 1"
+            )->fetch();
+            $metrics['probe_fix'] = $r ? $r['fix_name'] : null;
+
+            $metrics['status'] = 'ok';
+        } catch (\PDOException $e) {
+            $metrics['status'] = 'error';
+            $metrics['error'] = substr($e->getMessage(), 0, 100);
+        }
+
+        $metrics['latency_ms'] = round((microtime(true) - $start) * 1000);
+
+        return $metrics;
     }
 
     /**
@@ -128,6 +235,14 @@ class MonitoringDaemon
 
         // Request metrics (from recent logs)
         $metrics['requests'] = $this->getRequestMetrics();
+
+        // PostGIS heartbeat (every 5 min — keeps spatial indexes warm)
+        $gis = $this->getGisHeartbeat();
+        if ($gis !== null) {
+            $metrics['gis'] = $gis;
+        }
+
+        $this->tickCount++;
 
         return $metrics;
     }
@@ -328,6 +443,13 @@ class MonitoringDaemon
                 $metrics['daemons']['total'] ?? 0,
                 $metrics['mem']['sys_used_pct'] ?? 0
             );
+
+            // GIS heartbeat status
+            if (isset($metrics['gis'])) {
+                $gs = $metrics['gis']['status'];
+                $gl = $metrics['gis']['latency_ms'] ?? '?';
+                echo "  GIS heartbeat: {$gs} ({$gl}ms)\n";
+            }
 
             // Alert on issues
             if (($metrics['db']['blocking'] ?? 0) > 0) {
