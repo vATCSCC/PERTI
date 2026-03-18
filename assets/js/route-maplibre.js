@@ -3019,6 +3019,26 @@ $(document).ready(function() {
         }
     }
 
+    // Normalize coordinates for International Date Line crossing.
+    // When consecutive longitudes jump > 180°, adjust by ±360° to keep the path continuous.
+    // MapLibre handles coordinates outside [-180, 180] correctly.
+    function normalizeForIDL(coords) {
+        if (!coords || coords.length < 2) return coords;
+        var normalized = [[coords[0][0], coords[0][1]]];
+        for (var i = 1; i < coords.length; i++) {
+            var prevLon = normalized[i - 1][0];
+            var currLon = coords[i][0];
+            var currLat = coords[i][1];
+            var lonDiff = currLon - prevLon;
+            if (Math.abs(lonDiff) > 180) {
+                currLon += (lonDiff > 0) ? -360 : 360;
+            }
+            normalized.push([currLon, currLat]);
+        }
+        return normalized;
+    }
+    window.normalizeForIDL = normalizeForIDL;
+
     function addSegmentFeature(features, coords, color, solid, isFan, routeId, fromFix, toFix, segMeta) {
         // Validate all coordinate pairs contain finite numbers
         for (let ci = 0; ci < coords.length; ci++) {
@@ -3030,8 +3050,8 @@ $(document).ready(function() {
                 try {
                     const arc = turf.greatCircle(turf.point(coords[0]), turf.point(coords[1]), { npoints: 50 });
                     if (arc.geometry.type === 'MultiLineString') {
-                        // Antimeridian crossing — flatten line segments
-                        coords = [].concat(...arc.geometry.coordinates);
+                        // Antimeridian crossing — flatten and normalize for IDL
+                        coords = normalizeForIDL([].concat(...arc.geometry.coordinates));
                     } else {
                         coords = arc.geometry.coordinates;
                     }
@@ -5227,22 +5247,7 @@ $(document).ready(function() {
             return minIdx;
         }
 
-        // Normalize coordinates for International Date Line crossing
-        function normalizeForIDL(coords) {
-            if (!coords || coords.length < 2) {return coords;}
-            const normalized = [[coords[0][0], coords[0][1]]];
-            for (let i = 1; i < coords.length; i++) {
-                const prevLon = normalized[i - 1][0];
-                let currLon = coords[i][0];
-                const currLat = coords[i][1];
-                const lonDiff = currLon - prevLon;
-                if (Math.abs(lonDiff) > 180) {
-                    currLon += (lonDiff > 0) ? -360 : 360;
-                }
-                normalized.push([currLon, currLat]);
-            }
-            return normalized;
-        }
+        // normalizeForIDL is now at module level (shared with Plot Routes / playbook)
 
         function toggleFlightRoute(flight) {
             const key = flight.flight_key || flight.callsign;
