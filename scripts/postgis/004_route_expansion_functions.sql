@@ -549,6 +549,15 @@ BEGIN
             CONTINUE;
         END IF;
 
+        -- Skip pseudo-fix placeholders (UNKN, VARIOUS) — these have no
+        -- meaningful geographic location and would poison proximity context
+        -- for subsequent waypoints (e.g., UNKN pseudo-located in Atlantic
+        -- breaks Pacific routes like Asia→PANC cargo plays)
+        IF UPPER(v_part) IN ('UNKN', 'VARIOUS') THEN
+            v_idx := v_idx + 1;
+            CONTINUE;
+        END IF;
+
         -- Check for FBD (Fix/Bearing/Distance) tokens like BDR228018
         -- Must come BEFORE airway check to avoid misclassification
         IF v_part ~ '^[A-Z]{2,5}\d{6}$' THEN

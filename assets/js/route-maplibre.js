@@ -2725,6 +2725,11 @@ $(document).ready(function() {
 
             for (let i = 0; i < expandedTokens.length; i++) {
                 const pointName = expandedTokens[i].toUpperCase();
+
+                // Skip pseudo-fix placeholders — don't set previousPointData
+                // context (UNKN pseudo-located in Atlantic breaks Pacific routes)
+                if (pointName === 'UNKN' || pointName === 'VARIOUS') {continue;}
+
                 let nextPointData;
                 if (i < expandedTokens.length - 1) {
                     let dataForCurrentFix;
