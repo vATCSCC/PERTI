@@ -2373,6 +2373,14 @@
                     try {
                         var parsed = JSON.parse(r.route_geometry);
                         var geom = parsed.geojson || parsed; // envelope format or legacy bare GeoJSON
+                        // Normalize for International Date Line crossings
+                        if (window.normalizeForIDL && geom.coordinates) {
+                            if (geom.type === 'LineString') {
+                                geom = { type: 'LineString', coordinates: window.normalizeForIDL(geom.coordinates) };
+                            } else if (geom.type === 'MultiLineString') {
+                                geom = { type: 'LineString', coordinates: window.normalizeForIDL([].concat.apply([], geom.coordinates)) };
+                            }
+                        }
                         var distance = parsed.distance_nm || 0;
                         var color = defaultColor;
                         if (hasSearch) {

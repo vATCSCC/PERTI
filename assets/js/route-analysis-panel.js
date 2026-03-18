@@ -738,7 +738,13 @@
                 if (dist > 100 && typeof turf.greatCircle === 'function') {
                     try {
                         var gc = turf.greatCircle([prev[0], prev[1]], [wp.lon, wp.lat], { npoints: Math.max(10, Math.round(dist / 20)) });
-                        var gcCoords = gc.geometry.coordinates;
+                        var gcCoords;
+                        if (gc.geometry.type === 'MultiLineString') {
+                            // Antimeridian crossing — flatten sub-lines
+                            gcCoords = [].concat.apply([], gc.geometry.coordinates);
+                        } else {
+                            gcCoords = gc.geometry.coordinates;
+                        }
                         // Skip first point (duplicate of prev)
                         for (var j = 1; j < gcCoords.length; j++) {
                             coords.push(gcCoords[j]);
@@ -753,6 +759,11 @@
         if (coords.length < 2) {
             map.getSource('route-analysis').setData({ type: 'FeatureCollection', features: [] });
             return;
+        }
+
+        // Normalize for International Date Line crossings
+        if (window.normalizeForIDL) {
+            coords = window.normalizeForIDL(coords);
         }
 
         var feature = {
