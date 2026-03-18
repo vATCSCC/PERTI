@@ -801,7 +801,7 @@
 
             allPlays = data.data || [];
             // Invalidate search indexes on reload
-            allPlays.forEach(function(p) { delete p._searchText; delete p._facilityCodes; delete p._originCodes; delete p._destCodes; delete p._traversedCodes; });
+            allPlays.forEach(function(p) { delete p._searchText; delete p._facilityCodes; delete p._originCodes; delete p._destCodes; delete p._traversedCodes; delete p._searchIndex; });
             applyFilters();
 
             // Auto-open play from URL ?play=NAME on initial load
