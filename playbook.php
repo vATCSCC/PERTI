@@ -121,6 +121,9 @@ include("load/nav.php");
                     <button class="btn btn-sm btn-link pb-search-help-btn" id="pb_search_help" title="<?= __('playbook.searchHelp.title') ?>">
                         <i class="fas fa-question-circle"></i>
                     </button>
+                    <button class="btn btn-sm btn-link pb-builder-toggle-btn" id="pb_builder_toggle" title="<?= __('playbook.builder.toggle') ?>">
+                        <i class="fas fa-project-diagram"></i>
+                    </button>
                 </div>
                 <div class="pb-filter-badges" id="pb_filter_badges"></div>
                 <div class="d-flex align-items-center mt-1" style="gap:0.25rem;flex-wrap:wrap;">
@@ -163,6 +166,27 @@ include("load/nav.php");
             </div>
         </div>
         <div class="pb-info-content" id="pb_info_content"></div>
+    </div>
+
+    <!-- Query Builder overlay -->
+    <div class="pb-builder-overlay" id="pb_builder_overlay" style="display:none;">
+        <div class="pb-overlay-titlebar" id="pb_builder_titlebar">
+            <span class="pb-overlay-title">
+                <i class="fas fa-project-diagram" style="color:#f0ad4e;"></i>
+                <?= __('playbook.builder.title') ?>
+            </span>
+            <div class="pb-overlay-controls">
+                <button class="pb-overlay-minimize" id="pb_builder_minimize" title="Minimize">
+                    <i class="fas fa-chevron-up"></i>
+                </button>
+                <button id="pb_builder_close" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="pb-builder-content" id="pb_builder_content">
+            <!-- Populated by playbook-query-builder.js -->
+        </div>
     </div>
 </div>
 
@@ -580,8 +604,9 @@ include('load/footer.php');
 <!-- Route Analysis Panel (shared module) -->
 <script src="assets/js/route-analysis-panel.js<?= _v('assets/js/route-analysis-panel.js') ?>"></script>
 
-<!-- Playbook Filter Parser -->
+<!-- Playbook Filter Parser + Query Builder -->
 <script src="assets/js/playbook-filter-parser.js<?= _v('assets/js/playbook-filter-parser.js') ?>"></script>
+<script src="assets/js/playbook-query-builder.js<?= _v('assets/js/playbook-query-builder.js') ?>"></script>
 
 <!-- Playbook Module -->
 <script>

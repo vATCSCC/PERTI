@@ -57,6 +57,7 @@
     var clCompactPage = 1, clCompactPerPage = 20, clCompactPlayId = null;
     var clDetailPage  = 1, clDetailPerPage  = 25, clDetailPlayId  = null;
     var currentAST = null;  // Set by applyFilters(), read by route emphasis
+    var queryBuilder = null; // Set by init, read by applyFilters() to sync builder
 
     // Route group state
     var routeGroups = [];           // Array of { group_name, group_color, route_ids: Set, sort_order }
@@ -859,6 +860,11 @@
         updateMapHighlights(currentAST);
         renderFilterBadges(currentAST);
         renderPlayList();
+
+        // Sync query builder if visible
+        if (queryBuilder && queryBuilder.isVisible()) {
+            queryBuilder.renderFromAST(currentAST);
+        }
 
         // Re-apply route emphasis if a play is currently selected
         if (activePlayData) {
@@ -4656,6 +4662,39 @@
                 handle: '#pb_info_titlebar',
                 containment: '#pb_map_section',
                 scroll: false
+            });
+            $('#pb_builder_overlay').draggable({
+                handle: '#pb_builder_titlebar',
+                containment: '#pb_map_section',
+                scroll: false
+            });
+        }
+
+        // Query builder panel
+        if (typeof PlaybookQueryBuilder !== 'undefined') {
+            queryBuilder = new PlaybookQueryBuilder({
+                container: '#pb_builder_content',
+                searchInput: '#pb_search',
+                onUpdate: function(text) {
+                    searchText = text;
+                    clearTimeout(searchTimer);
+                    applyFilters();
+                }
+            });
+            $('#pb_builder_toggle').on('click', function() {
+                queryBuilder.toggle();
+                $(this).toggleClass('active');
+                // Sync AST when opening
+                if (queryBuilder.isVisible()) {
+                    queryBuilder.renderFromAST(currentAST);
+                }
+            });
+            $('#pb_builder_close').on('click', function() {
+                queryBuilder.hide();
+                $('#pb_builder_toggle').removeClass('active');
+            });
+            $('#pb_builder_minimize').on('click', function() {
+                queryBuilder.toggleMinimize();
             });
         }
 
