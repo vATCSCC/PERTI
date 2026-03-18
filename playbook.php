@@ -580,6 +580,9 @@ include('load/footer.php');
 <!-- Route Analysis Panel (shared module) -->
 <script src="assets/js/route-analysis-panel.js<?= _v('assets/js/route-analysis-panel.js') ?>"></script>
 
+<!-- Playbook Filter Parser -->
+<script src="assets/js/playbook-filter-parser.js<?= _v('assets/js/playbook-filter-parser.js') ?>"></script>
+
 <!-- Playbook Module -->
 <script>
 window.PERTI_PLAYBOOK_PERM = <?= $perm ? 'true' : 'false' ?>;

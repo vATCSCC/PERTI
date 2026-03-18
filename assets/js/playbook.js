@@ -56,7 +56,7 @@
     // Changelog pagination state
     var clCompactPage = 1, clCompactPerPage = 20, clCompactPlayId = null;
     var clDetailPage  = 1, clDetailPerPage  = 25, clDetailPlayId  = null;
-    var currentSearchClauses = [];  // Set by applyFilters(), read by route emphasis
+    var currentAST = null;  // Set by applyFilters(), read by route emphasis
 
     // Route group state
     var routeGroups = [];           // Array of { group_name, group_color, route_ids: Set, sort_order }
@@ -227,44 +227,22 @@
     // avoid: is equivalent to -thru: (always negated, AND semantics)
     // =========================================================================
 
+    /**
+     * Parse search expression into an AST using PlaybookFilterParser.
+     * Returns AST node or null. Sets/clears error state on search input.
+     */
     function parseSearch(raw) {
-        if (!raw || !raw.trim()) return [];
-        // Split on whitespace or & → clauses (AND'd together)
-        var clauses = raw.split(/[\s&]+/).filter(Boolean);
-        return clauses.map(function(clause) {
-            // Split on , or | → alternatives (OR'd)
-            var alts = clause.split(/[,|]/).filter(Boolean);
-            var inheritedQualifier = '';
-            var inheritedNegated = false;
-            return alts.map(function(alt, idx) {
-                var negated = alt.charAt(0) === '-';
-                var term = negated ? alt.substring(1) : alt;
-                // Parse qualifier prefix (orig:, dest:, thru:, via:, avoid:)
-                var qualifier = '';
-                var colonIdx = term.indexOf(':');
-                if (colonIdx > 0) {
-                    var prefix = term.substring(0, colonIdx).toLowerCase();
-                    if (prefix === 'orig' || prefix === 'dest' || prefix === 'thru' || prefix === 'via' || prefix === 'avoid') {
-                        qualifier = prefix === 'via' ? 'thru' : prefix;
-                        term = term.substring(colonIdx + 1);
-                    }
-                }
-                // avoid: is always negated (equivalent to -thru:)
-                if (qualifier === 'avoid') negated = true;
-                // Propagate qualifier from first alt: orig:ZNY,ZDC → both get orig
-                if (qualifier) { inheritedQualifier = qualifier; }
-                else if (inheritedQualifier) { qualifier = inheritedQualifier; }
-                // Propagate negation from first alt: -thru:ZFW,ZAU → both get negated
-                if (idx === 0 && negated) { inheritedNegated = true; }
-                else if (idx > 0 && !negated && inheritedNegated) { negated = true; }
-                var upper = term.toUpperCase();
-                // Normalize facility aliases (e.g. CZU → CZUL, CZE → CZEG)
-                if (qualifier && typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.ALIAS_TO_CANONICAL) {
-                    upper = FacilityHierarchy.ALIAS_TO_CANONICAL[upper] || upper;
-                }
-                return { term: upper, negated: negated, qualifier: qualifier };
-            }).filter(function(a) { return a.term; });
-        }).filter(function(c) { return c.length; });
+        if (!raw || !raw.trim()) {
+            $('#pb_search').removeClass('pb-search-error');
+            return null;
+        }
+        var result = PlaybookFilterParser.parse(raw.trim());
+        if (result.error) {
+            $('#pb_search').addClass('pb-search-error');
+            return null; // fail-open: show all plays
+        }
+        $('#pb_search').removeClass('pb-search-error');
+        return result.ast;
     }
 
     function buildSearchIndex(p) {
@@ -312,50 +290,25 @@
              p.agg_origin_tracons, p.agg_dest_tracons].forEach(function(field) {
                 csvSplit(field).forEach(function(c) { p._traversedCodes.add(c.toUpperCase()); });
             });
+
+            // Unified search index for AST evaluator
+            p._searchIndex = {
+                originCodes: p._originCodes,
+                destCodes:   p._destCodes,
+                thruCodes:   p._traversedCodes,
+                allCodes:    p._facilityCodes,
+                searchText:  p._searchText
+            };
         }
     }
 
-    function matchesSearch(p, clauses) {
-        if (!clauses.length) return true;
+    /**
+     * Evaluate a play against the current search AST.
+     */
+    function matchesSearch(p, ast) {
+        if (!ast) return true;
         buildSearchIndex(p);
-        // Every clause must pass (AND)
-        for (var i = 0; i < clauses.length; i++) {
-            var alts = clauses[i];
-
-            // Partition: negated thru/avoid alts vs everything else
-            var negatedThruAlts = alts.filter(function(a) { return a.negated && (a.qualifier === 'thru' || a.qualifier === 'avoid'); });
-            var otherAlts = alts.filter(function(a) { return !(a.negated && (a.qualifier === 'thru' || a.qualifier === 'avoid')); });
-
-            // Negated thru: exclude only if ALL are found (AND semantics)
-            if (negatedThruAlts.length > 0) {
-                var allThruFound = negatedThruAlts.every(function(a) { return p._traversedCodes.has(a.term); });
-                if (allThruFound) return false;
-            }
-
-            // Process remaining alts with existing OR logic
-            var clausePassed = false;
-            for (var j = 0; j < otherAlts.length; j++) {
-                var alt = otherAlts[j];
-                var found = false;
-                if (alt.qualifier === 'orig') {
-                    found = p._originCodes.has(alt.term);
-                } else if (alt.qualifier === 'dest') {
-                    found = p._destCodes.has(alt.term);
-                } else if (alt.qualifier === 'thru' || alt.qualifier === 'avoid') {
-                    found = p._traversedCodes.has(alt.term);
-                } else {
-                    found = p._facilityCodes.has(alt.term) || p._searchText.indexOf(alt.term) !== -1;
-                }
-                if (alt.negated) {
-                    if (found) return false; // Negated orig/dest/unqualified → OR exclusion
-                } else {
-                    if (found) clausePassed = true;
-                }
-            }
-            var hasPositiveAlt = otherAlts.some(function(a) { return !a.negated; });
-            if (hasPositiveAlt && !clausePassed) return false;
-        }
-        return true;
+        return PlaybookFilterParser.evaluate(ast, p._searchIndex);
     }
 
     // =========================================================================
@@ -363,61 +316,44 @@
     // =========================================================================
 
     /**
-     * Evaluate a single route against parsed search clauses.
-     * Same logic as matchesSearch() but at the route level.
+     * Build search index for a route (lazy, cached on route object).
      */
-    function routeMatchesSearchClauses(route, clauses) {
-        if (!clauses.length) return true;
+    function buildRouteSearchIndex(route) {
+        if (route._searchIndex) return;
         var origCodes = new Set();
         var destCodes = new Set();
         var thruCodes = new Set();
-        csvSplit(route.origin_airports).concat(csvSplit(route.origin_tracons)).concat(csvSplit(route.origin_artccs)).forEach(function(c) { if (c) origCodes.add(c.toUpperCase()); });
-        csvSplit(route.dest_airports).concat(csvSplit(route.dest_tracons)).concat(csvSplit(route.dest_artccs)).forEach(function(c) { if (c) destCodes.add(c.toUpperCase()); });
-        csvSplit(route.traversed_artccs).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
-        csvSplit(route.traversed_tracons).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
-        csvSplit(route.traversed_sectors_low).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
-        csvSplit(route.traversed_sectors_high).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
-        csvSplit(route.traversed_sectors_superhigh).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
+        csvSplit(route.origin_airports).concat(csvSplit(route.origin_tracons)).concat(csvSplit(route.origin_artccs))
+            .forEach(function(c) { if (c) origCodes.add(c.toUpperCase()); });
+        csvSplit(route.dest_airports).concat(csvSplit(route.dest_tracons)).concat(csvSplit(route.dest_artccs))
+            .forEach(function(c) { if (c) destCodes.add(c.toUpperCase()); });
+        csvSplit(route.traversed_artccs).concat(csvSplit(route.traversed_tracons))
+            .concat(csvSplit(route.traversed_sectors_low)).concat(csvSplit(route.traversed_sectors_high))
+            .concat(csvSplit(route.traversed_sectors_superhigh))
+            .forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
         // Origin+dest ARTCCs and TRACONs are traversed by definition
-        csvSplit(route.origin_artccs).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
-        csvSplit(route.dest_artccs).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
-        csvSplit(route.origin_tracons).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
-        csvSplit(route.dest_tracons).forEach(function(c) { if (c) thruCodes.add(c.toUpperCase()); });
+        origCodes.forEach(function(c) { thruCodes.add(c); });
+        destCodes.forEach(function(c) { thruCodes.add(c); });
         var allCodes = new Set();
         origCodes.forEach(function(c) { allCodes.add(c); });
         destCodes.forEach(function(c) { allCodes.add(c); });
         thruCodes.forEach(function(c) { allCodes.add(c); });
-        var textBlob = ((route.route_string || '') + ' ' + (route.origin || '') + ' ' + (route.dest || '')).toUpperCase();
+        route._searchIndex = {
+            originCodes: origCodes,
+            destCodes: destCodes,
+            thruCodes: thruCodes,
+            allCodes: allCodes,
+            searchText: ((route.route_string || '') + ' ' + (route.origin || '') + ' ' + (route.dest || '')).toUpperCase()
+        };
+    }
 
-        for (var i = 0; i < clauses.length; i++) {
-            var alts = clauses[i];
-
-            // Partition: negated thru/avoid alts vs everything else
-            var negatedThruAlts = alts.filter(function(a) { return a.negated && (a.qualifier === 'thru' || a.qualifier === 'avoid'); });
-            var otherAlts = alts.filter(function(a) { return !(a.negated && (a.qualifier === 'thru' || a.qualifier === 'avoid')); });
-
-            // Negated thru/avoid: exclude only if ALL are found (AND semantics)
-            if (negatedThruAlts.length > 0) {
-                var allThruFound = negatedThruAlts.every(function(a) { return thruCodes.has(a.term); });
-                if (allThruFound) return false;
-            }
-
-            // Process remaining alts with existing OR logic
-            var clausePassed = false;
-            for (var j = 0; j < otherAlts.length; j++) {
-                var alt = otherAlts[j];
-                var found = false;
-                if (alt.qualifier === 'orig') found = origCodes.has(alt.term);
-                else if (alt.qualifier === 'dest') found = destCodes.has(alt.term);
-                else if (alt.qualifier === 'thru' || alt.qualifier === 'avoid') found = thruCodes.has(alt.term);
-                else found = allCodes.has(alt.term) || textBlob.indexOf(alt.term) !== -1;
-                if (alt.negated) { if (found) return false; }
-                else { if (found) clausePassed = true; }
-            }
-            var hasPositiveAlt = otherAlts.some(function(a) { return !a.negated; });
-            if (hasPositiveAlt && !clausePassed) return false;
-        }
-        return true;
+    /**
+     * Evaluate a single route against search AST.
+     */
+    function routeMatchesSearch(route, ast) {
+        if (!ast) return true;
+        buildRouteSearchIndex(route);
+        return PlaybookFilterParser.evaluate(ast, route._searchIndex);
     }
 
     /**
@@ -425,12 +361,12 @@
      * Called when search changes while a play is selected.
      */
     function applyRouteEmphasis() {
-        var hasSearch = currentSearchClauses.length > 0;
+        var hasSearch = !!currentAST;
         $('.pb-route-table tbody tr').each(function() {
             var rid = parseInt($(this).attr('data-route-id'));
             var route = (activePlayData && activePlayData.routes || []).find(function(r) { return r.route_id === rid; });
             if (!route) return;
-            var matches = !hasSearch || routeMatchesSearchClauses(route, currentSearchClauses);
+            var matches = !hasSearch || routeMatchesSearch(route, currentAST);
             $(this).toggleClass('pb-route-dimmed', hasSearch && !matches);
             $(this).toggleClass('pb-route-emphasized', hasSearch && matches);
         });
@@ -452,7 +388,7 @@
         playTraversed: true,
     };
     // Cache last clauses so toggles can reapply without re-parsing
-    var lastHighlightClauses = [];
+    var lastHighlightAST = null;
 
     /**
      * Convert a facility code to ICAOCODE format used in artcc.json.
@@ -515,8 +451,8 @@
      * Included (positive) terms → green fill, excluded (negated) → red fill.
      * Respects highlightToggles for ARTCC, TRACON, and sector tiers.
      */
-    function updateMapHighlights(clauses) {
-        lastHighlightClauses = clauses;
+    function updateMapHighlights(ast) {
+        lastHighlightAST = ast;
         var map = window.graphic_map;
         if (!map || !map.getLayer || !map.getLayer('artcc-search-include')) return;
         var hasLineLayer = map.getLayer('artcc-search-include-line');
@@ -526,27 +462,22 @@
         var includeSectors = [], excludeSectors = [];   // Sector labels (e.g., "ZNY56")
         var hasFH = typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded;
 
-        clauses.forEach(function(alts) {
-            alts.forEach(function(alt) {
-                var info = classifySearchTerm(alt.term, hasFH);
-                var list;
+        var terms = ast ? PlaybookFilterParser.collectTerms(ast) : [];
+        terms.forEach(function(t) {
+            var info = classifySearchTerm(t.value, hasFH);
 
-                // ARTCC (parent or direct)
-                if (info.artccCode) {
-                    list = alt.negated ? excludeCodes : includeCodes;
-                    list.push(toIcaoCode(info.artccCode));
-                }
-                // TRACON
-                if (info.traconCode) {
-                    list = alt.negated ? excludeTracons : includeTracons;
-                    list.push(info.traconCode);
-                }
-                // Sector
-                if (info.sectorLabel) {
-                    list = alt.negated ? excludeSectors : includeSectors;
-                    list.push(info.sectorLabel);
-                }
-            });
+            // ARTCC (parent or direct)
+            if (info.artccCode) {
+                (t.negated ? excludeCodes : includeCodes).push(toIcaoCode(info.artccCode));
+            }
+            // TRACON
+            if (info.traconCode) {
+                (t.negated ? excludeTracons : includeTracons).push(info.traconCode);
+            }
+            // Sector
+            if (info.sectorLabel) {
+                (t.negated ? excludeSectors : includeSectors).push(info.sectorLabel);
+            }
         });
 
         // ARTCC filters
@@ -630,32 +561,38 @@
     // SEARCH FILTER BADGES — colored by DCC region
     // =========================================================================
 
-    function renderFilterBadges(clauses) {
+    function renderFilterBadges(ast) {
         var container = $('#pb_filter_badges');
-        if (!clauses.length) { container.empty(); return; }
+        if (!ast) { container.empty(); return; }
         var hasFH = typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded;
         var html = '';
 
-        clauses.forEach(function(alts) {
-            alts.forEach(function(alt) {
-                var prefix = '';
-                if (alt.qualifier === 'orig') prefix = 'ORIG: ';
-                else if (alt.qualifier === 'dest') prefix = 'DEST: ';
-                else if (alt.qualifier === 'avoid') prefix = 'AVOID: ';
-                else if (alt.qualifier === 'thru') prefix = 'THRU: ';
+        // For top-level OR, show groups separated by OR badges
+        var topGroups = (ast.type === 'OR' && !ast._unqualified) ? ast.children : [ast];
 
-                var label = (alt.negated ? '-' : '') + prefix + alt.term;
+        topGroups.forEach(function(group, gi) {
+            if (gi > 0) {
+                html += '<span class="pb-filter-badge pb-filter-badge-or">OR</span>';
+            }
+            var terms = PlaybookFilterParser.collectTerms(group);
+            terms.forEach(function(t) {
+                var qualPrefix = '';
+                if (t.qualifier === 'ORIG') qualPrefix = 'ORIG: ';
+                else if (t.qualifier === 'DEST') qualPrefix = 'DEST: ';
+                else if (t.qualifier === 'THRU') qualPrefix = 'THRU: ';
+
+                var label = (t.negated ? '-' : '') + qualPrefix + t.value;
 
                 // Badge FILL = DCC region bg color; BORDER = green (incl) or red (excl)
                 var bgStyle = '';
                 if (hasFH) {
-                    var regionBg = FacilityHierarchy.getRegionBgColor(alt.term);
-                    var regionColor = FacilityHierarchy.getRegionColor(alt.term);
+                    var regionBg = FacilityHierarchy.getRegionBgColor(t.value);
+                    var regionColor = FacilityHierarchy.getRegionColor(t.value);
                     // Sector codes (ZNY56, CZEGBA, CZQMCHARLO) → try parent ARTCC/FIR prefix
-                    if (!regionBg && alt.term.length > 3) {
-                        var prefix4 = alt.term.substring(0, 4);
-                        var prefix3 = alt.term.substring(0, 3);
-                        if (alt.term.length > 4) {
+                    if (!regionBg && t.value.length > 3) {
+                        var prefix4 = t.value.substring(0, 4);
+                        var prefix3 = t.value.substring(0, 3);
+                        if (t.value.length > 4) {
                             regionBg = FacilityHierarchy.getRegionBgColor(prefix4);
                             regionColor = FacilityHierarchy.getRegionColor(prefix4);
                         }
@@ -667,10 +604,10 @@
                     if (regionBg) bgStyle = 'background:' + regionBg + ';color:' + (regionColor || '#495057') + ';';
                 }
 
-                var borderColor = alt.negated ? '#dc3545' : '#28a745';
+                var borderColor = t.negated ? '#dc3545' : '#28a745';
                 var style = bgStyle + 'border-color:' + borderColor + ';';
 
-                var cls = 'pb-filter-badge' + (alt.negated ? ' pb-filter-badge-negated' : '');
+                var cls = 'pb-filter-badge' + (t.negated ? ' pb-filter-badge-negated' : '');
                 html += '<span class="' + cls + '" style="' + style + '">' + escHtml(label) + '</span>';
             });
         });
@@ -898,15 +835,15 @@
 
     function applyFilters() {
         currentPage = 1;
-        currentSearchClauses = parseSearch(searchText);
+        currentAST = parseSearch(searchText);
 
         filteredPlays = allPlays.filter(function(p) {
             // Category filter
             if (activeCategory && p.category !== activeCategory) return false;
             // Source filter
             if (activeSource && p.source !== activeSource) return false;
-            // Multi-token boolean search
-            if (currentSearchClauses.length && !matchesSearch(p, currentSearchClauses)) return false;
+            // Compound boolean search
+            if (currentAST && !matchesSearch(p, currentAST)) return false;
             return true;
         });
 
@@ -919,8 +856,8 @@
             $('#pb_stats').append(' <span style="opacity:0.6;">(' + t('playbook.legacyHidden', { count: categoryData.legacy_count }) + ')</span>');
         }
 
-        updateMapHighlights(currentSearchClauses);
-        renderFilterBadges(currentSearchClauses);
+        updateMapHighlights(currentAST);
+        renderFilterBadges(currentAST);
         renderPlayList();
 
         // Re-apply route emphasis if a play is currently selected
@@ -1280,7 +1217,7 @@
 
     function renderRouteTable(play, routes) {
         var html = '';
-        var hasSearch = currentSearchClauses.length > 0;
+        var hasSearch = !!currentAST;
         var hasGroups = routeGroups.length > 0;
 
         // Group toolbar container
@@ -1395,7 +1332,7 @@
                 if (cls.artccs.length && destArtcc === '-') destArtcc = cls.artccs.join(',');
             }
 
-            var searchMatch = !hasSearch || routeMatchesSearchClauses(r, currentSearchClauses);
+            var searchMatch = !hasSearch || routeMatchesSearch(r, currentAST);
             var rowClasses = [];
             if (hasSearch) rowClasses.push(searchMatch ? 'pb-route-emphasized' : 'pb-route-dimmed');
             var groupColor = getRouteGroupColor(r.route_id);
@@ -2376,7 +2313,7 @@
         // retained in the database for archival/historical reference but not used
         // for rendering — PostGIS calls are fast enough (~70ms/route) and the
         // symbology pipeline provides significantly better UX.
-        var hasSearch = currentSearchClauses.length > 0;
+        var hasSearch = !!currentAST;
         var hasGroups = routeGroups.length > 0;
         var text;
         var lineRouteMap = []; // Parallel array: line index -> route object (for filter injection)
@@ -2392,7 +2329,7 @@
                 parts.push(r.route_string);
                 if (r.dest) parts.push(r.dest);
                 var routeStr = parts.join(' ');
-                if (routeMatchesSearchClauses(r, currentSearchClauses)) {
+                if (routeMatchesSearch(r, currentAST)) {
                     matching.push(routeStr + ';#C70039');
                     matchingIds.push(r.route_id);
                     matchingRoutes.push(r);
@@ -4703,6 +4640,11 @@
             }, 500);
         })();
 
+        // Load FIR tier data for FIR: qualifier support (async, fire-and-forget)
+        if (typeof PlaybookFilterParser !== 'undefined') {
+            PlaybookFilterParser.loadFIRTiers();
+        }
+
         // Make overlays draggable via jQuery UI
         if ($.fn.draggable) {
             $('#pb_catalog_overlay').draggable({
@@ -5003,7 +4945,7 @@
                         updatePlayHighlights(activePlayData, activePlayData.routes || []);
                     }
                 } else {
-                    updateMapHighlights(lastHighlightClauses);
+                    updateMapHighlights(lastHighlightAST);
                 }
             }
         });
