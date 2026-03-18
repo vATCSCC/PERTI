@@ -3576,43 +3576,33 @@ $(document).ready(function() {
             ]);
 
             // Store in labelOffsets using uniqueKey
-            // This only affects the LABEL position, not the point
             labelOffsets[draggingLabel.uniqueKey] = {
                 lng: newPos.lng,
                 lat: newPos.lat,
                 color: draggingLabel.color,
-                // Store original point coords for leader line
                 origLng: draggingLabel.originalPointCoords[0],
                 origLat: draggingLabel.originalPointCoords[1],
             };
 
-            // Update display immediately (only labels and leader lines will move)
-            updateRouteLabelDisplay();
+            // Fast path: only update the moved label + leader sources (skip full rebuild)
+            updateDraggedLabelOnly(draggingLabel, newPos.lng, newPos.lat);
 
             // Update drag start for continuous dragging
             dragStartPos = { x: e.point.x, y: e.point.y };
             draggingLabel.currentLabelCoords = [newPos.lng, newPos.lat];
         });
 
-        graphic_map.on('mouseup', () => {
-            if (draggingLabel) {
-                console.log('[MAPLIBRE] Label moved:', draggingLabel.name, '(point stays at original position)');
-                graphic_map.getCanvas().style.cursor = '';
-                graphic_map.dragPan.enable();  // Re-enable map panning
-                draggingLabel = null;
-                dragStartPos = null;
-            }
-        });
-
-        // Also handle mouseup outside map (in case drag ends off-canvas)
-        document.addEventListener('mouseup', () => {
-            if (draggingLabel) {
-                graphic_map.getCanvas().style.cursor = '';
-                graphic_map.dragPan.enable();
-                draggingLabel = null;
-                dragStartPos = null;
-            }
-        });
+        function finishDrag() {
+            if (!draggingLabel) {return;}
+            graphic_map.getCanvas().style.cursor = '';
+            graphic_map.dragPan.enable();
+            draggingLabel = null;
+            dragStartPos = null;
+            // Full rebuild to sync all sources (unmoved label removed, etc.)
+            updateRouteLabelDisplay();
+        }
+        graphic_map.on('mouseup', finishDrag);
+        document.addEventListener('mouseup', finishDrag);
 
         // Change cursor on label hover (both unmoved and moved layers)
         function handleLabelMouseEnter() {
@@ -3781,13 +3771,58 @@ $(document).ready(function() {
         return [edgeLatLng.lng, edgeLatLng.lat];
     }
 
-    function updateRouteLabelDisplay() {
-        console.log('[DEBUG-LABELS] updateRouteLabelDisplay() called');
-        if (!graphic_map) {
-            console.warn('[DEBUG-LABELS] graphic_map is null, aborting');
-            return;
+    // Fast path during active drag — only update the moved labels + leader lines sources.
+    // Avoids rebuilding all fix features and updating 5 sources every mousemove frame.
+    function updateDraggedLabelOnly(label, lng, lat) {
+        if (!graphic_map) {return;}
+
+        // Build moved label features from current labelOffsets
+        const movedFeatures = [];
+        const leaderFeatures = [];
+
+        for (const [key, offset] of Object.entries(labelOffsets)) {
+            movedFeatures.push({
+                type: 'Feature',
+                properties: {
+                    name: key.split('|')[0],
+                    color: offset.color,
+                    uniqueKey: key,
+                    origLon: offset.origLng,
+                    origLat: offset.origLat,
+                    hasMoved: true,
+                },
+                geometry: { type: 'Point', coordinates: [offset.lng, offset.lat] },
+            });
+
+            const leaderStart = getLeaderLineStart(
+                offset.lng, offset.lat,
+                offset.origLng, offset.origLat,
+                key.split('|')[0].length,
+            );
+            leaderFeatures.push({
+                type: 'Feature',
+                properties: { color: offset.color, name: key.split('|')[0] },
+                geometry: {
+                    type: 'LineString',
+                    coordinates: [leaderStart, [offset.origLng, offset.origLat]],
+                },
+            });
         }
-        console.log('[DEBUG-LABELS] routeLabelsVisible:', Array.from(routeLabelsVisible));
+
+        if (graphic_map.getSource('route-fix-labels-moved')) {
+            graphic_map.getSource('route-fix-labels-moved').setData({
+                type: 'FeatureCollection', features: movedFeatures,
+            });
+        }
+        if (graphic_map.getSource('route-fix-leaders')) {
+            graphic_map.getSource('route-fix-leaders').setData({
+                type: 'FeatureCollection', features: leaderFeatures,
+            });
+        }
+    }
+
+    function updateRouteLabelDisplay() {
+        if (!graphic_map) {return;}
 
         // Build features for visible route fixes with deduplication
         const uniqueFixes = new Map();
