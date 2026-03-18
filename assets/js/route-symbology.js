@@ -29,6 +29,18 @@
             opacity: 0.8,
             dashArray: [1, 3],
         },
+        // Endpoint icons (origin/dest/filter markers)
+        endpoints: {
+            visible: true,
+            iconSize: 0.75,    // base icon-size at zoom 8
+            haloWidth: 1,
+            haloColor: '#000000',
+            labelsVisible: true,
+            labelSize: 10,
+            labelColor: null,  // null = use route color
+            labelHaloWidth: 2,
+            labelHaloColor: '#000000',
+        },
         // Fix/waypoint symbology
         fixes: {
             visible: true,
@@ -324,6 +336,46 @@
             }
         }
 
+        // Apply to endpoint layers (origin/dest/filter icons)
+        const endpoints = currentSymbology.endpoints || DEFAULT_SYMBOLOGY.endpoints;
+        if (map.getLayer('route-endpoints-symbols')) {
+            map.setLayoutProperty('route-endpoints-symbols', 'visibility', endpoints.visible !== false ? 'visible' : 'none');
+            const baseSize = endpoints.iconSize || 0.75;
+            map.setLayoutProperty('route-endpoints-symbols', 'icon-size', [
+                'interpolate', ['linear'], ['zoom'],
+                4, baseSize * 0.67,
+                8, baseSize,
+                12, baseSize * 1.2,
+            ]);
+            map.setPaintProperty('route-endpoints-symbols', 'icon-halo-width', endpoints.haloWidth ?? 1);
+            map.setPaintProperty('route-endpoints-symbols', 'icon-halo-color', endpoints.haloColor || '#000000');
+            if (global.color) {
+                map.setPaintProperty('route-endpoints-symbols', 'icon-color', global.color);
+            } else {
+                map.setPaintProperty('route-endpoints-symbols', 'icon-color', ['get', 'color']);
+            }
+        }
+        if (map.getLayer('route-endpoints-labels')) {
+            const epLabelsVisible = (endpoints.visible !== false) && (endpoints.labelsVisible !== false);
+            map.setLayoutProperty('route-endpoints-labels', 'visibility', epLabelsVisible ? 'visible' : 'none');
+            const baseLabelSize = endpoints.labelSize || 10;
+            map.setLayoutProperty('route-endpoints-labels', 'text-size', [
+                'interpolate', ['linear'], ['zoom'],
+                5, baseLabelSize * 0.9,
+                8, baseLabelSize,
+                12, baseLabelSize * 1.1,
+            ]);
+            if (global.color) {
+                map.setPaintProperty('route-endpoints-labels', 'text-color', global.color);
+            } else if (endpoints.labelColor) {
+                map.setPaintProperty('route-endpoints-labels', 'text-color', endpoints.labelColor);
+            } else {
+                map.setPaintProperty('route-endpoints-labels', 'text-color', ['get', 'color']);
+            }
+            map.setPaintProperty('route-endpoints-labels', 'text-halo-width', endpoints.labelHaloWidth ?? 2);
+            map.setPaintProperty('route-endpoints-labels', 'text-halo-color', endpoints.labelHaloColor || '#000000');
+        }
+
         // Apply to fix/waypoint layers
         const fixes = currentSymbology.fixes || DEFAULT_SYMBOLOGY.fixes;
 
@@ -603,6 +655,59 @@
             setTypeDefaults('fixes', { labelHaloColor: $(this).val() });
         });
 
+        // Endpoint symbology controls
+        $panel.on('change', '#symb-endpoints-visible', function() {
+            setTypeDefaults('endpoints', { visible: $(this).prop('checked') });
+        });
+
+        $panel.on('change', '#symb-endpoints-labels-visible', function() {
+            setTypeDefaults('endpoints', { labelsVisible: $(this).prop('checked') });
+        });
+
+        $panel.on('input change', '#symb-endpoints-icon-size', function() {
+            const val = parseFloat($(this).val());
+            $('#symb-endpoints-icon-size-val').text(val.toFixed(2));
+            setTypeDefaults('endpoints', { iconSize: val });
+        });
+
+        $panel.on('input change', '#symb-endpoints-halo-width', function() {
+            const val = parseFloat($(this).val());
+            $('#symb-endpoints-halo-width-val').text(val.toFixed(1));
+            setTypeDefaults('endpoints', { haloWidth: val });
+        });
+
+        $panel.on('change', '#symb-endpoints-halo-color', function() {
+            setTypeDefaults('endpoints', { haloColor: $(this).val() });
+        });
+
+        $panel.on('input change', '#symb-endpoints-label-size', function() {
+            const val = parseFloat($(this).val());
+            $('#symb-endpoints-label-size-val').text(val.toFixed(0));
+            setTypeDefaults('endpoints', { labelSize: val });
+        });
+
+        $panel.on('change', '#symb-endpoints-label-color-enable', function() {
+            const useCustom = $(this).prop('checked');
+            const colorVal = $('#symb-endpoints-label-color').val();
+            $('#symb-endpoints-label-color').prop('disabled', !useCustom);
+            setTypeDefaults('endpoints', { labelColor: useCustom ? colorVal : null });
+        });
+
+        $panel.on('change', '#symb-endpoints-label-color', function() {
+            const useCustom = $('#symb-endpoints-label-color-enable').prop('checked');
+            setTypeDefaults('endpoints', { labelColor: useCustom ? $(this).val() : null });
+        });
+
+        $panel.on('input change', '#symb-endpoints-label-halo-width', function() {
+            const val = parseFloat($(this).val());
+            $('#symb-endpoints-label-halo-width-val').text(val.toFixed(1));
+            setTypeDefaults('endpoints', { labelHaloWidth: val });
+        });
+
+        $panel.on('change', '#symb-endpoints-label-halo-color', function() {
+            setTypeDefaults('endpoints', { labelHaloColor: $(this).val() });
+        });
+
         // Show/Hide All Fixes button
         $panel.on('click', '#symb-toggle-all-fixes', function() {
             const fixes = currentSymbology.fixes || {};
@@ -702,6 +807,30 @@
                 ? '<i class="fas fa-eye-slash"></i> ' + PERTII18n.t('route.hideAll')
                 : '<i class="fas fa-eye"></i> ' + PERTII18n.t('route.showAll'),
         );
+
+        // Endpoint symbology
+        const ep = currentSymbology.endpoints || DEFAULT_SYMBOLOGY.endpoints;
+        $('#symb-endpoints-visible').prop('checked', ep.visible !== false);
+        $('#symb-endpoints-labels-visible').prop('checked', ep.labelsVisible !== false);
+
+        $('#symb-endpoints-icon-size').val(ep.iconSize || 0.75);
+        $('#symb-endpoints-icon-size-val').text((ep.iconSize || 0.75).toFixed(2));
+
+        $('#symb-endpoints-halo-width').val(ep.haloWidth ?? 1);
+        $('#symb-endpoints-halo-width-val').text((ep.haloWidth ?? 1).toFixed(1));
+        $('#symb-endpoints-halo-color').val(ep.haloColor || '#000000');
+
+        $('#symb-endpoints-label-size').val(ep.labelSize || 10);
+        $('#symb-endpoints-label-size-val').text((ep.labelSize || 10).toFixed(0));
+
+        const hasEpLabelColor = ep.labelColor != null;
+        $('#symb-endpoints-label-color-enable').prop('checked', hasEpLabelColor);
+        $('#symb-endpoints-label-color').prop('disabled', !hasEpLabelColor);
+        if (ep.labelColor) { $('#symb-endpoints-label-color').val(ep.labelColor); }
+
+        $('#symb-endpoints-label-halo-width').val(ep.labelHaloWidth ?? 2);
+        $('#symb-endpoints-label-halo-width-val').text((ep.labelHaloWidth ?? 2).toFixed(1));
+        $('#symb-endpoints-label-halo-color').val(ep.labelHaloColor || '#000000');
     }
 
     /**

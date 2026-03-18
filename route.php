@@ -2172,6 +2172,72 @@ ROUTE2</pre>
                                     </div>
                                 </div>
 
+                                <!-- Endpoint Icons Section -->
+                                <div class="symb-section" data-type="endpoints">
+                                    <div class="symb-section-header">
+                                        <span class="symb-section-title"><?= __('route.page.endpointIcons') ?></span>
+                                        <div class="symb-section-preview">
+                                            <i class="fas fa-plane" style="color: #6c757d; font-size: 0.8rem;"></i>
+                                            <i class="fas fa-chevron-down" style="font-size: 0.6rem; color: #6c757d;"></i>
+                                        </div>
+                                    </div>
+                                    <div class="symb-section-body">
+                                        <!-- Visibility toggles -->
+                                        <div class="custom-control custom-switch mb-2">
+                                            <input type="checkbox" class="custom-control-input" id="symb-endpoints-visible" checked>
+                                            <label class="custom-control-label small" for="symb-endpoints-visible"><?= __('route.page.showEndpoints') ?></label>
+                                        </div>
+                                        <div class="custom-control custom-switch mb-2">
+                                            <input type="checkbox" class="custom-control-input" id="symb-endpoints-labels-visible" checked>
+                                            <label class="custom-control-label small" for="symb-endpoints-labels-visible"><?= __('route.page.showLabels') ?></label>
+                                        </div>
+
+                                        <!-- Icon settings -->
+                                        <p class="small text-muted mb-1 mt-2" style="font-weight: 600;"><?= __('route.page.icons') ?></p>
+                                        <div class="symb-row">
+                                            <span class="symb-label"><?= __('route.page.size') ?></span>
+                                            <div class="symb-control">
+                                                <input type="range" id="symb-endpoints-icon-size" min="0.25" max="2.0" step="0.05" value="0.75">
+                                                <span class="symb-value" id="symb-endpoints-icon-size-val">0.75</span>
+                                            </div>
+                                        </div>
+                                        <div class="symb-row">
+                                            <span class="symb-label"><?= __('route.page.halo') ?></span>
+                                            <div class="symb-control">
+                                                <input type="range" id="symb-endpoints-halo-width" min="0" max="5" step="0.5" value="1">
+                                                <span class="symb-value" id="symb-endpoints-halo-width-val">1.0</span>
+                                                <input type="color" id="symb-endpoints-halo-color" value="#000000" style="width: 28px; height: 20px; padding: 0; border: 1px solid #ced4da; border-radius: 3px;">
+                                            </div>
+                                        </div>
+
+                                        <!-- Label settings -->
+                                        <p class="small text-muted mb-1 mt-2" style="font-weight: 600;"><?= __('route.page.labelsSection') ?></p>
+                                        <div class="symb-row">
+                                            <span class="symb-label"><?= __('route.page.size') ?></span>
+                                            <div class="symb-control">
+                                                <input type="range" id="symb-endpoints-label-size" min="6" max="16" step="1" value="10">
+                                                <span class="symb-value" id="symb-endpoints-label-size-val">10</span>
+                                            </div>
+                                        </div>
+                                        <div class="symb-row">
+                                            <span class="symb-label"><?= __('route.page.color') ?></span>
+                                            <div class="symb-control">
+                                                <input type="checkbox" id="symb-endpoints-label-color-enable" title="Override route color">
+                                                <input type="color" id="symb-endpoints-label-color" value="#C70039" disabled>
+                                                <span class="small text-muted"><?= __('route.page.override') ?></span>
+                                            </div>
+                                        </div>
+                                        <div class="symb-row">
+                                            <span class="symb-label"><?= __('route.page.halo') ?></span>
+                                            <div class="symb-control">
+                                                <input type="range" id="symb-endpoints-label-halo-width" min="0" max="5" step="0.5" value="2">
+                                                <span class="symb-value" id="symb-endpoints-label-halo-width-val">2.0</span>
+                                                <input type="color" id="symb-endpoints-label-halo-color" value="#000000" style="width: 28px; height: 20px; padding: 0; border: 1px solid #ced4da; border-radius: 3px;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <!-- Global Overrides Section -->
                                 <div class="symb-section" data-type="global">
                                     <div class="symb-section-header">

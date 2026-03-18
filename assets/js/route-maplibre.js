@@ -2156,6 +2156,8 @@ $(document).ready(function() {
                 ],
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
+                // Disambiguation: filter icons on top (1), then origin (2), then dest (3)
+                'symbol-sort-key': ['get', 'priority'],
             },
             paint: {
                 'icon-color': ['get', 'color'],
@@ -2990,6 +2992,7 @@ $(document).ready(function() {
                             name: pt[0], color: routeColor,
                             isOrigin: true, isDest: false,
                             facilityType: detectFacilityType(pt[0]),
+                            priority: 2,
                         },
                         geometry: { type: 'Point', coordinates: [pt[2], pt[1]] },
                     });
@@ -3008,6 +3011,7 @@ $(document).ready(function() {
                             name: pt[0], color: routeColor,
                             isOrigin: false, isDest: true,
                             facilityType: detectFacilityType(pt[0]),
+                            priority: 3,
                         },
                         geometry: { type: 'Point', coordinates: [pt[2], pt[1]] },
                     });
@@ -3024,6 +3028,7 @@ $(document).ready(function() {
                                 name: pt[0], color: routeColor,
                                 isOrigin: true, isDest: false,
                                 facilityType: detectFacilityType(pt[0]),
+                                priority: 2,
                             },
                             geometry: { type: 'Point', coordinates: [pt[2], pt[1]] },
                         });
@@ -3065,6 +3070,7 @@ $(document).ready(function() {
                                 isDest: false,
                                 isFiltered: true,
                                 facilityType: detectFacilityType(f.code),
+                                priority: 1,
                             },
                             geometry: { type: 'Point', coordinates: [filterPt[2], filterPt[1]] },
                         });
