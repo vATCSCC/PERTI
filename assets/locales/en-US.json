@@ -3837,10 +3837,10 @@
     "scenarioVolume": "Volume",
     "scenarioWeather": "Weather",
     "searchHelp": {
-      "body": "<table class='table table-sm table-bordered mb-0' style='font-size:0.8rem;'><thead><tr><th>Syntax</th><th>Example</th><th>Meaning</th></tr></thead><tbody><tr><td><code>orig:</code></td><td><code>orig:ZNY</code></td><td>Origin ARTCC/TRACON/airport</td></tr><tr><td><code>dest:</code></td><td><code>dest:KATL</code></td><td>Destination ARTCC/TRACON/airport</td></tr><tr><td><code>thru:</code></td><td><code>thru:ZOB</code></td><td>Traverses ARTCC</td></tr><tr><td><code>avoid:</code></td><td><code>avoid:ZKC</code></td><td>Excludes routes traversing facility</td></tr><tr><td><code>-</code> (NOT)</td><td><code>-thru:ZKC</code></td><td>Excludes routes traversing ZKC</td></tr><tr><td>space (AND)</td><td><code>orig:ZNY dest:ZTL</code></td><td>Both conditions must match</td></tr><tr><td><code>,</code> (OR)</td><td><code>orig:ZNY,ZDC</code></td><td>Either origin matches</td></tr><tr><td>text</td><td><code>BUM</code></td><td>Name or route contains text</td></tr></tbody></table><p class='mt-2 mb-0' style='font-size:0.75rem;'><strong>Features:</strong> Auto-group by origin/dest/ARTCC/TRACON/DCC region &bull; Route grouping with colors &bull; FIR: pattern expansion (e.g. FIR:KZO. &rarr; ZOA, ZOB) &bull; Bulk paste &amp; advisory parser &bull; Map plot with group colors</p>",
+      "body": "<table class='table table-sm table-bordered mb-0' style='font-size:0.8rem;'><thead><tr><th>Syntax</th><th>Example</th><th>Meaning</th></tr></thead><tbody><tr><th colspan='3' style='background:#f8f9fa;'>Qualifiers</th></tr><tr><td><code>THRU:</code></td><td><code>THRU:ZDC</code></td><td>Traverses ARTCC/sector</td></tr><tr><td><code>ORIG:</code></td><td><code>ORIG:ZNY</code></td><td>Origin ARTCC/TRACON/airport</td></tr><tr><td><code>DEST:</code></td><td><code>DEST:KATL</code></td><td>Destination ARTCC/TRACON/airport</td></tr><tr><td><code>FIR:</code></td><td><code>FIR:KZO.</code></td><td>FIR tier/pattern &rarr; expands to THRU terms</td></tr><tr><td><code>AVOID:</code></td><td><code>AVOID:ZKC</code></td><td>Exclude routes through facility (= -THRU:)</td></tr><tr><th colspan='3' style='background:#f8f9fa;'>Operators</th></tr><tr><td><code>&amp;</code> or <code>AND</code></td><td><code>ORIG:ZNY &amp; DEST:ZTL</code></td><td>Both conditions must match</td></tr><tr><td><code>|</code> or <code>OR</code></td><td><code>ORIG:ZNY | ORIG:ZDC</code></td><td>Either condition matches</td></tr><tr><td><code>-</code> or <code>NOT</code></td><td><code>-THRU:ZKC</code></td><td>Negate a condition</td></tr><tr><td><code>( )</code></td><td><code>(ORIG:ZNY | ORIG:ZDC) &amp; DEST:ZTL</code></td><td>Group expressions</td></tr><tr><th colspan='3' style='background:#f8f9fa;'>Comma Semantics</th></tr><tr><td>THRU/FIR/AVOID</td><td><code>THRU:ZDC,ZOB</code></td><td>AND &mdash; through both</td></tr><tr><td>ORIG/DEST</td><td><code>ORIG:ZNY,ZDC</code></td><td>OR &mdash; either origin</td></tr><tr><th colspan='3' style='background:#f8f9fa;'>Implicit Spacing</th></tr><tr><td>Same qualifier</td><td><code>ORIG:ZNY ORIG:ZDC</code></td><td>OR (either origin)</td></tr><tr><td>Different qualifier</td><td><code>ORIG:ZNY DEST:ZTL</code></td><td>AND (both match)</td></tr><tr><td>Unqualified</td><td><code>ZNY</code></td><td>Matches THRU/ORIG/DEST or name/route text</td></tr></tbody></table>",
       "title": "Search Syntax"
     },
-    "searchPlaceholder": "Search... (orig: dest: thru: avoid: | OR: , AND: space NOT: -)",
+    "searchPlaceholder": "Search... (THRU: ORIG: DEST: FIR: AVOID: & | () -)",
     "selectAPlay": "Select a play to view routes",
     "selectAll": "Select All / Deselect",
     "selectBy": "Select by:",
@@ -4018,6 +4018,19 @@
       "excludeUser": "Exclude this user",
       "exclude": "Exclude",
       "noUsersToAdd": "No new users to add"
+    },
+    "builder": {
+      "title": "Query Builder",
+      "toggle": "Toggle query builder",
+      "groupLabel": "Group {n}",
+      "groupHint": "all conditions must match",
+      "addCondition": "+ Condition",
+      "addGroup": "+ OR Group",
+      "previewLabel": "Expression Preview",
+      "previewClickHint": "Click to edit expression text",
+      "warningParseError": "Could not parse expression — edit text directly",
+      "emptyGroup": "No conditions yet",
+      "removeChip": "Remove"
     }
   },
   "privacy": {

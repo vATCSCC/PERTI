@@ -223,6 +223,18 @@
     border-color: #dc3545;
 }
 
+.pb-filter-badge-or {
+    border-color: #e65100;
+    background: #fff3e0;
+    color: #e65100;
+    font-weight: 700;
+}
+
+.pb-search-error {
+    border-color: #dc3545 !important;
+    box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, 0.25) !important;
+}
+
 /* ── Category Pills ──────────────────────────────────────────────── */
 .pb-pills {
     display: flex;
@@ -1875,6 +1887,204 @@
 
 #pb_detail_section.pb-collapsed {
     display: none !important;
+}
+
+/* ── Query Builder Overlay ────────────────────────────────────────── */
+.pb-builder-overlay {
+    position: absolute;
+    top: 72px;
+    left: 344px;
+    width: 300px;
+    max-height: calc(100% - 84px);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.pb-builder-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.pb-builder-group {
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 6px;
+    margin-bottom: 6px;
+    background: #fafafa;
+}
+
+.pb-builder-group-label {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.pb-builder-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.pb-builder-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 2px solid #28a745;
+    background: #f8f9fa;
+    color: #495057;
+    white-space: nowrap;
+}
+
+.pb-builder-chip-negated {
+    border-color: #dc3545;
+    text-decoration: line-through;
+}
+
+.pb-builder-chip-remove {
+    cursor: pointer;
+    color: #aaa;
+    font-size: 0.7rem;
+    margin-left: 2px;
+}
+.pb-builder-chip-remove:hover { color: #dc3545; }
+
+.pb-builder-or-divider {
+    text-align: center;
+    margin: 4px 0;
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #e65100;
+}
+
+.pb-builder-subgroup {
+    border: 2px dashed #90caf9;
+    border-radius: 4px;
+    padding: 3px 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: #fff;
+}
+
+.pb-builder-add {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: #239BCD;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 2px 4px;
+}
+.pb-builder-add:hover { text-decoration: underline; }
+
+.pb-builder-add-group {
+    text-align: center;
+    padding: 6px;
+    border: 1px dashed #ccc;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 4px;
+}
+.pb-builder-add-group:hover { border-color: #239BCD; }
+
+.pb-builder-preview {
+    margin-top: 8px;
+    padding: 4px 6px;
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.6rem;
+    color: #495057;
+    word-break: break-all;
+    cursor: pointer;
+}
+
+.pb-builder-preview-label {
+    font-size: 0.55rem;
+    color: #999;
+    margin-bottom: 1px;
+    text-transform: uppercase;
+}
+
+.pb-builder-warning {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    padding: 4px 6px;
+    margin-bottom: 6px;
+    font-size: 0.62rem;
+    color: #856404;
+}
+
+.pb-builder-toggle-btn {
+    padding: 2px 4px;
+    font-size: 0.8rem;
+    color: #999;
+}
+.pb-builder-toggle-btn:hover { color: #239BCD; }
+.pb-builder-toggle-btn.active { color: #239BCD; }
+
+.pb-builder-minimized .pb-builder-content {
+    display: none;
+}
+
+.pb-builder-add-form {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.pb-builder-add-form select,
+.pb-builder-add-form input {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.62rem;
+    padding: 1px 4px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    height: 22px;
+}
+
+.pb-builder-add-form input {
+    flex: 1;
+    min-width: 60px;
+}
+
+.pb-builder-empty {
+    text-align: center;
+    font-size: 0.62rem;
+    color: #aaa;
+    padding: 12px 6px;
+    font-style: italic;
+}
+
+@media (max-width: 767px) {
+    .pb-builder-overlay {
+        position: relative;
+        left: auto;
+        top: auto;
+        width: 100%;
+        max-height: none;
+        margin-top: 8px;
+    }
 }
 
 /* ── Cursor pointer utility ───────────────────────────────────────── */
