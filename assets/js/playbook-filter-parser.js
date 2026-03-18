@@ -242,13 +242,14 @@
             if (tok.type === T.TERM) {
                 var termTok = advance();
                 var resolved = resolveAlias(termTok.value);
-                // Unqualified term → match THRU | ORIG | DEST
+                // Unqualified term → match THRU | ORIG | DEST | text search
                 return {
                     type: 'OR',
                     children: [
                         { type: 'TERM', qualifier: 'THRU', value: resolved },
                         { type: 'TERM', qualifier: 'ORIG', value: resolved },
-                        { type: 'TERM', qualifier: 'DEST', value: resolved }
+                        { type: 'TERM', qualifier: 'DEST', value: resolved },
+                        { type: 'TERM', qualifier: null, value: resolved }
                     ],
                     _unqualified: true,
                     _rawValue: resolved
@@ -309,7 +310,8 @@
 
             if (isMultiValued) {
                 // THRU:X,Y = AND (traverse both)
-                return { type: 'AND', children: terms };
+                // Mark as comma-generated so rewriteImplicitMode doesn't convert to OR
+                return { type: 'AND', children: terms, _fromComma: true };
             } else {
                 // ORIG:X,Y = OR (any origin)
                 return { type: 'OR', children: terms };
@@ -376,6 +378,9 @@
         if (node.type === 'AND' && node.children) {
             // Recursively rewrite children first
             node.children = node.children.map(rewriteImplicitMode);
+
+            // Comma-generated AND nodes (e.g. THRU:X,Y) must stay AND
+            if (node._fromComma) return node;
 
             // Group children by qualifier
             var groups = {};
@@ -445,12 +450,12 @@
      */
     function mergeNode(type, left, right) {
         var children = [];
-        if (left.type === type && left.children) {
+        if (left.type === type && left.children && !left._fromComma) {
             children = children.concat(left.children);
         } else {
             children.push(left);
         }
-        if (right.type === type && right.children) {
+        if (right.type === type && right.children && !right._fromComma) {
             children = children.concat(right.children);
         } else {
             children.push(right);
@@ -559,6 +564,8 @@
     function serializeNode(node, parentType) {
         switch (node.type) {
             case 'OR': {
+                // Unqualified terms serialize back to just the raw value
+                if (node._unqualified && node._rawValue) return node._rawValue;
                 var parts = node.children.map(function(c) { return serializeNode(c, 'OR'); });
                 var joined = parts.join(' | ');
                 // Wrap in parens if nested inside AND
@@ -602,6 +609,8 @@
             case 'NOT':
                 return collectTerms(node.child, !negated);
             case 'TERM':
+                // Skip null-qualifier text-match nodes (internal to unqualified expansion)
+                if (node.qualifier === null) return [];
                 return [{ qualifier: node.qualifier, value: node.value, negated: negated }];
             default:
                 return [];
