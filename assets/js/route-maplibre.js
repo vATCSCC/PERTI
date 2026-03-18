@@ -2150,10 +2150,9 @@ $(document).ready(function() {
                 ],
                 'icon-size': [
                     'interpolate', ['linear'], ['zoom'],
-                    4, 0.7,
-                    6, 0.85,
-                    8, 1.0,
-                    12, 1.2,
+                    4, 0.5,
+                    8, 0.75,
+                    12, 0.9,
                 ],
                 'icon-allow-overlap': true,
                 'icon-ignore-placement': true,
@@ -2161,7 +2160,7 @@ $(document).ready(function() {
             paint: {
                 'icon-color': ['get', 'color'],
                 'icon-halo-color': '#000000',
-                'icon-halo-width': 1.5,
+                'icon-halo-width': 1,
             },
             minzoom: 4,
         });
@@ -2973,42 +2972,60 @@ $(document).ready(function() {
                 }
             }
 
-            // Add origin/destination endpoint icons (skip UNKN pseudo-fix in mid-Atlantic)
-            if (nPoints >= 1) {
-                // Origin (first point)
-                const origin = routePoints[0];
-                const originKey = `${origin[0]}|${origin[1].toFixed(4)}|${origin[2].toFixed(4)}|origin`;
-                if (!seenEndpoints.has(originKey) && String(origin[0]).toUpperCase() !== 'UNKN') {
-                    seenEndpoints.add(originKey);
+            // Add origin/destination endpoint icons for ALL fan origins/destinations
+            // For multi-origin (e.g. KEWR KMMU KCDW KTEB >ELVAE...), all airports
+            // before firstNavIndex get origin icons. For non-airport origins like
+            // ZNY >WHITE..., the first point still gets an origin icon.
+            if (nPoints >= 2) {
+                const originEnd = hasNonAirport ? Math.max(1, firstNavIndex) : 1;
+                for (let oi = 0; oi < originEnd; oi++) {
+                    const pt = routePoints[oi];
+                    if (String(pt[0]).toUpperCase() === 'UNKN') continue;
+                    const key = `${pt[0]}|${pt[1].toFixed(4)}|${pt[2].toFixed(4)}|origin`;
+                    if (seenEndpoints.has(key)) continue;
+                    seenEndpoints.add(key);
                     endpointFeatures.push({
                         type: 'Feature',
                         properties: {
-                            name: origin[0],
-                            color: routeColor,
-                            isOrigin: true,
-                            isDest: false,
-                            facilityType: detectFacilityType(origin[0]),
+                            name: pt[0], color: routeColor,
+                            isOrigin: true, isDest: false,
+                            facilityType: detectFacilityType(pt[0]),
                         },
-                        geometry: { type: 'Point', coordinates: [origin[2], origin[1]] },
+                        geometry: { type: 'Point', coordinates: [pt[2], pt[1]] },
                     });
                 }
 
-                // Destination (last point, if different from origin)
-                if (nPoints >= 2) {
-                    const dest = routePoints[nPoints - 1];
-                    const destKey = `${dest[0]}|${dest[1].toFixed(4)}|${dest[2].toFixed(4)}|dest`;
-                    if (!seenEndpoints.has(destKey) && String(dest[0]).toUpperCase() !== 'UNKN') {
-                        seenEndpoints.add(destKey);
+                const destStart = hasNonAirport ? Math.min(nPoints - 1, lastNavIndex + 1) : nPoints - 1;
+                for (let di = destStart; di < nPoints; di++) {
+                    const pt = routePoints[di];
+                    if (String(pt[0]).toUpperCase() === 'UNKN') continue;
+                    const key = `${pt[0]}|${pt[1].toFixed(4)}|${pt[2].toFixed(4)}|dest`;
+                    if (seenEndpoints.has(key)) continue;
+                    seenEndpoints.add(key);
+                    endpointFeatures.push({
+                        type: 'Feature',
+                        properties: {
+                            name: pt[0], color: routeColor,
+                            isOrigin: false, isDest: true,
+                            facilityType: detectFacilityType(pt[0]),
+                        },
+                        geometry: { type: 'Point', coordinates: [pt[2], pt[1]] },
+                    });
+                }
+            } else if (nPoints === 1) {
+                const pt = routePoints[0];
+                if (String(pt[0]).toUpperCase() !== 'UNKN') {
+                    const key = `${pt[0]}|${pt[1].toFixed(4)}|${pt[2].toFixed(4)}|origin`;
+                    if (!seenEndpoints.has(key)) {
+                        seenEndpoints.add(key);
                         endpointFeatures.push({
                             type: 'Feature',
                             properties: {
-                                name: dest[0],
-                                color: routeColor,
-                                isOrigin: false,
-                                isDest: true,
-                                facilityType: detectFacilityType(dest[0]),
+                                name: pt[0], color: routeColor,
+                                isOrigin: true, isDest: false,
+                                facilityType: detectFacilityType(pt[0]),
                             },
-                            geometry: { type: 'Point', coordinates: [dest[2], dest[1]] },
+                            geometry: { type: 'Point', coordinates: [pt[2], pt[1]] },
                         });
                     }
                 }
