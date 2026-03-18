@@ -144,6 +144,19 @@
     }
 
     /**
+     * Build a filter group string from a DB filter field (e.g. "-KDFW -KAFW" -> "(-KDFW -KAFW)").
+     * Returns empty string if no valid filters. Normalizes codes without '-' prefix.
+     */
+    function buildFilterGroup(filterStr) {
+        if (!filterStr) return '';
+        var filters = filterStr.trim().split(/\s+/).filter(Boolean);
+        if (!filters.length) return '';
+        return '(' + filters.map(function(f) {
+            return f.charAt(0) === '-' ? f : '-' + f;
+        }).join(' ') + ')';
+    }
+
+    /**
      * Build a PB directive string from the current play and selection state.
      * Format: PB.{PLAYNAME} or PB.{PLAYNAME}.{ORIG} or PB.{PLAYNAME}..{DEST}
      * or PB.{PLAYNAME}.{ORIG}.{DEST}
@@ -2366,11 +2379,13 @@
         var hasSearch = currentSearchClauses.length > 0;
         var hasGroups = routeGroups.length > 0;
         var text;
+        var lineRouteMap = []; // Parallel array: line index -> route object (for filter injection)
 
         if (hasSearch) {
             // Search active: plot non-matching first, matching on top for visibility
             var nonMatching = [], matching = [];
             var nonMatchingIds = [], matchingIds = [];
+            var nonMatchingRoutes = [], matchingRoutes = [];
             selected.forEach(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
@@ -2380,16 +2395,20 @@
                 if (routeMatchesSearchClauses(r, currentSearchClauses)) {
                     matching.push(routeStr + ';#C70039');
                     matchingIds.push(r.route_id);
+                    matchingRoutes.push(r);
                 } else {
                     nonMatching.push(routeStr + ';#555555');
                     nonMatchingIds.push(r.route_id);
+                    nonMatchingRoutes.push(r);
                 }
             });
             lastPlottedRouteOrder = nonMatchingIds.concat(matchingIds);
+            lineRouteMap = nonMatchingRoutes.concat(matchingRoutes);
             text = nonMatching.concat(matching).join('\n');
         } else if (hasGroups) {
             // Groups active: use per-route group colors (skip PB directive path)
             lastPlottedRouteOrder = selected.map(function(r) { return r.route_id; });
+            lineRouteMap = selected.slice();
             text = selected.map(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
@@ -2405,6 +2424,7 @@
             // Always use DB route data (which includes origin/dest FIR codes)
             // rather than PB directive expansion (CSV data lacks origin/dest).
             lastPlottedRouteOrder = selected.map(function(r) { return r.route_id; });
+            lineRouteMap = selected.slice();
             text = selected.map(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
@@ -2442,6 +2462,28 @@
             }
             return tokens.join(' ') + colorSuffix;
         }).join('\n');
+
+        // Inject filter groups from DB origin_filter/dest_filter fields.
+        // Must happen AFTER mandatory wrapping to avoid >(-KDFW) corruption.
+        if (lineRouteMap.length > 0) {
+            text = text.split('\n').map(function(line, idx) {
+                var r = lineRouteMap[idx];
+                if (!r) return line;
+                var origGroup = buildFilterGroup(r.origin_filter);
+                var destGroup = buildFilterGroup(r.dest_filter);
+                if (!origGroup && !destGroup) return line;
+                // Separate color suffix
+                var colorSuffix = '';
+                var semiIdx = line.indexOf(';');
+                if (semiIdx !== -1) { colorSuffix = line.slice(semiIdx); line = line.slice(0, semiIdx); }
+                var tokens = line.trim().split(/\s+/);
+                // Insert origin filter after first token (origin facility)
+                if (origGroup && tokens.length > 1) tokens.splice(1, 0, origGroup);
+                // Append dest filter before last token (dest facility)
+                if (destGroup && tokens.length > 1) tokens.splice(tokens.length - 1, 0, destGroup);
+                return tokens.join(' ') + colorSuffix;
+            }).join('\n');
+        }
 
         // Check for NAT track tokens and expand before plotting
         var hasNat = text.split('\n').some(function(line) {
@@ -2503,7 +2545,11 @@
             text = selected.map(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
+                var origGroup = buildFilterGroup(r.origin_filter);
+                if (origGroup) parts.push(origGroup);
                 parts.push(r.route_string);
+                var destGroup = buildFilterGroup(r.dest_filter);
+                if (destGroup) parts.push(destGroup);
                 if (r.dest) parts.push(r.dest);
                 var routeStr = parts.join(' ');
                 var color = getRouteGroupColor(r.route_id);
@@ -2515,7 +2561,11 @@
             text = selected.map(function(r) {
                 var parts = [];
                 if (r.origin) parts.push(r.origin);
+                var origGroup = buildFilterGroup(r.origin_filter);
+                if (origGroup) parts.push(origGroup);
                 parts.push(r.route_string);
+                var destGroup = buildFilterGroup(r.dest_filter);
+                if (destGroup) parts.push(destGroup);
                 if (r.dest) parts.push(r.dest);
                 return parts.join(' ');
             }).join('\n');
