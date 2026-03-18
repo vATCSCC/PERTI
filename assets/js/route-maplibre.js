@@ -745,6 +745,53 @@ $(document).ready(function() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // FILTER GROUP PARSER
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Extract filter groups from route text. Filter groups use the syntax:
+     *   ORIGIN (-KDFW -KAFW) >ROUTE< DEST
+     * Parentheses are always required. All tokens inside must start with '-'.
+     * Returns { cleanText, filters: [{ code, side }] } where side is 'origin' or 'dest'.
+     */
+    function extractFilterGroups(routeText) {
+        if (!routeText || routeText.indexOf('(') === -1) {
+            return { cleanText: routeText, filters: [] };
+        }
+
+        const filters = [];
+        // Find the position of mandatory markers to determine origin/dest boundary
+        const markerPos = routeText.indexOf('>');
+        const markerEndPos = routeText.lastIndexOf('<');
+
+        const cleanText = routeText.replace(/\(([^)]+)\)/g, function(match, inner, offset) {
+            const tokens = inner.trim().split(/\s+/).filter(Boolean);
+            // Only treat as filter group if ALL tokens start with '-'
+            const allFilters = tokens.length > 0 && tokens.every(function(t) { return t.charAt(0) === '-'; });
+            if (!allFilters) { return match; } // Not a filter group, leave it
+
+            // Determine side: before '>' marker = origin, after '<' marker = dest
+            // If no markers, use position heuristic (first half = origin)
+            let side = 'origin';
+            if (markerPos !== -1 && markerEndPos !== -1) {
+                side = offset > markerEndPos ? 'dest' : 'origin';
+            } else if (markerPos !== -1) {
+                side = offset > markerPos ? 'dest' : 'origin';
+            } else {
+                // No mandatory markers — use position relative to route midpoint
+                side = offset > routeText.length / 2 ? 'dest' : 'origin';
+            }
+
+            tokens.forEach(function(t) {
+                filters.push({ code: t.slice(1).toUpperCase(), side: side });
+            });
+            return ''; // Strip filter group from route text
+        }).replace(/\s{2,}/g, ' ').trim();
+
+        return { cleanText: cleanText, filters: filters };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // AIRWAY INDEX
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1936,18 +1983,23 @@ $(document).ready(function() {
         graphic_map.addSource('routes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         graphic_map.addLayer({
             id: 'routes-solid', type: 'line', source: 'routes',
-            filter: ['all', ['==', ['get', 'solid'], true], ['!=', ['get', 'isFan'], true]],
+            filter: ['all', ['==', ['get', 'solid'], true], ['!=', ['get', 'isFan'], true], ['!=', ['get', 'isFilterFan'], true]],
             paint: { 'line-color': ['get', 'color'], 'line-width': 3 },
         });
         graphic_map.addLayer({
             id: 'routes-dashed', type: 'line', source: 'routes',
-            filter: ['all', ['==', ['get', 'solid'], false], ['!=', ['get', 'isFan'], true]],
+            filter: ['all', ['==', ['get', 'solid'], false], ['!=', ['get', 'isFan'], true], ['!=', ['get', 'isFilterFan'], true]],
             paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-dasharray': [4, 4] },
         });
         graphic_map.addLayer({
             id: 'routes-fan', type: 'line', source: 'routes',
-            filter: ['==', ['get', 'isFan'], true],
+            filter: ['all', ['==', ['get', 'isFan'], true], ['!=', ['get', 'isFilterFan'], true]],
             paint: { 'line-color': ['get', 'color'], 'line-width': 1.5, 'line-dasharray': [1, 3] },
+        });
+        graphic_map.addLayer({
+            id: 'routes-filter-fan', type: 'line', source: 'routes',
+            filter: ['==', ['get', 'isFilterFan'], true],
+            paint: { 'line-color': ['get', 'color'], 'line-width': 1.0, 'line-dasharray': [1, 2], 'line-opacity': 0.5 },
         });
 
         graphic_map.addSource('fixes', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
@@ -2025,14 +2077,14 @@ $(document).ready(function() {
 
         graphic_map.addSource('route-endpoints', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
-        // Create endpoint icons
+        // Create endpoint icons (9 total: 6 base + 3 filter variants)
         const ENDPOINT_ICONS = {
-            // Airport - Triangle (pointing up for origin, down for destination)
+            // Airport - Airplane silhouette (TSD jet style, upward=origin, downward=dest)
             'airport-origin': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <polygon points="10,2 18,18 2,18" fill="white" stroke="white" stroke-width="1"/>
+                <path d="M10 2 L12 8 L18 10 L12 11 L13 17 L10 15 L7 17 L8 11 L2 10 L8 8 Z" fill="white" stroke="white" stroke-width="0.5"/>
             </svg>`,
             'airport-dest': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
-                <polygon points="2,2 18,2 10,18" fill="white" stroke="white" stroke-width="1"/>
+                <path d="M10 18 L12 12 L18 10 L12 9 L13 3 L10 5 L7 3 L8 9 L2 10 L8 12 Z" fill="white" stroke="white" stroke-width="0.5"/>
             </svg>`,
             // TRACON - Diamond
             'tracon-origin': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
@@ -2047,6 +2099,22 @@ $(document).ready(function() {
             </svg>`,
             'artcc-dest': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
                 <rect x="2" y="2" width="16" height="16" fill="none" stroke="white" stroke-width="2"/>
+            </svg>`,
+            // Filter variants - base shape + prohibition circle-slash overlay
+            'airport-filter': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
+                <path d="M10 3 L12 8 L17 10 L12 11 L13 16 L10 14 L7 16 L8 11 L3 10 L8 8 Z" fill="white" stroke="white" stroke-width="0.5"/>
+                <circle cx="10" cy="10" r="8" fill="none" stroke="white" stroke-width="1.5"/>
+                <line x1="4" y1="4" x2="16" y2="16" stroke="white" stroke-width="1.5"/>
+            </svg>`,
+            'tracon-filter': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
+                <polygon points="10,3 17,10 10,17 3,10" fill="white" stroke="white" stroke-width="0.5"/>
+                <circle cx="10" cy="10" r="8" fill="none" stroke="white" stroke-width="1.5"/>
+                <line x1="4" y1="4" x2="16" y2="16" stroke="white" stroke-width="1.5"/>
+            </svg>`,
+            'artcc-filter': `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20">
+                <rect x="3" y="3" width="14" height="14" fill="white" stroke="white" stroke-width="0.5"/>
+                <circle cx="10" cy="10" r="8" fill="none" stroke="white" stroke-width="1.5"/>
+                <line x1="4" y1="4" x2="16" y2="16" stroke="white" stroke-width="1.5"/>
             </svg>`,
         };
 
@@ -2068,6 +2136,10 @@ $(document).ready(function() {
             layout: {
                 'icon-image': [
                     'case',
+                    // Filter icons (checked first — prohibition overlay, direction-agnostic)
+                    ['all', ['==', ['get', 'isFiltered'], true], ['==', ['get', 'facilityType'], 'airport']], 'endpoint-airport-filter',
+                    ['all', ['==', ['get', 'isFiltered'], true], ['==', ['get', 'facilityType'], 'tracon']], 'endpoint-tracon-filter',
+                    ['all', ['==', ['get', 'isFiltered'], true], ['==', ['get', 'facilityType'], 'artcc']], 'endpoint-artcc-filter',
                     // Origin icons (filled)
                     ['all', ['==', ['get', 'isOrigin'], true], ['==', ['get', 'facilityType'], 'airport']], 'endpoint-airport-origin',
                     ['all', ['==', ['get', 'isOrigin'], true], ['==', ['get', 'facilityType'], 'tracon']], 'endpoint-tracon-origin',
@@ -2568,8 +2640,15 @@ $(document).ready(function() {
                 if (parts[1]) {routeColor = parts[1].trim();}
             }
 
+            // Extract filter groups before expansion pipeline
+            const filterResult = extractFilterGroups(routeText);
+            const routeFilters = filterResult.filters; // [{ code, side }]
+            if (filterResult.filters.length > 0) {
+                routeText = filterResult.cleanText;
+            }
+
             // Store route string for disambiguation in overlapping-route picker
-            routeStringByRouteId[thisRouteId] = { routeString: routeText, color: routeColor };
+            routeStringByRouteId[thisRouteId] = { routeString: routeText, color: routeColor, filters: routeFilters };
 
             // CDR expansion - strip mandatory markers before lookup
             const cdrTokens = routeText.split(/\s+/).filter(t => t !== '');
@@ -2936,6 +3015,72 @@ $(document).ready(function() {
                     }
                 }
             }
+
+            // Generate filter endpoint icons and filter fan connectors
+            const routeMeta = routeStringByRouteId[thisRouteId];
+            if (routeMeta && routeMeta.filters && routeMeta.filters.length > 0 && nPoints >= 2) {
+                const originPt = routePoints[0];
+                const destPt = routePoints[nPoints - 1];
+                // Find first/last non-airport waypoint for fan connector target
+                const fanTargetOrigin = hasNonAirport ? routePoints[firstNavIndex] : originPt;
+                const fanTargetDest = hasNonAirport ? routePoints[lastNavIndex] : destPt;
+
+                routeMeta.filters.forEach(function(f) {
+                    // Resolve filter code to coordinates
+                    const contextPt = f.side === 'origin' ? originPt : destPt;
+                    let filterPt = getPointByName(f.code, contextPt, null);
+                    if (!filterPt || filterPt.length < 3) {
+                        // Try areaCenters fallback
+                        if (areaCenters[f.code]) {
+                            const center = areaCenters[f.code];
+                            filterPt = [f.code, center.lat, center.lon];
+                        } else {
+                            return; // Cannot resolve — skip silently
+                        }
+                    }
+                    if (!isFinite(filterPt[1]) || !isFinite(filterPt[2])) { return; }
+
+                    // Add filter endpoint feature
+                    const filterKey = `${f.code}|${filterPt[1].toFixed(4)}|${filterPt[2].toFixed(4)}|filter`;
+                    if (!seenEndpoints.has(filterKey)) {
+                        seenEndpoints.add(filterKey);
+                        endpointFeatures.push({
+                            type: 'Feature',
+                            properties: {
+                                name: f.code,
+                                color: routeColor,
+                                isOrigin: false,
+                                isDest: false,
+                                isFiltered: true,
+                                facilityType: detectFacilityType(f.code),
+                            },
+                            geometry: { type: 'Point', coordinates: [filterPt[2], filterPt[1]] },
+                        });
+                    }
+
+                    // Add filter fan connector from filter point to nearest route point
+                    const fanTarget = f.side === 'origin' ? fanTargetOrigin : fanTargetDest;
+                    const fanCoords = [[filterPt[2], filterPt[1]], [fanTarget[2], fanTarget[1]]];
+                    // Validate coordinates
+                    if (isFinite(fanCoords[0][0]) && isFinite(fanCoords[0][1]) && isFinite(fanCoords[1][0]) && isFinite(fanCoords[1][1])) {
+                        routeFeatures.push({
+                            type: 'Feature',
+                            properties: {
+                                color: routeColor,
+                                solid: false,
+                                isFan: false,
+                                isFilterFan: true,
+                                routeId: thisRouteId,
+                                fromFix: f.code,
+                                toFix: fanTarget[0] || '',
+                                distance: 0,
+                                routeString: routeMeta.routeString || '',
+                            },
+                            geometry: { type: 'LineString', coordinates: fanCoords },
+                        });
+                    }
+                });
+            }
         });
 
         // Update lastExpandedRoutes with CDR-expanded routes (for public routes feature)
@@ -3283,7 +3428,7 @@ $(document).ready(function() {
 
     function setupInteractivity() {
         // Cursor change handlers
-        ['routes-solid', 'routes-dashed', 'routes-fan', 'route-fixes-circles', 'aircraft-symbols', 'aircraft-circles-fallback', 'filtered-airways-lines', 'flight-routes-ahead', 'flight-routes-behind'].forEach(layerId => {
+        ['routes-solid', 'routes-dashed', 'routes-fan', 'routes-filter-fan', 'route-fixes-circles', 'aircraft-symbols', 'aircraft-circles-fallback', 'filtered-airways-lines', 'flight-routes-ahead', 'flight-routes-behind'].forEach(layerId => {
             if (!graphic_map.getLayer(layerId)) {return;}
             graphic_map.on('mouseenter', layerId, () => { graphic_map.getCanvas().style.cursor = 'pointer'; });
             graphic_map.on('mouseleave', layerId, () => { graphic_map.getCanvas().style.cursor = ''; });
@@ -3317,9 +3462,10 @@ $(document).ready(function() {
         const handleRouteSegmentClick = (e) => {
             if (!e.features || !e.features.length) {return;}
 
-            // Query ALL route features at this point across all route layers
-            const allFeatures = graphic_map.queryRenderedFeatures(e.point, {
-                layers: ['routes-solid', 'routes-dashed', 'routes-fan'],
+            // Query ALL route features near this point with 5px bbox tolerance for easier clicking
+            const bbox = [[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]];
+            const allFeatures = graphic_map.queryRenderedFeatures(bbox, {
+                layers: ['routes-solid', 'routes-dashed', 'routes-fan', 'routes-filter-fan'],
             });
 
             // Group by routeId to find unique routes
