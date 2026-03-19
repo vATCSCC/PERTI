@@ -204,7 +204,7 @@
             var $btn = $(this);
             if ($btn.next('.pb-builder-add-form').length) return; // already open
 
-            var formHtml = '<div class="pb-builder-add-form">' +
+            var formHtml = '<div class="pb-builder-add-form" data-group="' + gi + '">' +
                 '<select class="pb-builder-add-qual">' +
                 '<option value="THRU">THRU</option>' +
                 '<option value="ORIG">ORIG</option>' +
@@ -232,13 +232,17 @@
             }
         });
         this.$container.on('blur.builder', '.pb-builder-add-value', function() {
-            var $form = $(this).closest('.pb-builder-add-form');
-            var val = $(this).val().trim();
-            if (val) {
-                self._submitAddForm($form);
-            } else {
-                $form.remove();
-            }
+            var $input = $(this);
+            setTimeout(function() {
+                var $form = $input.closest('.pb-builder-add-form');
+                if (!$form.length || !$.contains(document.documentElement, $form[0])) return;
+                var val = $input.val().trim();
+                if (val) {
+                    self._submitAddForm($form);
+                } else {
+                    $form.remove();
+                }
+            }, 0);
         });
 
         // Add OR group
@@ -266,7 +270,12 @@
             }
         });
         this.$container.on('blur.builder', '.pb-builder-preview-edit', function() {
-            self._submitPreviewEdit($(this).val());
+            var $input = $(this);
+            setTimeout(function() {
+                if (!$input.closest('.pb-builder-preview-edit').length &&
+                    !$.contains(document.documentElement, $input[0])) return;
+                self._submitPreviewEdit($input.val());
+            }, 0);
         });
     };
 
@@ -302,9 +311,14 @@
      * Submit the inline add-condition form.
      */
     PlaybookQueryBuilder.prototype._submitAddForm = function($form) {
+        // Guard: prevent double-submit from Enter keydown → blur race
+        if ($form.data('_submitted')) return;
+        $form.data('_submitted', true);
+
         var qual = $form.find('.pb-builder-add-qual').val();
         var val = $form.find('.pb-builder-add-value').val().trim().toUpperCase();
         var isNewGroup = $form.hasClass('pb-builder-new-group-form');
+        var targetGroup = parseInt($form.data('group'));
         $form.remove();
 
         if (!val) return;
@@ -314,14 +328,39 @@
 
         var term = (negated ? '-' : '') + qual + ':' + val;
 
-        var currentText = this._ast ? PlaybookFilterParser.serialize(this._ast) : '';
-        var newText;
-        if (isNewGroup && currentText) {
-            newText = currentText + ' | ' + term;
-        } else {
-            newText = currentText ? currentText + ' & ' + term : term;
+        if (!this._ast) {
+            this._updateText(term);
+            return;
         }
-        this._updateText(newText);
+
+        if (isNewGroup) {
+            // New OR group — append with |
+            this._updateText(PlaybookFilterParser.serialize(this._ast) + ' | ' + term);
+            return;
+        }
+
+        // Insert AND condition into the target group
+        var topGroups = (this._ast.type === 'OR' && !this._ast._unqualified) ? this._ast.children : [this._ast];
+        var groupTexts = [];
+
+        for (var gi = 0; gi < topGroups.length; gi++) {
+            var groupTerms = PlaybookFilterParser.collectTerms(topGroups[gi]);
+            var termTexts = [];
+            for (var ti = 0; ti < groupTerms.length; ti++) {
+                var t = groupTerms[ti];
+                termTexts.push(
+                    (t.negated ? '-' : '') +
+                    (t.qualifier ? t.qualifier + ':' : '') +
+                    t.value
+                );
+            }
+            if (gi === targetGroup || (isNaN(targetGroup) && gi === topGroups.length - 1)) {
+                termTexts.push(term);
+            }
+            groupTexts.push(termTexts.length > 1 ? termTexts.join(' & ') : termTexts[0]);
+        }
+
+        this._updateText(groupTexts.join(' | '));
     };
 
     /**
