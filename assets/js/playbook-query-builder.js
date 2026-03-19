@@ -185,8 +185,11 @@
     PlaybookQueryBuilder.prototype._bindEvents = function() {
         var self = this;
 
+        // Remove all previous builder handlers to prevent accumulation
+        this.$container.off('.builder');
+
         // Remove chip
-        this.$container.off('click.builder').on('click.builder', '[data-action="remove-chip"]', function(e) {
+        this.$container.on('click.builder', '[data-action="remove-chip"]', function(e) {
             e.stopPropagation();
             self._removeTermFromAST(
                 parseInt($(this).data('group')),
@@ -273,34 +276,26 @@
     PlaybookQueryBuilder.prototype._removeTermFromAST = function(groupIndex, termIndex) {
         if (!this._ast) return;
 
-        // Rebuild from text: serialize, re-parse, remove term, re-serialize
-        var terms = PlaybookFilterParser.collectTerms(this._ast);
         var topGroups = (this._ast.type === 'OR' && !this._ast._unqualified) ? this._ast.children : [this._ast];
+        var groupTexts = [];
 
-        var globalIdx = 0;
         for (var gi = 0; gi < topGroups.length; gi++) {
             var groupTerms = PlaybookFilterParser.collectTerms(topGroups[gi]);
+            var remainingTerms = [];
             for (var ti = 0; ti < groupTerms.length; ti++) {
-                if (gi === groupIndex && ti === termIndex) {
-                    // Found it — remove by rebuilding the expression without this term
-                    terms.splice(globalIdx, 1);
-                    this._rebuildFromTerms(terms, topGroups.length);
-                    return;
-                }
-                globalIdx++;
+                if (gi === groupIndex && ti === termIndex) continue; // skip removed term
+                var term = groupTerms[ti];
+                var text = (term.negated ? '-' : '') +
+                           (term.qualifier ? term.qualifier + ':' : '') +
+                           term.value;
+                remainingTerms.push(text);
+            }
+            if (remainingTerms.length > 0) {
+                groupTexts.push(remainingTerms.length > 1 ? remainingTerms.join(' & ') : remainingTerms[0]);
             }
         }
-    };
 
-    PlaybookQueryBuilder.prototype._rebuildFromTerms = function(terms) {
-        if (!terms.length) {
-            this._updateText('');
-            return;
-        }
-        // Simple approach: just re-serialize current AST minus the removed term
-        var text = PlaybookFilterParser.serialize(this._ast);
-        // Re-parse and apply — the AST is the source of truth
-        this._updateText(text);
+        this._updateText(groupTexts.join(' | '));
     };
 
     /**
@@ -309,6 +304,7 @@
     PlaybookQueryBuilder.prototype._submitAddForm = function($form) {
         var qual = $form.find('.pb-builder-add-qual').val();
         var val = $form.find('.pb-builder-add-value').val().trim().toUpperCase();
+        var isNewGroup = $form.hasClass('pb-builder-new-group-form');
         $form.remove();
 
         if (!val) return;
@@ -318,24 +314,38 @@
 
         var term = (negated ? '-' : '') + qual + ':' + val;
 
-        // Append to current expression
         var currentText = this._ast ? PlaybookFilterParser.serialize(this._ast) : '';
-        var newText = currentText ? currentText + ' & ' + term : term;
+        var newText;
+        if (isNewGroup && currentText) {
+            newText = currentText + ' | ' + term;
+        } else {
+            newText = currentText ? currentText + ' & ' + term : term;
+        }
         this._updateText(newText);
     };
 
     /**
-     * Add a new empty OR group.
+     * Add a new empty OR group by showing an inline form.
      */
     PlaybookQueryBuilder.prototype._addORGroup = function() {
-        // If we have an existing expression, append " | " and let the user fill in
-        var currentText = this._ast ? PlaybookFilterParser.serialize(this._ast) : '';
-        // Don't actually add empty group — just open an add form in a new context
-        // For now, append a placeholder that the user fills in via the inline form
-        if (currentText) {
-            // Show the builder with a hint
-            this.renderFromAST(this._ast);
-        }
+        var $addGroup = this.$container.find('[data-action="add-group"]');
+        if ($addGroup.prev('.pb-builder-add-form').length) return; // already open
+
+        var formHtml = '<div class="pb-builder-add-form pb-builder-new-group-form">' +
+            '<select class="pb-builder-add-qual">' +
+            '<option value="THRU">THRU</option>' +
+            '<option value="ORIG">ORIG</option>' +
+            '<option value="DEST">DEST</option>' +
+            '<option value="FIR">FIR</option>' +
+            '<option value="AVOID">AVOID</option>' +
+            '<option value="-THRU">-THRU</option>' +
+            '<option value="-ORIG">-ORIG</option>' +
+            '<option value="-DEST">-DEST</option>' +
+            '</select>' +
+            '<input type="text" class="pb-builder-add-value" placeholder="e.g. ZDC">' +
+            '</div>';
+        $addGroup.before(formHtml);
+        $addGroup.prev('.pb-builder-add-form').find('input').focus();
     };
 
     /**
