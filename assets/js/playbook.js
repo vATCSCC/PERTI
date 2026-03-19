@@ -2859,6 +2859,17 @@
     }
 
     /**
+     * Test whether a token looks like an airway identifier.
+     * ICAO airway designators: 1-2 letter prefix + 1-4 digit number.
+     *   Single-letter: J86, V500, Q126, T280, Y280, A574, B331, G458, L888, M771, W55
+     *   Upper airspace (U-prefix): UA1, UB330, UR12, UL888, UG458
+     */
+    function isAirwayIdent(tok) {
+        if (!tok) return false;
+        return /^[A-Z]{1,2}\d{1,4}$/i.test(tok);
+    }
+
+    /**
      * Test whether a token is an origin/destination endpoint (airport, ARTCC, TRACON, FIR/ACC).
      * Mirrors isAirportIdent() from route-maplibre.js, using FacilityHierarchy for robust detection.
      */
@@ -2872,9 +2883,12 @@
         if (hasFH && FacilityHierarchy.isArtcc(t)) return true;
         // TRACON codes via FacilityHierarchy (N90, A80, PCT, NCT, etc.)
         if (hasFH && FacilityHierarchy.isTracon(t)) return true;
-        // Regex fallbacks when FacilityHierarchy hasn't loaded yet
-        if (/^Z[A-Z]{2}$/.test(t)) return true;       // US ARTCC (ZNY, ZDC)
-        if (/^[A-Z]\d{2}$/.test(t)) return true;       // TRACON (N90, A80, C90)
+        // Regex fallbacks only when FacilityHierarchy hasn't loaded yet
+        // (avoids misclassifying airways like J86 as TRACONs via [A-Z]\d{2})
+        if (!hasFH) {
+            if (/^Z[A-Z]{2}$/.test(t)) return true;       // US ARTCC (ZNY, ZDC)
+            if (/^[A-Z]\d{2}$/.test(t)) return true;       // TRACON (N90, A80, C90)
+        }
         return false;
     }
 
@@ -2889,7 +2903,22 @@
         while (oi < tokens.length && isEndpointIdent(tokens[oi])) oi++;
         // Walk from right: consecutive endpoint codes = destinations
         var di = tokens.length;
-        while (di > oi && isEndpointIdent(tokens[di - 1])) di--;
+        while (di > oi && isEndpointIdent(tokens[di - 1])) {
+            // Context check: short codes (<=3 chars) that match as TRACONs can also be
+            // VOR/fix names (e.g. ELP = El Paso TRACON but also ELP VOR on J86).
+            // If the token to the left is an airway, this is an exit fix, not a destination.
+            // Exception: if FH confirms the left token is actually a TRACON (e.g. N90 matches
+            // the airway pattern but is really New York TRACON), don't treat it as an airway.
+            var candidateIdx = di - 1;
+            if (candidateIdx > oi && tokens[candidateIdx].length <= 3) {
+                var leftTok = tokens[candidateIdx - 1];
+                if (isAirwayIdent(leftTok)) {
+                    var hasFH = typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded;
+                    if (!hasFH || !FacilityHierarchy.isTracon(leftTok.toUpperCase())) break;
+                }
+            }
+            di--;
+        }
         return {
             origins: tokens.slice(0, oi),
             route: tokens.slice(oi, di),
