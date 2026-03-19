@@ -2859,22 +2859,82 @@
     }
 
     /**
-     * Split tokens into leading ICAO airports, route body, and trailing ICAO airports.
-     * ICAO airports are exactly 4 uppercase letters (LIEA, EGGW, etc.).
+     * Test whether a token is an origin/destination endpoint (airport, ARTCC, TRACON, FIR/ACC).
+     * Mirrors isAirportIdent() from route-maplibre.js, using FacilityHierarchy for robust detection.
+     */
+    function isEndpointIdent(tok) {
+        if (!tok) return false;
+        var t = tok.toUpperCase();
+        // 4-letter ICAO airport codes (KJFK, EGLL, CZYZ, etc.)
+        if (/^[A-Z]{4}$/.test(t)) return true;
+        // ARTCC/FIR codes via FacilityHierarchy (ZNY, KZNY, CZEG, EGTT, etc.)
+        var hasFH = typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.isLoaded;
+        if (hasFH && FacilityHierarchy.isArtcc(t)) return true;
+        // TRACON codes via FacilityHierarchy (N90, A80, PCT, NCT, etc.)
+        if (hasFH && FacilityHierarchy.isTracon(t)) return true;
+        // Regex fallbacks when FacilityHierarchy hasn't loaded yet
+        if (/^Z[A-Z]{2}$/.test(t)) return true;       // US ARTCC (ZNY, ZDC)
+        if (/^[A-Z]\d{2}$/.test(t)) return true;       // TRACON (N90, A80, C90)
+        return false;
+    }
+
+    /**
+     * Split tokens into leading endpoints (origins), route body, and trailing endpoints (dests).
+     * Endpoints are airports (ICAO 4-letter), ARTCCs, TRACONs, and FIR/ACC codes.
      * Waypoints (5+ letters), airways (letters+digits), and DCT are route tokens.
      */
     function splitOriginRouteDest(tokens) {
-        // Walk from left: consecutive 4-letter alpha codes = origins
+        // Walk from left: consecutive endpoint codes = origins
         var oi = 0;
-        while (oi < tokens.length && /^[A-Z]{4}$/.test(tokens[oi])) oi++;
-        // Walk from right: consecutive 4-letter alpha codes = destinations
+        while (oi < tokens.length && isEndpointIdent(tokens[oi])) oi++;
+        // Walk from right: consecutive endpoint codes = destinations
         var di = tokens.length;
-        while (di > oi && /^[A-Z]{4}$/.test(tokens[di - 1])) di--;
+        while (di > oi && isEndpointIdent(tokens[di - 1])) di--;
         return {
             origins: tokens.slice(0, oi),
             route: tokens.slice(oi, di),
             dests: tokens.slice(di)
         };
+    }
+
+    /**
+     * Extract filter groups (-KDFW -KAFW) from route text.
+     * Mirrors extractFilterGroups() from route-maplibre.js.
+     * Parenthesized groups where ALL tokens start with '-' are treated as exclusion filters.
+     * Position relative to >< markers determines origin vs dest side.
+     */
+    function extractBulkPasteFilters(routeText) {
+        if (!routeText || routeText.indexOf('(') === -1) {
+            return { cleanText: routeText, originFilters: [], destFilters: [] };
+        }
+        var originFilters = [], destFilters = [];
+        var markerPos = routeText.indexOf('>');
+        var markerEndPos = routeText.lastIndexOf('<');
+
+        var cleanText = routeText.replace(/\(([^)]+)\)/g, function(match, inner, offset) {
+            var tokens = inner.trim().split(/\s+/).filter(Boolean);
+            var allFilters = tokens.length > 0 && tokens.every(function(t) { return t.charAt(0) === '-'; });
+            if (!allFilters) return match; // Not a filter group, leave it
+
+            // Determine side: before '>' marker = origin, after '<' marker = dest
+            var side = 'origin';
+            if (markerPos !== -1 && markerEndPos !== -1) {
+                side = offset > markerEndPos ? 'dest' : 'origin';
+            } else if (markerPos !== -1) {
+                side = offset > markerPos ? 'dest' : 'origin';
+            } else {
+                side = offset > routeText.length / 2 ? 'dest' : 'origin';
+            }
+
+            tokens.forEach(function(t) {
+                var code = t.slice(1).toUpperCase();
+                if (side === 'origin') originFilters.push(code);
+                else destFilters.push(code);
+            });
+            return ''; // Strip filter group from route text
+        }).replace(/\s{2,}/g, ' ').trim();
+
+        return { cleanText: cleanText, originFilters: originFilters, destFilters: destFilters };
     }
 
     function applyBulkPaste() {
@@ -2894,6 +2954,10 @@
                 trimmed = fir.rest;
             }
 
+            // Extract filter groups (-KDFW -KAFW) BEFORE stripping >< markers (position matters)
+            var filterResult = extractBulkPasteFilters(trimmed);
+            trimmed = filterResult.cleanText;
+
             // Strip >< route markers (mandatory/non-mandatory segment annotations)
             var cleaned = trimmed
                 .replace(/[><]/g, '')
@@ -2903,11 +2967,11 @@
 
             // UNKN is a valid origin/dest placeholder — let it pass through to token parsing
 
-            // Split tokens into leading airports (origins), route body, trailing airports (dests)
+            // Split tokens into leading endpoints (origins), route body, trailing endpoints (dests)
             var tokens = cleaned ? cleaned.split(/\s+/) : [];
             var split = splitOriginRouteDest(tokens);
 
-            // Merge FIR-expanded codes with token-detected airports
+            // Merge FIR-expanded codes with token-detected endpoints
             var allOrigins = firOrigins.concat(split.origins);
             var allDests = firDests.concat(split.dests);
 
@@ -2917,7 +2981,15 @@
                 dest: allDests.join(' ')
             };
 
-            // If no route body found (all tokens were airports), treat as plain route
+            // Populate filter fields from extracted filter groups
+            if (filterResult.originFilters.length) {
+                routeData.origin_filter = filterResult.originFilters.map(function(c) { return '-' + c; }).join(' ');
+            }
+            if (filterResult.destFilters.length) {
+                routeData.dest_filter = filterResult.destFilters.map(function(c) { return '-' + c; }).join(' ');
+            }
+
+            // If no route body found (all tokens were endpoints), treat as plain route
             if (!routeData.route_string && cleaned) {
                 routeData.route_string = cleaned;
                 routeData.origin = firOrigins.join(' ');
