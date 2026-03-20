@@ -64,10 +64,11 @@ BEGIN
         -- ARTCC/FIR boundaries (US ARTCCs use KZ__ prefix, Canadian use CZ__)
         SELECT
             CASE
-                WHEN ab.artcc_code ~ '^KZ[A-Z]{2}' THEN 'ARTCC'
+                WHEN normalize_artcc_code(ab.artcc_code) ~ '^Z[A-Z]{2}$' THEN 'ARTCC'
+                WHEN ab.artcc_code ~ '^CZ' THEN 'FIR'
                 ELSE 'FIR'
             END AS ftype,
-            ab.artcc_code::text AS fid,
+            normalize_artcc_code(ab.artcc_code) AS fid,
             ab.fir_name::text AS fname,
             ST_Intersection(v_route, ST_MakeValid(ab.geom)) AS intersection_geom,
             ab.floor_altitude AS f_alt,
