@@ -17,6 +17,8 @@
  */
 
 require_once(__DIR__ . '/../airport_aliases.php');
+require_once __DIR__ . '/../../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
 
 class GISService
 {
@@ -1107,13 +1109,7 @@ class GISService
      */
     private function cleanArtccCodes(array $artccs): array
     {
-        return array_map(function($a) {
-            // KZFW -> ZFW
-            if (strlen($a) === 4 && substr($a, 0, 1) === 'K') {
-                return substr($a, 1);
-            }
-            return $a;
-        }, $artccs);
+        return ArtccNormalizer::normalizeArray($artccs);
     }
 
     // =========================================================================
