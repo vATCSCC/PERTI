@@ -9,7 +9,7 @@ DECLARE
     v_map   JSONB := '{
         "CZE":"CZEG", "CZU":"CZUL", "CZV":"CZVR",
         "CZW":"CZWG", "CZY":"CZYZ", "CZM":"CZQM",
-        "CZQ":"CZQX", "CZO":"CZQO",
+        "CZQ":"CZQX", "CZO":"CZQO", "CZX":"CZQX",
         "PAZA":"ZAN", "KZAK":"ZAK", "KZWY":"ZWY",
         "PGZU":"ZUA", "PAZN":"ZAP", "PHZH":"ZHN"
     }';

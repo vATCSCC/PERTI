@@ -205,12 +205,12 @@ while ($row = $result->fetch_assoc()) {
     $origin_list = [];
     foreach (explode(',', $oar) as $a) {
         $a = trim($a);
-        if ($a !== '' && strtoupper($a) !== 'UNKN') $origin_list[] = $a;
+        if ($a !== '' && strtoupper($a) !== 'UNKN' && strtoupper($a) !== 'VARIOUS') $origin_list[] = $a;
     }
     $dest_list = [];
     foreach (explode(',', $dar) as $a) {
         $a = trim($a);
-        if ($a !== '' && strtoupper($a) !== 'UNKN') $dest_list[] = $a;
+        if ($a !== '' && strtoupper($a) !== 'UNKN' && strtoupper($a) !== 'VARIOUS') $dest_list[] = $a;
     }
     $artccs = array_merge($origin_list, $artccs, $dest_list);
 

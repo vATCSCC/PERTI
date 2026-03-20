@@ -7,6 +7,14 @@
 require_once __DIR__ . '/../../../lib/ArtccNormalizer.php';
 use PERTI\Lib\ArtccNormalizer;
 
+/**
+ * Backward-compatible wrapper — delegates to ArtccNormalizer::normalizeCsv().
+ * Called by save.php and route.php for origin_artccs/dest_artccs fields.
+ */
+function normalizeCanadianArtccCsv($csv) {
+    return ArtccNormalizer::normalizeCsv($csv);
+}
+
 function normalizePlayName($name) {
     return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $name));
 }
