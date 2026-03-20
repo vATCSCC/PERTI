@@ -20,6 +20,8 @@ foreach ($argv ?? [] as $arg) {
 include_once(__DIR__ . '/../../load/config.php');
 include_once(__DIR__ . '/../../load/input.php');
 include_once(__DIR__ . '/../../load/connect.php');
+require_once __DIR__ . '/../../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
 
 // Get GIS connection
 $conn_gis = get_conn_gis();
@@ -87,28 +89,6 @@ $processed = 0;
 $updated = 0;
 $errors = 0;
 
-/**
- * Normalize ARTCC codes:
- * - US ICAO K-prefix stripping: KZNY->ZNY, KZMA->ZMA, etc.
- * - Canadian FAA 3-letter to ICAO 4-letter: CZE->CZEG, CZU->CZUL, etc.
- */
-function normalizeCanadianArtcc($code) {
-    static $map = [
-        'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
-        'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
-        'CZQ' => 'CZQX', 'CZO' => 'CZQO',
-        'PAZA' => 'ZAN',
-    ];
-    $code = strtoupper(trim($code));
-    if (preg_match('/^KZ[A-Z]{2}$/', $code)) $code = substr($code, 1);
-    return $map[$code] ?? $code;
-}
-
-function normalizeCanadianArtccCsv($csv) {
-    if (trim($csv) === '') return $csv;
-    return implode(',', array_map('normalizeCanadianArtcc', explode(',', $csv)));
-}
-
 function normalizeRouteCanadian($rs) {
     static $codes = ['CZE','CZU','CZV','CZW','CZY','CZM','CZQ','CZO'];
     $parts = preg_split('/\s+/', trim($rs));
@@ -116,7 +96,7 @@ function normalizeRouteCanadian($rs) {
     foreach ($parts as &$p) {
         if (in_array(strtoupper($p), $codes)) {
             $old = $p;
-            $p = normalizeCanadianArtcc($p);
+            $p = ArtccNormalizer::normalize($p);
             if ($p !== $old) $changed = true;
         }
     }
@@ -145,8 +125,8 @@ while ($row = $result->fetch_assoc()) {
     $processed++;
     $route_id = (int)$row['route_id'];
     $rs = normalizeRouteCanadian(strtoupper(trim($row['route_string'])));
-    $oar = normalizeCanadianArtccCsv($row['origin_artccs'] ?? '');
-    $dar = normalizeCanadianArtccCsv($row['dest_artccs'] ?? '');
+    $oar = ArtccNormalizer::normalizeCsv($row['origin_artccs'] ?? '');
+    $dar = ArtccNormalizer::normalizeCsv($row['dest_artccs'] ?? '');
 
     // Build full route string with origin/dest endpoints
     $fullRoute = $rs;
@@ -191,7 +171,7 @@ while ($row = $result->fetch_assoc()) {
 
             switch ($r['btype']) {
                 case 'artcc':
-                    $code = normalizeCanadianArtcc($code);
+                    $code = ArtccNormalizer::normalize($code);
                     $artccs[] = $code;
                     break;
                 case 'tracon': $tracons[] = $code; break;

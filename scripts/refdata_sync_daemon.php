@@ -22,6 +22,8 @@ set_time_limit(0);
 // Load dependencies
 require_once __DIR__ . '/../load/config.php';
 require_once __DIR__ . '/../load/connect.php';
+require_once __DIR__ . '/../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
 
 // ============================================================================
 // Constants
@@ -165,58 +167,20 @@ function setLastSyncTime(): void {
 }
 
 // ============================================================================
-// Canadian ARTCC Normalization (shared with import_faa_to_db.php)
+// Canadian ARTCC Normalization — uses shared lib/ArtccNormalizer.php
 // ============================================================================
-
-/** Map of abbreviated Canadian ARTCC codes to their full ICAO equivalents. */
-$CANADIAN_ARTCC_MAP = [
-    'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
-    'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
-    'CZQ' => 'CZQX', 'CZO' => 'CZQO',
-    'PAZA' => 'ZAN',
-];
-
-/**
- * Normalize a single ARTCC code: strip US K-prefix, expand Canadian 3-letter codes.
- */
-function normalizeArtcc(string $code): string {
-    global $CANADIAN_ARTCC_MAP;
-    $code = strtoupper(trim($code));
-    if ($code === '') {
-        return '';
-    }
-    // Strip K-prefix from US ICAO ARTCC codes (KZNY -> ZNY)
-    if (preg_match('/^KZ[A-Z]{2}$/', $code)) {
-        $code = substr($code, 1);
-    }
-    return $CANADIAN_ARTCC_MAP[$code] ?? $code;
-}
-
-/**
- * Normalize a comma-separated list of ARTCC codes.
- */
-function normalizeArtccCsv(string $csv): string {
-    if (trim($csv) === '') {
-        return $csv;
-    }
-    return implode(',', array_map('normalizeArtcc', explode(',', $csv)));
-}
 
 /**
  * Normalize Canadian FIR codes that appear as route tokens.
  */
 function normalizeRouteCanadian(string $routeString): string {
-    global $CANADIAN_ARTCC_MAP;
-    $codes = array_keys($CANADIAN_ARTCC_MAP);
-    // Only normalize the 3-letter CZ codes that actually appear in routes
-    $codes = array_filter($codes, function ($c) { return strlen($c) === 3; });
-
+    static $codes = ['CZE','CZU','CZV','CZW','CZY','CZM','CZQ','CZO'];
     $parts = preg_split('/\s+/', trim($routeString));
     $changed = false;
     foreach ($parts as &$p) {
         if (in_array(strtoupper($p), $codes)) {
             $old = $p;
-            $p = normalizeArtcc($p);
+            $p = ArtccNormalizer::normalize($p);
             if ($p !== $old) {
                 $changed = true;
             }
@@ -801,8 +765,8 @@ function syncPlaybook(): array {
         // Strip embedded origin/dest from route_string (CSV has them in both)
         $origApts  = trim($row[2]);
         $destApts  = trim($row[5]);
-        $origArtc  = normalizeArtccCsv(trim($row[4]));
-        $destArtc  = normalizeArtccCsv(trim($row[7]));
+        $origArtc  = ArtccNormalizer::normalizeCsv(trim($row[4]));
+        $destArtc  = ArtccNormalizer::normalizeCsv(trim($row[7]));
         $cleanRoute = stripRouteEndpoints(
             normalizeRouteCanadian($routeStr),
             $origApts, $origArtc, $destApts, $destArtc
@@ -822,13 +786,13 @@ function syncPlaybook(): array {
 
         // Accumulate unique ARTCCs for the play-level facilities_involved
         foreach (explode(',', trim($row[4])) as $a) {
-            $a = normalizeArtcc(trim($a));
+            $a = ArtccNormalizer::normalize(trim($a));
             if ($a !== '') {
                 $plays[$playName]['artccs'][$a] = true;
             }
         }
         foreach (explode(',', trim($row[7])) as $a) {
-            $a = normalizeArtcc(trim($a));
+            $a = ArtccNormalizer::normalize(trim($a));
             if ($a !== '') {
                 $plays[$playName]['artccs'][$a] = true;
                 $plays[$playName]['dest_artccs'][$a] = true;

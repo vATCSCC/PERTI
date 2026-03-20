@@ -55,8 +55,8 @@ while (($row = fgetcsv($handle)) !== false) {
 
     $origApts = trim($row[2]);
     $destApts = trim($row[5]);
-    $origArtc = normalizeCanadianArtccCsv(trim($row[4]));
-    $destArtc = normalizeCanadianArtccCsv(trim($row[7]));
+    $origArtc = ArtccNormalizer::normalizeCsv(trim($row[4]));
+    $destArtc = ArtccNormalizer::normalizeCsv(trim($row[7]));
     $cleanRoute = stripRouteEndpoints(
         normalizeRouteCanadian(trim($rs)),
         $origApts, $origArtc, $destApts, $destArtc
@@ -71,8 +71,8 @@ while (($row = fgetcsv($handle)) !== false) {
         $destArtc,
     ];
 
-    foreach (explode(',', trim($row[4])) as $a) { $a = normalizeCanadianArtcc(trim($a)); if ($a) $plays[$pn]['artccs'][$a] = 1; }
-    foreach (explode(',', trim($row[7])) as $a) { $a = normalizeCanadianArtcc(trim($a)); if ($a) { $plays[$pn]['artccs'][$a] = 1; $plays[$pn]['dest_artccs'][$a] = 1; } }
+    foreach (explode(',', trim($row[4])) as $a) { $a = ArtccNormalizer::normalize(trim($a)); if ($a) $plays[$pn]['artccs'][$a] = 1; }
+    foreach (explode(',', trim($row[7])) as $a) { $a = ArtccNormalizer::normalize(trim($a)); if ($a) { $plays[$pn]['artccs'][$a] = 1; $plays[$pn]['dest_artccs'][$a] = 1; } }
     $total_routes++;
 }
 fclose($handle);
@@ -81,29 +81,10 @@ $play_count = count($plays);
 echo "Parsed: $total_routes routes, $play_count plays\n";
 flush();
 
+require_once __DIR__ . '/../../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
+
 function normPlay($n) { return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $n)); }
-
-/**
- * Normalize ARTCC codes:
- * - US ICAO K-prefix stripping: KZNY->ZNY, KZMA->ZMA, etc.
- * - Canadian FAA 3-letter to ICAO 4-letter: CZE->CZEG, CZU->CZUL, etc.
- */
-function normalizeCanadianArtcc($code) {
-    static $map = [
-        'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
-        'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
-        'CZQ' => 'CZQX', 'CZO' => 'CZQO',
-        'PAZA' => 'ZAN',
-    ];
-    $code = strtoupper(trim($code));
-    if (preg_match('/^KZ[A-Z]{2}$/', $code)) $code = substr($code, 1);
-    return $map[$code] ?? $code;
-}
-
-function normalizeCanadianArtccCsv($csv) {
-    if (trim($csv) === '') return $csv;
-    return implode(',', array_map('normalizeCanadianArtcc', explode(',', $csv)));
-}
 
 function normalizeRouteCanadian($rs) {
     static $codes = ['CZE','CZU','CZV','CZW','CZY','CZM','CZQ','CZO'];
@@ -112,7 +93,7 @@ function normalizeRouteCanadian($rs) {
     foreach ($parts as &$p) {
         if (in_array(strtoupper($p), $codes)) {
             $old = $p;
-            $p = normalizeCanadianArtcc($p);
+            $p = ArtccNormalizer::normalize($p);
             if ($p !== $old) $changed = true;
         }
     }
