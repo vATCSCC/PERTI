@@ -161,12 +161,12 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
                         UNION ALL
                         SELECT 'tracon', t.tracon_code,
                             ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, t.geom)))
-                        FROM tracon_boundaries t WHERE ST_Intersects(route.geom, t.geom)
+                        FROM (SELECT tracon_code, geom FROM tracon_boundaries WHERE ST_IsValid(geom)) t WHERE ST_Intersects(route.geom, t.geom)
                             AND route.geom IS NOT NULL
                         UNION ALL
                         SELECT CONCAT('sector_', LOWER(s.sector_type)), s.sector_code,
                             ST_LineLocatePoint(route.geom, ST_Centroid(ST_Intersection(route.geom, s.geom)))
-                        FROM sector_boundaries s WHERE ST_Intersects(route.geom, s.geom)
+                        FROM (SELECT sector_code, sector_type, geom FROM sector_boundaries WHERE ST_IsValid(geom)) s WHERE ST_Intersects(route.geom, s.geom)
                             AND route.geom IS NOT NULL
                     ) sub2
                     ORDER BY
