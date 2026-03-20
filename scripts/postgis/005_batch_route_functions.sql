@@ -170,9 +170,8 @@ BEGIN
                 -- LOW sectors
                 SELECT ARRAY(
                     SELECT sb.sector_code
-                    FROM sector_boundaries sb
+                    FROM (SELECT sector_code, sector_type, geom, floor_altitude, ceiling_altitude FROM sector_boundaries WHERE ST_IsValid(geom) AND sector_type = 'LOW') sb
                     WHERE ST_Intersects(v_geom, sb.geom)
-                      AND sb.sector_type = 'LOW'
                       AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= p_altitude)
                       AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= p_altitude)
                     ORDER BY ST_LineLocatePoint(v_geom, ST_Centroid(ST_Intersection(v_geom, sb.geom)))
@@ -181,9 +180,8 @@ BEGIN
                 -- HIGH sectors
                 SELECT ARRAY(
                     SELECT sb.sector_code
-                    FROM sector_boundaries sb
+                    FROM (SELECT sector_code, sector_type, geom, floor_altitude, ceiling_altitude FROM sector_boundaries WHERE ST_IsValid(geom) AND sector_type = 'HIGH') sb
                     WHERE ST_Intersects(v_geom, sb.geom)
-                      AND sb.sector_type = 'HIGH'
                       AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= p_altitude)
                       AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= p_altitude)
                     ORDER BY ST_LineLocatePoint(v_geom, ST_Centroid(ST_Intersection(v_geom, sb.geom)))
@@ -192,9 +190,8 @@ BEGIN
                 -- SUPERHIGH sectors
                 SELECT ARRAY(
                     SELECT sb.sector_code
-                    FROM sector_boundaries sb
+                    FROM (SELECT sector_code, sector_type, geom, floor_altitude, ceiling_altitude FROM sector_boundaries WHERE ST_IsValid(geom) AND sector_type = 'SUPERHIGH') sb
                     WHERE ST_Intersects(v_geom, sb.geom)
-                      AND sb.sector_type = 'SUPERHIGH'
                       AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= p_altitude)
                       AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= p_altitude)
                     ORDER BY ST_LineLocatePoint(v_geom, ST_Centroid(ST_Intersection(v_geom, sb.geom)))
@@ -203,7 +200,7 @@ BEGIN
                 -- TRACONs
                 SELECT ARRAY(
                     SELECT tb.tracon_code
-                    FROM tracon_boundaries tb
+                    FROM (SELECT tracon_code, geom FROM tracon_boundaries WHERE ST_IsValid(geom)) tb
                     WHERE ST_Intersects(v_geom, tb.geom)
                     ORDER BY ST_LineLocatePoint(v_geom, ST_Centroid(ST_Intersection(v_geom, tb.geom)))
                 ) INTO v_trc;
