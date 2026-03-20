@@ -22,6 +22,8 @@
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../../../../load/playbook_visibility.php';
+require_once __DIR__ . '/../../../../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
 
 // Handle CORS preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -682,17 +684,11 @@ function resolvePlayIdByName(string $name): ?int {
  * Normalize ARTCC alias codes (FAA 3-letter to ICAO 4-letter for Canadian FIRs).
  */
 function normalizeArtccAlias(string $code): string {
-    static $aliases = [
-        'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
-        'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
-        'CZQ' => 'CZQX', 'CZO' => 'CZQO',
-        'ZEG' => 'CZEG', 'ZUL' => 'CZUL', 'ZVR' => 'CZVR',
-        'ZWG' => 'CZWG', 'ZYZ' => 'CZYZ', 'ZQM' => 'CZQM',
-        'ZQX' => 'CZQX', 'ZQO' => 'CZQO', 'CZX' => 'CZQX',
-        'KZAK' => 'ZAK', 'KZWY' => 'ZWY', 'PGZU' => 'ZUA',
-        'PAZA' => 'ZAN', 'PAZN' => 'ZAP', 'PHZH' => 'ZHN',
+    // SWIM-specific international aliases not in the shared normalizer
+    static $swim_extras = [
         'ZMX' => 'MMMX', 'ZMT' => 'MMTY', 'ZMZ' => 'MMZT',
         'ZMR' => 'MMMD', 'ZMC' => 'MMUN', 'ZSU' => 'TJZS',
     ];
-    return $aliases[$code] ?? $code;
+    $normalized = ArtccNormalizer::normalize($code);
+    return $swim_extras[$normalized] ?? $normalized;
 }
