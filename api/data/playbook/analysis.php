@@ -26,6 +26,9 @@ include("../../../load/config.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 
+require_once __DIR__ . '/../../../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
 
@@ -384,7 +387,9 @@ foreach ($traversal_raw as $t) {
 
     $traversal[] = [
         'type'             => $t['facility_type'],
-        'id'               => $t['facility_id'],
+        'id'               => (in_array($t['facility_type'], ['ARTCC', 'FIR']))
+                                    ? ArtccNormalizer::normalize($t['facility_id'])
+                                    : $t['facility_id'],
         'name'             => $t['facility_name'],
         'entry_fix'        => $findNearestFix((float)$t['entry_fraction']),
         'exit_fix'         => $findNearestFix((float)$t['exit_fraction']),

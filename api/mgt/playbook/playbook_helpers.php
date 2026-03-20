@@ -4,30 +4,11 @@
  * Extracted from save.php so route.php can reuse traversal computation.
  */
 
+require_once __DIR__ . '/../../../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
+
 function normalizePlayName($name) {
     return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $name));
-}
-
-/**
- * Normalize ARTCC codes:
- * - US ICAO K-prefix stripping: KZNY->ZNY, KZMA->ZMA, etc.
- * - Canadian FAA 3-letter to ICAO 4-letter: CZE->CZEG, CZU->CZUL, etc.
- */
-function normalizeCanadianArtcc($code) {
-    static $map = [
-        'CZE' => 'CZEG', 'CZU' => 'CZUL', 'CZV' => 'CZVR',
-        'CZW' => 'CZWG', 'CZY' => 'CZYZ', 'CZM' => 'CZQM',
-        'CZQ' => 'CZQX', 'CZO' => 'CZQO',
-        'PAZA' => 'ZAN',
-    ];
-    $code = strtoupper(trim($code));
-    if (preg_match('/^KZ[A-Z]{2}$/', $code)) $code = substr($code, 1);
-    return $map[$code] ?? $code;
-}
-
-function normalizeCanadianArtccCsv($csv) {
-    if (trim($csv) === '') return $csv;
-    return implode(',', array_map('normalizeCanadianArtcc', explode(',', $csv)));
 }
 
 function normalizeRouteCanadian($rs) {
@@ -37,7 +18,7 @@ function normalizeRouteCanadian($rs) {
     foreach ($parts as &$p) {
         if (in_array(strtoupper($p), $codes)) {
             $old = $p;
-            $p = normalizeCanadianArtcc($p);
+            $p = ArtccNormalizer::normalize($p);
             if ($p !== $old) $changed = true;
         }
     }
@@ -197,7 +178,7 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
 
             switch ($row['btype']) {
                 case 'artcc':
-                    $code = normalizeCanadianArtcc($code);
+                    $code = ArtccNormalizer::normalize($code);
                     $artccs[] = $code;
                     break;
                 case 'tracon':
@@ -223,13 +204,13 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
     // origin -> GIS spatial -> destination gives correct traversal ordering.
     $origin_list = [];
     foreach (explode(',', $origin_artccs) as $a) {
-        $a = trim($a);
-        if ($a !== '' && strtoupper($a) !== 'UNKN') $origin_list[] = $a;
+        $a = ArtccNormalizer::normalize($a);
+        if ($a !== '' && $a !== 'UNKN' && $a !== 'VARIOUS') $origin_list[] = $a;
     }
     $dest_list = [];
     foreach (explode(',', $dest_artccs) as $a) {
-        $a = trim($a);
-        if ($a !== '' && strtoupper($a) !== 'UNKN') $dest_list[] = $a;
+        $a = ArtccNormalizer::normalize($a);
+        if ($a !== '' && $a !== 'UNKN' && $a !== 'VARIOUS') $dest_list[] = $a;
     }
     $artccs = array_merge($origin_list, $artccs, $dest_list);
 
