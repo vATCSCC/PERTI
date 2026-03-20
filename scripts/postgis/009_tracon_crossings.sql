@@ -52,7 +52,7 @@ BEGIN
             tb.tracon_name,
             tb.parent_artcc,
             (ST_Dump(ST_Intersection(trajectory, ST_Boundary(tb.geom)))).geom AS crossing_point
-        FROM tracon_boundaries tb
+        FROM (SELECT tracon_code, tracon_name, parent_artcc, geom FROM tracon_boundaries WHERE ST_IsValid(geom)) tb
         WHERE ST_Intersects(trajectory, tb.geom)
     ),
     crossing_details AS (
@@ -140,7 +140,7 @@ BEGIN
             sb.sector_name AS boundary_name,
             sb.parent_artcc,
             (ST_Dump(ST_Intersection(trajectory, ST_Boundary(sb.geom)))).geom AS crossing_point
-        FROM sector_boundaries sb
+        FROM (SELECT sector_code, sector_type, sector_name, parent_artcc, geom FROM sector_boundaries WHERE ST_IsValid(geom)) sb
         WHERE ST_Intersects(trajectory, sb.geom)
     ),
     -- TRACON crossings (new)
@@ -151,7 +151,7 @@ BEGIN
             tb.tracon_name AS boundary_name,
             tb.parent_artcc,
             (ST_Dump(ST_Intersection(trajectory, ST_Boundary(tb.geom)))).geom AS crossing_point
-        FROM tracon_boundaries tb
+        FROM (SELECT tracon_code, tracon_name, parent_artcc, geom FROM tracon_boundaries WHERE ST_IsValid(geom)) tb
         WHERE ST_Intersects(trajectory, tb.geom)
     ),
     -- Combine all crossing types

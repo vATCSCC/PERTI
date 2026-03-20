@@ -180,7 +180,7 @@ BEGIN
             sb.sector_type,
             sb.parent_artcc,
             (ST_Dump(ST_Intersection(trajectory, ST_Boundary(sb.geom)))).geom AS crossing_point
-        FROM sector_boundaries sb
+        FROM (SELECT sector_code, sector_name, sector_type, parent_artcc, geom FROM sector_boundaries WHERE ST_IsValid(geom)) sb
         WHERE ST_Intersects(trajectory, sb.geom)
           AND (p_sector_type IS NULL OR sb.sector_type = p_sector_type)
     ),
@@ -270,7 +270,7 @@ BEGIN
             sb.sector_name AS boundary_name,
             sb.parent_artcc,
             (ST_Dump(ST_Intersection(trajectory, ST_Boundary(sb.geom)))).geom AS crossing_point
-        FROM sector_boundaries sb
+        FROM (SELECT sector_code, sector_type, sector_name, parent_artcc, geom FROM sector_boundaries WHERE ST_IsValid(geom)) sb
         WHERE ST_Intersects(trajectory, sb.geom)
     ),
     all_crossings AS (
