@@ -812,13 +812,13 @@ BEGIN
     -- Find ARTCCs traversed (in traversal order by route centroid position)
     IF v_route_geom IS NOT NULL THEN
         SELECT ARRAY(
-            SELECT artcc_code FROM (
-                SELECT DISTINCT ON (ab.artcc_code)
-                    ab.artcc_code,
+            SELECT normalize_artcc_code(artcc_code) FROM (
+                SELECT DISTINCT ON (normalize_artcc_code(ab.artcc_code))
+                    normalize_artcc_code(ab.artcc_code) AS artcc_code,
                     ST_LineLocatePoint(v_route_geom, ST_Centroid(ST_Intersection(ab.geom, v_route_geom))) AS traversal_order
                 FROM artcc_boundaries ab
                 WHERE ST_Intersects(ab.geom, v_route_geom)
-                ORDER BY ab.artcc_code, traversal_order
+                ORDER BY normalize_artcc_code(ab.artcc_code), traversal_order
             ) sub
             ORDER BY traversal_order
         ) INTO v_artccs;
