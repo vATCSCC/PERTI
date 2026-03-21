@@ -134,20 +134,31 @@ def _versioned_name(comp_code, proc_name):
 
     DP format:   DEEZZ6.DEEZZ  -> DEEZZ6   (version before dot)
     STAR format: BAINY.BAINY3  -> BAINY3   (version after dot)
-    Heuristic: pick the part ending with a digit that starts with the
-    proc name (case-insensitive).  Falls back to proc_name.
+    Intl DP:     BPK5K.BPK     -> BPK5K    (ends with letter, not digit)
+    Intl STAR:   BPK.BPK5K     -> BPK5K    (ends with letter, not digit)
+    Heuristic: pick the part starting with proc_name that contains a digit.
+    Falls back to proc_name.
     """
     if '.' not in comp_code:
-        return comp_code if comp_code[-1:].isdigit() else proc_name
+        # No dot: return as-is if it contains a digit, else proc_name
+        return comp_code if any(c.isdigit() for c in comp_code) else proc_name
     parts = comp_code.split('.', 1)
-    # Prefer the part that starts with proc_name and ends with a digit
     pn = proc_name.upper()
+    # Prefer part starting with proc_name + ending with digit (NASR standard)
     for p in parts:
         if p.upper().startswith(pn) and p[-1:].isdigit():
+            return p
+    # Intl pattern: part starting with proc_name + containing digit + longer (BPK5K, AGOP6A)
+    for p in parts:
+        if p.upper().startswith(pn) and any(c.isdigit() for c in p) and len(p) > len(pn):
             return p
     # Fallback: any part ending with a digit
     for p in parts:
         if p[-1:].isdigit():
+            return p
+    # Fallback: any part containing a digit and longer than proc_name
+    for p in parts:
+        if any(c.isdigit() for c in p) and len(p) > len(pn):
             return p
     return proc_name
 

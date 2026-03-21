@@ -24,6 +24,7 @@ Options:
     --current-only    Only process current cycle (skip next)
     --xp12-path DIR   Path to XP12 Custom Data (auto-detected if omitted)
     --skip-xp12       Skip merging XP12/Navigraph international airways
+    --skip-cifp       Skip merging XP12/Navigraph international CIFP procedures
     --verbose         Enable debug output
     --dry-run         Parse only, don't write files
 """
@@ -633,6 +634,292 @@ class XP12Parser:
 
         logger.info(f"XP12: parsed {len(navaids)} unique navaids from earth_nav.dat")
         return navaids
+
+    def get_effective_date(self) -> Optional[str]:
+        """Parse cycle_info.txt for effective date in MM/DD/YYYY format.
+
+        Looks for line: 'Valid (from/to): 19/MAR/2026 - 16/APR/2026'
+        Returns: '03/19/2026'
+        """
+        info_file = self.xp12_dir / 'cycle_info.txt'
+        if not info_file.exists():
+            return None
+        try:
+            with open(info_file, 'r', encoding='utf-8', errors='replace') as f:
+                for line in f:
+                    if 'Valid (from/to)' in line:
+                        # Extract date after colon, before dash
+                        date_part = line.split(':', 1)[1].strip().split('-')[0].strip()
+                        # Parse DD/MMM/YYYY (e.g., 19/MAR/2026)
+                        dt = datetime.strptime(date_part, '%d/%b/%Y')
+                        return dt.strftime('%m/%d/%Y')
+        except Exception as e:
+            logger.warning(f"XP12: Failed to parse effective date from cycle_info.txt: {e}")
+        return None
+
+    def parse_cifp_procedures(self, exclude_prefixes: tuple = ('K', 'PA', 'PH', 'PG', 'PW', 'PM')) -> Dict:
+        """Parse CIFP SID/STAR data from international airports.
+
+        Iterates CIFP/*.dat files, skipping US airports (K/PA/PH/PG/PW/PM prefixes).
+        Parses ALL route types (2-6) to capture runway-specific and common transitions.
+        Groups by (airport, proc_name, transition) and extracts fix sequences.
+
+        Returns: {'dps': [...], 'stars': [...]} where each entry has:
+            airport, proc_name, base_name, transition, route_type, fixes
+        """
+        cifp_dir = self.xp12_dir / 'CIFP'
+        if not cifp_dir.exists():
+            logger.warning(f"XP12: CIFP directory not found at {cifp_dir}")
+            return {'dps': [], 'stars': []}
+
+        # Collect all .dat files
+        dat_files = sorted(cifp_dir.glob('*.dat'))
+        if not dat_files:
+            logger.warning(f"XP12: No .dat files found in {cifp_dir}")
+            return {'dps': [], 'stars': []}
+
+        logger.info(f"XP12 CIFP: Found {len(dat_files)} airport files")
+
+        all_dps = []
+        all_stars = []
+        skipped_us = 0
+        processed = 0
+        errors = 0
+
+        for i, dat_file in enumerate(dat_files):
+            airport = dat_file.stem.upper()
+
+            # Skip US airports (handled by NASR data)
+            # K/PA/PH/PG/PW/PM = ICAO-prefixed US airports
+            # Non-4-char codes starting with digits = FAA LIDs (e.g. 05C, 1B9)
+            if airport.startswith(exclude_prefixes):
+                skipped_us += 1
+                continue
+            if len(airport) != 4 or airport[0].isdigit():
+                skipped_us += 1
+                continue
+
+            # Progress logging every 2000 files
+            if (i + 1) % 2000 == 0:
+                logger.info(f"XP12 CIFP: Processing file {i+1}/{len(dat_files)}...")
+
+            try:
+                dps, stars = self._parse_single_cifp(dat_file, airport)
+                all_dps.extend(dps)
+                all_stars.extend(stars)
+                processed += 1
+            except Exception as e:
+                errors += 1
+                if errors <= 5:
+                    logger.warning(f"XP12 CIFP: Error parsing {airport}: {e}")
+
+        logger.info(f"XP12 CIFP: Processed {processed} international airports, "
+                    f"skipped {skipped_us} US airports, {errors} errors")
+        logger.info(f"XP12 CIFP: {len(all_dps)} DP entries, {len(all_stars)} STAR entries")
+
+        return {'dps': all_dps, 'stars': all_stars}
+
+    def _parse_single_cifp(self, filepath: Path, airport: str) -> Tuple[List[Dict], List[Dict]]:
+        """Parse a single CIFP .dat file for SID/STAR procedures.
+
+        Returns (dp_entries, star_entries) where each entry is a dict with:
+            airport, proc_name, base_name, transition, route_type, fixes
+        """
+        # Collect legs: {(proc_type, proc_name, transition): [(seq, fix_name, route_type)]}
+        legs = defaultdict(list)
+
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                line = line.strip().rstrip(';')
+                if not line:
+                    continue
+
+                # Only process SID/STAR lines
+                if not (line.startswith('SID:') or line.startswith('STAR:')):
+                    continue
+
+                fields = line.split(',')
+                if len(fields) < 5:
+                    continue
+
+                # Parse TYPE:SEQ header
+                type_seq = fields[0]
+                match = re.match(r'^(SID|STAR):(\d{3})$', type_seq)
+                if not match:
+                    continue
+
+                proc_type = match.group(1)
+                seq_num = int(match.group(2))
+                route_type = int(fields[1]) if fields[1].strip().isdigit() else 0
+                proc_name = fields[2].strip()
+                transition = fields[3].strip()
+                fix_name = fields[4].strip() if len(fields) > 4 else ''
+
+                # Skip route types 1 (engine-out) and 7+ (approach transitions)
+                if route_type < 2 or route_type > 6:
+                    continue
+
+                # Skip legs without a named fix
+                if not fix_name:
+                    continue
+
+                # Skip runway designator fixes (D110B, D195J, etc. are unnamed waypoints)
+                if re.match(r'^D\d{3}[A-Z]$', fix_name):
+                    continue
+
+                # Skip unnamed/generic fixes that start with airport region codes
+                # but keep real fix names
+                leg_type = fields[11].strip() if len(fields) > 11 else ''
+
+                legs[(proc_type, proc_name, transition)].append(
+                    (seq_num, fix_name, route_type, leg_type)
+                )
+
+        # Convert leg groups to entries
+        dps = []
+        stars = []
+
+        for (proc_type, proc_name, transition), leg_list in legs.items():
+            # Skip invalid procedure names (runway-only names, too short)
+            if proc_name.startswith('RW') or len(proc_name) < 3:
+                continue
+
+            # Relaxed validation: must match international naming pattern
+            if not re.match(r'^[A-Z]{2,7}\d?[A-Z]?$', proc_name):
+                continue
+
+            # Sort by sequence and extract fixes
+            leg_list.sort(key=lambda x: x[0])
+            fixes = []
+            for seq, fix, rt, lt in leg_list:
+                # Skip runway designator fixes
+                if fix.startswith('RW'):
+                    continue
+                # Deduplicate consecutive
+                if not fixes or fixes[-1] != fix:
+                    fixes.append(fix)
+
+            # Need at least 2 fixes for a valid route
+            if len(fixes) < 2:
+                continue
+
+            # Extract base name (letters before first digit)
+            base_match = re.match(r'^([A-Z]{2,6})\d', proc_name)
+            base_name = base_match.group(1) if base_match else proc_name
+
+            entry = {
+                'airport': airport,
+                'proc_name': proc_name,
+                'base_name': base_name,
+                'transition': transition,
+                'route_type': leg_list[0][2],
+                'fixes': fixes,
+            }
+
+            if proc_type == 'SID':
+                dps.append(entry)
+            else:
+                stars.append(entry)
+
+        return dps, stars
+
+    def cifp_to_nasr_rows(self, parsed: Dict, eff_date: str) -> Tuple[List[Dict], List[Dict]]:
+        """Convert parsed CIFP procedures to NASR-compatible CSV row format.
+
+        Args:
+            parsed: Output from parse_cifp_procedures()
+            eff_date: Effective date in MM/DD/YYYY format
+
+        Returns: (dp_rows, star_rows) as List[Dict] matching transform_dps/stars output
+        """
+        dp_rows = []
+        star_rows = []
+
+        # Group DPs by (airport, base_name) to find base+transition structure
+        dp_groups = defaultdict(list)
+        for entry in parsed['dps']:
+            dp_groups[(entry['airport'], entry['base_name'])].append(entry)
+
+        for (airport, base_name), entries in dp_groups.items():
+            for entry in entries:
+                proc_name = entry['proc_name']
+                transition = entry['transition']
+                fixes = entry['fixes']
+                route_points = ' '.join(fixes)
+
+                # Computer code format: PROC.BASE for DPs
+                comp_code = f"{proc_name}.{base_name}"
+
+                # Determine transition name
+                if transition.startswith('RW'):
+                    trans_name = f"{transition} TRANSITION"
+                elif transition and transition != 'ALL' and transition != proc_name:
+                    trans_name = f"{transition} TRANSITION"
+                else:
+                    trans_name = ''
+
+                # Body name: BASE-PROC
+                body_name = f"{base_name}-{proc_name}"
+
+                # Full route from origin group
+                full_route = f"{airport} {route_points}"
+
+                dp_rows.append({
+                    'EFF_DATE': eff_date,
+                    'DP_NAME': base_name,
+                    'DP_COMPUTER_CODE': comp_code,
+                    'ARTCC': airport,  # Use airport ICAO as ARTCC to prevent grouping collision
+                    'ORIG_GROUP': airport,
+                    'BODY_NAME': body_name,
+                    'TRANSITION_COMPUTER_CODE': comp_code if trans_name else '',
+                    'TRANSITION_NAME': trans_name,
+                    'ROUTE_POINTS': route_points,
+                    'ROUTE_FROM_ORIG_GROUP': full_route,
+                })
+
+        # Group STARs by (airport, base_name)
+        star_groups = defaultdict(list)
+        for entry in parsed['stars']:
+            star_groups[(entry['airport'], entry['base_name'])].append(entry)
+
+        for (airport, base_name), entries in star_groups.items():
+            for entry in entries:
+                proc_name = entry['proc_name']
+                transition = entry['transition']
+                fixes = entry['fixes']
+                route_points = ' '.join(fixes)
+
+                # Computer code format: BASE.PROC for STARs
+                comp_code = f"{base_name}.{proc_name}"
+
+                # Determine transition name
+                if transition.startswith('RW'):
+                    trans_name = f"{transition} TRANSITION"
+                elif transition and transition != 'ALL' and transition != proc_name:
+                    trans_name = f"{transition} TRANSITION"
+                else:
+                    trans_name = ''
+
+                # Body name: BASE-PROC
+                body_name = f"{base_name}-{proc_name}"
+
+                # Full route from dest group
+                full_route = f"{route_points} {airport}"
+
+                star_rows.append({
+                    'EFF_DATE': eff_date,
+                    'ARRIVAL_NAME': base_name,
+                    'STAR_COMPUTER_CODE': comp_code,
+                    'ARTCC': airport,  # Use airport ICAO as ARTCC to prevent grouping collision
+                    'DEST_GROUP': airport,
+                    'BODY_NAME': body_name,
+                    'TRANSITION_COMPUTER_CODE': comp_code if trans_name else '',
+                    'TRANSITION_NAME': trans_name,
+                    'ROUTE_POINTS': route_points,
+                    'ROUTE_FROM_DEST_GROUP': full_route,
+                })
+
+        return dp_rows, star_rows
 
     @staticmethod
     def _build_fix_sequences(edge_set: set) -> List[List[str]]:
@@ -1885,7 +2172,7 @@ class NASRNavDataUpdater:
                  no_backup: bool = False, current_only: bool = False,
                  skip_playbook: bool = True, verbose: bool = False,
                  dry_run: bool = False, xp12_path: str = None,
-                 skip_xp12: bool = False):
+                 skip_xp12: bool = False, skip_cifp: bool = False):
         self.output_dir = Path(output_dir)
         self.js_dir = Path(js_dir)
         self.cache_dir = Path(cache_dir)
@@ -1896,6 +2183,7 @@ class NASRNavDataUpdater:
         self.verbose = verbose
         self.dry_run = dry_run
         self.skip_xp12 = skip_xp12
+        self.skip_cifp = skip_cifp
 
         # Resolve XP12 Custom Data path (explicit > auto-detect)
         if xp12_path:
@@ -1948,6 +2236,19 @@ class NASRNavDataUpdater:
         combined = fixes + navaids
         logger.info(f"XP12: {len(fixes)} fixes + {len(navaids)} navaids = {len(combined)} total points")
         return combined
+
+    def _parse_xp12_procedures(self) -> Tuple[List[Dict], List[Dict]]:
+        """Parse XP12 CIFP international procedures. Returns (dp_rows, star_rows)."""
+        parser = self._get_xp12_parser()
+        if not parser:
+            return [], []
+        cifp_dir = parser.xp12_dir / 'CIFP'
+        if not cifp_dir.exists():
+            logger.info("XP12: CIFP directory not found, skipping international procedures")
+            return [], []
+        parsed = parser.parse_cifp_procedures()
+        eff_date = parser.get_effective_date() or datetime.now().strftime('%m/%d/%Y')
+        return parser.cifp_to_nasr_rows(parsed, eff_date)
 
     def run(self) -> bool:
         """Execute the full update process."""
@@ -2129,6 +2430,16 @@ class NASRNavDataUpdater:
             logger.info(f"XP12 points merge: +{xp12_new} new unique, "
                        f"+{xp12_extra} additional regional entries")
 
+        # Merge XP12 CIFP international SID/STAR procedures
+        if not self.skip_cifp:
+            xp12_dp_rows, xp12_star_rows = self._parse_xp12_procedures()
+            if xp12_dp_rows:
+                new_dps.extend(xp12_dp_rows)
+                logger.info(f"XP12 CIFP: +{len(xp12_dp_rows)} international DP rows")
+            if xp12_star_rows:
+                new_stars.extend(xp12_star_rows)
+                logger.info(f"XP12 CIFP: +{len(xp12_star_rows)} international STAR rows")
+
         if self.dry_run:
             logger.info("\n[DRY RUN] Skipping file writes")
             logger.info(f"  Would write {len(new_points)} points")
@@ -2274,6 +2585,8 @@ def main():
                        help='Path to X-Plane 12 Custom Data directory (auto-detected if omitted)')
     parser.add_argument('--skip-xp12', action='store_true',
                        help='Skip merging XP12/Navigraph international airways')
+    parser.add_argument('--skip-cifp', action='store_true',
+                       help='Skip merging XP12/Navigraph international CIFP SID/STAR procedures')
 
     args = parser.parse_args()
 
@@ -2290,7 +2603,8 @@ def main():
         verbose=args.verbose,
         dry_run=args.dry_run,
         xp12_path=args.xp12_path,
-        skip_xp12=args.skip_xp12
+        skip_xp12=args.skip_xp12,
+        skip_cifp=args.skip_cifp
     )
     
     success = updater.run()
