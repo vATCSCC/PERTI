@@ -454,6 +454,7 @@ include("load/nav.php");
                                         <label>Source</label>
                                         <select id="pb_edit_source" class="form-control form-control-sm">
                                             <option value="DCC">DCC</option>
+                                            <option value="FAA">FAA</option>
                                             <option value="ECFMP">ECFMP</option>
                                             <option value="CANOC">CANOC</option>
                                         </select>
@@ -548,6 +549,26 @@ include("load/nav.php");
                             </div>
                             <!-- Advisory parse area (hidden by default) -->
                             <div id="pb_advisory_parse_area" style="display:none;" class="mb-2">
+                                <div class="pb-advisory-fetch mb-2">
+                                    <small class="text-muted d-block mb-1"><?= __('playbook.advisoryFetchLabel') ?></small>
+                                    <div class="d-flex align-items-center mb-1">
+                                        <input type="text" id="pb_advisory_url" class="form-control form-control-sm mr-1"
+                                               placeholder="<?= __('playbook.advisoryUrlPlaceholder') ?>" style="flex:1;">
+                                        <button class="btn btn-sm btn-warning" id="pb_advisory_fetch_url_btn">
+                                            <i class="fas fa-download mr-1"></i><?= __('common.fetch') ?>
+                                        </button>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <small class="text-muted mr-1"><?= __('playbook.advisoryOr') ?></small>
+                                        <input type="date" id="pb_advisory_date" class="form-control form-control-sm mr-1" style="width:150px;">
+                                        <input type="number" id="pb_advisory_advn" class="form-control form-control-sm mr-1"
+                                               placeholder="<?= __('playbook.advisoryAdvnPlaceholder') ?>" style="width:80px;" min="1">
+                                        <button class="btn btn-sm btn-warning" id="pb_advisory_fetch_date_btn">
+                                            <i class="fas fa-download mr-1"></i><?= __('common.fetch') ?>
+                                        </button>
+                                    </div>
+                                </div>
+                                <hr class="my-2" style="border-color:#555;">
                                 <textarea id="pb_advisory_parse_text" class="form-control form-control-sm" rows="8"
                                           placeholder="<?= __('playbook.advisoryParseHint') ?>" style="font-family:'Inconsolata',monospace; white-space:pre;"></textarea>
                                 <div class="d-flex align-items-center mt-1">

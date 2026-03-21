@@ -263,10 +263,12 @@ const RerouteAdvisorySearch = (function() {
             var displayRoute = r.route_string;
             var originLabel = r.origin || '';
             if (r.origin_filter) originLabel += '(' + r.origin_filter + ')';
+            var isArtcc = r.origin && !isAirportCode(r.origin);
+            var originClass = 'reroute-route-origin' + (isArtcc ? ' reroute-artcc-origin' : '');
 
             html += '<div class="reroute-route-row" data-plotroute="' + escapeAttr(plotRoute) + '">';
             html += '<input type="checkbox" class="reroute-route-check mr-2">';
-            html += '<span class="reroute-route-origin" title="' + escapeAttr(originLabel) + '">' + escapeHtml(originLabel || '-') + '</span>';
+            html += '<span class="' + originClass + '" title="' + escapeAttr(originLabel) + '">' + escapeHtml(originLabel || '-') + '</span>';
             html += '<span class="reroute-route-string" title="' + escapeAttr(displayRoute) + '">' + escapeHtml(displayRoute) + '</span>';
             html += '<div class="reroute-route-actions">';
             html += '<button class="btn btn-outline-warning reroute-route-add" title="' + PERTII18n.t('rerouteAdvisory.addToTextarea') + '"><i class="fas fa-plus"></i></button>';
