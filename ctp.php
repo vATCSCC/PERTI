@@ -226,6 +226,16 @@ include("load/connect.php");
                         <i class="fas fa-calculator mr-1"></i><?= __('ctp.planning.title') ?>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-toggle="tab" href="#ctp_routes_panel">
+                        <i class="fas fa-route mr-1"></i><?= __('ctp.routes.title') ?>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-toggle="tab" href="#ctp_stats_panel">
+                        <i class="fas fa-chart-pie mr-1"></i><?= __('ctp.stats.title') ?>
+                    </a>
+                </li>
             </ul>
 
             <div class="tab-content">
@@ -283,6 +293,40 @@ include("load/connect.php");
                             <div class="text-center text-muted py-3"><?= __('ctp.planning.noScenarios') ?></div>
                         </div>
                         <div id="ctp_planning_results" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <!-- Route Templates Tab -->
+                <div class="tab-pane fade" id="ctp_routes_panel">
+                    <div class="d-flex align-items-center justify-content-between px-3 py-2">
+                        <span class="small font-weight-bold"><?= __('ctp.routes.templateManager') ?></span>
+                        <button class="btn btn-sm btn-outline-primary" id="ctp_routes_create">
+                            <i class="fas fa-plus mr-1"></i><?= __('ctp.routes.createTemplate') ?>
+                        </button>
+                    </div>
+                    <div class="px-3 pb-2">
+                        <table class="table table-sm table-striped table-hover mb-0" id="ctp_routes_table">
+                            <thead>
+                                <tr>
+                                    <th><?= __('common.name') ?></th>
+                                    <th><?= __('ctp.routes.segment') ?></th>
+                                    <th><?= __('ctp.routes.route') ?></th>
+                                    <th><?= __('ctp.throughput.priority') ?></th>
+                                    <th><?= __('ctp.routes.eventOnly') ?></th>
+                                    <th style="width:100px;"><?= __('common.actions') ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="6" class="text-center text-muted py-3"><?= __('ctp.routes.noTemplates') ?></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Stats Tab -->
+                <div class="tab-pane fade" id="ctp_stats_panel">
+                    <div id="ctp_stats_content" class="py-2">
+                        <div class="text-center text-muted py-3"><?= __('ctp.stats.selectSession') ?></div>
                     </div>
                 </div>
             </div>

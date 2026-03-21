@@ -126,7 +126,7 @@ if ($assignment_id) {
     }
 
     respond_json(200, [
-        'status' => 'success',
+        'status' => 'ok',
         'message' => 'Assignment updated',
         'assignment_id' => $assignment_id
     ]);
@@ -172,7 +172,7 @@ if ($assignment_id) {
     sqlsrv_free_stmt($stmt);
 
     respond_json(201, [
-        'status' => 'success',
+        'status' => 'ok',
         'message' => 'Assignment created',
         'assignment_id' => $new_assignment_id
     ]);

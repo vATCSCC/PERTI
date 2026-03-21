@@ -2693,19 +2693,39 @@
 
             var self = this;
             scenarios.forEach(function(sc) {
-                var $item = $('<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">')
-                    .append($('<span>').text(sc.scenario_name || t('ctp.planning.scenario') + ' #' + sc.scenario_id))
-                    .append($('<span class="btn-group btn-group-sm">')
-                        .append('<button class="btn btn-outline-primary ps-compute" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.compute') + '"><i class="fas fa-calculator"></i></button>')
-                        .append('<button class="btn btn-outline-secondary ps-clone" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.cloneScenario') + '"><i class="fas fa-copy"></i></button>')
-                        .append('<button class="btn btn-outline-danger ps-delete" data-id="' + sc.scenario_id + '"><i class="fas fa-trash"></i></button>')
-                    );
+                var statusBadge = sc.status ? '<span class="badge badge-' + (sc.status === 'ACTIVE' ? 'success' : sc.status === 'ARCHIVED' ? 'secondary' : 'light') + ' ml-1" style="font-size:0.6rem;">' + sc.status + '</span>' : '';
+                var $item = $('<div class="list-group-item list-group-item-action">')
+                    .append($('<div class="d-flex justify-content-between align-items-center">')
+                        .append($('<span class="ps-expand" data-id="' + sc.scenario_id + '" style="cursor:pointer;">').html('<i class="fas fa-chevron-right mr-1 ps-chevron" style="font-size:0.6rem;transition:transform 0.15s;"></i>' + (sc.scenario_name || t('ctp.planning.scenario') + ' #' + sc.scenario_id) + statusBadge))
+                        .append($('<span class="btn-group btn-group-sm">')
+                            .append('<button class="btn btn-outline-info ps-edit" data-id="' + sc.scenario_id + '" title="' + t('common.edit') + '"><i class="fas fa-pencil-alt"></i></button>')
+                            .append('<button class="btn btn-outline-primary ps-compute" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.compute') + '"><i class="fas fa-calculator"></i></button>')
+                            .append('<button class="btn btn-outline-secondary ps-clone" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.cloneScenario') + '"><i class="fas fa-copy"></i></button>')
+                            .append('<button class="btn btn-outline-danger ps-delete" data-id="' + sc.scenario_id + '"><i class="fas fa-trash"></i></button>')
+                        )
+                    )
+                    .append($('<div class="ps-blocks-panel mt-2" data-scenario="' + sc.scenario_id + '" style="display:none;"></div>'));
                 $list.append($item);
             });
 
-            $list.find('.ps-compute').on('click', function() { self.compute($(this).data('id')); });
-            $list.find('.ps-clone').on('click', function() { self.cloneScenario($(this).data('id')); });
-            $list.find('.ps-delete').on('click', function() { self.deleteScenario($(this).data('id')); });
+            $list.find('.ps-expand').on('click', function(e) {
+                e.stopPropagation();
+                var id = $(this).data('id');
+                var $panel = $list.find('.ps-blocks-panel[data-scenario="' + id + '"]');
+                var $chev = $(this).find('.ps-chevron');
+                if ($panel.is(':visible')) {
+                    $panel.slideUp(150);
+                    $chev.css('transform', 'rotate(0deg)');
+                } else {
+                    $panel.slideDown(150);
+                    $chev.css('transform', 'rotate(90deg)');
+                    self.loadBlocks(id, $panel);
+                }
+            });
+            $list.find('.ps-edit').on('click', function(e) { e.stopPropagation(); self.editScenario($(this).data('id')); });
+            $list.find('.ps-compute').on('click', function(e) { e.stopPropagation(); self.compute($(this).data('id')); });
+            $list.find('.ps-clone').on('click', function(e) { e.stopPropagation(); self.cloneScenario($(this).data('id')); });
+            $list.find('.ps-delete').on('click', function(e) { e.stopPropagation(); self.deleteScenario($(this).data('id')); });
         },
 
         createScenario: function() {
@@ -2776,6 +2796,403 @@
                         success: function(resp) {
                             if (resp.status === 'ok') {
                                 self.loadScenarios();
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        editScenario: function(scenarioId) {
+            var self = this;
+            var sc = this.scenarios.find(function(s) { return s.scenario_id === scenarioId; });
+            if (!sc) return;
+
+            var start = sc.departure_window_start || '';
+            var end = sc.departure_window_end || '';
+            if (start) start = start.replace(/Z$/, '').replace(/\.\d+$/, '').substring(0, 16);
+            if (end) end = end.replace(/Z$/, '').replace(/\.\d+$/, '').substring(0, 16);
+
+            Swal.fire({
+                title: t('ctp.planning.editScenario'),
+                html:
+                    '<input id="swal_es_name" class="swal2-input" value="' + (sc.scenario_name || '').replace(/"/g, '&quot;') + '" placeholder="' + t('ctp.planning.scenarioName') + '">' +
+                    '<label class="swal2-input-label">' + t('ctp.session.windowStart') + '</label>' +
+                    '<input id="swal_es_start" class="swal2-input" type="datetime-local" value="' + start + '">' +
+                    '<label class="swal2-input-label">' + t('ctp.session.windowEnd') + '</label>' +
+                    '<input id="swal_es_end" class="swal2-input" type="datetime-local" value="' + end + '">' +
+                    '<label class="swal2-input-label">' + t('common.notes') + '</label>' +
+                    '<textarea id="swal_es_notes" class="swal2-textarea" style="font-size:0.85rem;">' + (sc.notes || '') + '</textarea>' +
+                    '<label class="swal2-input-label">' + t('common.status') + '</label>' +
+                    '<select id="swal_es_status" class="swal2-select">' +
+                        '<option value="DRAFT"' + (sc.status === 'DRAFT' ? ' selected' : '') + '>DRAFT</option>' +
+                        '<option value="ACTIVE"' + (sc.status === 'ACTIVE' ? ' selected' : '') + '>ACTIVE</option>' +
+                        '<option value="ARCHIVED"' + (sc.status === 'ARCHIVED' ? ' selected' : '') + '>ARCHIVED</option>' +
+                    '</select>',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    var name = $('#swal_es_name').val();
+                    if (!name) { Swal.showValidationMessage(t('ctp.planning.scenarioName') + ' required'); return false; }
+                    var data = { scenario_id: scenarioId, scenario_name: name, status: $('#swal_es_status').val() };
+                    var s = $('#swal_es_start').val();
+                    var e = $('#swal_es_end').val();
+                    if (s) data.departure_window_start = s + ':00Z';
+                    if (e) data.departure_window_end = e + ':00Z';
+                    var notes = $('#swal_es_notes').val();
+                    if (notes !== (sc.notes || '')) data.notes = notes;
+                    return data;
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.planning.scenario_save,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                Swal.fire({ icon: 'success', title: t('common.saved'), timer: 1500, showConfirmButton: false });
+                                self.loadScenarios();
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        // -- Block / Assignment CRUD --
+
+        loadBlocks: function(scenarioId, $panel) {
+            var self = this;
+            $panel.html('<div class="text-center text-muted py-2"><i class="fas fa-spinner fa-spin"></i></div>');
+
+            // Fetch blocks + assignments for this scenario via a lightweight query
+            // We'll reuse the compute endpoint data or fetch blocks from the scenario_save GET (not available)
+            // Actually, blocks are part of the scenario — we need a blocks list endpoint.
+            // Since no dedicated "list blocks" endpoint exists, we fetch scenario detail from compute
+            // and extract the blocks. But compute is expensive, so instead let's build a simple list.
+            // For now, create a custom fetch using the block_save endpoint pattern.
+            // The block_save endpoint doesn't have GET. Let's query via a scenario recompute with summary only.
+            // Actually - let's just build the UI with the scenario_id and call block_save to create.
+            // We'll use a direct AJAX to get blocks from the database via a generic approach.
+
+            // Since no list-blocks endpoint exists, we'll reuse compute which returns block data,
+            // or we just show the "add block" button and manage inline.
+            $panel.html(
+                '<div class="pl-3 border-left border-primary" style="border-width:2px !important;">' +
+                    '<div class="d-flex justify-content-between align-items-center mb-1">' +
+                        '<small class="font-weight-bold text-uppercase" style="font-size:0.68rem;">' + t('ctp.planning.trafficBlocks') + '</small>' +
+                        '<button class="btn btn-outline-primary btn-sm ps-add-block" data-scenario="' + scenarioId + '" style="font-size:0.65rem;padding:1px 6px;">' +
+                            '<i class="fas fa-plus mr-1"></i>' + t('ctp.planning.addBlock') +
+                        '</button>' +
+                    '</div>' +
+                    '<div class="ps-blocks-list" data-scenario="' + scenarioId + '">' +
+                        '<div class="text-muted small py-1">' + t('ctp.planning.noBlocks') + '</div>' +
+                    '</div>' +
+                '</div>'
+            );
+
+            // Try to load blocks via compute (lightweight - it should return block data in summary)
+            $.ajax({
+                url: API.planning.compute,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ scenario_id: scenarioId }),
+                success: function(resp) {
+                    if (resp.status === 'ok' && resp.data && resp.data.blocks) {
+                        self.renderBlocks(scenarioId, resp.data.blocks, $panel.find('.ps-blocks-list'));
+                    }
+                }
+            });
+
+            $panel.find('.ps-add-block').off('click').on('click', function() {
+                self.addBlock(scenarioId, $panel);
+            });
+        },
+
+        renderBlocks: function(scenarioId, blocks, $container) {
+            var self = this;
+            $container.empty();
+
+            if (!blocks || blocks.length === 0) {
+                $container.html('<div class="text-muted small py-1">' + t('ctp.planning.noBlocks') + '</div>');
+                return;
+            }
+
+            blocks.forEach(function(blk) {
+                var origins = blk.origins_json ? [].concat(blk.origins_json).join(', ') : '*';
+                var dests = blk.destinations_json ? [].concat(blk.destinations_json).join(', ') : '*';
+                var $blk = $('<div class="card card-body p-2 mb-1" style="font-size:0.72rem;">' +
+                    '<div class="d-flex justify-content-between align-items-start">' +
+                        '<div>' +
+                            '<strong>' + (blk.block_label || t('ctp.planning.trafficBlock')) + '</strong>' +
+                            '<div class="text-muted">' + origins + ' → ' + dests + '</div>' +
+                            '<div>' + t('ctp.planning.flightCount') + ': ' + (blk.flight_count || 0) + ' &middot; ' + (blk.dep_distribution || 'UNIFORM') + '</div>' +
+                        '</div>' +
+                        '<div class="btn-group btn-group-sm">' +
+                            '<button class="btn btn-outline-info blk-edit" data-id="' + blk.block_id + '" style="font-size:0.6rem;padding:0 4px;"><i class="fas fa-pencil-alt"></i></button>' +
+                            '<button class="btn btn-outline-danger blk-delete" data-id="' + blk.block_id + '" style="font-size:0.6rem;padding:0 4px;"><i class="fas fa-trash"></i></button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="blk-assignments mt-1" data-block="' + blk.block_id + '"></div>' +
+                '</div>');
+                $container.append($blk);
+
+                // Render assignments within block
+                if (blk.assignments && blk.assignments.length > 0) {
+                    var $asgn = $blk.find('.blk-assignments');
+                    blk.assignments.forEach(function(a) {
+                        $asgn.append(
+                            '<div class="d-flex justify-content-between align-items-center pl-2 border-left" style="font-size:0.68rem;">' +
+                                '<span><i class="fas fa-route mr-1 text-primary" style="font-size:0.6rem;"></i>' + (a.track_name || '') + ' (' + (a.flight_count || 0) + ' ' + t('ctp.throughput.flights') + ')' + (a.altitude_range ? ' ' + a.altitude_range : '') + '</span>' +
+                                '<span class="btn-group btn-group-sm">' +
+                                    '<button class="btn btn-outline-info asgn-edit" data-id="' + a.assignment_id + '" data-block="' + blk.block_id + '" style="font-size:0.55rem;padding:0 3px;"><i class="fas fa-pencil-alt"></i></button>' +
+                                    '<button class="btn btn-outline-danger asgn-delete" data-id="' + a.assignment_id + '" style="font-size:0.55rem;padding:0 3px;"><i class="fas fa-trash"></i></button>' +
+                                '</span>' +
+                            '</div>'
+                        );
+                    });
+                }
+
+                // Add assignment button
+                $blk.find('.blk-assignments').append(
+                    '<button class="btn btn-outline-secondary btn-sm asgn-add mt-1" data-block="' + blk.block_id + '" style="font-size:0.6rem;padding:0 4px;">' +
+                        '<i class="fas fa-plus mr-1"></i>' + t('ctp.planning.addAssignment') +
+                    '</button>'
+                );
+            });
+
+            // Bind events
+            $container.find('.blk-edit').on('click', function() { self.editBlock($(this).data('id'), scenarioId, $container); });
+            $container.find('.blk-delete').on('click', function() { self.deleteBlock($(this).data('id'), scenarioId, $container); });
+            $container.find('.asgn-add').on('click', function() { self.addAssignment($(this).data('block'), scenarioId, $container); });
+            $container.find('.asgn-edit').on('click', function() { self.editAssignment($(this).data('id'), $(this).data('block'), scenarioId, $container); });
+            $container.find('.asgn-delete').on('click', function() { self.deleteAssignment($(this).data('id'), scenarioId, $container); });
+        },
+
+        addBlock: function(scenarioId, $panel) {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.planning.addBlock'),
+                html:
+                    '<input id="swal_bl_label" class="swal2-input" placeholder="' + t('ctp.planning.blockLabel') + '">' +
+                    '<input id="swal_bl_origins" class="swal2-input" placeholder="' + t('ctp.throughput.origins') + ' (KJFK,KBOS)">' +
+                    '<input id="swal_bl_dests" class="swal2-input" placeholder="' + t('ctp.throughput.destinations') + ' (EGLL,LFPG)">' +
+                    '<input id="swal_bl_count" class="swal2-input" type="number" placeholder="' + t('ctp.planning.flightCount') + '" value="100">' +
+                    '<select id="swal_bl_dist" class="swal2-select">' +
+                        '<option value="UNIFORM">' + t('ctp.planning.uniform') + '</option>' +
+                        '<option value="FRONT_LOADED">' + t('ctp.planning.frontLoaded') + '</option>' +
+                        '<option value="BACK_LOADED">' + t('ctp.planning.backLoaded') + '</option>' +
+                    '</select>',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    var origins = $('#swal_bl_origins').val().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+                    var dests = $('#swal_bl_dests').val().split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+                    if (!origins.length || !dests.length) { Swal.showValidationMessage(t('ctp.planning.originsDestsRequired')); return false; }
+                    return {
+                        scenario_id: scenarioId,
+                        block_label: $('#swal_bl_label').val(),
+                        origins_json: origins,
+                        destinations_json: dests,
+                        flight_count: parseInt($('#swal_bl_count').val()) || 0,
+                        dep_distribution: $('#swal_bl_dist').val()
+                    };
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.planning.block_save,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.loadBlocks(scenarioId, $panel.closest('.ps-blocks-panel'));
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        editBlock: function(blockId, scenarioId, $container) {
+            var self = this;
+            // Find the block card to pre-populate
+            var $card = $container.find('.blk-edit[data-id="' + blockId + '"]').closest('.card');
+            Swal.fire({
+                title: t('ctp.planning.editBlock'),
+                html:
+                    '<input id="swal_bl_label" class="swal2-input" placeholder="' + t('ctp.planning.blockLabel') + '">' +
+                    '<input id="swal_bl_count" class="swal2-input" type="number" placeholder="' + t('ctp.planning.flightCount') + '">' +
+                    '<select id="swal_bl_dist" class="swal2-select">' +
+                        '<option value="UNIFORM">' + t('ctp.planning.uniform') + '</option>' +
+                        '<option value="FRONT_LOADED">' + t('ctp.planning.frontLoaded') + '</option>' +
+                        '<option value="BACK_LOADED">' + t('ctp.planning.backLoaded') + '</option>' +
+                    '</select>',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    var data = { block_id: blockId };
+                    var label = $('#swal_bl_label').val();
+                    if (label) data.block_label = label;
+                    var count = $('#swal_bl_count').val();
+                    if (count) data.flight_count = parseInt(count);
+                    data.dep_distribution = $('#swal_bl_dist').val();
+                    return data;
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.planning.block_save,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.loadBlocks(scenarioId, $container.closest('.ps-blocks-panel'));
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        deleteBlock: function(blockId, scenarioId, $container) {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.planning.removeBlock'),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545'
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: API.planning.block_delete,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ block_id: blockId }),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.loadBlocks(scenarioId, $container.closest('.ps-blocks-panel'));
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        addAssignment: function(blockId, scenarioId, $container) {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.planning.addAssignment'),
+                html:
+                    '<input id="swal_as_track" class="swal2-input" placeholder="' + t('ctp.planning.trackAssignment') + ' (e.g. NAT A)">' +
+                    '<input id="swal_as_route" class="swal2-input" placeholder="' + t('ctp.planning.routeString') + '">' +
+                    '<input id="swal_as_count" class="swal2-input" type="number" placeholder="' + t('ctp.planning.flightCount') + '" value="10">' +
+                    '<input id="swal_as_alt" class="swal2-input" placeholder="' + t('ctp.planning.altitudeRange') + ' (e.g. FL340-FL360)">',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    var count = parseInt($('#swal_as_count').val()) || 0;
+                    if (count <= 0) { Swal.showValidationMessage(t('ctp.planning.flightCount') + ' > 0'); return false; }
+                    return {
+                        block_id: blockId,
+                        track_name: $('#swal_as_track').val(),
+                        route_string: $('#swal_as_route').val(),
+                        flight_count: count,
+                        altitude_range: $('#swal_as_alt').val() || null
+                    };
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.planning.assignment_save,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.loadBlocks(scenarioId, $container.closest('.ps-blocks-panel'));
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        editAssignment: function(assignmentId, blockId, scenarioId, $container) {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.planning.editAssignment'),
+                html:
+                    '<input id="swal_as_track" class="swal2-input" placeholder="' + t('ctp.planning.trackAssignment') + '">' +
+                    '<input id="swal_as_route" class="swal2-input" placeholder="' + t('ctp.planning.routeString') + '">' +
+                    '<input id="swal_as_count" class="swal2-input" type="number" placeholder="' + t('ctp.planning.flightCount') + '">' +
+                    '<input id="swal_as_alt" class="swal2-input" placeholder="' + t('ctp.planning.altitudeRange') + '">',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    var data = { assignment_id: assignmentId };
+                    var track = $('#swal_as_track').val();
+                    if (track) data.track_name = track;
+                    var route = $('#swal_as_route').val();
+                    if (route) data.route_string = route;
+                    var count = $('#swal_as_count').val();
+                    if (count) {
+                        count = parseInt(count);
+                        if (count <= 0) { Swal.showValidationMessage(t('ctp.planning.flightCount') + ' > 0'); return false; }
+                        data.flight_count = count;
+                    }
+                    var alt = $('#swal_as_alt').val();
+                    if (alt) data.altitude_range = alt;
+                    return data;
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.planning.assignment_save,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.loadBlocks(scenarioId, $container.closest('.ps-blocks-panel'));
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        deleteAssignment: function(assignmentId, scenarioId, $container) {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.planning.deleteAssignment'),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545'
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: API.planning.assignment_delete,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ assignment_id: assignmentId }),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.loadBlocks(scenarioId, $container.closest('.ps-blocks-panel'));
                             }
                         }
                     });
@@ -2912,6 +3329,271 @@
     };
 
     // ========================================================================
+    // Route Template Manager
+    // ========================================================================
+
+    var RouteTemplateManager = {
+        templates: [],
+
+        init: function() {
+            var self = this;
+            $(document).on('click', '#ctp_routes_create', function() { self.showCreateDialog(); });
+            $(document).on('shown.bs.tab', 'a[href="#ctp_routes_panel"]', function() { self.refresh(); });
+        },
+
+        refresh: function() {
+            if (!state.currentSession) return;
+            var self = this;
+            $.ajax({
+                url: API.routes.templates,
+                data: { session_id: state.currentSession.session_id },
+                success: function(resp) {
+                    if (resp.status === 'ok' && resp.data) {
+                        self.templates = resp.data.templates || [];
+                        self.renderTable(self.templates);
+                    }
+                }
+            });
+        },
+
+        renderTable: function(templates) {
+            var $tbody = $('#ctp_routes_table tbody');
+            $tbody.empty();
+
+            if (!templates || templates.length === 0) {
+                $tbody.html('<tr><td colspan="6" class="text-center text-muted py-3">' + t('ctp.routes.noTemplates') + '</td></tr>');
+                return;
+            }
+
+            var self = this;
+            templates.forEach(function(tpl) {
+                var $row = $('<tr>')
+                    .append($('<td>').text(tpl.template_name || ''))
+                    .append($('<td>').html('<span class="badge badge-' + (tpl.segment === 'OCEANIC' ? 'primary' : tpl.segment === 'NA' ? 'info' : 'success') + '">' + (tpl.segment || '') + '</span>'))
+                    .append($('<td>').css({'font-family': 'Inconsolata, monospace', 'font-size': '0.68rem', 'max-width': '200px', 'overflow': 'hidden', 'text-overflow': 'ellipsis'}).text(tpl.route_string || '').attr('title', tpl.route_string || ''))
+                    .append($('<td>').text(tpl.priority || 50))
+                    .append($('<td>').html(tpl.for_event_flights ? '<i class="fas fa-check text-success"></i>' : ''))
+                    .append($('<td>').html(
+                        '<div class="btn-group btn-group-sm">' +
+                            '<button class="btn btn-outline-info rt-edit" data-id="' + tpl.template_id + '" title="' + t('common.edit') + '"><i class="fas fa-pencil-alt"></i></button>' +
+                            '<button class="btn btn-outline-danger rt-delete" data-id="' + tpl.template_id + '" title="' + t('common.delete') + '"><i class="fas fa-trash"></i></button>' +
+                        '</div>'
+                    ));
+                $tbody.append($row);
+            });
+
+            $tbody.find('.rt-edit').on('click', function() {
+                var id = $(this).data('id');
+                var tpl = self.templates.find(function(t) { return t.template_id === id; });
+                if (tpl) self.showEditDialog(tpl);
+            });
+            $tbody.find('.rt-delete').on('click', function() { self.deleteTemplate($(this).data('id')); });
+        },
+
+        showCreateDialog: function() {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.routes.createTemplate'),
+                html:
+                    '<input id="swal_rt_name" class="swal2-input" placeholder="' + t('ctp.routes.templateName') + '">' +
+                    '<select id="swal_rt_segment" class="swal2-select">' +
+                        '<option value="NA">NA</option>' +
+                        '<option value="OCEANIC" selected>OCEANIC</option>' +
+                        '<option value="EU">EU</option>' +
+                    '</select>' +
+                    '<input id="swal_rt_route" class="swal2-input" placeholder="' + t('ctp.routes.routeString') + '">' +
+                    '<input id="swal_rt_priority" class="swal2-input" type="number" value="50" placeholder="' + t('ctp.throughput.priority') + '">' +
+                    '<input id="swal_rt_altitude" class="swal2-input" placeholder="' + t('ctp.planning.altitudeRange') + ' (e.g. FL340-FL390)">',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    var name = $('#swal_rt_name').val();
+                    var route = $('#swal_rt_route').val();
+                    if (!name || !route) { Swal.showValidationMessage(t('ctp.routes.nameRouteRequired')); return false; }
+                    return {
+                        template_name: name,
+                        segment: $('#swal_rt_segment').val(),
+                        route_string: route,
+                        session_id: state.currentSession.session_id,
+                        priority: parseInt($('#swal_rt_priority').val()) || 50,
+                        altitude_range: $('#swal_rt_altitude').val() || null
+                    };
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.routes.templates,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                Swal.fire({ icon: 'success', title: t('common.saved'), timer: 1500, showConfirmButton: false });
+                                self.refresh();
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        showEditDialog: function(tpl) {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.routes.editTemplate'),
+                html:
+                    '<input id="swal_rt_name" class="swal2-input" value="' + (tpl.template_name || '').replace(/"/g, '&quot;') + '">' +
+                    '<select id="swal_rt_segment" class="swal2-select">' +
+                        '<option value="NA"' + (tpl.segment === 'NA' ? ' selected' : '') + '>NA</option>' +
+                        '<option value="OCEANIC"' + (tpl.segment === 'OCEANIC' ? ' selected' : '') + '>OCEANIC</option>' +
+                        '<option value="EU"' + (tpl.segment === 'EU' ? ' selected' : '') + '>EU</option>' +
+                    '</select>' +
+                    '<input id="swal_rt_route" class="swal2-input" value="' + (tpl.route_string || '').replace(/"/g, '&quot;') + '">' +
+                    '<input id="swal_rt_priority" class="swal2-input" type="number" value="' + (tpl.priority || 50) + '">' +
+                    '<input id="swal_rt_altitude" class="swal2-input" value="' + (tpl.altitude_range || '') + '" placeholder="' + t('ctp.planning.altitudeRange') + '">',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    return {
+                        template_id: tpl.template_id,
+                        template_name: $('#swal_rt_name').val(),
+                        segment: $('#swal_rt_segment').val(),
+                        route_string: $('#swal_rt_route').val(),
+                        priority: parseInt($('#swal_rt_priority').val()) || 50,
+                        altitude_range: $('#swal_rt_altitude').val() || null
+                    };
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.routes.templates,
+                        method: 'PUT',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                Swal.fire({ icon: 'success', title: t('common.saved'), timer: 1500, showConfirmButton: false });
+                                self.refresh();
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        deleteTemplate: function(templateId) {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.routes.deleteTemplate'),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545'
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: API.routes.templates,
+                        method: 'DELETE',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ template_id: templateId }),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.refresh();
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    };
+
+    // ========================================================================
+    // Session Stats Panel
+    // ========================================================================
+
+    var StatsPanel = {
+        init: function() {
+            $(document).on('shown.bs.tab', 'a[href="#ctp_stats_panel"]', function() { StatsPanel.refresh(); });
+        },
+
+        refresh: function() {
+            if (!state.currentSession) return;
+            var $panel = $('#ctp_stats_content');
+            $panel.html('<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> ' + t('common.loading') + '</div>');
+
+            $.ajax({
+                url: API.stats,
+                data: { session_id: state.currentSession.session_id },
+                success: function(resp) {
+                    if (resp.status === 'ok' && resp.data) {
+                        StatsPanel.render(resp.data);
+                    } else {
+                        $panel.html('<div class="text-center text-muted py-3">' + t('ctp.stats.noData') + '</div>');
+                    }
+                },
+                error: function() {
+                    $panel.html('<div class="text-center text-danger py-3">' + t('ctp.stats.loadError') + '</div>');
+                }
+            });
+        },
+
+        render: function(d) {
+            var $panel = $('#ctp_stats_content');
+            var html = '<div class="row px-3 py-2" style="font-size:0.78rem;">';
+
+            // Column 1: Flight counts
+            html += '<div class="col-md-4">' +
+                '<h6 class="text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.stats.flightCounts') + '</h6>' +
+                this.statRow(t('ctp.stats.total'), d.total_flights || 0) +
+                this.statRow(t('ctp.stats.active'), d.active_flights || 0) +
+                this.statRow(t('ctp.stats.excluded'), d.excluded_flights || 0, 'text-danger') +
+                this.statRow(t('ctp.stats.event'), d.event_flights || 0) +
+                this.statRow(t('ctp.stats.slotted'), d.slotted_flights || 0, 'text-success') +
+                this.statRow(t('ctp.stats.modified'), d.modified_flights || 0, 'text-primary') +
+                this.statRow(t('ctp.stats.validated'), d.validated_flights || 0, 'text-success') +
+            '</div>';
+
+            // Column 2: Delay & compliance
+            html += '<div class="col-md-4">' +
+                '<h6 class="text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.stats.delays') + '</h6>' +
+                this.statRow(t('ctp.stats.avgDelay'), d.avg_delay_min != null ? d.avg_delay_min + ' min' : '-') +
+                this.statRow(t('ctp.stats.maxDelay'), d.max_delay_min != null ? d.max_delay_min + ' min' : '-') +
+                this.statRow(t('ctp.stats.minDelay'), d.min_delay_min != null ? d.min_delay_min + ' min' : '-') +
+                '<h6 class="text-uppercase text-muted mt-2" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.stats.compliance') + '</h6>' +
+                this.statRow(t('ctp.stats.onTime'), d.compliant_flights || 0, 'text-success') +
+                this.statRow(t('ctp.stats.early'), d.early_flights || 0, 'text-warning') +
+                this.statRow(t('ctp.stats.late'), d.late_flights || 0, 'text-danger') +
+                this.statRow(t('ctp.stats.noShow'), d.no_show_flights || 0, 'text-muted') +
+            '</div>';
+
+            // Column 3: Segments & top entries
+            html += '<div class="col-md-4">' +
+                '<h6 class="text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.stats.segments') + '</h6>' +
+                this.statRow('NA ' + t('ctp.stats.modified'), d.na_modified || 0) +
+                this.statRow('OCA ' + t('ctp.stats.modified'), d.oceanic_modified || 0) +
+                this.statRow('EU ' + t('ctp.stats.modified'), d.eu_modified || 0) +
+                '<h6 class="text-uppercase text-muted mt-2" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.stats.topEntries') + '</h6>' +
+                this.statRow(t('ctp.stats.topFir'), d.top_entry_fir || '-') +
+                this.statRow(t('ctp.stats.topFix'), d.top_entry_fix || '-') +
+                (d.avg_compliance_delta_min != null ? this.statRow(t('ctp.stats.avgDelta'), d.avg_compliance_delta_min + ' min') : '') +
+            '</div>';
+
+            html += '</div>';
+            $panel.html(html);
+        },
+
+        statRow: function(label, value, cls) {
+            return '<div class="d-flex justify-content-between py-1" style="border-bottom:1px solid #f0f0f0;">' +
+                '<span class="text-muted">' + label + '</span>' +
+                '<span class="font-weight-bold ' + (cls || '') + '">' + value + '</span>' +
+            '</div>';
+        }
+    };
+
+    // ========================================================================
     // Init
     // ========================================================================
     $(document).ready(function() {
@@ -2927,6 +3609,8 @@
         AuditLog.init();
         ThroughputManager.init();
         PlanningSimulator.init();
+        RouteTemplateManager.init();
+        StatsPanel.init();
         ResizeHandle.init();
         FlightTable.updateSortUI();
     });

@@ -62,6 +62,6 @@ if (!$result['success']) {
 }
 
 respond_json(200, [
-    'status' => 'success',
+    'status' => 'ok',
     'message' => 'Block deleted'
 ]);

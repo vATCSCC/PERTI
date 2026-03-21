@@ -142,7 +142,7 @@ if ($block_id) {
     }
 
     respond_json(200, [
-        'status' => 'success',
+        'status' => 'ok',
         'message' => 'Block updated',
         'block_id' => $block_id
     ]);
@@ -190,7 +190,7 @@ if ($block_id) {
     sqlsrv_free_stmt($stmt);
 
     respond_json(201, [
-        'status' => 'success',
+        'status' => 'ok',
         'message' => 'Block created',
         'block_id' => $new_block_id
     ]);
