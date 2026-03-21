@@ -80,6 +80,11 @@ const PERTIDialog = (function() {
             delete resolved.denyKey;
         }
 
+        // Clean up custom keys that SweetAlert doesn't recognize
+        ['titleKey', 'titleParams', 'textKey', 'textParams', 'htmlKey', 'htmlParams', 'confirmKey', 'cancelKey', 'denyKey'].forEach(function(k) {
+            delete resolved[k];
+        });
+
         return Swal.fire(resolved);
     }
 

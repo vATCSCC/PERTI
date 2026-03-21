@@ -135,8 +135,11 @@
                 }
             });
 
-            $('#ctp_btn_session_settings, #ctp_btn_new_session').on('click', function() {
+            $('#ctp_btn_new_session').on('click', function() {
                 $('#ctpCreateSessionModal').modal('show');
+            });
+            $('#ctp_btn_session_settings').on('click', function() {
+                SessionManager.editSession();
             });
 
             $('#ctp_create_submit').on('click', function() {
@@ -312,6 +315,129 @@
                 clearInterval(state.refreshTimer);
                 state.refreshTimer = null;
             }
+        },
+
+        editSession: function() {
+            var s = state.currentSession;
+            if (!s) {
+                Swal.fire(t('ctp.dialog.error'), t('ctp.session.noSession'), 'warning');
+                return;
+            }
+
+            var start = s.constraint_window_start || '';
+            var end = s.constraint_window_end || '';
+            if (start) start = start.replace(/Z$/, '').replace(/\.\d+$/, '').substring(0, 16);
+            if (end) end = end.replace(/Z$/, '').replace(/\.\d+$/, '').substring(0, 16);
+
+            var firs = '';
+            if (s.constrained_firs) {
+                try {
+                    var firsArr = typeof s.constrained_firs === 'string' ? JSON.parse(s.constrained_firs) : s.constrained_firs;
+                    firs = Array.isArray(firsArr) ? firsArr.join(', ') : String(s.constrained_firs);
+                } catch(e) { firs = String(s.constrained_firs); }
+            }
+
+            var activateHtml = '';
+            if (s.status === 'DRAFT') {
+                activateHtml = '<div class="mt-2 pt-2 border-top text-center">' +
+                    '<label style="cursor:pointer;font-size:0.9rem;"><input type="checkbox" id="swal_sess_activate"> <strong>' + t('ctp.session.activate') + '</strong> (DRAFT &rarr; ACTIVE)</label>' +
+                    '</div>';
+            }
+
+            Swal.fire({
+                title: t('ctp.session.settings'),
+                html:
+                    '<input id="swal_sess_name" class="swal2-input" value="' + (s.session_name || '').replace(/"/g, '&quot;') + '" placeholder="' + t('ctp.session.name') + '">' +
+                    '<label class="swal2-input-label">' + t('ctp.session.direction') + '</label>' +
+                    '<select id="swal_sess_dir" class="swal2-select">' +
+                        '<option value="WESTBOUND"' + (s.direction === 'WESTBOUND' ? ' selected' : '') + '>' + t('ctp.session.westbound') + '</option>' +
+                        '<option value="EASTBOUND"' + (s.direction === 'EASTBOUND' ? ' selected' : '') + '>' + t('ctp.session.eastbound') + '</option>' +
+                        '<option value="BOTH"' + (s.direction === 'BOTH' ? ' selected' : '') + '>' + t('ctp.session.both') + '</option>' +
+                    '</select>' +
+                    '<label class="swal2-input-label">' + t('ctp.session.windowStart') + '</label>' +
+                    '<input id="swal_sess_start" class="swal2-input" type="datetime-local" value="' + start + '">' +
+                    '<label class="swal2-input-label">' + t('ctp.session.windowEnd') + '</label>' +
+                    '<input id="swal_sess_end" class="swal2-input" type="datetime-local" value="' + end + '">' +
+                    '<label class="swal2-input-label">' + t('ctp.session.constrainedFirs') + '</label>' +
+                    '<input id="swal_sess_firs" class="swal2-input" value="' + firs.replace(/"/g, '&quot;') + '" placeholder="CZQX, BIRD, EGGX, LPPO">' +
+                    '<label class="swal2-input-label">' + t('ctp.session.slotInterval') + '</label>' +
+                    '<input id="swal_sess_interval" class="swal2-input" type="number" value="' + (s.slot_interval_min || 5) + '">' +
+                    '<label class="swal2-input-label">' + t('ctp.session.maxSlotsPerHour') + '</label>' +
+                    '<input id="swal_sess_max" class="swal2-input" type="number" value="' + (s.max_slots_per_hour || '') + '" placeholder="' + t('ctp.session.unlimited') + '">' +
+                    activateHtml,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: t('common.save'),
+                width: 500,
+                preConfirm: function() {
+                    var name = $('#swal_sess_name').val().trim();
+                    if (!name) { Swal.showValidationMessage(t('ctp.session.nameRequired')); return false; }
+                    var firVal = $('#swal_sess_firs').val().trim();
+                    var firArray = firVal ? firVal.split(/[,\s]+/).map(function(f) { return f.trim().toUpperCase(); }).filter(Boolean) : [];
+                    var payload = {
+                        session_id: s.session_id,
+                        session_name: name,
+                        direction: $('#swal_sess_dir').val(),
+                        slot_interval_min: parseInt($('#swal_sess_interval').val(), 10) || 5,
+                        constrained_firs: firArray
+                    };
+                    var startVal = $('#swal_sess_start').val();
+                    var endVal = $('#swal_sess_end').val();
+                    if (startVal) payload.constraint_window_start = new Date(startVal).toISOString();
+                    if (endVal) payload.constraint_window_end = new Date(endVal).toISOString();
+                    var maxSlots = $('#swal_sess_max').val();
+                    payload.max_slots_per_hour = maxSlots ? parseInt(maxSlots, 10) : null;
+                    payload._activate = $('#swal_sess_activate').is(':checked');
+                    return payload;
+                }
+            }).then(function(result) {
+                if (!result.isConfirmed || !result.value) return;
+                var payload = result.value;
+                var wantActivate = payload._activate;
+                delete payload._activate;
+
+                $.ajax({
+                    url: API.sessions.update,
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(payload),
+                    success: function(resp) {
+                        if (resp.status !== 'ok') {
+                            Swal.fire(t('ctp.dialog.error'), resp.message || t('ctp.dialog.unknownError'), 'error');
+                            return;
+                        }
+                        if (wantActivate) {
+                            $.ajax({
+                                url: API.sessions.activate,
+                                method: 'POST',
+                                contentType: 'application/json',
+                                data: JSON.stringify({ session_id: s.session_id }),
+                                success: function(aResp) {
+                                    if (aResp.status === 'ok') {
+                                        Swal.fire({ icon: 'success', title: t('ctp.session.activated'), timer: 1500, showConfirmButton: false });
+                                    } else {
+                                        Swal.fire({ icon: 'warning', title: t('common.saved'), text: aResp.message || '' });
+                                    }
+                                    SessionManager.loadSessions();
+                                    SessionManager.selectSession(s.session_id);
+                                },
+                                error: function() {
+                                    Swal.fire({ icon: 'warning', title: t('common.saved'), text: t('ctp.dialog.networkError') });
+                                    SessionManager.loadSessions();
+                                    SessionManager.selectSession(s.session_id);
+                                }
+                            });
+                        } else {
+                            Swal.fire({ icon: 'success', title: t('common.saved'), timer: 1500, showConfirmButton: false });
+                            SessionManager.loadSessions();
+                            SessionManager.selectSession(s.session_id);
+                        }
+                    },
+                    error: function() {
+                        Swal.fire(t('ctp.dialog.error'), t('ctp.dialog.networkError'), 'error');
+                    }
+                });
+            });
         }
     };
 
@@ -2711,6 +2837,7 @@
     var PlanningSimulator = {
         scenarios: [],
         currentScenario: null,
+        blockCache: {},
 
         init: function() {
             var self = this;
@@ -2819,6 +2946,7 @@
                         data: JSON.stringify(result.value),
                         success: function(resp) {
                             if (resp.status === 'ok') {
+                                Swal.fire({ icon: 'success', title: t('common.saved'), timer: 1500, showConfirmButton: false });
                                 self.loadScenarios();
                             }
                         }
@@ -2967,6 +3095,7 @@
 
         renderBlocks: function(scenarioId, blocks, $container) {
             var self = this;
+            self.blockCache[scenarioId] = blocks || [];
             $container.empty();
 
             if (!blocks || blocks.length === 0) {
@@ -3075,17 +3204,18 @@
 
         editBlock: function(blockId, scenarioId, $container) {
             var self = this;
-            // Find the block card to pre-populate
-            var $card = $container.find('.blk-edit[data-id="' + blockId + '"]').closest('.card');
+            var blocks = self.blockCache[scenarioId] || [];
+            var blk = blocks.find(function(b) { return b.block_id === blockId; }) || {};
+            var curDist = blk.dep_distribution || 'UNIFORM';
             Swal.fire({
                 title: t('ctp.planning.editBlock'),
                 html:
-                    '<input id="swal_bl_label" class="swal2-input" placeholder="' + t('ctp.planning.blockLabel') + '">' +
-                    '<input id="swal_bl_count" class="swal2-input" type="number" placeholder="' + t('ctp.planning.flightCount') + '">' +
+                    '<input id="swal_bl_label" class="swal2-input" placeholder="' + t('ctp.planning.blockLabel') + '" value="' + ((blk.block_label || '').replace(/"/g, '&quot;')) + '">' +
+                    '<input id="swal_bl_count" class="swal2-input" type="number" placeholder="' + t('ctp.planning.flightCount') + '" value="' + (blk.flight_count || '') + '">' +
                     '<select id="swal_bl_dist" class="swal2-select">' +
-                        '<option value="UNIFORM">' + t('ctp.planning.uniform') + '</option>' +
-                        '<option value="FRONT_LOADED">' + t('ctp.planning.frontLoaded') + '</option>' +
-                        '<option value="BACK_LOADED">' + t('ctp.planning.backLoaded') + '</option>' +
+                        '<option value="UNIFORM"' + (curDist === 'UNIFORM' ? ' selected' : '') + '>' + t('ctp.planning.uniform') + '</option>' +
+                        '<option value="FRONT_LOADED"' + (curDist === 'FRONT_LOADED' ? ' selected' : '') + '>' + t('ctp.planning.frontLoaded') + '</option>' +
+                        '<option value="BACK_LOADED"' + (curDist === 'BACK_LOADED' ? ' selected' : '') + '>' + t('ctp.planning.backLoaded') + '</option>' +
                     '</select>',
                 focusConfirm: false,
                 showCancelButton: true,
@@ -3184,13 +3314,19 @@
 
         editAssignment: function(assignmentId, blockId, scenarioId, $container) {
             var self = this;
+            var blocks = self.blockCache[scenarioId] || [];
+            var parentBlock = blocks.find(function(b) { return b.block_id === blockId; });
+            var asgn = {};
+            if (parentBlock && parentBlock.assignments) {
+                asgn = parentBlock.assignments.find(function(a) { return a.assignment_id === assignmentId; }) || {};
+            }
             Swal.fire({
                 title: t('ctp.planning.editAssignment'),
                 html:
-                    '<input id="swal_as_track" class="swal2-input" placeholder="' + t('ctp.planning.trackAssignment') + '">' +
-                    '<input id="swal_as_route" class="swal2-input" placeholder="' + t('ctp.planning.routeString') + '">' +
-                    '<input id="swal_as_count" class="swal2-input" type="number" placeholder="' + t('ctp.planning.flightCount') + '">' +
-                    '<input id="swal_as_alt" class="swal2-input" placeholder="' + t('ctp.planning.altitudeRange') + '">',
+                    '<input id="swal_as_track" class="swal2-input" placeholder="' + t('ctp.planning.trackAssignment') + '" value="' + ((asgn.track_name || '').replace(/"/g, '&quot;')) + '">' +
+                    '<input id="swal_as_route" class="swal2-input" placeholder="' + t('ctp.planning.routeString') + '" value="' + ((asgn.route_string || '').replace(/"/g, '&quot;')) + '">' +
+                    '<input id="swal_as_count" class="swal2-input" type="number" placeholder="' + t('ctp.planning.flightCount') + '" value="' + (asgn.flight_count || '') + '">' +
+                    '<input id="swal_as_alt" class="swal2-input" placeholder="' + t('ctp.planning.altitudeRange') + '" value="' + ((asgn.altitude_range || '').replace(/"/g, '&quot;')) + '">',
                 focusConfirm: false,
                 showCancelButton: true,
                 preConfirm: function() {
@@ -3365,7 +3501,7 @@
                         url: API.planning.apply_to_session,
                         method: 'POST',
                         contentType: 'application/json',
-                        data: JSON.stringify({ scenario_id: scenarioId, session_id: state.currentSession.session_id }),
+                        data: JSON.stringify({ scenario_id: scenarioId }),
                         success: function(resp) {
                             if (resp.status === 'ok') {
                                 Swal.fire({ icon: 'success', title: t('ctp.planning.appliedSuccessfully'), timer: 2000, showConfirmButton: false });
@@ -3373,6 +3509,11 @@
                             } else {
                                 Swal.fire({ icon: 'error', title: resp.message || 'Apply failed' });
                             }
+                        },
+                        error: function(xhr) {
+                            var msg = 'Apply failed';
+                            try { var r = JSON.parse(xhr.responseText); msg = r.message || msg; } catch(e) {}
+                            Swal.fire({ icon: 'error', title: msg });
                         }
                     });
                 }

@@ -96,7 +96,7 @@ $candidates_sql = "
         c.current_artcc_id AS dep_artcc,
         p.aircraft_equip AS aircraft_type,
         p.fp_route AS filed_route,
-        p.filed_alt AS filed_altitude,
+        p.filed_altitude,
         t.std_utc,
         t.etd_utc,
         -- Oceanic crossing details (first constrained FIR entry)
