@@ -27,6 +27,7 @@ CSV_PATHS = {
     'cdrs': 'assets/data/cdrs.csv',
     'dps': 'assets/data/dp_full_routes.csv',
     'stars': 'assets/data/star_full_routes.csv',
+    'playbook': 'assets/data/playbook_routes.csv',
 }
 
 TYPE_TO_TABLE = {
@@ -36,6 +37,7 @@ TYPE_TO_TABLE = {
     'cdr': 'coded_departure_routes',
     'dp': 'nav_procedures',
     'star': 'nav_procedures',
+    'playbook': 'playbook_routes',
 }
 
 
@@ -112,6 +114,66 @@ def parse_procs(text):
             continue
         groups[key].append(','.join(row))
     return groups, total
+
+
+def parse_playbook(text):
+    """Parse playbook_routes.csv -> {play_name: set of routes}, total_count."""
+    plays = defaultdict(set)
+    total = 0
+    lines = text.strip().split('\n')
+    if len(lines) < 2:
+        return plays, 0
+    for row in csv.reader(lines[1:]):
+        if len(row) < 2:
+            continue
+        total += 1
+        play = row[0].strip()
+        route = row[1].strip()
+        if is_old(play):
+            continue
+        plays[play].add(route)
+    return plays, total
+
+
+def diff_playbook(old, new):
+    """Diff playbook plays (each play has a set of routes)."""
+    changes = []
+
+    for play in sorted(set(old) & set(new)):
+        old_routes = old[play]
+        new_routes = new[play]
+        if old_routes != new_routes:
+            added_r = new_routes - old_routes
+            removed_r = old_routes - new_routes
+            parts = []
+            if added_r:
+                parts.append(f"+{len(added_r)} routes")
+            if removed_r:
+                parts.append(f"-{len(removed_r)} routes")
+            changes.append({
+                'type': 'playbook', 'name': play, 'action': 'changed',
+                'detail': ', '.join(parts),
+                'old_name': play,
+                'old_value': f"{len(old_routes)} routes",
+                'new_value': f"{len(new_routes)} routes"
+            })
+
+    for play in sorted(set(old) - set(new)):
+        changes.append({
+            'type': 'playbook', 'name': play, 'action': 'removed',
+            'detail': f'{len(old[play])} routes removed',
+            'old_name': play,
+            'old_value': f"{len(old[play])} routes"
+        })
+
+    for play in sorted(set(new) - set(old)):
+        changes.append({
+            'type': 'playbook', 'name': play, 'action': 'added',
+            'detail': f'{len(new[play])} routes',
+            'new_value': f"{len(new[play])} routes"
+        })
+
+    return changes
 
 
 def haversine_nm(lat1, lon1, lat2, lon2):
@@ -224,7 +286,8 @@ def summarize(changes):
     s = defaultdict(lambda: defaultdict(int))
     type_map = {
         'fix': 'fixes', 'navaid': 'navaids', 'airway': 'airways',
-        'cdr': 'cdrs', 'dp': 'dps', 'star': 'stars'
+        'cdr': 'cdrs', 'dp': 'dps', 'star': 'stars',
+        'playbook': 'playbook'
     }
     act_map = {
         'added': 'added', 'removed': 'removed',
@@ -285,7 +348,8 @@ def write_md(changes, summary, totals, active_counts, from_c, to_c, path):
 
     sections = [
         ('Points', 'fix'), ('Navaids', 'navaid'), ('Airways', 'airway'),
-        ('Cdrs', 'cdr'), ('Dps', 'dp'), ('Stars', 'star')
+        ('Cdrs', 'cdr'), ('Dps', 'dp'), ('Stars', 'star'),
+        ('Playbook', 'playbook')
     ]
     action_order = [
         ('added', 'Added'), ('moved', 'Moved'),
@@ -364,6 +428,11 @@ def db_insert(changes, to_cycle):
         elif c['type'] in ('dp', 'star'):
             old_v = c.get('old_name')
             new_v = c.get('new_value')
+        elif c['type'] == 'playbook':
+            old_v = c.get('old_value')
+            new_v = c.get('new_value')
+            if c['action'] == 'changed':
+                delta = c.get('detail')
 
         cur.execute(
             "INSERT INTO dbo.navdata_changelogs"
@@ -426,19 +495,23 @@ def main():
     new_dp, new_dp_t = parse_procs(raw['dps'][1])
     old_st, old_st_t = parse_procs(raw['stars'][0])
     new_st, new_st_t = parse_procs(raw['stars'][1])
+    old_pb, old_pb_t = parse_playbook(raw['playbook'][0])
+    new_pb, new_pb_t = parse_playbook(raw['playbook'][1])
 
-    print(f"  Points:  {len(old_pts):,} -> {len(new_pts):,} active"
+    print(f"  Points:   {len(old_pts):,} -> {len(new_pts):,} active"
           f"  ({old_pts_t:,} / {new_pts_t:,} total)")
-    print(f"  Navaids: {len(old_nav):,} -> {len(new_nav):,} active"
+    print(f"  Navaids:  {len(old_nav):,} -> {len(new_nav):,} active"
           f"  ({old_nav_t:,} / {new_nav_t:,} total)")
-    print(f"  Airways: {len(old_awy):,} -> {len(new_awy):,} active"
+    print(f"  Airways:  {len(old_awy):,} -> {len(new_awy):,} active"
           f"  ({old_awy_t:,} / {new_awy_t:,} total)")
-    print(f"  CDRs:    {len(old_cdr):,} -> {len(new_cdr):,} active"
+    print(f"  CDRs:     {len(old_cdr):,} -> {len(new_cdr):,} active"
           f"  ({old_cdr_t:,} / {new_cdr_t:,} total)")
-    print(f"  DPs:     {len(old_dp):,} -> {len(new_dp):,} active"
+    print(f"  DPs:      {len(old_dp):,} -> {len(new_dp):,} active"
           f"  ({old_dp_t:,} / {new_dp_t:,} total)")
-    print(f"  STARs:   {len(old_st):,} -> {len(new_st):,} active"
+    print(f"  STARs:    {len(old_st):,} -> {len(new_st):,} active"
           f"  ({old_st_t:,} / {new_st_t:,} total)")
+    print(f"  Playbook: {len(old_pb):,} -> {len(new_pb):,} active"
+          f"  ({old_pb_t:,} / {new_pb_t:,} total)")
 
     # Diff
     print("\nComputing diffs...")
@@ -449,16 +522,19 @@ def main():
     all_changes += diff_routes(old_cdr, new_cdr, 'cdr')
     all_changes += diff_procs(old_dp, new_dp, 'dp')
     all_changes += diff_procs(old_st, new_st, 'star')
+    all_changes += diff_playbook(old_pb, new_pb)
 
     summary = summarize(all_changes)
     totals = {
         'points': new_pts_t, 'navaids': new_nav_t, 'airways': new_awy_t,
-        'cdrs': new_cdr_t, 'dps': new_dp_t, 'stars': new_st_t
+        'cdrs': new_cdr_t, 'dps': new_dp_t, 'stars': new_st_t,
+        'playbook': new_pb_t
     }
     active_counts = {
         'points': len(new_pts), 'navaids': len(new_nav),
         'airways': len(new_awy), 'cdrs': len(new_cdr),
         'dps': len(new_dp), 'stars': len(new_st),
+        'playbook': len(new_pb),
     }
 
     print(f"\nTotal changes: {len(all_changes)}")
