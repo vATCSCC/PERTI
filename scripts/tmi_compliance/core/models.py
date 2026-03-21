@@ -155,6 +155,10 @@ REROUTE_COMPLIANT_THRESHOLD = 0.95    # 95%+ = COMPLIANT
 REROUTE_PARTIAL_THRESHOLD = 0.50      # 50-94% = PARTIAL
                                        # <50% = NON_COMPLIANT
 
+# Route comparison corridor thresholds
+REROUTE_CORRIDOR_NM = 10.0            # Default corridor width for compliance
+REROUTE_TRAJECTORY_SAMPLE_MAX = 300   # Max trajectory points for corridor check
+
 # Holding pattern detection thresholds
 HOLD_MIN_HEADING_CHANGE_DEG = 270     # Min cumulative turn for one orbit
 HOLD_MIN_DURATION_SEC = 120           # 2 min minimum hold duration

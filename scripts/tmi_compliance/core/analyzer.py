@@ -19,6 +19,7 @@ from .models import (
     TrafficDirection, TrafficFilter,
     GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry,
     REROUTE_COMPLIANT_THRESHOLD, REROUTE_PARTIAL_THRESHOLD,
+    REROUTE_CORRIDOR_NM, REROUTE_TRAJECTORY_SAMPLE_MAX,
     HOLD_MIN_HEADING_CHANGE_DEG, HOLD_MIN_DURATION_SEC, HOLD_MAX_RADIUS_NM,
     HOLD_CIRCLING_ALT_AGL_FT, HOLD_CIRCLING_DIST_NM, HOLD_MIN_GROUNDSPEED_KTS,
     HOLD_MIN_ALTITUDE_FT, HOLD_GAP_RESET_SEC, HOLD_LOW_CONFIDENCE_INTERVAL_SEC,
@@ -85,6 +86,171 @@ def calculate_bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> flo
     y = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
     bearing = math.atan2(x, y)
     return (math.degrees(bearing) + 360) % 360
+
+
+def lcs_alignment(seq_a: List[str], seq_b: List[str]) -> dict:
+    """LCS-based alignment of two waypoint name sequences.
+
+    Standard DP LCS (O(m*n)), then backtrack + interleaved diff walk.
+
+    Returns:
+        dict with keys:
+        - lcs: list of matched names in order
+        - a_only: names in seq_a not matched
+        - b_only: names in seq_b not matched
+        - alignment_pct: len(lcs) / max(len_a, len_b) * 100
+        - tokens: [{token, status: 'match'|'a_only'|'b_only'}, ...]
+    """
+    m, n = len(seq_a), len(seq_b)
+    if m == 0 and n == 0:
+        return {'lcs': [], 'a_only': [], 'b_only': [], 'alignment_pct': 100.0, 'tokens': []}
+    if m == 0:
+        return {'lcs': [], 'a_only': [], 'b_only': list(seq_b),
+                'alignment_pct': 0.0,
+                'tokens': [{'token': t, 'status': 'b_only'} for t in seq_b]}
+    if n == 0:
+        return {'lcs': [], 'a_only': list(seq_a), 'b_only': [],
+                'alignment_pct': 0.0,
+                'tokens': [{'token': t, 'status': 'a_only'} for t in seq_a]}
+
+    # Build DP table
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if seq_a[i - 1].upper() == seq_b[j - 1].upper():
+                dp[i][j] = dp[i - 1][j - 1] + 1
+            else:
+                dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
+
+    # Backtrack to find LCS
+    lcs = []
+    i, j = m, n
+    while i > 0 and j > 0:
+        if seq_a[i - 1].upper() == seq_b[j - 1].upper():
+            lcs.append(seq_a[i - 1])
+            i -= 1
+            j -= 1
+        elif dp[i - 1][j] >= dp[i][j - 1]:
+            i -= 1
+        else:
+            j -= 1
+    lcs.reverse()
+
+    # Walk both sequences with 3 pointers to produce interleaved token list
+    tokens = []
+    a_only = []
+    b_only = []
+    a_idx, b_idx, lcs_idx = 0, 0, 0
+
+    while lcs_idx < len(lcs):
+        target = lcs[lcs_idx].upper()
+        # Emit a_only until we hit the match
+        while a_idx < m and seq_a[a_idx].upper() != target:
+            tokens.append({'token': seq_a[a_idx], 'status': 'a_only'})
+            a_only.append(seq_a[a_idx])
+            a_idx += 1
+        # Emit b_only until we hit the match
+        while b_idx < n and seq_b[b_idx].upper() != target:
+            tokens.append({'token': seq_b[b_idx], 'status': 'b_only'})
+            b_only.append(seq_b[b_idx])
+            b_idx += 1
+        # Emit match
+        tokens.append({'token': lcs[lcs_idx], 'status': 'match'})
+        a_idx += 1
+        b_idx += 1
+        lcs_idx += 1
+
+    # Remaining from seq_a
+    while a_idx < m:
+        tokens.append({'token': seq_a[a_idx], 'status': 'a_only'})
+        a_only.append(seq_a[a_idx])
+        a_idx += 1
+    # Remaining from seq_b
+    while b_idx < n:
+        tokens.append({'token': seq_b[b_idx], 'status': 'b_only'})
+        b_only.append(seq_b[b_idx])
+        b_idx += 1
+
+    max_len = max(m, n)
+    alignment_pct = round(len(lcs) / max_len * 100, 1) if max_len > 0 else 100.0
+
+    return {
+        'lcs': lcs,
+        'a_only': a_only,
+        'b_only': b_only,
+        'alignment_pct': alignment_pct,
+        'tokens': tokens
+    }
+
+
+def compute_corridor_compliance(
+    route_segments: List[tuple],
+    test_points: List[dict],
+    corridor_nm: float = REROUTE_CORRIDOR_NM
+) -> dict:
+    """Check what fraction of test points fall within corridor_nm of the route.
+
+    Args:
+        route_segments: [(lat1, lon1, lat2, lon2), ...] consecutive segment endpoints
+        test_points: [{'lat': f, 'lon': f}, ...] points to test
+        corridor_nm: corridor half-width in nm
+
+    Returns:
+        dict with within_corridor_pct, max_deviation_nm, avg_deviation_nm, corridor_nm
+    """
+    if not route_segments or not test_points:
+        return {'within_corridor_pct': 0.0, 'max_deviation_nm': 0.0,
+                'avg_deviation_nm': 0.0, 'corridor_nm': corridor_nm}
+
+    within = 0
+    max_dev = 0.0
+    total_dev = 0.0
+
+    for pt in test_points:
+        pt_lat, pt_lon = pt['lat'], pt['lon']
+        min_dist = float('inf')
+        for seg in route_segments:
+            dist, _, _, _ = closest_approach_on_segment(
+                seg[0], seg[1], seg[2], seg[3], pt_lat, pt_lon)
+            if dist < min_dist:
+                min_dist = dist
+        if min_dist <= corridor_nm:
+            within += 1
+        if min_dist > max_dev:
+            max_dev = min_dist
+        total_dev += min_dist
+
+    count = len(test_points)
+    return {
+        'within_corridor_pct': round(within / count * 100, 1) if count else 0.0,
+        'max_deviation_nm': round(max_dev, 1),
+        'avg_deviation_nm': round(total_dev / count, 1) if count else 0.0,
+        'corridor_nm': corridor_nm
+    }
+
+
+def diff_route_strings(str_a: str, str_b: str) -> List[dict]:
+    """Word-level LCS diff of two route strings.
+
+    Returns list of {token, status} where status is 'match', 'removed', or 'added'.
+    'removed' = in str_a only, 'added' = in str_b only.
+    """
+    tokens_a = str_a.upper().split() if str_a else []
+    tokens_b = str_b.upper().split() if str_b else []
+
+    if not tokens_a and not tokens_b:
+        return []
+
+    alignment = lcs_alignment(tokens_a, tokens_b)
+    result = []
+    for tok in alignment['tokens']:
+        if tok['status'] == 'match':
+            result.append({'token': tok['token'], 'status': 'match'})
+        elif tok['status'] == 'a_only':
+            result.append({'token': tok['token'], 'status': 'removed'})
+        else:  # b_only
+            result.append({'token': tok['token'], 'status': 'added'})
+    return result
 
 
 def compute_approach_bearing(trajectory: List[dict], crossing_lat: float, crossing_lon: float,
@@ -1790,6 +1956,288 @@ class TMIComplianceAnalyzer:
                 except Exception:
                     pass
             return []
+
+    def _compare_routes(
+        self,
+        required_waypoints: List[dict],
+        filed_waypoints: List[dict],
+        trajectory: List[dict],
+        required_route_str: str,
+        filed_route_str: str,
+        required_fixes: List[str],
+        required_airways: List[str],
+        corridor_nm: float = REROUTE_CORRIDOR_NM,
+        filed_artccs: str = None,
+        required_artccs: List[str] = None,
+        has_trajectory: bool = True
+    ) -> dict:
+        """Core route comparison engine. Compares required, filed, and flown routes.
+
+        Orchestrates:
+        1. Waypoint LCS alignment (required vs filed waypoint names)
+        2. Filed corridor compliance (filed waypoints vs required geometry)
+        3. Flown corridor compliance (trajectory vs required geometry)
+        4. Route string diff (word-level LCS)
+        5. Distance metrics and deltas
+        6. ARTCC traversal comparison (if data available)
+
+        Returns dict with all sub-comparison results.
+        """
+        result = {'method': 'waypoint_lcs'}
+
+        # --- 1. Waypoint alignment ---
+        required_names = [wp['id'] for wp in required_waypoints if wp.get('lat')]
+        filed_names = [wp['fix_name'] for wp in filed_waypoints]
+
+        alignment = lcs_alignment(required_names, filed_names)
+
+        # Airway compliance from fix_type: parse 'airway_J79' -> 'J79'
+        airway_compliance = []
+        for awy in required_airways:
+            awy_upper = awy.upper()
+            # Check if any filed waypoints come from this airway
+            filed_on_awy = any(
+                wp.get('fix_type', '').upper() == f'AIRWAY_{awy_upper}'
+                for wp in filed_waypoints
+            )
+            airway_compliance.append({'airway': awy, 'filed': filed_on_awy})
+
+        # Matched fixes = the LCS entries that are actual named fixes (not airways)
+        matched_fixes = alignment['lcs']
+
+        result['waypoint_alignment'] = {
+            'required_count': len(required_names),
+            'filed_count': len(filed_names),
+            'matched_count': len(matched_fixes),
+            'matched_fixes': matched_fixes,
+            'required_only': alignment['a_only'],
+            'filed_only': alignment['b_only'],
+            'alignment_pct': alignment['alignment_pct'],
+            'airway_compliance': airway_compliance,
+            'tokens': alignment['tokens']
+        }
+
+        # --- 2. Filed corridor compliance ---
+        # Build segments from consecutive required waypoints
+        segments = []
+        for i in range(1, len(required_waypoints)):
+            wp0 = required_waypoints[i - 1]
+            wp1 = required_waypoints[i]
+            if wp0.get('lat') and wp0.get('lon') and wp1.get('lat') and wp1.get('lon'):
+                segments.append((wp0['lat'], wp0['lon'], wp1['lat'], wp1['lon']))
+
+        if segments and filed_waypoints:
+            filed_points = [{'lat': wp['lat'], 'lon': wp['lon']}
+                           for wp in filed_waypoints if wp.get('lat') and wp.get('lon')]
+            result['filed_corridor'] = compute_corridor_compliance(
+                segments, filed_points, corridor_nm)
+        else:
+            result['filed_corridor'] = {
+                'within_corridor_pct': 0.0, 'max_deviation_nm': 0.0,
+                'avg_deviation_nm': 0.0, 'corridor_nm': corridor_nm}
+
+        # --- 3. Flown corridor compliance ---
+        if has_trajectory and segments and trajectory:
+            # Subsample trajectory if too large
+            traj_points = trajectory
+            if len(traj_points) > REROUTE_TRAJECTORY_SAMPLE_MAX:
+                step = len(traj_points) // REROUTE_TRAJECTORY_SAMPLE_MAX
+                traj_points = traj_points[::step][:REROUTE_TRAJECTORY_SAMPLE_MAX]
+            test_pts = [{'lat': pt['lat'], 'lon': pt['lon']} for pt in traj_points]
+            result['flown_corridor'] = compute_corridor_compliance(
+                segments, test_pts, corridor_nm)
+        # Omit flown_corridor entirely if no trajectory
+
+        # --- 4. Route string diff ---
+        # Strip >...< markers from required string for clean diff
+        clean_required = re.sub(r'[><]', '', required_route_str) if required_route_str else ''
+        result['route_diff'] = diff_route_strings(clean_required, filed_route_str)
+
+        # --- 5. Distance metrics ---
+        distances = {}
+        # Required distance from consecutive waypoints
+        if len(required_waypoints) >= 2:
+            req_dist = 0.0
+            for i in range(1, len(required_waypoints)):
+                wp0 = required_waypoints[i - 1]
+                wp1 = required_waypoints[i]
+                if wp0.get('lat') and wp0.get('lon') and wp1.get('lat') and wp1.get('lon'):
+                    req_dist += haversine_nm(wp0['lat'], wp0['lon'], wp1['lat'], wp1['lon'])
+            distances['required_nm'] = round(req_dist, 1) if req_dist > 0 else None
+        else:
+            distances['required_nm'] = None
+
+        # Filed distance from cum_dist_nm or compute from waypoint coords
+        if filed_waypoints:
+            last_wp = filed_waypoints[-1]
+            if last_wp.get('cum_dist_nm') and last_wp['cum_dist_nm'] > 0:
+                distances['filed_nm'] = round(last_wp['cum_dist_nm'], 1)
+            elif len(filed_waypoints) >= 2:
+                fd = 0.0
+                for i in range(1, len(filed_waypoints)):
+                    w0 = filed_waypoints[i - 1]
+                    w1 = filed_waypoints[i]
+                    if w0.get('lat') and w0.get('lon') and w1.get('lat') and w1.get('lon'):
+                        fd += haversine_nm(w0['lat'], w0['lon'], w1['lat'], w1['lon'])
+                distances['filed_nm'] = round(fd, 1) if fd > 0 else None
+            else:
+                distances['filed_nm'] = None
+        else:
+            distances['filed_nm'] = None
+
+        # Flown distance from trajectory
+        if has_trajectory and trajectory and len(trajectory) >= 2:
+            fld = sum(haversine_nm(
+                trajectory[i - 1]['lat'], trajectory[i - 1]['lon'],
+                trajectory[i]['lat'], trajectory[i]['lon']
+            ) for i in range(1, len(trajectory)))
+            distances['flown_nm'] = round(fld, 1) if fld > 0 else None
+        else:
+            distances['flown_nm'] = None
+
+        # Cross-deltas
+        distances['filed_vs_required_nm'] = (
+            round(distances['filed_nm'] - distances['required_nm'], 1)
+            if distances.get('filed_nm') and distances.get('required_nm') else None)
+        distances['flown_vs_required_nm'] = (
+            round(distances['flown_nm'] - distances['required_nm'], 1)
+            if distances.get('flown_nm') and distances.get('required_nm') else None)
+        distances['flown_vs_filed_nm'] = (
+            round(distances['flown_nm'] - distances['filed_nm'], 1)
+            if distances.get('flown_nm') and distances.get('filed_nm') else None)
+
+        result['distances'] = distances
+
+        # --- 6. ARTCC comparison ---
+        if required_artccs and filed_artccs:
+            filed_artcc_list = filed_artccs.split() if isinstance(filed_artccs, str) else list(filed_artccs)
+            req_set = set(a.upper() for a in required_artccs)
+            filed_set = set(a.upper() for a in filed_artcc_list)
+            result['artcc_comparison'] = {
+                'required_artccs': sorted(req_set),
+                'filed_artccs': sorted(filed_set),
+                'matching': sorted(req_set & filed_set),
+                'extra_filed': sorted(filed_set - req_set),
+                'missing_filed': sorted(req_set - filed_set),
+            }
+
+        return result
+
+    def _load_flight_waypoints_batch(self, flight_uids: List[int]) -> Dict[int, List[dict]]:
+        """Batch load pre-parsed waypoints from adl_flight_waypoints for multiple flights.
+
+        Returns {flight_uid: [{fix_name, lat, lon, sequence_num, fix_type, source,
+                               cum_dist_nm, segment_dist_nm}, ...]}
+        """
+        if not flight_uids or not self.adl_conn:
+            return {}
+
+        result = {}
+        cursor = self.adl_conn.cursor()
+        batch_size = 500
+
+        for i in range(0, len(flight_uids), batch_size):
+            batch = flight_uids[i:i + batch_size]
+            placeholders = ','.join(['?' for _ in batch])
+            query = f"""
+                SELECT flight_uid, fix_name, lat, lon, sequence_num,
+                       fix_type, source, cum_dist_nm, segment_dist_nm
+                FROM dbo.adl_flight_waypoints
+                WHERE flight_uid IN ({placeholders})
+                  AND fix_name IS NOT NULL AND lat IS NOT NULL
+                ORDER BY flight_uid, sequence_num
+            """
+            try:
+                cursor.execute(query, batch)
+                for row in cursor.fetchall():
+                    fuid = row[0]
+                    if fuid not in result:
+                        result[fuid] = []
+                    result[fuid].append({
+                        'fix_name': row[1],
+                        'lat': float(row[2]) if row[2] is not None else None,
+                        'lon': float(row[3]) if row[3] is not None else None,
+                        'sequence_num': row[4],
+                        'fix_type': row[5],
+                        'source': row[6],
+                        'cum_dist_nm': float(row[7]) if row[7] is not None else None,
+                        'segment_dist_nm': float(row[8]) if row[8] is not None else None,
+                    })
+            except Exception as e:
+                logger.warning(f"  Failed to load waypoints batch {i}-{i+batch_size}: {e}")
+
+        cursor.close()
+        return result
+
+    def _load_flight_plan_metadata_batch(self, flight_uids: List[int]) -> Dict[int, dict]:
+        """Batch load plan metadata (ARTCC traversal, route distance, parse status).
+
+        Returns {flight_uid: {artccs_traversed, route_dist_nm, parse_status}}
+        """
+        if not flight_uids or not self.adl_conn:
+            return {}
+
+        result = {}
+        cursor = self.adl_conn.cursor()
+        batch_size = 500
+
+        for i in range(0, len(flight_uids), batch_size):
+            batch = flight_uids[i:i + batch_size]
+            placeholders = ','.join(['?' for _ in batch])
+            query = f"""
+                SELECT flight_uid, artccs_traversed, route_dist_nm, parse_status
+                FROM dbo.adl_flight_plan
+                WHERE flight_uid IN ({placeholders})
+            """
+            try:
+                cursor.execute(query, batch)
+                for row in cursor.fetchall():
+                    result[row[0]] = {
+                        'artccs_traversed': row[1],
+                        'route_dist_nm': float(row[2]) if row[2] is not None else None,
+                        'parse_status': row[3],
+                    }
+            except Exception as e:
+                logger.warning(f"  Failed to load plan metadata batch {i}-{i+batch_size}: {e}")
+
+        cursor.close()
+        return result
+
+    def _get_required_route_artccs(self, route_string: str) -> Optional[List[str]]:
+        """Get ARTCC traversal for a required route via PostGIS expand_route_with_artccs().
+
+        Cached per route string. Returns list of ARTCC codes or None.
+        """
+        if not self.gis_conn or not route_string:
+            return None
+
+        cache_key = route_string.strip()
+        if not hasattr(self, '_required_artcc_cache'):
+            self._required_artcc_cache = {}
+        if cache_key in self._required_artcc_cache:
+            return self._required_artcc_cache[cache_key]
+
+        try:
+            cursor = self.gis_conn.cursor()
+            cursor.execute(
+                "SELECT artccs_traversed FROM expand_route_with_artccs(%s)",
+                (route_string,)
+            )
+            row = cursor.fetchone()
+            cursor.close()
+            if row and row[0]:
+                artccs = list(row[0]) if isinstance(row[0], (list, tuple)) else row[0].split()
+                self._required_artcc_cache[cache_key] = artccs
+                return artccs
+        except Exception as e:
+            logger.warning(f"  PostGIS expand_route_with_artccs failed: {e}")
+            if self.gis_conn:
+                try:
+                    self.gis_conn.rollback()
+                except Exception:
+                    pass
+        self._required_artcc_cache[cache_key] = None
+        return None
 
     def _preload_trajectories(self, callsigns: List[str]):
         """
@@ -4508,8 +4956,8 @@ class TMIComplianceAnalyzer:
 
         # Expand required route via PostGIS for full waypoint list
         expanded_required = []
-        if self.gis_conn and required_route_strings:
-            combined_route = ' '.join(required_route_strings)
+        combined_route = ' '.join(required_route_strings) if required_route_strings else ''
+        if self.gis_conn and combined_route:
             expanded_required = self._expand_route_via_gis(combined_route)
             if expanded_required:
                 logger.info(f"  PostGIS expanded required route to {len(expanded_required)} waypoints")
@@ -4555,6 +5003,19 @@ class TMIComplianceAnalyzer:
         # Build callsign lookup for distance data from flights_dict
         flight_data_by_cs = {f.get('callsign'): f for f in flights_dict.values()}
 
+        # Batch load filed waypoints and plan metadata for route comparison
+        cs_to_uid = {f.get('callsign'): fuid for fuid, f in flights_dict.items()}
+        flight_uids = list(flights_dict.keys())
+        filed_wps_by_uid = self._load_flight_waypoints_batch(flight_uids)
+        plan_meta_by_uid = self._load_flight_plan_metadata_batch(flight_uids)
+        logger.info(f"  Loaded filed waypoints for {len(filed_wps_by_uid)}/{len(flight_uids)} flights")
+
+        # Get required route ARTCCs (once, not per flight)
+        required_artccs = self._get_required_route_artccs(combined_route) if self.gis_conn else None
+
+        # Track route comparison method breakdown
+        comparison_method_counts = Counter()
+
         # Analyze each flight for both filed and flown compliance
         flight_results = []
         filed_compliant = []
@@ -4569,6 +5030,33 @@ class TMIComplianceAnalyzer:
             first_seen = normalize_datetime(first_seen)
             fp_route = fp_route or ''
             route_expanded = route_expanded or ''
+
+            # === TRAJECTORY ===
+            trajectory = self._trajectory_cache.get(callsign, [])
+            has_trajectory = bool(trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights)
+
+            # === STRUCTURED ROUTE COMPARISON (waypoint LCS) ===
+            fuid = cs_to_uid.get(callsign)
+            filed_wps = filed_wps_by_uid.get(fuid, []) if fuid else []
+            plan_meta = plan_meta_by_uid.get(fuid, {}) if fuid else {}
+            route_comparison = None
+
+            if filed_wps and expanded_required and plan_meta.get('parse_status') == 'COMPLETE':
+                route_comparison = self._compare_routes(
+                    required_waypoints=expanded_required,
+                    filed_waypoints=filed_wps,
+                    trajectory=trajectory,
+                    required_route_str=combined_route,
+                    filed_route_str=fp_route,
+                    required_fixes=required_fixes,
+                    required_airways=required_airways,
+                    filed_artccs=plan_meta.get('artccs_traversed'),
+                    required_artccs=required_artccs,
+                    has_trajectory=has_trajectory
+                )
+                comparison_method_counts['waypoint_lcs'] += 1
+            else:
+                comparison_method_counts['token_fallback'] += 1
 
             # === FILED ROUTE ANALYSIS ===
             # Use expanded route (airways resolved to fixes) if available, fall back to raw
@@ -4601,17 +5089,30 @@ class TMIComplianceAnalyzer:
                         else:
                             consecutive = 0
 
-            # Combined score (fixes + airways)
-            filed_matched_total = len(filed_matched_fixes) + len(airway_matched)
-            filed_match_pct = filed_matched_total / total_elements * 100 if total_elements else 0
+            # If structured comparison available, enhance filed metrics
+            if route_comparison:
+                rc_alignment = route_comparison['waypoint_alignment']
+                lcs_pct = rc_alignment['alignment_pct']
+                token_total = len(filed_matched_fixes) + len(airway_matched)
+                token_pct = token_total / total_elements * 100 if total_elements else 0
+                filed_match_pct = max(lcs_pct, token_pct)
+                for fix in rc_alignment['matched_fixes']:
+                    if fix not in filed_matched_fixes:
+                        filed_matched_fixes.append(fix)
+                for ac in rc_alignment.get('airway_compliance', []):
+                    if ac.get('filed') and ac['airway'] not in airway_matched:
+                        airway_matched.append(ac['airway'])
+            else:
+                # Combined score (fixes + airways)
+                filed_matched_total = len(filed_matched_fixes) + len(airway_matched)
+                filed_match_pct = filed_matched_total / total_elements * 100 if total_elements else 0
+
             filed_status = 'FILED_COMPLIANT' if filed_match_pct >= 50 else 'FILED_NON_COMPLIANT'
 
             # === FLOWN ROUTE ANALYSIS ===
             # Check if trajectory passed within crossing radius of required fixes
-            trajectory = self._trajectory_cache.get(callsign, [])
             flown_matched_fixes = []
             flown_fix_details = []  # Details about each fix crossing
-            has_trajectory = bool(trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights)
 
             if has_trajectory:
                 for fix_name in required_fixes:
@@ -4666,6 +5167,13 @@ class TMIComplianceAnalyzer:
 
             flown_matched_total = len(flown_matched_fixes) + len(flown_airway_matched)
             flown_match_pct = flown_matched_total / total_elements * 100 if total_elements else 0
+
+            # Enhance flown compliance with corridor data
+            if has_trajectory and route_comparison and 'flown_corridor' in route_comparison:
+                corridor = route_comparison['flown_corridor']
+                corridor_score = corridor.get('within_corridor_pct', 0)
+                flown_match_pct = max(flown_match_pct, corridor_score)
+
             flown_status = 'FLOWN_COMPLIANT' if flown_match_pct >= 50 else 'FLOWN_NON_COMPLIANT'
 
             if not has_trajectory:
@@ -4714,6 +5222,7 @@ class TMIComplianceAnalyzer:
                 'flown_match_pct': round(flown_match_pct, 1),
                 'flown_status': flown_status,
                 'flown_fix_details': flown_fix_details,
+                'route_comparison': route_comparison,
                 # Trajectory for map display
                 'trajectory_coords': traj_coords,
                 # Distance deltas
@@ -4763,6 +5272,23 @@ class TMIComplianceAnalyzer:
         if no_trajectory_count > 0:
             logger.info(f"  No trajectory data: {no_trajectory_count} flights")
 
+        # Build route comparison summary
+        rc_flights = [f for f in flight_results if f.get('route_comparison')]
+        route_comparison_summary = None
+        if rc_flights:
+            align_pcts = [f['route_comparison']['waypoint_alignment']['alignment_pct'] for f in rc_flights]
+            filed_corr_pcts = [f['route_comparison']['filed_corridor']['within_corridor_pct'] for f in rc_flights]
+            flown_corr_pcts = [f['route_comparison']['flown_corridor']['within_corridor_pct']
+                              for f in rc_flights if 'flown_corridor' in f['route_comparison']]
+            route_comparison_summary = {
+                'avg_alignment_pct': round(sum(align_pcts) / len(align_pcts), 1),
+                'avg_filed_corridor_pct': round(sum(filed_corr_pcts) / len(filed_corr_pcts), 1),
+                'avg_flown_corridor_pct': round(sum(flown_corr_pcts) / len(flown_corr_pcts), 1) if flown_corr_pcts else None,
+                'flights_with_waypoints': len(filed_wps_by_uid),
+                'flights_parsed': sum(1 for m in plan_meta_by_uid.values() if m.get('parse_status') == 'COMPLETE'),
+                'comparison_method_breakdown': dict(comparison_method_counts),
+            }
+
         return {
             'name': name,
             'mandatory': tmi.reroute_mandatory,
@@ -4790,6 +5316,7 @@ class TMIComplianceAnalyzer:
             'flown_non_compliant': flown_non_compliant,
             'flown_compliance_pct': flown_compliance_pct,
             'no_trajectory_count': no_trajectory_count,
+            'route_comparison_summary': route_comparison_summary,
             # Discrepancy analysis
             'filed_but_not_flown': filed_but_not_flown,
             'flown_but_not_filed': flown_but_not_filed,
@@ -5036,6 +5563,24 @@ class TMIComplianceAnalyzer:
         # Build callsign lookup for distance data from flights_dict
         flight_data_by_cs = {f.get('callsign'): f for f in flights_dict.values()}
 
+        # Batch load filed waypoints and plan metadata for route comparison
+        cs_to_uid = {f.get('callsign'): fuid for fuid, f in flights_dict.items()}
+        flight_uids = list(flights_dict.keys())
+        filed_wps_by_uid = self._load_flight_waypoints_batch(flight_uids)
+        plan_meta_by_uid = self._load_flight_plan_metadata_batch(flight_uids)
+        logger.info(f"  Loaded filed waypoints for {len(filed_wps_by_uid)}/{len(flight_uids)} flights")
+
+        # Get required route ARTCCs per OD (once, not per flight)
+        required_artccs_by_od = {}
+        for od_key, expanded in expanded_required_by_od.items():
+            route = next((r for r in program.current_routes
+                         for o in r.origins if (o.upper(), r.destination.upper()) == od_key), None)
+            if route and self.gis_conn:
+                required_artccs_by_od[od_key] = self._get_required_route_artccs(route.route_string)
+
+        # Track route comparison method breakdown
+        comparison_method_counts = Counter()
+
         # Analyze each flight
         flight_results = []
         filed_compliant = []
@@ -5105,6 +5650,39 @@ class TMIComplianceAnalyzer:
                 if total_d > 0:
                     od_required_dist_nm = round(total_d, 1)
 
+            # === TRAJECTORY ===
+            trajectory = self._trajectory_cache.get(callsign, [])
+            has_trajectory = bool(trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights)
+
+            # === STRUCTURED ROUTE COMPARISON (waypoint LCS) ===
+            fuid = cs_to_uid.get(callsign)
+            filed_wps = filed_wps_by_uid.get(fuid, []) if fuid else []
+            plan_meta = plan_meta_by_uid.get(fuid, {}) if fuid else {}
+            route_comparison = None
+
+            # Get the OD-specific required route string for diff
+            od_route = next((r for r in program.current_routes
+                            for o in r.origins if (o.upper(), r.destination.upper()) == od_key), None)
+            od_route_str = od_route.route_string if od_route else ''
+            od_required_artccs = required_artccs_by_od.get(od_key)
+
+            if filed_wps and expanded_required and plan_meta.get('parse_status') == 'COMPLETE':
+                route_comparison = self._compare_routes(
+                    required_waypoints=expanded_required,
+                    filed_waypoints=filed_wps,
+                    trajectory=trajectory,
+                    required_route_str=od_route_str,
+                    filed_route_str=fp_route,
+                    required_fixes=required_fixes,
+                    required_airways=required_airways,
+                    filed_artccs=plan_meta.get('artccs_traversed'),
+                    required_artccs=od_required_artccs,
+                    has_trajectory=has_trajectory
+                )
+                comparison_method_counts['waypoint_lcs'] += 1
+            else:
+                comparison_method_counts['token_fallback'] += 1
+
             # === FILED ROUTE ANALYSIS ===
             # Prefer expanded route (airways resolved to constituent fixes) over raw filed route
             match_route = route_expanded if route_expanded else fp_route
@@ -5157,9 +5735,26 @@ class TMIComplianceAnalyzer:
                         else:
                             consecutive = 0
 
-            # Combined score
-            filed_matched_total = len(filed_matched_fixes) + len(airway_matched)
-            filed_match_pct = filed_matched_total / total_elements * 100 if total_elements else 0
+            # If structured comparison available, enhance filed metrics
+            if route_comparison:
+                rc_alignment = route_comparison['waypoint_alignment']
+                # Use the better of token matching vs LCS alignment
+                lcs_pct = rc_alignment['alignment_pct']
+                token_total = len(filed_matched_fixes) + len(airway_matched)
+                token_pct = token_total / total_elements * 100 if total_elements else 0
+                filed_match_pct = max(lcs_pct, token_pct)
+                # Also merge any LCS-matched fixes not caught by token matching
+                for fix in rc_alignment['matched_fixes']:
+                    if fix not in filed_matched_fixes:
+                        filed_matched_fixes.append(fix)
+                # Merge airway compliance
+                for ac in rc_alignment.get('airway_compliance', []):
+                    if ac.get('filed') and ac['airway'] not in airway_matched:
+                        airway_matched.append(ac['airway'])
+            else:
+                # Combined score from token matching only
+                filed_matched_total = len(filed_matched_fixes) + len(airway_matched)
+                filed_match_pct = filed_matched_total / total_elements * 100 if total_elements else 0
 
             # Apply thresholds
             if filed_match_pct >= REROUTE_COMPLIANT_THRESHOLD * 100:
@@ -5174,11 +5769,8 @@ class TMIComplianceAnalyzer:
                 filed_status = 'FILED_MONITORING'
 
             # === FLOWN ROUTE ANALYSIS ===
-            trajectory = self._trajectory_cache.get(callsign, [])
             flown_matched_fixes = []
             flown_fix_details = []
-
-            has_trajectory = bool(trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights)
 
             if has_trajectory:
                 for fix_name in required_fixes:
@@ -5232,6 +5824,12 @@ class TMIComplianceAnalyzer:
 
             flown_matched_total = len(flown_matched_fixes) + len(flown_airway_matched)
             flown_match_pct = flown_matched_total / total_elements * 100 if total_elements else 0
+
+            # Enhance flown compliance with corridor data
+            if has_trajectory and route_comparison and 'flown_corridor' in route_comparison:
+                corridor = route_comparison['flown_corridor']
+                corridor_score = corridor.get('within_corridor_pct', 0)
+                flown_match_pct = max(flown_match_pct, corridor_score)
 
             if not has_trajectory:
                 flown_status = 'NO_TRAJECTORY'
@@ -5291,6 +5889,7 @@ class TMIComplianceAnalyzer:
                 'flown_match_pct': round(flown_match_pct, 1),
                 'flown_status': flown_status,
                 'flown_fix_details': flown_fix_details,
+                'route_comparison': route_comparison,
                 'trajectory_coords': traj_coords,
                 'final_status': final_status,
                 'required_fixes': required_fixes,
@@ -5332,6 +5931,23 @@ class TMIComplianceAnalyzer:
 
         no_trajectory_count = sum(1 for f in flight_results if f.get('flown_status') == 'NO_TRAJECTORY')
 
+        # Build route comparison summary
+        rc_flights = [f for f in flight_results if f.get('route_comparison')]
+        route_comparison_summary = None
+        if rc_flights:
+            align_pcts = [f['route_comparison']['waypoint_alignment']['alignment_pct'] for f in rc_flights]
+            filed_corr_pcts = [f['route_comparison']['filed_corridor']['within_corridor_pct'] for f in rc_flights]
+            flown_corr_pcts = [f['route_comparison']['flown_corridor']['within_corridor_pct']
+                              for f in rc_flights if 'flown_corridor' in f['route_comparison']]
+            route_comparison_summary = {
+                'avg_alignment_pct': round(sum(align_pcts) / len(align_pcts), 1),
+                'avg_filed_corridor_pct': round(sum(filed_corr_pcts) / len(filed_corr_pcts), 1),
+                'avg_flown_corridor_pct': round(sum(flown_corr_pcts) / len(flown_corr_pcts), 1) if flown_corr_pcts else None,
+                'flights_with_waypoints': len(filed_wps_by_uid),
+                'flights_parsed': sum(1 for m in plan_meta_by_uid.values() if m.get('parse_status') == 'COMPLETE'),
+                'comparison_method_breakdown': dict(comparison_method_counts),
+            }
+
         return {
             'name': name,
             'mandatory': program.is_mandatory(),
@@ -5359,6 +5975,7 @@ class TMIComplianceAnalyzer:
             'flown_non_compliant': flown_non_compliant,
             'flown_compliance_pct': flown_compliance_pct,
             'no_trajectory_count': no_trajectory_count,
+            'route_comparison_summary': route_comparison_summary,
             # Legacy compat
             'using_route': filed_compliant,
             'not_using_route': filed_non_compliant,
