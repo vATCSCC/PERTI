@@ -6,6 +6,11 @@
     "canadianNoc": "Canadian NOC",
     "usDcc": "US DCC"
   },
+  "ctp": {
+    "planning": {
+      "applyToSession": "Apply to Programme"
+    }
+  },
   "dccRegion": {
     "canada": "Canada",
     "canadaEast": "UK-Ireland",
