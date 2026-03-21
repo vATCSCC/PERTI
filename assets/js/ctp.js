@@ -217,6 +217,7 @@
                 $actions.hide();
                 $stats.hide();
                 $('#ctp_bottom_tabs').hide();
+                $('#ctp_bottom_resize_handle').hide();
                 return;
             }
 
@@ -244,7 +245,9 @@
             }
 
             // Bottom tabs visibility (demand, throughput, planning)
-            $('#ctp_bottom_tabs').toggle(s.status === 'ACTIVE' || s.status === 'MONITORING' || s.status === 'DRAFT');
+            var showBottom = s.status === 'ACTIVE' || s.status === 'MONITORING' || s.status === 'DRAFT';
+            $('#ctp_bottom_tabs').toggle(showBottom);
+            $('#ctp_bottom_resize_handle').toggle(showBottom);
         },
 
         createSession: function() {
@@ -2421,6 +2424,40 @@
             $('#ctp_panel_toggle').on('click', function() {
                 self.togglePanel();
             });
+
+            // Bottom panel resize handle (drag top edge to resize)
+            var bottomHandle = document.getElementById('ctp_bottom_resize_handle');
+            var bottomTabs = document.getElementById('ctp_bottom_tabs');
+            if (bottomHandle && bottomTabs) {
+                var bDragging = false;
+                var bStartY = 0;
+                var bStartHeight = 0;
+
+                bottomHandle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    bDragging = true;
+                    bStartY = e.clientY;
+                    bStartHeight = bottomTabs.offsetHeight;
+                    document.body.style.cursor = 'ns-resize';
+                    document.body.style.userSelect = 'none';
+                });
+
+                document.addEventListener('mousemove', function(e) {
+                    if (!bDragging) return;
+                    var delta = bStartY - e.clientY; // inverted: drag up = grow
+                    var newHeight = Math.max(80, Math.min(bStartHeight + delta, container.offsetHeight - 160));
+                    bottomTabs.style.maxHeight = newHeight + 'px';
+                    bottomTabs.style.flex = '0 0 ' + newHeight + 'px';
+                });
+
+                document.addEventListener('mouseup', function() {
+                    if (bDragging) {
+                        bDragging = false;
+                        document.body.style.cursor = '';
+                        document.body.style.userSelect = '';
+                    }
+                });
+            }
         },
 
         toggleMap: function() {
@@ -2851,8 +2888,31 @@
             var link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
             link.click();
-            URL.revokeObjectURL(link.href);
+            setTimeout(function() {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            }, 150);
+        },
+
+        _copyToClipboard: function(text, label) {
+            var notify = function() {
+                Swal.fire({ icon: 'success', title: (label || 'Data') + ' copied', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(notify);
+            } else {
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;opacity:0;left:-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                notify();
+            }
         },
 
         _csvEscape: function(cell) {
@@ -3049,6 +3109,20 @@
                         });
                     });
                     this._download(new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' }), basename + '.json');
+                    break;
+                case 'clipboard':
+                    var tsv = '';
+                    var namesC = Object.keys(sheets);
+                    namesC.forEach(function(name, idx) {
+                        var s = sheets[name];
+                        if (namesC.length > 1) tsv += '--- ' + name + ' ---\n';
+                        tsv += s.headers.join('\t') + '\n';
+                        s.rows.forEach(function(row) {
+                            tsv += row.map(function(c) { return c == null ? '' : String(c); }).join('\t') + '\n';
+                        });
+                        if (idx < namesC.length - 1) tsv += '\n';
+                    });
+                    this._copyToClipboard(tsv, dataset);
                     break;
             }
         },
@@ -3689,6 +3763,8 @@
                     '<a class="dropdown-item ctp-export-item" data-ds="' + dataset + '" data-fmt="xlsx"><i class="fas fa-file-excel mr-2 text-success"></i>Excel (XLSX)</a>' +
                     '<a class="dropdown-item ctp-export-item" data-ds="' + dataset + '" data-fmt="txt"><i class="fas fa-file-alt mr-2 text-muted"></i>Plain Text</a>' +
                     '<a class="dropdown-item ctp-export-item" data-ds="' + dataset + '" data-fmt="json"><i class="fas fa-file-code mr-2 text-info"></i>JSON</a>' +
+                    '<div class="dropdown-divider"></div>' +
+                    '<a class="dropdown-item ctp-export-item" data-ds="' + dataset + '" data-fmt="clipboard"><i class="fas fa-clipboard mr-2 text-warning"></i>Copy to Clipboard</a>' +
                     '</div></div>';
             };
             $results.append(
