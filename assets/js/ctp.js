@@ -2418,6 +2418,456 @@
     };
 
     // ========================================================================
+    // Throughput Config Manager
+    // ========================================================================
+    var ThroughputManager = {
+        configs: [],
+
+        init: function() {
+            var self = this;
+            // Bind create button
+            $(document).on('click', '#ctp_throughput_create', function() { self.showCreateDialog(); });
+            // Bind refresh when tab shown
+            $(document).on('shown.bs.tab', 'a[href="#ctp_throughput_panel"]', function() { self.refresh(); });
+        },
+
+        refresh: function() {
+            if (!state.currentSession) return;
+            var self = this;
+
+            $.ajax({
+                url: API.throughput.list,
+                data: { session_id: state.currentSession },
+                success: function(resp) {
+                    if (resp.status === 'ok' && resp.data) {
+                        self.configs = resp.data.configs || [];
+                        self.renderTable(self.configs);
+                    }
+                }
+            });
+        },
+
+        renderTable: function(configs) {
+            var $tbody = $('#ctp_throughput_table tbody');
+            $tbody.empty();
+
+            if (!configs || configs.length === 0) {
+                $tbody.append('<tr><td colspan="7" class="text-center text-muted">' + t('ctp.throughput.noConfigs') + '</td></tr>');
+                return;
+            }
+
+            configs.forEach(function(cfg) {
+                var tracks = cfg.tracks_json ? JSON.parse(cfg.tracks_json).join(', ') : t('ctp.throughput.wildcard');
+                var origins = cfg.origins_json ? JSON.parse(cfg.origins_json).join(', ') : t('ctp.throughput.wildcard');
+                var dests = cfg.destinations_json ? JSON.parse(cfg.destinations_json).join(', ') : t('ctp.throughput.wildcard');
+
+                var $row = $('<tr>')
+                    .append($('<td>').text(cfg.config_label || ''))
+                    .append($('<td>').text(tracks))
+                    .append($('<td>').text(origins))
+                    .append($('<td>').text(dests))
+                    .append($('<td>').text(cfg.max_acph || '-'))
+                    .append($('<td>').text(cfg.priority || '-'))
+                    .append($('<td>').html(
+                        '<button class="btn btn-xs btn-outline-primary mr-1 ctp-tp-edit" data-id="' + cfg.config_id + '"><i class="fas fa-edit"></i></button>' +
+                        '<button class="btn btn-xs btn-outline-info mr-1 ctp-tp-preview" data-id="' + cfg.config_id + '"><i class="fas fa-chart-area"></i></button>' +
+                        '<button class="btn btn-xs btn-outline-danger ctp-tp-delete" data-id="' + cfg.config_id + '"><i class="fas fa-trash"></i></button>'
+                    ));
+
+                $tbody.append($row);
+            });
+
+            // Bind action buttons
+            var self = this;
+            $tbody.find('.ctp-tp-edit').on('click', function() {
+                var id = $(this).data('id');
+                var cfg = self.configs.find(function(c) { return c.config_id === id; });
+                if (cfg) self.showEditDialog(cfg);
+            });
+            $tbody.find('.ctp-tp-preview').on('click', function() {
+                self.showPreview($(this).data('id'));
+            });
+            $tbody.find('.ctp-tp-delete').on('click', function() {
+                self.deleteConfig($(this).data('id'));
+            });
+        },
+
+        showCreateDialog: function() {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.throughput.createConfig'),
+                html:
+                    '<input id="swal_tp_label" class="swal2-input" placeholder="' + t('ctp.throughput.configLabel') + '">' +
+                    '<input id="swal_tp_tracks" class="swal2-input" placeholder="' + t('ctp.throughput.tracks') + ' (e.g. NATA,NATB)">' +
+                    '<input id="swal_tp_origins" class="swal2-input" placeholder="' + t('ctp.throughput.origins') + ' (e.g. KJFK,KBOS)">' +
+                    '<input id="swal_tp_dests" class="swal2-input" placeholder="' + t('ctp.throughput.destinations') + ' (e.g. EGLL,LFPG)">' +
+                    '<input id="swal_tp_max_acph" class="swal2-input" type="number" placeholder="' + t('ctp.throughput.maxAcph') + '">' +
+                    '<input id="swal_tp_priority" class="swal2-input" type="number" placeholder="' + t('ctp.throughput.priority') + '" value="10">',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    return {
+                        config_label: $('#swal_tp_label').val(),
+                        tracks_json: $('#swal_tp_tracks').val() ? JSON.stringify($('#swal_tp_tracks').val().toUpperCase().split(',').map(function(s) { return s.trim(); })) : null,
+                        origins_json: $('#swal_tp_origins').val() ? JSON.stringify($('#swal_tp_origins').val().toUpperCase().split(',').map(function(s) { return s.trim(); })) : null,
+                        destinations_json: $('#swal_tp_dests').val() ? JSON.stringify($('#swal_tp_dests').val().toUpperCase().split(',').map(function(s) { return s.trim(); })) : null,
+                        max_acph: parseInt($('#swal_tp_max_acph').val()) || null,
+                        priority: parseInt($('#swal_tp_priority').val()) || 10
+                    };
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    result.value.session_id = state.currentSession;
+                    $.ajax({
+                        url: API.throughput.create,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                Swal.fire({ icon: 'success', title: t('ctp.throughput.saved'), timer: 1500, showConfirmButton: false });
+                                self.refresh();
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        showEditDialog: function(cfg) {
+            var self = this;
+            var tracks = cfg.tracks_json ? JSON.parse(cfg.tracks_json).join(',') : '';
+            var origins = cfg.origins_json ? JSON.parse(cfg.origins_json).join(',') : '';
+            var dests = cfg.destinations_json ? JSON.parse(cfg.destinations_json).join(',') : '';
+
+            Swal.fire({
+                title: t('ctp.throughput.editConfig'),
+                html:
+                    '<input id="swal_tp_label" class="swal2-input" value="' + (cfg.config_label || '') + '" placeholder="' + t('ctp.throughput.configLabel') + '">' +
+                    '<input id="swal_tp_tracks" class="swal2-input" value="' + tracks + '" placeholder="' + t('ctp.throughput.tracks') + '">' +
+                    '<input id="swal_tp_origins" class="swal2-input" value="' + origins + '" placeholder="' + t('ctp.throughput.origins') + '">' +
+                    '<input id="swal_tp_dests" class="swal2-input" value="' + dests + '" placeholder="' + t('ctp.throughput.destinations') + '">' +
+                    '<input id="swal_tp_max_acph" class="swal2-input" type="number" value="' + (cfg.max_acph || '') + '" placeholder="' + t('ctp.throughput.maxAcph') + '">' +
+                    '<input id="swal_tp_priority" class="swal2-input" type="number" value="' + (cfg.priority || 10) + '" placeholder="' + t('ctp.throughput.priority') + '">',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    return {
+                        config_id: cfg.config_id,
+                        config_label: $('#swal_tp_label').val(),
+                        tracks_json: $('#swal_tp_tracks').val() ? JSON.stringify($('#swal_tp_tracks').val().toUpperCase().split(',').map(function(s) { return s.trim(); })) : null,
+                        origins_json: $('#swal_tp_origins').val() ? JSON.stringify($('#swal_tp_origins').val().toUpperCase().split(',').map(function(s) { return s.trim(); })) : null,
+                        destinations_json: $('#swal_tp_dests').val() ? JSON.stringify($('#swal_tp_dests').val().toUpperCase().split(',').map(function(s) { return s.trim(); })) : null,
+                        max_acph: parseInt($('#swal_tp_max_acph').val()) || null,
+                        priority: parseInt($('#swal_tp_priority').val()) || 10,
+                        expected_updated_at: cfg.updated_at
+                    };
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.throughput.update,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                Swal.fire({ icon: 'success', title: t('ctp.throughput.updated'), timer: 1500, showConfirmButton: false });
+                                self.refresh();
+                            } else if (resp.code === 409) {
+                                Swal.fire({ icon: 'warning', title: t('ctp.throughput.conflictDetected', { configs: '' }) });
+                                self.refresh();
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        deleteConfig: function(configId) {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.throughput.deleteConfig'),
+                text: t('ctp.throughput.confirmDelete'),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545'
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: API.throughput.delete,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ config_id: configId }),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                Swal.fire({ icon: 'success', title: t('ctp.throughput.deleted'), timer: 1500, showConfirmButton: false });
+                                self.refresh();
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        showPreview: function(configId) {
+            if (!state.currentSession) return;
+
+            $.ajax({
+                url: API.throughput.preview,
+                data: { session_id: state.currentSession, config_id: configId },
+                success: function(resp) {
+                    if (resp.status === 'ok' && resp.data) {
+                        var d = resp.data;
+                        var html = '<table class="table table-sm"><thead><tr>' +
+                            '<th>' + t('ctp.demand.timeUtc') + '</th>' +
+                            '<th>' + t('ctp.throughput.acph') + '</th>' +
+                            '<th>' + t('ctp.throughput.maxAcph') + '</th>' +
+                            '<th>' + t('ctp.throughput.utilization') + '</th>' +
+                            '</tr></thead><tbody>';
+                        (d.bins || []).forEach(function(bin) {
+                            var pct = bin.utilization_pct || 0;
+                            var cls = pct > 100 ? 'text-danger font-weight-bold' : (pct > 80 ? 'text-warning' : 'text-success');
+                            html += '<tr><td>' + bin.bin_label + '</td><td>' + bin.actual_acph + '</td><td>' + bin.max_acph + '</td><td class="' + cls + '">' + pct + '%</td></tr>';
+                        });
+                        html += '</tbody></table>';
+                        Swal.fire({ title: t('ctp.throughput.previewImpact'), html: html, width: 600 });
+                    }
+                }
+            });
+        }
+    };
+
+    // ========================================================================
+    // Planning Simulator
+    // ========================================================================
+    var PlanningSimulator = {
+        scenarios: [],
+        currentScenario: null,
+
+        init: function() {
+            var self = this;
+            $(document).on('click', '#ctp_planning_create', function() { self.createScenario(); });
+            $(document).on('shown.bs.tab', 'a[href="#ctp_planning_panel"]', function() { self.loadScenarios(); });
+        },
+
+        loadScenarios: function() {
+            if (!state.currentSession) return;
+            var self = this;
+
+            $.ajax({
+                url: API.planning.scenarios,
+                data: { session_id: state.currentSession },
+                success: function(resp) {
+                    if (resp.status === 'ok' && resp.data) {
+                        self.scenarios = resp.data.scenarios || [];
+                        self.renderScenarioList(self.scenarios);
+                    }
+                }
+            });
+        },
+
+        renderScenarioList: function(scenarios) {
+            var $list = $('#ctp_planning_scenario_list');
+            $list.empty();
+
+            if (!scenarios || scenarios.length === 0) {
+                $list.html('<div class="text-center text-muted py-3">' + t('ctp.planning.noScenarios') + '</div>');
+                return;
+            }
+
+            var self = this;
+            scenarios.forEach(function(sc) {
+                var $item = $('<div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">')
+                    .append($('<span>').text(sc.scenario_name || t('ctp.planning.scenario') + ' #' + sc.scenario_id))
+                    .append($('<span class="btn-group btn-group-sm">')
+                        .append('<button class="btn btn-outline-primary ps-compute" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.compute') + '"><i class="fas fa-calculator"></i></button>')
+                        .append('<button class="btn btn-outline-secondary ps-clone" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.cloneScenario') + '"><i class="fas fa-copy"></i></button>')
+                        .append('<button class="btn btn-outline-danger ps-delete" data-id="' + sc.scenario_id + '"><i class="fas fa-trash"></i></button>')
+                    );
+                $list.append($item);
+            });
+
+            $list.find('.ps-compute').on('click', function() { self.compute($(this).data('id')); });
+            $list.find('.ps-clone').on('click', function() { self.cloneScenario($(this).data('id')); });
+            $list.find('.ps-delete').on('click', function() { self.deleteScenario($(this).data('id')); });
+        },
+
+        createScenario: function() {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.planning.createScenario'),
+                input: 'text',
+                inputPlaceholder: t('ctp.planning.scenarioName'),
+                showCancelButton: true
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.planning.scenarios,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            session_id: state.currentSession,
+                            scenario_name: result.value
+                        }),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.loadScenarios();
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        cloneScenario: function(scenarioId) {
+            var self = this;
+            $.ajax({
+                url: API.planning.scenario_clone,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ scenario_id: scenarioId }),
+                success: function(resp) {
+                    if (resp.status === 'ok') {
+                        self.loadScenarios();
+                    }
+                }
+            });
+        },
+
+        deleteScenario: function(scenarioId) {
+            var self = this;
+            Swal.fire({
+                title: t('ctp.planning.scenario'),
+                text: t('ctp.throughput.confirmDelete'),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545'
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: API.planning.scenario_delete,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ scenario_id: scenarioId }),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.loadScenarios();
+                            }
+                        }
+                    });
+                }
+            });
+        },
+
+        compute: function(scenarioId) {
+            var self = this;
+            Swal.fire({ title: t('ctp.planning.computing'), allowOutsideClick: false, didOpen: function() { Swal.showLoading(); } });
+
+            $.ajax({
+                url: API.planning.compute,
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ scenario_id: scenarioId }),
+                success: function(resp) {
+                    Swal.close();
+                    if (resp.status === 'ok' && resp.data) {
+                        self.renderResults(resp.data, scenarioId);
+                    } else {
+                        Swal.fire({ icon: 'error', title: resp.message || 'Compute failed' });
+                    }
+                },
+                error: function() {
+                    Swal.close();
+                    Swal.fire({ icon: 'error', title: 'Compute request failed' });
+                }
+            });
+        },
+
+        renderResults: function(data, scenarioId) {
+            var $results = $('#ctp_planning_results');
+            $results.empty().show();
+
+            // Constraint checks table
+            if (data.constraint_checks && data.constraint_checks.length > 0) {
+                var $table = $('<table class="table table-sm table-bordered"><thead><tr>' +
+                    '<th>' + t('ctp.throughput.configLabel') + '</th>' +
+                    '<th>' + t('ctp.planning.planned') + '</th>' +
+                    '<th>' + t('ctp.throughput.maxAcph') + '</th>' +
+                    '<th>' + t('ctp.planning.constraintCheck') + '</th>' +
+                    '</tr></thead><tbody></tbody></table>');
+
+                data.constraint_checks.forEach(function(check) {
+                    var status = check.violated
+                        ? '<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> ' + t('ctp.planning.violated') + '</span>'
+                        : '<span class="text-success"><i class="fas fa-check"></i> ' + t('ctp.planning.withinLimits') + '</span>';
+                    $table.find('tbody').append(
+                        '<tr><td>' + (check.config_label || '-') + '</td><td>' + (check.actual_acph || 0) + '</td><td>' + (check.max_acph || '-') + '</td><td>' + status + '</td></tr>'
+                    );
+                });
+                $results.append($table);
+            }
+
+            // Track summary
+            if (data.track_summaries && data.track_summaries.length > 0) {
+                var $summary = $('<table class="table table-sm"><thead><tr>' +
+                    '<th>' + t('ctp.nat.trackResolved') + '</th>' +
+                    '<th>' + t('ctp.planning.flightCount') + '</th>' +
+                    '<th>' + t('ctp.planning.arrivalProfile') + '</th>' +
+                    '</tr></thead><tbody></tbody></table>');
+
+                data.track_summaries.forEach(function(ts) {
+                    $summary.find('tbody').append(
+                        '<tr><td>' + ts.track_name + '</td><td>' + ts.flight_count + '</td><td>' + (ts.peak_rate_hr || '-') + '/hr peak</td></tr>'
+                    );
+                });
+                $results.append($summary);
+            }
+
+            // Apply to session button
+            var self = this;
+            $results.append(
+                '<button class="btn btn-sm btn-warning mt-2" id="ctp_planning_apply">' +
+                '<i class="fas fa-upload"></i> ' + t('ctp.planning.applyToSession') + '</button>'
+            );
+            $('#ctp_planning_apply').on('click', function() {
+                self.applyToSession(scenarioId);
+            });
+        },
+
+        applyToSession: function(scenarioId) {
+            Swal.fire({
+                title: t('ctp.planning.applyToSession'),
+                text: t('ctp.planning.applyConfirm'),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#f0ad4e'
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: API.planning.apply_to_session,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ scenario_id: scenarioId, session_id: state.currentSession }),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                Swal.fire({ icon: 'success', title: t('ctp.planning.appliedSuccessfully'), timer: 2000, showConfirmButton: false });
+                                ThroughputManager.refresh();
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Apply failed' });
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    };
+
+    // ========================================================================
     // Init
     // ========================================================================
     $(document).ready(function() {
@@ -2431,6 +2881,8 @@
         ComplianceMonitor.init();
         NATTracks.init();
         AuditLog.init();
+        ThroughputManager.init();
+        PlanningSimulator.init();
         ResizeHandle.init();
         FlightTable.updateSortUI();
     });
