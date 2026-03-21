@@ -3083,7 +3083,100 @@
         $('#pb_advisory_parse_area').slideUp(150);
     }
 
-    // ── End Route Advisory Parser ──────────────────────────────────
+    // ── FAA Advisory Fetch ────────────────────────────────────────
+
+    function formatDateForFAA(dateStr) {
+        // YYYY-MM-DD → MMDDYYYY
+        var parts = dateStr.split('-');
+        if (parts.length === 3) return parts[1] + parts[2] + parts[0];
+        if (/^\d{8}$/.test(dateStr)) return dateStr;
+        return null;
+    }
+
+    function fetchAndApplyAdvisory(params) {
+        PERTIDialog.toast(t('playbook.advisoryFetching'), 'info');
+
+        $.ajax({
+            url: 'api/data/reroute_advisory.php',
+            data: params,
+            dataType: 'json',
+            timeout: 20000,
+            success: function(resp) {
+                if (resp.status !== 'success' || !resp.advisory) {
+                    PERTIDialog.toast(t('playbook.advisoryFetchFailed'), 'error');
+                    return;
+                }
+
+                var adv = resp.advisory;
+
+                // Auto-populate metadata (only if fields are empty)
+                if (adv.name && !$('#pb_edit_play_name').val().trim()) {
+                    $('#pb_edit_play_name').val(adv.name.replace(/\s+/g, '_').substring(0, 50));
+                }
+                if (!$('#pb_edit_display_name').val().trim()) {
+                    var dispParts = [];
+                    if (adv.number) dispParts.push('ADVZY ' + String(adv.number).padStart(3, '0'));
+                    if (adv.name) dispParts.push(adv.name);
+                    if (dispParts.length) $('#pb_edit_display_name').val(dispParts.join(' - '));
+                }
+                if (!$('#pb_edit_description').val().trim()) {
+                    var descParts = [];
+                    if (adv.reason) descParts.push(adv.reason);
+                    if (adv.constrained_area) descParts.push(adv.constrained_area);
+                    if (descParts.length) $('#pb_edit_description').val(descParts.join('\n'));
+                }
+                if (!$('#pb_edit_remarks').val().trim()) {
+                    var remParts = [];
+                    if (adv.remarks) remParts.push(adv.remarks);
+                    if (adv.valid) remParts.push('Valid: ' + adv.valid);
+                    if (remParts.length) $('#pb_edit_remarks').val(remParts.join('\n'));
+                }
+                if (!$('#pb_edit_scenario_type').val()) {
+                    var typeStr = (adv.type || '') + ' ' + (adv.reason || '');
+                    typeStr = typeStr.toUpperCase();
+                    if (/WX|WEATHER|TSTMS|CONVECTIVE/.test(typeStr)) {
+                        $('#pb_edit_scenario_type').val('WEATHER');
+                    } else if (/VOLUME|DEMAND/.test(typeStr)) {
+                        $('#pb_edit_scenario_type').val('VOLUME');
+                    } else {
+                        $('#pb_edit_scenario_type').val('GENERAL');
+                    }
+                }
+                $('#pb_edit_source').val('FAA');
+
+                // Parse routes from advisory text
+                var routes = [];
+                if (adv.routes_text && typeof RouteAdvisoryParser !== 'undefined') {
+                    routes = RouteAdvisoryParser.parse(adv.routes_text);
+                }
+
+                if (!routes.length) {
+                    PERTIDialog.toast(t('playbook.advisoryFetchNoRoutes'), 'warning');
+                    // Still fill the textarea so user can manually parse
+                    if (adv.routes_text) $('#pb_advisory_parse_text').val(adv.routes_text);
+                    return;
+                }
+
+                routes.forEach(function(r) { addEditRouteRow(r); });
+
+                PERTIDialog.toast(t('playbook.advisoryFetched', { count: routes.length }), 'success');
+                // Clear fetch inputs
+                $('#pb_advisory_url').val('');
+                $('#pb_advisory_date').val('');
+                $('#pb_advisory_advn').val('');
+            },
+            error: function(xhr) {
+                var msg = t('playbook.advisoryFetchFailed');
+                try {
+                    var err = JSON.parse(xhr.responseText);
+                    if (err.message) msg += ': ' + err.message;
+                } catch(e) {}
+                PERTIDialog.toast(msg, 'error');
+            }
+        });
+    }
+
+    // ── End FAA Advisory Fetch ──────────────────────────────────────
 
     // ── Auto-Filter Detection ──
     function autoDetectEditFilters() {
@@ -5298,6 +5391,17 @@
             $('#pb_advisory_parse_area').slideToggle(150);
         });
         $('#pb_advisory_parse_apply').on('click', applyAdvisoryParse);
+
+        // Advisory fetch (URL or date+advn)
+        $('#pb_advisory_fetch_url_btn').on('click', function() {
+            var url = $('#pb_advisory_url').val().trim();
+            if (url) fetchAndApplyAdvisory({ url: url });
+        });
+        $('#pb_advisory_fetch_date_btn').on('click', function() {
+            var date = $('#pb_advisory_date').val();
+            var advn = $('#pb_advisory_advn').val();
+            if (date && advn) fetchAndApplyAdvisory({ date: formatDateForFAA(date), advn: advn });
+        });
 
         // Changelog toggle
         // Traversed facilities toggle

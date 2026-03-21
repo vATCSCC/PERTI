@@ -1911,12 +1911,18 @@ $is_canoc = (get_org_code() === 'canoc');
             font-weight: 600;
             font-size: 0.72rem;
             color: #6c757d;
-            width: 60px;
+            width: auto;
+            min-width: 40px;
+            max-width: 120px;
             flex-shrink: 0;
             font-family: 'Inconsolata', monospace;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+        .reroute-artcc-origin {
+            color: #e67e22;
+            font-style: italic;
         }
 
         .reroute-route-string {
