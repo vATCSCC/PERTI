@@ -23,16 +23,23 @@
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    padding: 6px 12px;
+    padding: 4px 10px;
     background: #f8f9fa;
     border-bottom: 1px solid #dee2e6;
-    min-height: 42px;
-    gap: 6px;
+    min-height: 38px;
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .ctp-session-selector select {
-    min-width: 220px;
-    font-size: 0.85rem;
+    min-width: 200px;
+    font-size: 0.82rem;
+}
+
+/* Action buttons: compact sizing */
+#ctp_session_actions .btn {
+    font-size: 0.72rem;
+    padding: 2px 8px;
 }
 
 .ctp-status-badge {
@@ -77,8 +84,8 @@
 /* -- Map Section ---------------------------------------------------------- */
 .ctp-map-section {
     position: relative;
-    flex: 0 0 45%;
-    min-height: 200px;
+    flex: 0 0 35%;
+    min-height: 180px;
 }
 
 .ctp-map {

@@ -332,6 +332,7 @@
       "action": "Action",
       "segment": "Segment",
       "detail": "D\u00e9tail",
+      "by": "par",
       "noEntries": "Aucune entr\u00e9e dans le journal.",
       "loadMore": "Charger plus",
       "filterBySegment": "Filtrer par segment",

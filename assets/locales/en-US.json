@@ -436,6 +436,7 @@
       "action": "Action",
       "segment": "Segment",
       "detail": "Detail",
+      "by": "by",
       "noEntries": "No audit log entries.",
       "loadMore": "Load More",
       "filterBySegment": "Filter by Segment",
