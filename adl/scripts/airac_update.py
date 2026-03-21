@@ -742,7 +742,6 @@ def import_cdrs(conn, dry_run: bool = False, airac_cycle: str = None) -> Tuple[i
     print("=" * 60)
 
     cursor = conn.cursor()
-    cursor.fast_executemany = True
 
     cdrs_file = CSV_FILES['cdrs'].resolve()
     cdrs = []
@@ -806,6 +805,20 @@ def import_cdrs(conn, dry_run: bool = False, airac_cycle: str = None) -> Tuple[i
         VALUES (?, ?, ?, ?, 1, ?, ?, ?, 'NASR', GETUTCDATE())
     """
 
+    # Use a fresh cursor for inserts with fast_executemany + setinputsizes
+    # (intermediate execute() calls on the same cursor can reset input sizes)
+    ins_cursor = conn.cursor()
+    ins_cursor.fast_executemany = True
+    ins_cursor.setinputsizes([
+        (pyodbc.SQL_WVARCHAR, 16, 0),    # cdr_code
+        (pyodbc.SQL_WVARCHAR, 200, 0),   # full_route
+        (pyodbc.SQL_WVARCHAR, 4, 0),     # origin_icao
+        (pyodbc.SQL_WVARCHAR, 4, 0),     # dest_icao
+        (pyodbc.SQL_INTEGER, 0, 0),      # is_superseded
+        (pyodbc.SQL_WVARCHAR, 8, 0),     # superseded_cycle
+        (pyodbc.SQL_WVARCHAR, 16, 0),    # superseded_reason
+    ])
+
     batch_size = 5000
     inserted = 0
     errors = 0
@@ -820,7 +833,7 @@ def import_cdrs(conn, dry_run: bool = False, airac_cycle: str = None) -> Tuple[i
         ]
 
         try:
-            cursor.executemany(insert_sql, batch_data)
+            ins_cursor.executemany(insert_sql, batch_data)
             conn.commit()
             inserted += len(batch)
         except Exception as e:

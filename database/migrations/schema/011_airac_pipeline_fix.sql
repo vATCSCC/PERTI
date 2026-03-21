@@ -7,6 +7,7 @@
 --
 -- CHANGES:
 --   1a. Drop UNIQUE index on airways.airway_name (REF + ADL)
+--   1a2. Drop UNIQUE index on coded_departure_routes.cdr_code (REF + ADL)
 --   1b. Widen airway_name from NVARCHAR(8) to NVARCHAR(30) (REF + ADL)
 --   1c. Widen fix_name from NVARCHAR(16) to NVARCHAR(32) (REF + ADL)
 --   1d. Add supersession columns to 5 reference tables (REF)
@@ -49,6 +50,14 @@ GO
 
 -- Recreate as non-unique index
 CREATE NONCLUSTERED INDEX IX_airway_name ON dbo.airways (airway_name);
+GO
+
+-- 1a2. Drop UNIQUE index on coded_departure_routes.cdr_code, recreate as non-unique
+--      CDR codes are NOT unique (5,805 codes have 2-3 routes each)
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_cdr_code' AND object_id = OBJECT_ID('dbo.coded_departure_routes'))
+    DROP INDEX IX_cdr_code ON dbo.coded_departure_routes;
+GO
+CREATE NONCLUSTERED INDEX IX_cdr_code ON dbo.coded_departure_routes (cdr_code);
 GO
 
 -- 1c. Widen fix_name column (353 ZZ_ pseudo-fixes exceed 16 chars, max 28)
@@ -163,6 +172,13 @@ GO
 
 -- Recreate as non-unique index
 CREATE NONCLUSTERED INDEX IX_airway_name ON dbo.airways (airway_name);
+GO
+
+-- 1a2. Drop UNIQUE index on coded_departure_routes.cdr_code, recreate as non-unique
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_cdr_code' AND object_id = OBJECT_ID('dbo.coded_departure_routes'))
+    DROP INDEX IX_cdr_code ON dbo.coded_departure_routes;
+GO
+CREATE NONCLUSTERED INDEX IX_cdr_code ON dbo.coded_departure_routes (cdr_code);
 GO
 
 -- 1c. Widen fix_name column

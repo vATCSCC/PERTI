@@ -384,20 +384,33 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     cursor_gis.execute("SELECT COUNT(*) FROM nav_procedures")
     before_total = cursor_gis.fetchone()[0]
 
-    # Delete only REF-sourced records, preserving CIFP
-    cursor_gis.execute("DELETE FROM nav_procedures WHERE source IN ('NASR', 'nasr') OR source IS NULL")
+    # Delete only REF-sourced records, preserving CIFP base transitions.
+    # Old syncs used source='dp_full_routes.csv'/'star_full_routes.csv';
+    # new syncs use source='NASR'. Delete all non-CIFP sources.
+    cursor_gis.execute(
+        "DELETE FROM nav_procedures WHERE source NOT IN ('CIFP', 'cifp_base', 'synthetic_base') "
+        "OR source IS NULL"
+    )
     deleted = cursor_gis.rowcount
     conn_gis.commit()
-    print(f"    Deleted {deleted:,} NASR records (preserved CIFP)")
+    print(f"    Deleted {deleted:,} non-CIFP records (preserved CIFP)")
 
-    # Insert REF records
+    # Insert REF records (omit procedure_id — let PostGIS auto-assign to avoid
+    # PK conflicts with existing CIFP records that use procedure_id 1..97K)
     inserted = 0
     batch = []
+    insert_sql = (
+        "INSERT INTO nav_procedures "
+        "(procedure_type, airport_icao, procedure_name, "
+        "computer_code, transition_name, full_route, runways, is_active, "
+        "source, effective_date, "
+        "is_superseded, superseded_cycle, superseded_reason) VALUES %s"
+    )
     for row in rows:
         (proc_id, ptype, airport, pname, code, trans, route, runways,
          is_active, source, eff_date, is_sup, sup_cycle, sup_reason) = row
         batch.append((
-            proc_id, ptype, airport, pname, code, trans, route, runways,
+            ptype, airport, pname, code, trans, route, runways,
             bool(is_active) if is_active is not None else True,
             source, eff_date,
             bool(is_sup) if is_sup is not None else False,
@@ -405,28 +418,12 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
         ))
 
         if len(batch) >= BATCH_SIZE:
-            execute_values(
-                cursor_gis,
-                "INSERT INTO nav_procedures "
-                "(procedure_id, procedure_type, airport_icao, procedure_name, "
-                "computer_code, transition_name, full_route, runways, is_active, "
-                "source, effective_date, "
-                "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
-                batch,
-            )
+            execute_values(cursor_gis, insert_sql, batch)
             inserted += len(batch)
             batch = []
 
     if batch:
-        execute_values(
-            cursor_gis,
-            "INSERT INTO nav_procedures "
-            "(procedure_id, procedure_type, airport_icao, procedure_name, "
-            "computer_code, transition_name, full_route, runways, is_active, "
-            "source, effective_date, "
-            "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
-            batch,
-        )
+        execute_values(cursor_gis, insert_sql, batch)
         inserted += len(batch)
 
     conn_gis.commit()
@@ -440,8 +437,13 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
 
 
 def sync_playbook_routes(cursor_ref, cursor_gis, conn_gis, dry_run=False):
-    """Sync playbook_routes from REF to PostGIS (full replace)."""
-    print("\n  Syncing playbook_routes...")
+    """Sync playbook_routes from REF to PostGIS using UPSERT strategy.
+
+    Deletes only NASR-sourced records and re-inserts, preserving any
+    PostGIS-specific computed data (future route geometry, etc.).
+    Omits playbook_id to avoid PK conflicts with auto-assigned IDs.
+    """
+    print("\n  Syncing playbook_routes (UPSERT - preserving PostGIS data)...")
 
     cursor_ref.execute(
         "SELECT playbook_id, play_name, full_route, origin_airports, origin_tracons, "
@@ -454,20 +456,41 @@ def sync_playbook_routes(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     print(f"    Read {len(rows):,} rows from VATSIM_REF")
 
     if dry_run:
-        print("    [DRY RUN] Would sync to PostGIS")
+        cursor_gis.execute("SELECT COUNT(*) FROM playbook_routes")
+        total = cursor_gis.fetchone()[0]
+        print(f"    [DRY RUN] PostGIS has {total:,} rows, would replace NASR-sourced")
         return len(rows)
 
-    cursor_gis.execute("DELETE FROM playbook_routes")
+    # Count before
+    cursor_gis.execute("SELECT COUNT(*) FROM playbook_routes")
+    before_total = cursor_gis.fetchone()[0]
 
+    # Delete only NASR-sourced records (old syncs used 'playbook_routes.csv')
+    cursor_gis.execute(
+        "DELETE FROM playbook_routes "
+        "WHERE source IN ('NASR', 'nasr', 'playbook_routes.csv') OR source IS NULL"
+    )
+    deleted = cursor_gis.rowcount
+    conn_gis.commit()
+    print(f"    Deleted {deleted:,} NASR-sourced records")
+
+    # Insert REF records (omit playbook_id — auto-assigned)
     inserted = 0
     batch = []
+    insert_sql = (
+        "INSERT INTO playbook_routes "
+        "(play_name, full_route, origin_airports, origin_tracons, "
+        "origin_artccs, dest_airports, dest_tracons, dest_artccs, "
+        "altitude_min_ft, altitude_max_ft, is_active, source, effective_date, "
+        "is_superseded, superseded_cycle, superseded_reason) VALUES %s"
+    )
     for row in rows:
         (pb_id, name, route, orig_apt, orig_trc, orig_artcc,
          dest_apt, dest_trc, dest_artcc,
          alt_min, alt_max, is_active, source, eff_date,
          is_sup, sup_cycle, sup_reason) = row
         batch.append((
-            pb_id, name, route, orig_apt, orig_trc, orig_artcc,
+            name, route, orig_apt, orig_trc, orig_artcc,
             dest_apt, dest_trc, dest_artcc,
             alt_min, alt_max,
             bool(is_active) if is_active is not None else True,
@@ -477,32 +500,20 @@ def sync_playbook_routes(cursor_ref, cursor_gis, conn_gis, dry_run=False):
         ))
 
         if len(batch) >= BATCH_SIZE:
-            execute_values(
-                cursor_gis,
-                "INSERT INTO playbook_routes "
-                "(playbook_id, play_name, full_route, origin_airports, origin_tracons, "
-                "origin_artccs, dest_airports, dest_tracons, dest_artccs, "
-                "altitude_min_ft, altitude_max_ft, is_active, source, effective_date, "
-                "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
-                batch,
-            )
+            execute_values(cursor_gis, insert_sql, batch)
             inserted += len(batch)
             batch = []
 
     if batch:
-        execute_values(
-            cursor_gis,
-            "INSERT INTO playbook_routes "
-            "(playbook_id, play_name, full_route, origin_airports, origin_tracons, "
-            "origin_artccs, dest_airports, dest_tracons, dest_artccs, "
-            "altitude_min_ft, altitude_max_ft, is_active, source, effective_date, "
-            "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
-            batch,
-        )
+        execute_values(cursor_gis, insert_sql, batch)
         inserted += len(batch)
 
     conn_gis.commit()
-    print(f"    Inserted {inserted:,} rows into PostGIS")
+
+    cursor_gis.execute("SELECT COUNT(*) FROM playbook_routes")
+    after_total = cursor_gis.fetchone()[0]
+    print(f"    Inserted {inserted:,} rows")
+    print(f"    PostGIS total: {before_total:,} -> {after_total:,}")
     return inserted
 
 
