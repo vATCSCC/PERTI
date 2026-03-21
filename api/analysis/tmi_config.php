@@ -281,7 +281,7 @@ function parse_ntml($ntml_text) {
                 $fix_str = trim($fixMatch[1]);
 
                 // Check if this specifies origin (e.g., "CLT Departures")
-                if (preg_match('/([A-Z]{3})\s+Departures/i', $fix_str, $origMatch)) {
+                if (preg_match('/([A-Z]{3,4})\s+Departures/i', $fix_str, $origMatch)) {
                     $tmi['origin'] = strtoupper($origMatch[1]);
                     $tmi['fix'] = 'ALL';  // CFR applies to all fixes from this origin
                 } else {
@@ -449,7 +449,7 @@ function parse_ntml_line($line) {
 
         if (preg_match('/via\s+([A-Z0-9]+(?:\s+Departures)?)\s+(APREQ|CFR)/i', $line, $fixMatch)) {
             $fix_str = trim($fixMatch[1]);
-            if (preg_match('/([A-Z]{3})\s+Departures/i', $fix_str, $origMatch)) {
+            if (preg_match('/([A-Z]{3,4})\s+Departures/i', $fix_str, $origMatch)) {
                 $tmi['origin'] = strtoupper($origMatch[1]);
                 $tmi['fix'] = 'ALL';
             } else {
@@ -615,8 +615,8 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
             'comments' => ''
         ];
 
-        // Extract airport from header
-        if (preg_match('/ADVZY\s+\d+\s+([A-Z]{3})[\s\/]/i', $header, $m)) {
+        // Extract airport from header (3-4 letter codes: LAS or CYVR)
+        if (preg_match('/ADVZY\s+\d+\s+([A-Z]{3,4})[\s\/]/i', $header, $m)) {
             $tmi['dest'] = strtoupper($m[1]);
         }
 
@@ -665,10 +665,10 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
         return ['tmi' => $tmi, 'lines_consumed' => $lines_consumed];
     }
 
-    // For GS/GDP: Extract airport from header: "vATCSCC ADVZY 001 LAS/ZLA 01/18/2026"
+    // For GS/GDP: Extract airport from header: "ADVZY 001 LAS/ZLA" or "ADVZY 003 CYVR/CZVR"
     $dest = null;
     if ($advzy_type === 'GS' || $advzy_type === 'GDP') {
-        if (preg_match('/ADVZY\s+\d+\s+([A-Z]{3})(?:\/|\s)/i', $header, $m)) {
+        if (preg_match('/ADVZY\s+\d+\s+([A-Z]{3,4})(?:\/|\s)/i', $header, $m)) {
             $dest = strtoupper($m[1]);
         }
     }
@@ -751,8 +751,8 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
             if (preg_match('/\((1stTier|2ndTier|Manual)\)/i', $fac_str, $tierM)) {
                 $tmi['dep_facility_tier'] = $tierM[1];
             }
-            // Extract all 3-letter facility codes
-            preg_match_all('/\b([A-Z]{3})\b/', strtoupper($fac_str), $facMatches);
+            // Extract 3-4 letter facility/airport codes (3=US ARTCC/TRACON, 4=ICAO airports like CYLW)
+            preg_match_all('/\b([A-Z]{3,4})\b/', strtoupper($fac_str), $facMatches);
             $tmi['dep_facilities'] = $facMatches[1] ?? [];
             $tmi['provider'] = $tmi['dep_facilities'][0] ?? null;
             continue;
@@ -789,8 +789,8 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
                 if (preg_match('/\((1stTier|2ndTier|Manual)\)/i', $flt_incl_str, $tierM)) {
                     $tmi['flt_incl_tier'] = $tierM[1];
                 }
-                // Extract facility codes (3-letter ARTCC/TRACON codes)
-                preg_match_all('/\b([A-Z]{3})\b/', strtoupper($flt_incl_str), $facMatches);
+                // Extract facility/airport codes (3-4 letters: ARTCC/TRACON or ICAO airports)
+                preg_match_all('/\b([A-Z]{3,4})\b/', strtoupper($flt_incl_str), $facMatches);
                 $tmi['flt_incl_facilities'] = array_values(array_diff($facMatches[1] ?? [], ['ALL']));
             }
             continue;

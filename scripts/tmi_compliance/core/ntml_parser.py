@@ -237,8 +237,8 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
     advzy_num_match = re.search(r'ADVZY\s+(\d+)', header_line, re.IGNORECASE)
     advzy_number = advzy_num_match.group(1) if advzy_num_match else ''
 
-    # Extract airport from header (format: "vATCSCC ADVZY 001 LAS/ZLA 01/18/2026 CDM GROUND STOP")
-    header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3})/', header_line, re.IGNORECASE)
+    # Extract airport from header (format: "ORG ADVZY 001 LAS/ZLA" or "ADVZY 003 CYVR/CZVR")
+    header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3,4})/', header_line, re.IGNORECASE)
     dest_from_header = header_match.group(1).upper() if header_match else None
 
     # Parse subsequent lines to extract fields
@@ -380,7 +380,7 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
             flt_incl = flt_match.group(1).strip()
             # Extract facility codes from FLT INCL as fallback for dep_facilities
             if flt_incl.upper() != 'ALL' and not dep_facilities:
-                flt_codes = [f for f in re.findall(r'\b[A-Z]{3}\b', flt_incl.upper()) if f != 'ALL']
+                flt_codes = [f for f in re.findall(r'\b[A-Z]{3,4}\b', flt_incl.upper()) if f != 'ALL']
                 if flt_codes:
                     dep_facilities = flt_codes
             continue
@@ -476,8 +476,8 @@ def parse_advzy_gs_cnx(lines: List[str], start_idx: int, event_start: datetime, 
     advzy_num_match = re.search(r'ADVZY\s+(\d+)', header_line, re.IGNORECASE)
     advzy_number = advzy_num_match.group(1) if advzy_num_match else ''
 
-    # Extract airport from header
-    header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3})/', header_line, re.IGNORECASE)
+    # Extract airport from header (3-4 letter: LAS or CYVR)
+    header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3,4})/', header_line, re.IGNORECASE)
     airport = header_match.group(1).upper() if header_match else ''
 
     issued_time = None
@@ -610,7 +610,7 @@ def build_gs_programs(gs_tmis: List[TMI], gs_advisories: List[GSAdvisory],
             airport = ctl_match.group(1).upper()
         if not airport:
             # Try header
-            header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3})/', adv.raw_text, re.IGNORECASE)
+            header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3,4})/', adv.raw_text, re.IGNORECASE)
             if header_match:
                 airport = header_match.group(1).upper()
 
@@ -648,7 +648,7 @@ def build_gs_programs(gs_tmis: List[TMI], gs_advisories: List[GSAdvisory],
         if ctl_match:
             airport = ctl_match.group(1).upper()
         if not airport:
-            header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3})/', cnx.raw_text, re.IGNORECASE)
+            header_match = re.search(r'ADVZY\s+\d+\s+([A-Z]{3,4})/', cnx.raw_text, re.IGNORECASE)
             if header_match:
                 airport = header_match.group(1).upper()
         if airport:
@@ -846,8 +846,8 @@ def parse_advzy_reroute(lines: List[str], start_idx: int, event_start: datetime,
             # Separator line (---- ---- -----)
             if re.match(r'^-+\s+-+\s+-+', line):
                 continue
-            # Route entry: "MCO        BOS     V547 SAV >J79 HPW BBOBO Q22 RBV Q419 JFK< ROBUC3"
-            route_match = re.match(r'([A-Z]{3})\s+([A-Z]{3})\s+(.*)', line, re.IGNORECASE)
+            # Route entry: "MCO  BOS  V547..." or "PANC  CYYC  >NOEND..."
+            route_match = re.match(r'([A-Z]{3,4})\s+([A-Z]{3,4})\s+(.*)', line, re.IGNORECASE)
             if route_match:
                 orig_code = route_match.group(1).upper()
                 dest_code = route_match.group(2).upper()
@@ -907,14 +907,14 @@ def parse_advzy_reroute(lines: List[str], start_idx: int, event_start: datetime,
             if tt_match:
                 time_type = tt_match.group(1).upper()
             # Extract airport codes after FROM/TO
-            from_match = re.search(r'\bFROM\s+([A-Z,\s]+)', incl_text, re.IGNORECASE)
+            from_match = re.search(r'\bFROM\s+([A-Z,\s/]+)', incl_text, re.IGNORECASE)
             if from_match:
-                for code in re.findall(r'[A-Z]{3}', from_match.group(1).upper()):
+                for code in re.findall(r'[A-Z]{3,4}', from_match.group(1).upper()):
                     if code not in origins:
                         origins.append(code)
-            to_match = re.search(r'\bTO\s+([A-Z,\s]+)', incl_text, re.IGNORECASE)
+            to_match = re.search(r'\bTO\s+([A-Z,\s/]+)', incl_text, re.IGNORECASE)
             if to_match:
-                for code in re.findall(r'[A-Z]{3}', to_match.group(1).upper()):
+                for code in re.findall(r'[A-Z]{3,4}', to_match.group(1).upper()):
                     if code not in reroute_destinations:
                         reroute_destinations.append(code)
             continue
@@ -2121,7 +2121,7 @@ def parse_ntml_to_tmis(ntml_text: str, event_start: datetime, event_end: datetim
                 # Check for "X Departures" format (indicates origin)
                 fix = None
                 origins = []
-                departures_match = re.match(r'([A-Z]{3})\s+DEPARTURES', via_part, re.IGNORECASE)
+                departures_match = re.match(r'([A-Z]{3,4})\s+DEPARTURES', via_part, re.IGNORECASE)
                 if departures_match:
                     # "CLT Departures" means origin is CLT
                     origin_code = departures_match.group(1)
