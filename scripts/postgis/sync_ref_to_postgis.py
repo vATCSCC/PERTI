@@ -84,6 +84,7 @@ def get_gis_connection():
         database=GIS_DATABASE,
         user=GIS_USER,
         password=GIS_PASS,
+        sslmode='require',
     )
 
 
