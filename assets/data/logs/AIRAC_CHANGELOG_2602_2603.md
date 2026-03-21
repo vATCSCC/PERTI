@@ -1,22 +1,22 @@
 # AIRAC Cycle Update: 2602 -> 2603
 
-**Generated**: 2026-03-21 18:41:37Z
+**Generated**: 2026-03-21 19:03:45Z
 
 ## Summary
 
 | Data Type | Added | Modified | Removed | Preserved | Total |
 |-----------|-------|----------|---------|-----------|-------|
-| Points | 102945 | 7939 | 3137 | 255767 | 386887 |
+| Points | 103035 | 7503 | 3573 | 255767 | 388771 |
 | Navaids | 0 | 0 | 10 | 1760 | 1874 |
-| Airways | 15403 | 202 | 21 | 1243 | 22659 |
+| Airways | 15548 | 128 | 166 | 1172 | 22662 |
 | Cdrs | 106 | 2857 | 36 | 38175 | 47141 |
-| Dps | 10269 | 6 | 240 | 1403 | 38525 |
-| Stars | 9837 | 18 | 247 | 1198 | 37698 |
+| Dps | 10269 | 6 | 240 | 1403 | 41317 |
+| Stars | 9837 | 18 | 247 | 1198 | 40100 |
 | Playbook | 10 | 205 | 14 | 149 | 96019 |
 
 ## Points
 
-### Added (102945)
+### Added (103035)
 
 - **002HP**: (30.909892,-85.556089)
 - **005HP**: (45.317417,-112.564847)
@@ -69,33 +69,23 @@
 - **00N21**: (0.000000,-121.000000)
 - **00N22**: (0.000000,-122.000000)
 
-... and 102895 more
+... and 102985 more
 
-### Moved (7939)
+### Moved (7503)
 
 - **08MI**: (42.734444,-84.535833) -> (42.734479,-84.536043)
 - **10OK**: (35.163228,-97.222756) -> (35.163572,-97.222801)
-- **10THR**: (47.389822,17.486958) -> (48.316878,16.079911)
-- **12THR**: (46.900614,19.787581) -> (47.716203,26.341139)
 - **15TT**: (33.115943,-96.551425) -> (33.116223,-96.551686)
-- **19NY**: (42.406177,-77.960836) -> (42.407131,-76.962705)
 - **1TE5**: (30.816303,-96.601081) -> (30.813889,-96.602222)
 - **2H**: (49.037201,-77.020798) -> (49.035856,-77.020044)
-- **30THR**: (47.421214,17.470517) -> (48.122619,17.286272)
 - **30XS**: (29.518142,-97.428686) -> (29.518431,-97.429269)
 - **31NM**: (51.765675,107.106708) -> (51.765753,107.107547)
 - **3H**: (52.022800,-110.746002) -> (52.022778,-110.745556)
-- **3Z**: (49.825802,-112.178001) -> (50.764167,-101.296389)
-- **40THR**: (47.436906,17.462278) -> (48.551636,17.801744)
 - **46NM**: (68.268464,16.505736) -> (68.268308,16.506517)
-- **46THR**: (47.446319,17.457333) -> (49.057019,6.320894)
 - **4NM**: (61.109947,-45.884575) -> (60.992994,-45.718581)
 - **4O**: (54.674999,-115.424004) -> (54.675000,-115.424444)
-- **56DME**: (38.315594,23.697083) -> (40.719642,30.191772)
-- **56THR**: (47.027581,20.181528) -> (40.587364,18.033506)
 - **5AK0**: (60.815549,-151.798917) -> (60.816881,-151.799682)
 - **5J**: (52.074402,-111.447998) -> (52.074444,-111.448333)
-- **6922N**: (69.000000,-22.000000) -> (69.500000,-22.666667)
 - **6G**: (52.181198,-113.883003) -> (52.181186,-113.882658)
 - **6MI9**: (44.415294,-83.929159) -> (44.415833,-83.931969)
 - **7C**: (49.661598,-54.245098) -> (49.661667,-54.245278)
@@ -103,7 +93,6 @@
 - **8K**: (55.034401,-117.289001) -> (55.034444,-117.288611)
 - **9G**: (51.779999,-114.682999) -> (51.780000,-114.683333)
 - **9Y**: (49.523300,-113.999000) -> (49.523333,-113.998611)
-- **A**: (47.847000,35.302799) -> (50.652167,36.565167)
 - **A5**: (57.544998,-119.111000) -> (57.545000,-119.111389)
 - **AA171**: (40.167278,116.654306) -> (40.167500,116.654306)
 - **AA410**: (40.228889,116.781944) -> (40.111000,116.568278)
@@ -119,19 +108,32 @@
 - **ABALA**: (66.658194,23.000000) -> (66.658333,23.000000)
 - **ABALO**: (32.331008,-18.130353) -> (32.331111,-18.130278)
 - **ABAMA**: (57.986639,15.569611) -> (57.986667,15.569722)
-- **ABASE**: (-5.730167,-37.769500) -> (-7.700000,-34.600000)
 - **ABBAS**: (33.433333,37.721667) -> (33.433333,37.725000)
 - **ABDEG**: (-8.176806,109.866722) -> (-8.176944,109.866667)
 - **ABDOB**: (49.900089,6.581697) -> (49.899894,6.581403)
+- **ABELT**: (53.952381,-98.145119) -> (53.944933,-98.166892)
+- **ABEMA**: (60.766111,134.812500) -> (60.765833,134.812222)
+- **ABGA**: (-3.078333,30.404203) -> (-3.077297,30.403672)
+- **ABISI**: (40.362661,31.952372) -> (40.362778,31.952500)
+- **ABK**: (53.744999,91.385002) -> (53.744639,91.385528)
+- **ABL22**: (4.692719,-74.411733) -> (4.692117,-74.409767)
+- **ABL34**: (4.642953,-74.217669) -> (4.642967,-74.218300)
+- **ABLAR**: (53.168486,6.675172) -> (53.168139,6.674356)
+- **ABLEG**: (40.722658,-8.431169) -> (40.722778,-8.431111)
+- **ABLIB**: (51.433203,9.157986) -> (51.428803,9.242092)
+- **ABM**: (25.877800,55.022900) -> (25.877917,55.023056)
+- **ABNED**: (51.849167,3.171944) -> (51.849167,3.171833)
 
-... and 7889 more
+... and 7453 more
 
-### Removed (3137)
+### Removed (3573)
 
 - **07NM**: No longer in source
 - **1**: No longer in source
 - **10DME**: No longer in source
+- **10THR**: No longer in source
 - **11NM**: No longer in source
+- **12THR**: No longer in source
 - **14DME**: No longer in source
 - **14NM**: No longer in source
 - **15DME**: No longer in source
@@ -145,6 +147,7 @@
 - **18DME**: No longer in source
 - **18NM**: No longer in source
 - **18THR**: No longer in source
+- **19NY**: No longer in source
 - **1NM**: No longer in source
 - **2**: No longer in source
 - **20DME**: No longer in source
@@ -161,6 +164,7 @@
 - **29THR**: No longer in source
 - **3**: No longer in source
 - **30DME**: No longer in source
+- **30THR**: No longer in source
 - **32DME**: No longer in source
 - **32NM**: No longer in source
 - **33NM**: No longer in source
@@ -170,16 +174,12 @@
 - **35DME**: No longer in source
 - **35NM**: No longer in source
 - **38NM**: No longer in source
+- **3Z**: No longer in source
 - **4**: No longer in source
 - **40DME**: No longer in source
-- **43DME**: No longer in source
-- **45NM**: No longer in source
-- **47NM**: No longer in source
-- **5**: No longer in source
-- **50DME**: No longer in source
-- **51DME**: No longer in source
+- **40THR**: No longer in source
 
-... and 3087 more
+... and 3523 more
 
 
 ## Navaids
@@ -200,7 +200,7 @@
 
 ## Airways
 
-### Added (15403)
+### Added (15548)
 
 - **A1**: New entry
 - **A1**: New entry
@@ -253,9 +253,9 @@
 - **A242**: New entry
 - **A242**: New entry
 
-... and 15353 more
+... and 15498 more
 
-### Changed (202)
+### Changed (128)
 
 - **A216**: Content modified
 - **A220**: Content modified
@@ -264,14 +264,12 @@
 - **A450**: Content modified
 - **A517**: Content modified
 - **A554**: Content modified
-- **A579**: Content modified
 - **A590**: Content modified
 - **A597**: Content modified
 - **A638**: Content modified
 - **A756**: Content modified
 - **A766**: Content modified
 - **B200**: Content modified
-- **B240**: Content modified
 - **B241**: Content modified
 - **B326**: Content modified
 - **B452**: Content modified
@@ -294,45 +292,78 @@
 - **G457**: Content modified
 - **G467**: Content modified
 - **G575**: Content modified
-- **G583**: Content modified
 - **G633**: Content modified
 - **J1**: Content modified
-- **J10**: Content modified
 - **J11**: Content modified
-- **J112**: Content modified
-- **J116**: Content modified
 - **J126**: Content modified
 - **J13**: Content modified
-- **J133**: Content modified
-- **J138**: Content modified
 - **J146**: Content modified
-- **J166**: Content modified
+- **J25**: Content modified
+- **J26**: Content modified
+- **J478**: Content modified
+- **J5**: Content modified
+- **J503**: Content modified
+- **J505**: Content modified
+- **J507**: Content modified
+- **J515**: Content modified
+- **J516**: Content modified
 
-... and 152 more
+... and 78 more
 
-### Removed (21)
+### Removed (166)
 
 - **A339**: No longer in source
 - **A578**: No longer in source
+- **A579**: No longer in source
 - **A598**: No longer in source
 - **A770**: No longer in source
+- **B233**: No longer in source
+- **B240**: No longer in source
 - **B244**: No longer in source
 - **B589**: No longer in source
+- **G12**: No longer in source
 - **G223**: No longer in source
+- **G439**: No longer in source
+- **G583**: No longer in source
+- **G8**: No longer in source
+- **J10**: No longer in source
+- **J112**: No longer in source
+- **J116**: No longer in source
+- **J117**: No longer in source
+- **J120**: No longer in source
+- **J122**: No longer in source
+- **J125**: No longer in source
+- **J129**: No longer in source
+- **J133**: No longer in source
+- **J138**: No longer in source
+- **J139**: No longer in source
+- **J140**: No longer in source
 - **J141**: No longer in source
+- **J166**: No longer in source
+- **J170**: No longer in source
 - **J177**: No longer in source
+- **J178**: No longer in source
+- **J19**: No longer in source
+- **J21**: No longer in source
+- **J29**: No longer in source
+- **J3**: No longer in source
+- **J31**: No longer in source
+- **J42**: No longer in source
+- **J539**: No longer in source
+- **J540**: No longer in source
+- **J61**: No longer in source
+- **J93**: No longer in source
+- **L207**: No longer in source
+- **L214**: No longer in source
+- **L333**: No longer in source
+- **L337**: No longer in source
 - **L343**: No longer in source
+- **L349**: No longer in source
 - **L465**: No longer in source
 - **M348**: No longer in source
-- **Q806**: No longer in source
-- **Q828**: No longer in source
-- **Q905**: No longer in source
-- **R332**: No longer in source
-- **R595**: No longer in source
-- **T616**: No longer in source
-- **T645**: No longer in source
-- **T797**: No longer in source
-- **V393**: No longer in source
+- **M423**: No longer in source
+
+... and 116 more
 
 
 ## Cdrs

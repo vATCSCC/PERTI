@@ -549,6 +549,44 @@ def diff_playbook(old, new):
     return changes
 
 
+def _infer_sources(from_groups, to_groups):
+    """When FROM data has no source columns, infer sources from TO data.
+
+    Problem: old CSVs have XP12 data mixed in without source columns, so
+    everything defaults to 'nasr'. New CSVs have correct source columns.
+    This causes massive false-positive diffs (removed-from-nasr + added-to-intl).
+
+    Fix: reclassify FROM entries using TO's source assignments. If a name
+    exists in TO under a single source, use that source for FROM too.
+    """
+    # Check if FROM data is all 'nasr' (i.e. no source columns existed)
+    from_sources = set(src for _, src in from_groups.keys())
+    if from_sources != {'nasr'}:
+        return from_groups  # FROM already has mixed sources, no inference needed
+
+    # Build name→sources mapping from TO data
+    to_sources = {}
+    for (name, source) in to_groups.keys():
+        to_sources.setdefault(name, set()).add(source)
+
+    new_groups = {}
+    for (name, _old_source), values in from_groups.items():
+        if name in to_sources:
+            sources = to_sources[name]
+            if len(sources) == 1:
+                # Name exists under one source in TO — use that
+                new_source = next(iter(sources))
+            else:
+                # Name exists under both nasr and intl — keep as nasr
+                new_source = 'nasr'
+        else:
+            # Name not in TO (removed entry) — keep as nasr
+            new_source = 'nasr'
+        new_groups.setdefault((name, new_source), []).extend(values)
+
+    return new_groups
+
+
 def haversine_nm(lat1, lon1, lat2, lon2):
     """Haversine distance in nautical miles."""
     R_NM = 3440.065
@@ -585,7 +623,7 @@ def diff_coords(old, new, typ):
                 d = haversine_nm(olat, olon, nlat, nlon)
                 if d < best_dist:
                     best_dist, best_j = d, j
-            if best_j >= 0 and best_dist < 500:
+            if best_j >= 0 and best_dist < 25:
                 matched_old.add(i)
                 matched_new.add(best_j)
                 nlat, nlon = new_pts[best_j]
@@ -957,6 +995,12 @@ def main():
     new_st, new_st_t = parse_procs_enriched(raw['stars'][1])
     old_pb, old_pb_t = parse_playbook(raw['playbook'][0])
     new_pb, new_pb_t = parse_playbook(raw['playbook'][1])
+
+    # Infer sources for FROM data when it lacks source columns
+    old_pts = _infer_sources(old_pts, new_pts)
+    old_nav = _infer_sources(old_nav, new_nav)
+    old_awy = _infer_sources(old_awy, new_awy)
+    old_cdr = _infer_sources(old_cdr, new_cdr)
 
     # Count active entries (groups may have multiple entries per key)
     def _count_entries(groups):
