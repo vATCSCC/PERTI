@@ -2,13 +2,15 @@
 """
 Sync reference data from VATSIM_REF (Azure SQL) to VATSIM_GIS (PostGIS).
 
-Syncs the navigation reference tables that PostGIS route expansion functions
-depend on: nav_fixes, airways, airway_segments, area_centers.
+Syncs all navigation reference tables that PostGIS route expansion functions
+depend on: nav_fixes, airways, airway_segments, area_centers,
+coded_departure_routes, nav_procedures, playbook_routes.
 
 Usage:
-    python sync_ref_to_postgis.py                    # Full sync (all tables)
-    python sync_ref_to_postgis.py --table airways    # Single table
-    python sync_ref_to_postgis.py --dry-run          # Preview without changes
+    python sync_ref_to_postgis.py                              # Full sync (all tables)
+    python sync_ref_to_postgis.py --table airways              # Single table
+    python sync_ref_to_postgis.py --table nav_procedures       # UPSERT (preserves CIFP)
+    python sync_ref_to_postgis.py --dry-run                    # Preview without changes
 
 Requirements:
     pip install pyodbc psycopg2-binary
@@ -90,11 +92,12 @@ def get_gis_connection():
 # ==============================================================================
 
 def sync_nav_fixes(cursor_ref, cursor_gis, conn_gis, dry_run=False):
-    """Sync nav_fixes from REF to PostGIS."""
+    """Sync nav_fixes from REF to PostGIS (full replace)."""
     print("\n  Syncing nav_fixes...")
 
     cursor_ref.execute(
-        "SELECT fix_id, fix_name, fix_type, lat, lon, artcc_id "
+        "SELECT fix_id, fix_name, fix_type, lat, lon, artcc_id, "
+        "is_superseded, superseded_cycle, superseded_reason "
         "FROM dbo.nav_fixes"
     )
     rows = cursor_ref.fetchall()
@@ -109,16 +112,18 @@ def sync_nav_fixes(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     inserted = 0
     batch = []
     for row in rows:
-        fix_id, fix_name, fix_type, lat, lon, artcc_id = row
+        fix_id, fix_name, fix_type, lat, lon, artcc_id, is_sup, sup_cycle, sup_reason = row
         if lat is None or lon is None:
             continue
-        batch.append((fix_id, fix_name, fix_type, float(lat), float(lon), artcc_id))
+        batch.append((fix_id, fix_name, fix_type, float(lat), float(lon), artcc_id,
+                      bool(is_sup) if is_sup is not None else False,
+                      sup_cycle, sup_reason))
 
         if len(batch) >= BATCH_SIZE:
             execute_values(
                 cursor_gis,
-                "INSERT INTO nav_fixes (fix_id, fix_name, fix_type, lat, lon, artcc_id) "
-                "VALUES %s",
+                "INSERT INTO nav_fixes (fix_id, fix_name, fix_type, lat, lon, artcc_id, "
+                "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
                 batch,
             )
             inserted += len(batch)
@@ -127,8 +132,8 @@ def sync_nav_fixes(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     if batch:
         execute_values(
             cursor_gis,
-            "INSERT INTO nav_fixes (fix_id, fix_name, fix_type, lat, lon, artcc_id) "
-            "VALUES %s",
+            "INSERT INTO nav_fixes (fix_id, fix_name, fix_type, lat, lon, artcc_id, "
+            "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
             batch,
         )
         inserted += len(batch)
@@ -145,7 +150,8 @@ def sync_airways(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     # Read airways
     cursor_ref.execute(
         "SELECT airway_id, airway_name, airway_type, fix_sequence, fix_count, "
-        "start_fix, end_fix, source "
+        "start_fix, end_fix, source, "
+        "is_superseded, superseded_cycle, superseded_reason "
         "FROM dbo.airways"
     )
     airway_rows = cursor_ref.fetchall()
@@ -173,14 +179,18 @@ def sync_airways(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     inserted_awy = 0
     batch = []
     for row in airway_rows:
-        airway_id, name, atype, fix_seq, fix_count, start_fix, end_fix, source = row
-        batch.append((airway_id, name, atype, fix_seq, fix_count, start_fix, end_fix, source))
+        (airway_id, name, atype, fix_seq, fix_count, start_fix, end_fix, source,
+         is_sup, sup_cycle, sup_reason) = row
+        batch.append((airway_id, name, atype, fix_seq, fix_count, start_fix, end_fix, source,
+                      bool(is_sup) if is_sup is not None else False,
+                      sup_cycle, sup_reason))
 
         if len(batch) >= BATCH_SIZE:
             execute_values(
                 cursor_gis,
                 "INSERT INTO airways (airway_id, airway_name, airway_type, fix_sequence, "
-                "fix_count, start_fix, end_fix, source) VALUES %s",
+                "fix_count, start_fix, end_fix, source, "
+                "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
                 batch,
             )
             inserted_awy += len(batch)
@@ -190,7 +200,8 @@ def sync_airways(cursor_ref, cursor_gis, conn_gis, dry_run=False):
         execute_values(
             cursor_gis,
             "INSERT INTO airways (airway_id, airway_name, airway_type, fix_sequence, "
-            "fix_count, start_fix, end_fix, source) VALUES %s",
+            "fix_count, start_fix, end_fix, source, "
+            "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
             batch,
         )
         inserted_awy += len(batch)
@@ -276,6 +287,225 @@ def sync_area_centers(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     return inserted
 
 
+def sync_coded_departure_routes(cursor_ref, cursor_gis, conn_gis, dry_run=False):
+    """Sync coded_departure_routes from REF to PostGIS (full replace)."""
+    print("\n  Syncing coded_departure_routes...")
+
+    cursor_ref.execute(
+        "SELECT cdr_id, cdr_code, full_route, origin_icao, dest_icao, direction, "
+        "altitude_min_ft, altitude_max_ft, is_active, source, effective_date, "
+        "is_superseded, superseded_cycle, superseded_reason "
+        "FROM dbo.coded_departure_routes"
+    )
+    rows = cursor_ref.fetchall()
+    print(f"    Read {len(rows):,} rows from VATSIM_REF")
+
+    if dry_run:
+        print("    [DRY RUN] Would sync to PostGIS")
+        return len(rows)
+
+    cursor_gis.execute("DELETE FROM coded_departure_routes")
+
+    inserted = 0
+    batch = []
+    for row in rows:
+        (cdr_id, cdr_code, full_route, origin, dest, direction,
+         alt_min, alt_max, is_active, source, eff_date,
+         is_sup, sup_cycle, sup_reason) = row
+        batch.append((
+            cdr_id, cdr_code, full_route, origin, dest, direction,
+            alt_min, alt_max,
+            bool(is_active) if is_active is not None else True,
+            source,
+            eff_date,
+            bool(is_sup) if is_sup is not None else False,
+            sup_cycle, sup_reason
+        ))
+
+        if len(batch) >= BATCH_SIZE:
+            execute_values(
+                cursor_gis,
+                "INSERT INTO coded_departure_routes "
+                "(cdr_id, cdr_code, full_route, origin_icao, dest_icao, direction, "
+                "altitude_min_ft, altitude_max_ft, is_active, source, effective_date, "
+                "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
+                batch,
+            )
+            inserted += len(batch)
+            batch = []
+
+    if batch:
+        execute_values(
+            cursor_gis,
+            "INSERT INTO coded_departure_routes "
+            "(cdr_id, cdr_code, full_route, origin_icao, dest_icao, direction, "
+            "altitude_min_ft, altitude_max_ft, is_active, source, effective_date, "
+            "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
+            batch,
+        )
+        inserted += len(batch)
+
+    conn_gis.commit()
+    print(f"    Inserted {inserted:,} rows into PostGIS")
+    return inserted
+
+
+def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
+    """Sync nav_procedures from REF to PostGIS using UPSERT strategy.
+
+    PostGIS has ~97K nav_procedures (87K from CIFP base transitions via
+    generate_base_transitions.py). A full DELETE+INSERT from REF (~14K)
+    would destroy this richer data. Instead, we only delete REF-sourced
+    records (source='NASR') and re-insert them, preserving CIFP data.
+    """
+    print("\n  Syncing nav_procedures (UPSERT - preserving CIFP)...")
+
+    cursor_ref.execute(
+        "SELECT procedure_id, procedure_type, airport_icao, procedure_name, "
+        "computer_code, transition_name, full_route, runways, is_active, "
+        "source, effective_date, "
+        "is_superseded, superseded_cycle, superseded_reason "
+        "FROM dbo.nav_procedures"
+    )
+    rows = cursor_ref.fetchall()
+    print(f"    Read {len(rows):,} procedures from VATSIM_REF")
+
+    if dry_run:
+        # Check existing counts
+        cursor_gis.execute("SELECT COUNT(*) FROM nav_procedures")
+        total = cursor_gis.fetchone()[0]
+        cursor_gis.execute("SELECT COUNT(*) FROM nav_procedures WHERE source IN ('NASR', 'nasr')")
+        nasr = cursor_gis.fetchone()[0]
+        print(f"    [DRY RUN] PostGIS has {total:,} total ({nasr:,} NASR, {total - nasr:,} CIFP)")
+        print(f"    [DRY RUN] Would delete {nasr:,} NASR and insert {len(rows):,}")
+        return len(rows)
+
+    # Count before
+    cursor_gis.execute("SELECT COUNT(*) FROM nav_procedures")
+    before_total = cursor_gis.fetchone()[0]
+
+    # Delete only REF-sourced records, preserving CIFP
+    cursor_gis.execute("DELETE FROM nav_procedures WHERE source IN ('NASR', 'nasr') OR source IS NULL")
+    deleted = cursor_gis.rowcount
+    conn_gis.commit()
+    print(f"    Deleted {deleted:,} NASR records (preserved CIFP)")
+
+    # Insert REF records
+    inserted = 0
+    batch = []
+    for row in rows:
+        (proc_id, ptype, airport, pname, code, trans, route, runways,
+         is_active, source, eff_date, is_sup, sup_cycle, sup_reason) = row
+        batch.append((
+            proc_id, ptype, airport, pname, code, trans, route, runways,
+            bool(is_active) if is_active is not None else True,
+            source, eff_date,
+            bool(is_sup) if is_sup is not None else False,
+            sup_cycle, sup_reason
+        ))
+
+        if len(batch) >= BATCH_SIZE:
+            execute_values(
+                cursor_gis,
+                "INSERT INTO nav_procedures "
+                "(procedure_id, procedure_type, airport_icao, procedure_name, "
+                "computer_code, transition_name, full_route, runways, is_active, "
+                "source, effective_date, "
+                "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
+                batch,
+            )
+            inserted += len(batch)
+            batch = []
+
+    if batch:
+        execute_values(
+            cursor_gis,
+            "INSERT INTO nav_procedures "
+            "(procedure_id, procedure_type, airport_icao, procedure_name, "
+            "computer_code, transition_name, full_route, runways, is_active, "
+            "source, effective_date, "
+            "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
+            batch,
+        )
+        inserted += len(batch)
+
+    conn_gis.commit()
+
+    # Count after
+    cursor_gis.execute("SELECT COUNT(*) FROM nav_procedures")
+    after_total = cursor_gis.fetchone()[0]
+    print(f"    Inserted {inserted:,} NASR procedures")
+    print(f"    PostGIS total: {before_total:,} -> {after_total:,}")
+    return inserted
+
+
+def sync_playbook_routes(cursor_ref, cursor_gis, conn_gis, dry_run=False):
+    """Sync playbook_routes from REF to PostGIS (full replace)."""
+    print("\n  Syncing playbook_routes...")
+
+    cursor_ref.execute(
+        "SELECT playbook_id, play_name, full_route, origin_airports, origin_tracons, "
+        "origin_artccs, dest_airports, dest_tracons, dest_artccs, "
+        "altitude_min_ft, altitude_max_ft, is_active, source, effective_date, "
+        "is_superseded, superseded_cycle, superseded_reason "
+        "FROM dbo.playbook_routes"
+    )
+    rows = cursor_ref.fetchall()
+    print(f"    Read {len(rows):,} rows from VATSIM_REF")
+
+    if dry_run:
+        print("    [DRY RUN] Would sync to PostGIS")
+        return len(rows)
+
+    cursor_gis.execute("DELETE FROM playbook_routes")
+
+    inserted = 0
+    batch = []
+    for row in rows:
+        (pb_id, name, route, orig_apt, orig_trc, orig_artcc,
+         dest_apt, dest_trc, dest_artcc,
+         alt_min, alt_max, is_active, source, eff_date,
+         is_sup, sup_cycle, sup_reason) = row
+        batch.append((
+            pb_id, name, route, orig_apt, orig_trc, orig_artcc,
+            dest_apt, dest_trc, dest_artcc,
+            alt_min, alt_max,
+            bool(is_active) if is_active is not None else True,
+            source, eff_date,
+            bool(is_sup) if is_sup is not None else False,
+            sup_cycle, sup_reason
+        ))
+
+        if len(batch) >= BATCH_SIZE:
+            execute_values(
+                cursor_gis,
+                "INSERT INTO playbook_routes "
+                "(playbook_id, play_name, full_route, origin_airports, origin_tracons, "
+                "origin_artccs, dest_airports, dest_tracons, dest_artccs, "
+                "altitude_min_ft, altitude_max_ft, is_active, source, effective_date, "
+                "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
+                batch,
+            )
+            inserted += len(batch)
+            batch = []
+
+    if batch:
+        execute_values(
+            cursor_gis,
+            "INSERT INTO playbook_routes "
+            "(playbook_id, play_name, full_route, origin_airports, origin_tracons, "
+            "origin_artccs, dest_airports, dest_tracons, dest_artccs, "
+            "altitude_min_ft, altitude_max_ft, is_active, source, effective_date, "
+            "is_superseded, superseded_cycle, superseded_reason) VALUES %s",
+            batch,
+        )
+        inserted += len(batch)
+
+    conn_gis.commit()
+    print(f"    Inserted {inserted:,} rows into PostGIS")
+    return inserted
+
+
 # ==============================================================================
 # Main
 # ==============================================================================
@@ -286,7 +516,8 @@ def main():
     )
     parser.add_argument(
         "--table",
-        choices=["nav_fixes", "airways", "area_centers", "all"],
+        choices=["nav_fixes", "airways", "area_centers",
+                 "coded_departure_routes", "nav_procedures", "playbook_routes", "all"],
         default="all",
         help="Table to sync (default: all). 'airways' includes airway_segments.",
     )
@@ -319,7 +550,10 @@ def main():
     print("  Connected")
 
     results = {}
-    tables = [args.table] if args.table != "all" else ["nav_fixes", "airways", "area_centers"]
+    tables = [args.table] if args.table != "all" else [
+        "nav_fixes", "airways", "area_centers",
+        "coded_departure_routes", "nav_procedures", "playbook_routes"
+    ]
 
     try:
         if "nav_fixes" in tables:
@@ -336,6 +570,21 @@ def main():
 
         if "area_centers" in tables:
             results["area_centers"] = sync_area_centers(
+                cursor_ref, cursor_gis, conn_gis, args.dry_run
+            )
+
+        if "coded_departure_routes" in tables:
+            results["coded_departure_routes"] = sync_coded_departure_routes(
+                cursor_ref, cursor_gis, conn_gis, args.dry_run
+            )
+
+        if "nav_procedures" in tables:
+            results["nav_procedures"] = sync_nav_procedures(
+                cursor_ref, cursor_gis, conn_gis, args.dry_run
+            )
+
+        if "playbook_routes" in tables:
+            results["playbook_routes"] = sync_playbook_routes(
                 cursor_ref, cursor_gis, conn_gis, args.dry_run
             )
 

@@ -603,17 +603,34 @@ $is_canoc = (get_org_code() === 'canoc');
             padding: 0.75rem;
             border: 1px solid #e9ecef;
             margin-bottom: 0.75rem;
+            max-height: 60vh;
+            overflow-y: auto;
         }
-        
+
         #routeHelpPanel ul {
             margin-bottom: 0;
         }
-        
+
         #routeHelpPanel code {
             background: #e9ecef;
             padding: 1px 4px;
             border-radius: 3px;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
+        }
+
+        #routeHelpPanel pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        #firGroupsPanel td {
+            word-break: break-word;
+            font-size: 0.65rem;
+        }
+
+        #firGroupsPanel td code {
+            font-size: 0.65rem;
+            white-space: nowrap;
         }
         
         /* Filter bar responsive */
@@ -1546,44 +1563,203 @@ include('load/nav.php');
 
                     <!-- Collapsible Help Panel (default: collapsed) -->
                     <div id="routeHelpPanel" class="text-left small" style="display: none;">
-                        
-                        <!-- Route Syntax -->
-                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-route mr-1"></i> <?= __('route.page.routeSyntax') ?></p>
+
+                        <!-- ============ ROUTE FORMAT ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-route mr-1"></i> <?= __('route.page.routeFormatTitle') ?></p>
+                        <p class="mb-1"><?= __('route.page.routeFormatDesc') ?></p>
+<pre class="bg-light p-2 mb-2 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">{ORIGINS} {ROUTE_STRING} {DESTINATIONS};{COLOR}
+>{ORIGINS} {ROUTE_STRING} {DESTINATIONS}<;{COLOR}</pre>
                         <ul class="pl-3 mb-2">
                             <li><strong><?= __('route.page.multipleRoutes') ?></strong> <?= __('route.page.multipleRoutesDesc') ?></li>
-                            <li><strong><?= __('route.page.colors') ?></strong> <?= __('route.page.colorsDesc') ?></li>
-                            <li><strong><?= __('route.page.mandatorySegments') ?></strong> <?= __('route.page.mandatoryDesc') ?></li>
-                            <li><strong><?= __('route.page.cdrs') ?></strong> <?= __('route.page.cdrsDesc') ?></li>
-                            <li><strong><?= __('route.page.dpStars') ?></strong> <?= __('route.page.dpStarsDesc') ?></li>
-                            <li><strong><?= __('route.page.playbook') ?></strong> <?= __('route.page.playbookDesc') ?></li>
-                            <li><strong><?= __('route.page.multiOriginDest') ?></strong> <?= __('route.page.multiOriginDestDesc') ?></li>
-                            <li><strong><?= __('route.page.facilityFilters') ?></strong> <?= __('route.page.facilityFiltersDesc') ?></li>
-                            <li><strong><?= __('route.page.routeGroups') ?></strong>
-<pre class="bg-light p-2 mb-1 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem; margin-top: 4px;">[GROUP NAME];color
-ROUTE1
-ROUTE2</pre>
+                        </ul>
+
+                        <!-- ============ FACILITY TYPES ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-building mr-1"></i> <?= __('route.page.facilityTypesTitle') ?></p>
+                        <p class="mb-1"><?= __('route.page.multiOriginDestDesc') ?></p>
+                        <ul class="pl-3 mb-1">
+                            <li><?= __('route.page.facilityAirportDesc') ?></li>
+                            <li><?= __('route.page.facilityArtccDesc') ?></li>
+                            <li><?= __('route.page.facilityTraconDesc') ?></li>
+                        </ul>
+                        <p class="mb-1"><strong><?= __('route.page.firPatternDesc') ?></strong></p>
+<pre class="bg-light p-2 mb-1 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">FIR:ED..                  (all German FIRs: EDGG, EDMM, EDUU, EDWW)
+FIR:EI..,EG..,LF..       (Irish + UK + French FIRs)
+FIR:C...                  (all Canadian FIRs)
+USA                       (named group: 20 CONUS ARTCCs)</pre>
+                        <p class="mb-1"><?= __('route.page.firGroupsDesc') ?>
+                            <a href="#" id="firGroupsToggle" style="color: #239BCD; text-decoration: underline; cursor: pointer;"><?= __('route.page.firGroupsTitle') ?></a>
+                        </p>
+                        <div id="firGroupsPanel" style="display: none;">
+                            <table class="table table-sm table-bordered mb-2" style="font-size: 0.7rem;">
+                                <thead><tr><th style="width: 25%;">Group</th><th style="width: 35%;">Name</th><th>Members</th></tr></thead>
+                                <tbody>
+                                    <tr><td><code>USA</code> / <code>CONUS</code></td><td>Continental US</td><td>ZAB ZAU ZBW ZDC ZDV ZFW ZHU ZID ZJX ZKC ZLA ZLC ZMA ZME ZMP ZNY ZOA ZOB ZSE ZTL</td></tr>
+                                    <tr><td><code>USALL</code></td><td>All US ARTCCs</td><td>+ ZAN ZHN ZHO ZMO ZWY ZAK ZAP ZUA</td></tr>
+                                    <tr><td><code>USAEC</code></td><td>East Coast</td><td>ZBW ZNY ZDC ZOB ZID ZTL ZJX ZMA</td></tr>
+                                    <tr><td><code>USAWC</code></td><td>West Coast</td><td>ZSE ZOA ZLA</td></tr>
+                                    <tr><td><code>USA4W</code></td><td>4 West</td><td>ZLA ZOA ZSE ZLC</td></tr>
+                                    <tr><td><code>USA6W</code> / <code>6WEST</code></td><td>6 West</td><td>ZLA ZLC ZDV ZOA ZAB ZSE</td></tr>
+                                    <tr><td><code>USA8W</code></td><td>8 West</td><td>ZLA ZLC ZDV ZOA ZAB ZSE ZFW ZHU</td></tr>
+                                    <tr><td><code>USA10W</code> / <code>10WEST</code></td><td>10 West</td><td>ZAB ZDV ZFW ZHU ZKC ZLA ZLC ZMP ZOA ZSE</td></tr>
+                                    <tr><td><code>USA12W</code> / <code>12WEST</code></td><td>12 West</td><td>ZAB ZAU ZDV ZFW ZHU ZKC ZLA ZLC ZME ZMP ZOA ZSE</td></tr>
+                                    <tr><td><code>GULF</code></td><td>Gulf</td><td>ZJX ZMA ZHU</td></tr>
+                                    <tr><td><code>CAN</code></td><td>Canada (Domestic)</td><td>CZEG CZVR CZWG CZYZ CZQM CZQX CZUL</td></tr>
+                                    <tr><td><code>CANE</code></td><td>Canada East</td><td>CZYZ CZUL CZQM CZQX</td></tr>
+                                    <tr><td><code>CANW</code></td><td>Canada West</td><td>CZVR CZEG CZWG</td></tr>
+                                    <tr><td><code>MEX</code></td><td>Mexico</td><td>MMMX MMTY MMZT MMMD MMUN MMFR</td></tr>
+                                    <tr><td><code>CAR</code></td><td>Caribbean</td><td>TJZS MKJK MUFH MYNA MDCS MTEG TNCF TTZP</td></tr>
+                                    <tr><td><code>CAM</code></td><td>Central America</td><td>MHCC MPZL MGGT MNMG MRPV MSLP</td></tr>
+                                    <tr><td><code>SAM</code></td><td>South America</td><td>SACF SBCW SCFZ SEGU SKED SLVR SMPM SPIM SVZM SYGC SUEO</td></tr>
+                                    <tr><td><code>EUR</code></td><td>Europe</td><td>EGPX EGTT EISN LFFF LFBB LFEE LFMM LFRR EDGG EDMM EDUU EDWW EHAA EBBU ELLX LSAS EFIN ENOR ESAA EKDK EETT EVRR EYVL EPWW LOVV LKAA LZBB LHCC LDZO LJLA LQSB LECM LECB LECS LPPC LIBB LIMM LIPP LIRR LGGG LCCC LMMM LRBB LBSR LTAA LYBA LAAA LWSK LUUU UKBV</td></tr>
+                                    <tr><td><code>AFR</code></td><td>Africa</td><td>HECC HLLL DTTC DAAA GMMM GCCC GOOO GUCY GFLL GLRB DGAC DBBB DNKK DRRR DXXX FTTT FKKK FGSL FOON FZZA FCCC HAAA HKNA HUEN HRYR HTDC HSSS HDAL HCSM FAJA FQBE FVHA FBGR FWLL FLFI FYWH FXMM FDMS FMMI FNLU FHAW</td></tr>
+                                    <tr><td><code>NAFR</code></td><td>North Africa</td><td>HECC HLLL DTTC DAAA GMMM GCCC</td></tr>
+                                    <tr><td><code>SSA</code></td><td>Sub-Saharan Africa</td><td>GOOO GUCY GFLL GLRB DGAC DBBB DNKK DRRR DXXX FTTT FKKK FGSL FOON FZZA FCCC HAAA HKNA HUEN HRYR HTDC HSSS HDAL HCSM FAJA FQBE FVHA FBGR FWLL FLFI FYWH FXMM FDMS FMMI FNLU FHAW</td></tr>
+                                    <tr><td><code>MEA</code></td><td>Middle East</td><td>OEJD OOMM OMAE OBBB OKAC OTBD OIIX OJAC OSTT OLBB ORBB LLLL OYSC</td></tr>
+                                    <tr><td><code>SEA</code></td><td>Southeast Asia</td><td>VTBB VLVT VVHN VYYY WMFC WSJC WIIF WAAF WBFC WRRR RPHI</td></tr>
+                                    <tr><td><code>IND</code></td><td>India</td><td>VABF VECF VIDF VOMF</td></tr>
+                                    <tr><td><code>SOA</code></td><td>South Asia</td><td>VABF VECF VIDF VOMF VGFR VNKT VCCF VQPR OPLR</td></tr>
+                                    <tr><td><code>CHI</code> / <code>ZHI</code></td><td>China</td><td>ZBPE ZSHA ZGZU ZHWH ZUUU ZYSH ZLHW</td></tr>
+                                    <tr><td><code>EAA</code></td><td>East Asia</td><td>ZBPE ZSHA ZGZU ZHWH ZUUU ZYSH ZLHW RJJJ RORK RKRR RCAA ZKPY VHHK VMMC UBRR</td></tr>
+                                    <tr><td><code>NDO</code></td><td>Indonesia</td><td>WIIF WAAF WRRR</td></tr>
+                                    <tr><td><code>NDP</code></td><td>Indo-Pacific</td><td>SOA + SEA + EAA + YMMM YBBB NZZO</td></tr>
+                                    <tr><td><code>RUS</code></td><td>Russia</td><td>UUWV ULMM URRV UWWW USSS UNNT UHHH</td></tr>
+                                    <tr><td><code>CEA</code></td><td>Central Asia</td><td>UTAT UACC UTDD UCFM</td></tr>
+                                    <tr><td><code>AUS</code></td><td>Australia</td><td>YMMM YBBB</td></tr>
+                                    <tr><td><code>NZE</code></td><td>New Zealand</td><td>NZZO</td></tr>
+                                    <tr><td><code>ANZ</code></td><td>Aus + NZ</td><td>YMMM YBBB NZZO</td></tr>
+                                    <tr><td><code>SPAC</code></td><td>South Pacific</td><td>NFFF NWWW NCRG NSFA NTTT</td></tr>
+                                    <tr><td><code>APAC</code></td><td>ANZ + South Pacific</td><td>YMMM YBBB NZZO NFFF NWWW NCRG NSFA NTTT</td></tr>
+                                    <tr><td><code>PAC</code></td><td>Pacific (Islands)</td><td>NFFF NWWW NCRG NSFA NTTT PGUM PWUZ PKMJ PTAA</td></tr>
+                                    <tr><td><code>EPAC</code></td><td>East Pacific</td><td>ZAK ZHN</td></tr>
+                                    <tr><td><code>WPAC</code></td><td>West Pacific</td><td>PGUM PWUZ PKMJ PTAA</td></tr>
+                                    <tr><td><code>NPAC</code></td><td>North Pacific</td><td>ZAP ZAK</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- ============ ROUTE STRING ELEMENTS ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-code mr-1"></i> <?= __('route.page.routeElements') ?></p>
+                        <ul class="pl-3 mb-2">
+                            <li><strong><?= __('route.page.fixesWaypoints') ?>:</strong> <?= __('route.page.fixTokenDesc') ?></li>
+                            <li><strong>Airways:</strong> <?= __('route.page.airwayTokenDesc') ?>
+<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">J25  V500  Q10  A574  UB881  RTE4</pre>
+                            </li>
+                            <li><strong><?= __('route.page.dpStars') ?></strong> <?= __('route.page.dpStarsDesc') ?>
+<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">KJFK.DEEZZ5   ZPLEN.LEESE   TERPZ8.MAULS</pre>
+                            </li>
+                            <li><strong>NAT Tracks:</strong> <?= __('route.page.natTrackDesc') ?>
+<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">NATA   NAT-B   TRACKC   TRKA</pre>
+                            </li>
+                            <li><strong>FBD:</strong> <?= __('route.page.fbdTokenDesc') ?>
+<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">BDR228018  (= BDR VOR, 228&deg; mag, 18 nm)</pre>
                             </li>
                         </ul>
-                        
-                        <!-- Toolbar -->
+
+                        <!-- ============ COORDINATE FORMATS ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-map-pin mr-1"></i> <?= __('route.page.coordFormats') ?></p>
+                        <ul class="pl-3 mb-2">
+                            <li><strong>ICAO Compact:</strong> <?= __('route.page.icaoCompactDesc') ?>
+<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">51N050W   5130N05030W</pre>
+                            </li>
+                            <li><strong>NAT Slash:</strong> <?= __('route.page.natSlashDesc') ?>
+<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">51/050   52/040</pre>
+                            </li>
+                            <li><strong>NAT Half-Degree:</strong> <?= __('route.page.natHalfDegDesc') ?>
+<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">H5150   H5250</pre>
+                            </li>
+                            <li><strong>ARINC 5-Char:</strong> <?= __('route.page.arincCoordDesc') ?>
+<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">5150N   (trailing: 51N 50W)
+51N50   (middle: 51N 150W)</pre>
+                            </li>
+                            <li><strong>ICAO Slash:</strong> 51N/050W
+                            </li>
+                        </ul>
+
+                        <!-- ============ SINGLE ROUTE ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-pencil-alt mr-1"></i> <?= __('route.page.helpSingleRoute') ?></p>
+<pre class="bg-light p-2 mb-2 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">PANC NOEND JAGIT NCA12 GUDEN 56N122W KODIT MATIR ADVOX ADVOX9 CYYC</pre>
+
+                        <!-- ============ MANDATORY ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-lock mr-1"></i> <?= __('route.page.mandatorySegments') ?></p>
+                        <p class="mb-1"><?= __('route.page.mandatoryDesc') ?></p>
+<pre class="bg-light p-2 mb-1 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">PANC NOEND JAGIT NCA12 CYYC                             (dashed / non-mandatory)
+>PANC NOEND JAGIT NCA12 CYYC<                            (solid / mandatory)
+ZME >THRSR ZPLEN Q79 MCLAW Y442 FUNDI< MUFH             (partial: one solid span)
+KJFK >GREKI JUDDS CAM Q822 GONZZ< FARGN Q438 RUBYY >DABJU J36 BAE J16 FSD J82 CZI J32 MLD PUHGI< LEGGS BDEGA4 KSFO
+                                                         (partial: two solid spans)</pre>
+                        <p class="mb-2" style="font-size: 0.7rem;"><?= __('route.page.helpMandatoryPartial') ?></p>
+
+                        <!-- ============ COLOR ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-palette mr-1"></i> <?= __('route.page.colors') ?></p>
+                        <p class="mb-1"><?= __('route.page.colorsDesc') ?></p>
+<pre class="bg-light p-2 mb-1 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">KPHL DQO BELAY MORTY LITME HIRCK CLTCH KERRK MAULS Q40 ALEAN ZHU;ORANGE
+PANC NOEND JAGIT NCA12 GUDEN 56N122W KODIT MATIR ADVOX ADVOX9 CYYC;#3498db
+PANC NOEND JAGIT NCA12 GUDEN 56N122W KODIT MATIR ADVOX ADVOX9 CYYC            (auto-assigned)</pre>
+                        <p class="mb-2" style="font-size: 0.7rem;"><?= __('route.page.colorDefaultDesc') ?></p>
+
+                        <!-- ============ ORIGIN & DESTINATION FILTERS ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-filter mr-1"></i> <?= __('route.page.facilityFilters') ?></p>
+                        <p class="mb-1"><?= __('route.page.facilityFiltersDesc') ?></p>
+<pre class="bg-light p-2 mb-2 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">ZDC (-KRDU -KPHF -KORF) ZNY >LEJOY AIR J80 MCI J24 SLN J102 ALS J110 RSK J64 TBC< ZLA (-KLAS) ZOA</pre>
+                        <p class="mb-2" style="font-size: 0.7rem;"><?= __('route.page.helpFilterExample') ?></p>
+
+                        <!-- ============ ROUTE GROUPS ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-layer-group mr-1"></i> <?= __('route.page.routeGroups') ?></p>
+                        <p class="mb-1"><?= __('route.page.routeGroupsDesc') ?></p>
+<pre class="bg-light p-2 mb-2 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">[ZMA GROUP]
+KRSW JAMIZ Q118 JOHNN HUZER BESTT JONZE5 KCLT
+KSRQ JAMIZ Q118 JOHNN HUZER BESTT JONZE5 KCLT
+KTPA JAMIZ Q118 JOHNN HUZER BESTT JONZE5 KCLT
+ZMA FEMON Q87 VIYAP CHECR STOCR4 KCLT
+
+[ZMA GROUP];YELLOW
+KRSW JAMIZ Q118 JOHNN HUZER BESTT JONZE5 KCLT
+ZMA FEMON Q87 VIYAP CHECR STOCR4 KCLT
+
+>[ZMA GROUP]<;YELLOW
+KRSW JAMIZ Q118 JOHNN HUZER BESTT JONZE5 KCLT
+ZMA FEMON Q87 VIYAP CHECR STOCR4 KCLT</pre>
+                        <p class="mb-2" style="font-size: 0.7rem;"><?= __('route.page.helpGroupExample') ?></p>
+
+                        <!-- ============ CDR ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-database mr-1"></i> <?= __('route.page.cdrs') ?></p>
+                        <p class="mb-1"><?= __('route.page.cdrsDesc') ?></p>
+<pre class="bg-light p-2 mb-2 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">JFKORD1K
+>JFKORD2N<;BLUE
+ABQATLER</pre>
+                        <p class="mb-2" style="font-size: 0.7rem;"><?= __('route.page.cdrsExpandNote') ?></p>
+
+                        <!-- ============ PLAYBOOK ============ -->
+                        <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-book mr-1"></i> <?= __('route.page.playbook') ?></p>
+                        <p class="mb-1"><?= __('route.page.playbookDesc') ?></p>
+<pre class="bg-light p-2 mb-2 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">PB.ATL NO HOBTT                   (all routes in play)
+PB.ATL NO HOBTT.KBWI              (filter to KBWI origins)
+PB.ATL NO HOBTT.KBWI.KATL         (filter KBWI &rarr; KATL)
+PB.ATL NO HOBTT.C90               (filter to C90 TRACON)
+PB.ATL NO HOBTT.ZDC               (filter to ZDC ARTCC)
+>PB.ATL NO HOBTT<;RED             (mandatory + color)</pre>
+
+                        <!-- ============ MAP TOOLBAR ============ -->
                         <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-tools mr-1"></i> <?= __('route.page.mapToolbar') ?></p>
                         <ul class="pl-3 mb-2">
                             <li><strong><?= __('route.page.filterLabel') ?></strong> <?= __('route.page.filterDesc') ?></li>
-                            <li><strong><i class="fas fa-paint-brush"></i> Symbology:</strong> <?= __('route.page.symbologyDesc') ?></li>
+                            <li><strong><i class="fas fa-paint-brush"></i> <?= __('route.page.routeSymbology') ?>:</strong> <?= __('route.page.symbologyDesc') ?></li>
+                            <li><strong><i class="fas fa-search"></i> <?= __('route.page.routes') ?>:</strong> <?= __('route.page.playbookCdrSearch') ?></li>
                             <li><strong><i class="fas fa-plane"></i> <?= __('route.page.live') ?>:</strong> <?= __('route.page.liveDesc') ?></li>
-                            <li><strong><i class="fas fa-filter"></i> Filters:</strong> <?= __('route.page.filtersDesc') ?></li>
+                            <li><strong><i class="fas fa-filter"></i> <?= __('route.page.flightFilters') ?>:</strong> <?= __('route.page.filtersDesc') ?></li>
                         </ul>
-                        
-                        <!-- Actions -->
+
+                        <!-- ============ ACTIONS ============ -->
                         <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-mouse-pointer mr-1"></i> <?= __('route.page.actions') ?></p>
                         <ul class="pl-3 mb-2">
                             <li><strong><?= __('route.page.plot') ?>:</strong> <?= __('route.page.plotDesc') ?></li>
                             <li><strong><?= __('route.page.copy') ?>:</strong> <?= __('route.page.copyDesc') ?></li>
+                            <li><strong><?= __('route.page.share') ?>:</strong> <?= __('route.page.shareDesc') ?></li>
                             <li><strong><?= __('route.page.labels') ?>:</strong> <?= __('route.page.labelsDesc') ?></li>
-                            <li><strong><?= __('route.page.export') ?></strong> <?= __('route.page.exportDesc') ?></li>
+                            <li><strong><?= __('route.page.export') ?>:</strong> <?= __('route.page.exportDesc') ?> (GeoJSON, KML, GPKG)</li>
                         </ul>
-                        
-                        <!-- Map Interaction -->
+
+                        <!-- ============ MAP INTERACTION ============ -->
                         <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-hand-pointer mr-1"></i> <?= __('route.page.mapInteraction') ?></p>
                         <ul class="pl-3 mb-2">
                             <li><strong><?= __('route.page.clickRoute') ?></strong> <?= __('route.page.clickRouteDesc') ?></li>
@@ -1591,15 +1767,15 @@ ROUTE2</pre>
                             <li><strong><?= __('route.page.clickFlight') ?></strong> <?= __('route.page.clickFlightDesc') ?></li>
                             <li><strong><?= __('route.page.layerPanel') ?></strong> <?= __('route.page.layerPanelDesc') ?></li>
                         </ul>
-                        
-                        <!-- Advisory Builder -->
+
+                        <!-- ============ ADVISORY BUILDER ============ -->
                         <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-file-alt mr-1"></i> <?= __('route.page.rerouteAdvisory') ?></p>
                         <ul class="pl-3 mb-0">
                             <li><?= __('route.page.advisoryExpandDesc') ?></li>
                             <li><?= __('route.page.advisoryConfigDesc') ?></li>
                             <li><?= __('route.page.advisoryAutoDesc') ?></li>
                         </ul>
-                        
+
                     </div>
 
                     <textarea class="form-control mb-3" name="routeSearch" id="routeSearch" rows="16" placeholder="<?= __('route.page.enterRoutes') ?>"></textarea>
@@ -2532,7 +2708,7 @@ include('load/footer.php');
 <script src="assets/js/route-analysis-panel.js<?= _v('assets/js/route-analysis-panel.js') ?>"></script>
 <script src="assets/js/playbook-dcc-loader.js<?= _v('assets/js/playbook-dcc-loader.js') ?>"></script>
 
-<!-- Simple JS to toggle Plot Routes help panel -->
+<!-- Simple JS to toggle Plot Routes help panel + FIR groups sub-panel -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var btn = document.getElementById('routeHelpToggle');
@@ -2542,7 +2718,19 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', function () {
             var isHidden = (panel.style.display === 'none' || panel.style.display === '');
             panel.style.display = isHidden ? 'block' : 'none';
-            btn.textContent = isHidden ? 'Hide Help' : 'Show Help';
+            var icon = '<i class="fas fa-question-circle mr-1"></i>';
+            btn.innerHTML = icon + (isHidden ? PERTII18n.t('route.page.helpHide') : PERTII18n.t('route.page.helpShow'));
+        });
+    }
+
+    // FIR groups sub-panel toggle
+    var firToggle = document.getElementById('firGroupsToggle');
+    var firPanel = document.getElementById('firGroupsPanel');
+    if (firToggle && firPanel) {
+        firToggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            var isHidden = (firPanel.style.display === 'none' || firPanel.style.display === '');
+            firPanel.style.display = isHidden ? 'block' : 'none';
         });
     }
 

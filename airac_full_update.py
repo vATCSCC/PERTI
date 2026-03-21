@@ -156,7 +156,7 @@ def step2_playbook_update(dry_run: bool = False) -> bool:
     return run_step("Playbook Update", SCRIPTS['playbook'], dry_run=dry_run)
 
 
-def step3_database_import(dry_run: bool = False, table: str = None) -> bool:
+def step3_database_import(dry_run: bool = False, table: str = None, airac_cycle: str = None) -> bool:
     """
     Step 3: Import CSV data to VATSIM_REF and sync to VATSIM_ADL.
 
@@ -179,6 +179,8 @@ def step3_database_import(dry_run: bool = False, table: str = None) -> bool:
     args = []
     if table:
         args.extend(["--table", table])
+    if airac_cycle:
+        args.extend(["--airac-cycle", airac_cycle])
 
     return run_step("Database Import", SCRIPTS['database'], args, dry_run)
 
@@ -197,7 +199,8 @@ def step4_postgis_sync(dry_run: bool = False) -> bool:
     print("  STEP 4: PostGIS Reference Data Sync")
     print("=" * 70)
     print("  Syncs VATSIM_REF -> VATSIM_GIS (PostGIS)")
-    print("  Tables: nav_fixes, airways, airway_segments, area_centers")
+    print("  Tables: nav_fixes, airways, airway_segments, area_centers,")
+    print("          coded_departure_routes, nav_procedures, playbook_routes")
     print()
 
     return run_step("PostGIS Sync", SCRIPTS['postgis'], dry_run=dry_run)
@@ -298,6 +301,8 @@ After running, don't forget to:
     parser.add_argument('--table',
                         choices=['nav_fixes', 'airways', 'cdrs', 'procedures', 'playbook'],
                         help='Only import specific table (Step 3 only)')
+    parser.add_argument('--airac-cycle', type=str, default=None,
+                        help='AIRAC cycle identifier (e.g., 2603) for changelog generation')
 
     args = parser.parse_args()
 
@@ -334,7 +339,7 @@ After running, don't forget to:
 
     # Step 3: Database Import
     if run_step3:
-        success = step3_database_import(args.dry_run, args.table)
+        success = step3_database_import(args.dry_run, args.table, args.airac_cycle)
         results['Database Import'] = 'SUCCESS' if success else 'FAILED'
 
     # Step 4: PostGIS Sync
