@@ -690,6 +690,8 @@ foreach ($blocks as $block) {
 
 $constraint_checks = [];
 $constraint_violations = 0;
+$track_constraints = [];
+$configs_result = null;
 
 $session_id = $scenario['session_id'];
 if ($session_id) {
@@ -703,7 +705,6 @@ if ($session_id) {
         [(int)$session_id]);
 
     // Load track constraints for ocean entry window checks
-    $track_constraints = [];
     $tc_result = ctp_fetch_all($conn_tmi,
         "SELECT track_name, max_acph, ocean_entry_start, ocean_entry_end,
                 fl_min, fl_max, priority
