@@ -116,6 +116,202 @@ def parse_procs(text):
     return groups, total
 
 
+def _extract_airports(group_str):
+    """Extract airport codes from ORIG_GROUP/DEST_GROUP column.
+
+    Format: "KJFK/01L|13R KLGA/04|22 KEWR"  ->  {"KJFK", "KLGA", "KEWR"}
+    """
+    airports = set()
+    for token in group_str.split():
+        code = token.split('/')[0].strip()
+        if code and len(code) >= 3:
+            airports.add(code)
+    return airports
+
+
+def parse_procs_enriched(text):
+    """Parse DP/STAR CSV grouped by (proc_name, artcc) with transition detail.
+
+    Returns ({(proc_name, artcc): {...}}, total_count).
+    """
+    groups = {}
+    total = 0
+    lines = text.strip().split('\n')
+    if len(lines) < 2:
+        return groups, 0
+    for row in csv.reader(lines[1:]):
+        if len(row) < 8:
+            continue
+        total += 1
+        comp_code = row[2].strip()
+        if is_old(comp_code):
+            continue
+        proc_name = row[1].strip()
+        artcc = row[3].strip()
+        airport_group = row[4].strip()
+        body_name = row[5].strip()
+        trans_code = row[6].strip()
+        trans_name = row[7].strip()
+        route_points = row[8].strip() if len(row) > 8 else ''
+        full_route = row[9].strip() if len(row) > 9 else ''
+
+        key = (proc_name, artcc)
+        if key not in groups:
+            groups[key] = {
+                'proc_name': proc_name,
+                'artcc': artcc,
+                'airports': set(),
+                'computer_codes': set(),
+                'transitions': {},
+            }
+        g = groups[key]
+        g['airports'] |= _extract_airports(airport_group)
+
+        # Extract base computer code (before dot)
+        base_code = comp_code.split('.')[0] if '.' in comp_code else comp_code
+        g['computer_codes'].add(base_code)
+
+        # Key transitions by (body_name, trans_name) for stable matching
+        tkey = (body_name, trans_name)
+        g['transitions'][tkey] = {
+            'trans_code': trans_code,
+            'trans_name': trans_name,
+            'body_name': body_name,
+            'route_points': route_points,
+            'full_route': full_route,
+        }
+
+    return groups, total
+
+
+def diff_procs_enriched(old, new, typ):
+    """Diff enriched procedure groups, producing transition-level detail.
+
+    Returns list of change entries with consolidated transitions.
+    """
+    changes = []
+    old_keys = set(old.keys())
+    new_keys = set(new.keys())
+
+    # Changed procedures (exist in both)
+    for key in sorted(old_keys & new_keys):
+        old_g = old[key]
+        new_g = new[key]
+        old_trans = old_g['transitions']
+        new_trans = new_g['transitions']
+
+        if old_trans == new_trans:
+            continue
+
+        old_tkeys = set(old_trans.keys())
+        new_tkeys = set(new_trans.keys())
+
+        modified = []
+        for tk in sorted(old_tkeys & new_tkeys):
+            if old_trans[tk]['route_points'] != new_trans[tk]['route_points']:
+                modified.append({
+                    'name': new_trans[tk]['trans_name'] or new_trans[tk]['body_name'],
+                    'code': new_trans[tk]['trans_code'],
+                    'old_route': old_trans[tk]['route_points'],
+                    'new_route': new_trans[tk]['route_points'],
+                })
+
+        added_t = []
+        for tk in sorted(new_tkeys - old_tkeys):
+            t = new_trans[tk]
+            added_t.append({
+                'name': t['trans_name'] or t['body_name'],
+                'code': t['trans_code'],
+                'route_points': t['route_points'],
+            })
+
+        removed_t = []
+        for tk in sorted(old_tkeys - new_tkeys):
+            t = old_trans[tk]
+            removed_t.append({
+                'name': t['trans_name'] or t['body_name'],
+                'code': t['trans_code'],
+                'route_points': t['route_points'],
+            })
+
+        if not modified and not added_t and not removed_t:
+            continue
+
+        parts = []
+        if modified:
+            parts.append(f"~{len(modified)} modified")
+        if added_t:
+            parts.append(f"+{len(added_t)} new")
+        if removed_t:
+            parts.append(f"-{len(removed_t)} removed")
+
+        change = {
+            'type': typ,
+            'name': new_g['proc_name'],
+            'action': 'changed',
+            'detail': ', '.join(parts),
+            'artccs': [new_g['artcc']],
+            'airports': sorted(new_g['airports']),
+            'computer_codes': sorted(new_g['computer_codes']),
+            'transition_count': len(new_trans),
+        }
+        if modified:
+            change['modified_transitions'] = modified
+        if added_t:
+            change['added_transitions'] = added_t
+        if removed_t:
+            change['removed_transitions'] = removed_t
+        changes.append(change)
+
+    # Removed procedures
+    for key in sorted(old_keys - new_keys):
+        g = old[key]
+        trans_list = []
+        for tk in sorted(g['transitions'].keys()):
+            t = g['transitions'][tk]
+            trans_list.append({
+                'name': t['trans_name'] or t['body_name'],
+                'code': t['trans_code'],
+                'route_points': t['route_points'],
+            })
+        changes.append({
+            'type': typ,
+            'name': g['proc_name'],
+            'action': 'removed',
+            'detail': f"{len(g['transitions'])} transitions removed",
+            'artccs': [g['artcc']],
+            'airports': sorted(g['airports']),
+            'computer_codes': sorted(g['computer_codes']),
+            'transition_count': len(g['transitions']),
+            'removed_transitions': trans_list,
+        })
+
+    # Added procedures
+    for key in sorted(new_keys - old_keys):
+        g = new[key]
+        trans_list = []
+        for tk in sorted(g['transitions'].keys()):
+            t = g['transitions'][tk]
+            trans_list.append({
+                'name': t['trans_name'] or t['body_name'],
+                'code': t['trans_code'],
+                'route_points': t['route_points'],
+            })
+        changes.append({
+            'type': typ,
+            'name': g['proc_name'],
+            'action': 'added',
+            'detail': f"{len(g['transitions'])} transitions",
+            'artccs': [g['artcc']],
+            'airports': sorted(g['airports']),
+            'computer_codes': sorted(g['computer_codes']),
+            'transition_count': len(g['transitions']),
+            'added_transitions': trans_list,
+        })
+
+    return changes
+
+
 def parse_playbook(text):
     """Parse playbook_routes.csv -> {play_name: {route: {artcc info}}}, total_count."""
     plays = defaultdict(dict)
@@ -534,8 +730,16 @@ def db_insert(changes, to_cycle):
             if c['action'] == 'changed':
                 delta = 'route modified'
         elif c['type'] in ('dp', 'star'):
-            old_v = c.get('old_name')
-            new_v = c.get('new_value')
+            # Enriched format: store transition summary
+            parts = []
+            if c.get('airports'):
+                parts.append('Airports: ' + ', '.join(c['airports']))
+            if c.get('artccs'):
+                parts.append('ARTCCs: ' + ', '.join(c['artccs']))
+            old_v = '; '.join(parts) if parts else c.get('old_name')
+            new_v = c.get('detail')
+            if c['action'] == 'changed':
+                delta = c.get('detail')
         elif c['type'] == 'playbook':
             old_v = c.get('old_value')
             new_v = c.get('new_value')
@@ -571,6 +775,10 @@ def main():
                         help='AIRAC cycle number (e.g., 2602)')
     parser.add_argument('--no-db', action='store_true',
                         help='Skip database insert')
+    parser.add_argument('--playbook-from-commit',
+                        help='Override FROM commit for playbook CSV only')
+    parser.add_argument('--playbook-to-commit',
+                        help='Override TO commit for playbook CSV only')
     args = parser.parse_args()
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -584,8 +792,15 @@ def main():
     print("Extracting CSVs from git...")
     raw = {}
     for k, p in CSV_PATHS.items():
-        old_text = git_show(args.from_commit, p, root)
-        new_text = git_show(args.to_commit, p, root)
+        from_c = args.from_commit
+        to_c = args.to_commit
+        if k == 'playbook':
+            if args.playbook_from_commit:
+                from_c = args.playbook_from_commit
+            if args.playbook_to_commit:
+                to_c = args.playbook_to_commit
+        old_text = git_show(from_c, p, root)
+        new_text = git_show(to_c, p, root)
         raw[k] = (old_text, new_text)
         print(f"  {k}: {len(old_text):,} / {len(new_text):,} bytes")
 
@@ -599,10 +814,10 @@ def main():
     new_awy, new_awy_t = parse_routes(raw['airways'][1])
     old_cdr, old_cdr_t = parse_routes(raw['cdrs'][0])
     new_cdr, new_cdr_t = parse_routes(raw['cdrs'][1])
-    old_dp, old_dp_t = parse_procs(raw['dps'][0])
-    new_dp, new_dp_t = parse_procs(raw['dps'][1])
-    old_st, old_st_t = parse_procs(raw['stars'][0])
-    new_st, new_st_t = parse_procs(raw['stars'][1])
+    old_dp, old_dp_t = parse_procs_enriched(raw['dps'][0])
+    new_dp, new_dp_t = parse_procs_enriched(raw['dps'][1])
+    old_st, old_st_t = parse_procs_enriched(raw['stars'][0])
+    new_st, new_st_t = parse_procs_enriched(raw['stars'][1])
     old_pb, old_pb_t = parse_playbook(raw['playbook'][0])
     new_pb, new_pb_t = parse_playbook(raw['playbook'][1])
 
@@ -628,8 +843,8 @@ def main():
     all_changes += diff_coords(old_nav, new_nav, 'navaid')
     all_changes += diff_routes(old_awy, new_awy, 'airway')
     all_changes += diff_routes(old_cdr, new_cdr, 'cdr')
-    all_changes += diff_procs(old_dp, new_dp, 'dp')
-    all_changes += diff_procs(old_st, new_st, 'star')
+    all_changes += diff_procs_enriched(old_dp, new_dp, 'dp')
+    all_changes += diff_procs_enriched(old_st, new_st, 'star')
     all_changes += diff_playbook(old_pb, new_pb)
 
     summary = summarize(all_changes)

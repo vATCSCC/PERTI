@@ -2691,6 +2691,16 @@
       "routeCount": "{count} routes",
       "routeTotal": "{count} total",
       "routes": "Routes"
+    },
+    "procedure": {
+      "transitions": "Transitions",
+      "transitionCount": "{count} transitions",
+      "modifiedTransitions": "Modified transitions ({count})",
+      "newTransitions": "New transitions",
+      "removedTransitions": "Removed transitions",
+      "airports": "Airports",
+      "routePoints": "Route Points",
+      "mainBody": "Main body"
     }
   },
   "natots": {

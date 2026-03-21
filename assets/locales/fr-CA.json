@@ -2821,6 +2821,34 @@
       "routeCount": "{count} routes",
       "routeTotal": "{count} au total",
       "routes": "Routes"
+    },
+    "procedure": {
+      "transitions": "Transitions",
+      "transitionCount": "{count} transitions",
+      "modifiedTransitions": "Transitions modifi\u00e9es ({count})",
+      "newTransitions": "Nouvelles transitions",
+      "removedTransitions": "Transitions supprim\u00e9es",
+      "airports": "A\u00e9roports",
+      "routePoints": "Points de route",
+      "mainBody": "Corps principal"
+    },
+    "detail": {
+      "arrivalProc": "Route d'arriv\u00e9e standard (STAR)",
+      "contentModified": "Contenu de la proc\u00e9dure modifi\u00e9 entre les cycles",
+      "departureProc": "Proc\u00e9dure de d\u00e9part (DP)",
+      "displacement": "D\u00e9placement",
+      "formerPosition": "Position pr\u00e9c\u00e9dente",
+      "newPosition": "Nouvelle position",
+      "newProcedure": "Nouvelle proc\u00e9dure ajout\u00e9e ce cycle",
+      "newRoute": "Nouvelle route",
+      "noAdditional": "Aucun d\u00e9tail suppl\u00e9mentaire disponible",
+      "position": "Position",
+      "previousPosition": "Position pr\u00e9c\u00e9dente",
+      "removedFromSource": "Retir\u00e9 de la source NASR",
+      "removedRoute": "Route supprim\u00e9e",
+      "routeChanges": "Modifications de route",
+      "status": "\u00c9tat",
+      "type": "Type"
     }
   },
   "natots": {

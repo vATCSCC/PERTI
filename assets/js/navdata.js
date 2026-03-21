@@ -175,11 +175,24 @@
         if (state.searchTerm) {
             var term = state.searchTerm;
             result = result.filter(function (c) {
-                return (c.name && c.name.toUpperCase().indexOf(term) !== -1) ||
-                       (c.old_name && c.old_name.toUpperCase().indexOf(term) !== -1) ||
-                       (c.detail && c.detail.toUpperCase().indexOf(term) !== -1) ||
-                       (c.new_value && String(c.new_value).toUpperCase().indexOf(term) !== -1) ||
-                       (c.old_value && String(c.old_value).toUpperCase().indexOf(term) !== -1);
+                if ((c.name && c.name.toUpperCase().indexOf(term) !== -1) ||
+                    (c.old_name && c.old_name.toUpperCase().indexOf(term) !== -1) ||
+                    (c.detail && c.detail.toUpperCase().indexOf(term) !== -1) ||
+                    (c.new_value && String(c.new_value).toUpperCase().indexOf(term) !== -1) ||
+                    (c.old_value && String(c.old_value).toUpperCase().indexOf(term) !== -1)) {
+                    return true;
+                }
+                // Search airports and ARTCCs for playbook/dp/star entries
+                if (c.airports && c.airports.some(function(a) { return a.toUpperCase().indexOf(term) !== -1; })) {
+                    return true;
+                }
+                if (c.artccs && c.artccs.some(function(a) { return a.toUpperCase().indexOf(term) !== -1; })) {
+                    return true;
+                }
+                if (c.computer_codes && c.computer_codes.some(function(a) { return a.toUpperCase().indexOf(term) !== -1; })) {
+                    return true;
+                }
+                return false;
             });
         }
 
@@ -251,6 +264,31 @@
                     parts.push('<span class="badge badge-secondary" style="font-size:0.65rem;padding:1px 4px">' +
                         escapeHtml(a) + '</span>');
                 });
+            }
+            return parts.join(' ');
+        }
+        if (c.type === 'dp' || c.type === 'star') {
+            parts.push(escapeHtml(c.detail));
+            if (c.transition_count) {
+                parts.push('<span class="text-muted">(' +
+                    PERTII18n.t('navdata.procedure.transitionCount', { count: c.transition_count }) + ')</span>');
+            }
+            if (c.artccs && c.artccs.length) {
+                c.artccs.forEach(function(a) {
+                    parts.push('<span class="badge badge-secondary" style="font-size:0.65rem;padding:1px 4px">' +
+                        escapeHtml(a) + '</span>');
+                });
+            }
+            if (c.airports && c.airports.length) {
+                var shown = c.airports.slice(0, 5);
+                shown.forEach(function(a) {
+                    parts.push('<span class="badge badge-info" style="font-size:0.65rem;padding:1px 4px">' +
+                        escapeHtml(a) + '</span>');
+                });
+                if (c.airports.length > 5) {
+                    parts.push('<span class="text-muted" style="font-size:0.65rem">+' +
+                        (c.airports.length - 5) + '</span>');
+                }
             }
             return parts.join(' ');
         }
@@ -337,38 +375,123 @@
     }
 
     function buildProcedureDetail(c) {
-        var html = '<div class="navdata-detail">';
+        var html = '<div class="navdata-detail" style="flex-direction:column;gap:0.5rem;">';
         var typeLabel = c.type === 'dp'
             ? PERTII18n.t('navdata.detail.departureProc')
             : PERTII18n.t('navdata.detail.arrivalProc');
 
-        html += '<div class="navdata-detail-section">' +
-            '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.type') + '</div>' +
-            '<div class="navdata-detail-value">' + typeLabel + '</div>' +
-            '</div>';
+        // Header: type label + transition count + ARTCCs + airports
+        html += '<div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">';
+        html += '<span class="badge badge-dark" style="font-size:0.7rem">' + typeLabel + '</span>';
+        if (c.transition_count) {
+            html += '<span class="badge badge-info">' +
+                PERTII18n.t('navdata.procedure.transitionCount', { count: c.transition_count }) + '</span>';
+        }
+        if (c.artccs && c.artccs.length) {
+            html += '<span class="text-muted" style="font-size:0.8rem">' +
+                PERTII18n.t('navdata.playbook.artccs') + ': ' +
+                escapeHtml(c.artccs.join(', ')) + '</span>';
+        }
+        if (c.airports && c.airports.length) {
+            html += '<span class="text-muted" style="font-size:0.8rem">' +
+                PERTII18n.t('navdata.procedure.airports') + ': ' +
+                escapeHtml(c.airports.join(', ')) + '</span>';
+        }
+        if (c.computer_codes && c.computer_codes.length) {
+            html += '<span class="text-muted" style="font-size:0.75rem;font-family:monospace">' +
+                escapeHtml(c.computer_codes.join(', ')) + '</span>';
+        }
+        html += '</div>';
 
-        if (c.action === 'changed' && c.old_name) {
-            html += '<div class="navdata-detail-section">' +
-                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.status') + '</div>' +
-                '<div class="navdata-detail-value">' + PERTII18n.t('navdata.detail.contentModified') + '</div>' +
-                '</div>';
+        if (c.action === 'changed') {
+            html += buildProcChangedSection(c);
         } else if (c.action === 'added') {
-            html += '<div class="navdata-detail-section">' +
-                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.status') + '</div>' +
-                '<div class="navdata-detail-value" style="color:#28a745;">' + PERTII18n.t('navdata.detail.newProcedure') + '</div>' +
-                '</div>';
+            html += buildProcTransitionList(
+                c.added_transitions || [],
+                PERTII18n.t('navdata.procedure.transitions'),
+                '#28a745', '+'
+            );
         } else if (c.action === 'removed') {
-            var superseded = c.name.replace(/\d+\./, function(m) {
-                var num = parseInt(m) + 1;
-                return num + '.';
-            });
-            html += '<div class="navdata-detail-section">' +
-                '<div class="navdata-detail-label">' + PERTII18n.t('navdata.detail.status') + '</div>' +
-                '<div class="navdata-detail-value" style="color:#dc3545;">' +
-                    PERTII18n.t('navdata.detail.removedFromSource') + '</div>' +
-                '</div>';
+            html += buildProcTransitionList(
+                c.removed_transitions || [],
+                PERTII18n.t('navdata.procedure.transitions'),
+                '#dc3545', null, true
+            );
         }
 
+        html += '</div>';
+        return html;
+    }
+
+    function buildProcChangedSection(c) {
+        var html = '';
+        var PAGE_SZ = 20;
+
+        // Modified transitions with word-level diff
+        if (c.modified_transitions && c.modified_transitions.length) {
+            var modId = 'proc-mod-' + Date.now();
+            html += '<div class="navdata-detail-label" style="color:#0d6efd">' +
+                PERTII18n.t('navdata.procedure.modifiedTransitions', { count: c.modified_transitions.length }) + '</div>';
+            html += '<div id="' + modId + '" class="route-diff" style="font-size:0.75rem;font-family:monospace">';
+            c.modified_transitions.forEach(function(t, i) {
+                var hidden = i >= PAGE_SZ ? ' style="display:none"' : '';
+                var label = t.name || t.code || PERTII18n.t('navdata.procedure.mainBody');
+                html += '<div class="pb-route-pair" data-page-group="' + modId + '"' + hidden + '>' +
+                    '<div style="margin-bottom:2px"><strong style="font-size:0.7rem;color:#6c757d">' +
+                    escapeHtml(label) + '</strong></div>' +
+                    '<div style="padding:2px 0">' + diffRouteStrings(t.old_route, t.new_route) + '</div>' +
+                    '</div>';
+            });
+            if (c.modified_transitions.length > PAGE_SZ) {
+                html += buildPaginationControls(modId, c.modified_transitions.length, PAGE_SZ);
+            }
+            html += '</div>';
+        }
+
+        // New transitions
+        if (c.added_transitions && c.added_transitions.length) {
+            html += buildProcTransitionList(
+                c.added_transitions,
+                PERTII18n.t('navdata.procedure.newTransitions'),
+                '#28a745', '+'
+            );
+        }
+
+        // Removed transitions
+        if (c.removed_transitions && c.removed_transitions.length) {
+            html += buildProcTransitionList(
+                c.removed_transitions,
+                PERTII18n.t('navdata.procedure.removedTransitions'),
+                '#dc3545', null, true
+            );
+        }
+
+        return html;
+    }
+
+    function buildProcTransitionList(transitions, label, color, prefix, strikethrough) {
+        if (!transitions || !transitions.length) return '';
+        var PAGE_SZ = 20;
+        var listId = 'proc-list-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+        var html = '<div class="navdata-detail-label" style="color:' + color + '">' +
+            label + ' (' + transitions.length + ')</div>';
+        html += '<div id="' + listId + '" style="font-size:0.75rem;font-family:monospace">';
+        transitions.forEach(function(t, i) {
+            var hidden = i >= PAGE_SZ ? ' style="display:none"' : '';
+            var tLabel = t.name || t.code || '';
+            var route = t.route_points || '';
+            var style = 'color:' + color + ';padding:1px 0' +
+                (strikethrough ? ';text-decoration:line-through' : '');
+            html += '<div class="pb-route-item" data-page-group="' + listId + '"' + hidden + '>' +
+                '<span style="' + style + '">' +
+                (prefix ? prefix + ' ' : '') +
+                '<strong>' + escapeHtml(tLabel) + '</strong>' +
+                (route ? ' &mdash; ' + escapeHtml(route) : '') +
+                '</span></div>';
+        });
+        if (transitions.length > PAGE_SZ) {
+            html += buildPaginationControls(listId, transitions.length, PAGE_SZ);
+        }
         html += '</div>';
         return html;
     }
