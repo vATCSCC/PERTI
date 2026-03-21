@@ -117,8 +117,8 @@ def parse_procs(text):
 
 
 def parse_playbook(text):
-    """Parse playbook_routes.csv -> {play_name: set of routes}, total_count."""
-    plays = defaultdict(set)
+    """Parse playbook_routes.csv -> {play_name: {route: {artcc info}}}, total_count."""
+    plays = defaultdict(dict)
     total = 0
     lines = text.strip().split('\n')
     if len(lines) < 2:
@@ -131,46 +131,83 @@ def parse_playbook(text):
         route = row[1].strip()
         if is_old(play):
             continue
-        plays[play].add(route)
+        plays[play][route] = {
+            'origin_artccs': row[4].strip() if len(row) > 4 else '',
+            'dest_artccs': row[7].strip() if len(row) > 7 else '',
+        }
     return plays, total
 
 
+def _get_artccs(play_routes):
+    """Collect all unique ARTCCs from a play's routes."""
+    artccs = set()
+    for info in play_routes.values():
+        for a in info.get('origin_artccs', '').split(','):
+            a = a.strip()
+            if a:
+                artccs.add(a)
+        for a in info.get('dest_artccs', '').split(','):
+            a = a.strip()
+            if a:
+                artccs.add(a)
+    return sorted(artccs)
+
+
 def diff_playbook(old, new):
-    """Diff playbook plays (each play has a set of routes)."""
+    """Diff playbook plays with route-level detail."""
     changes = []
+    MAX_ROUTES = 10
 
     for play in sorted(set(old) & set(new)):
-        old_routes = old[play]
-        new_routes = new[play]
-        if old_routes != new_routes:
-            added_r = new_routes - old_routes
-            removed_r = old_routes - new_routes
-            parts = []
-            if added_r:
-                parts.append(f"+{len(added_r)} routes")
-            if removed_r:
-                parts.append(f"-{len(removed_r)} routes")
-            changes.append({
-                'type': 'playbook', 'name': play, 'action': 'changed',
-                'detail': ', '.join(parts),
-                'old_name': play,
-                'old_value': f"{len(old_routes)} routes",
-                'new_value': f"{len(new_routes)} routes"
-            })
+        old_routes = set(old[play].keys())
+        new_routes = set(new[play].keys())
+        if old_routes == new_routes:
+            continue
+        added_r = sorted(new_routes - old_routes)
+        removed_r = sorted(old_routes - new_routes)
+        parts = []
+        if added_r:
+            parts.append(f"+{len(added_r)} routes")
+        if removed_r:
+            parts.append(f"-{len(removed_r)} routes")
+        change = {
+            'type': 'playbook', 'name': play, 'action': 'changed',
+            'detail': ', '.join(parts),
+            'old_name': play,
+            'old_value': f"{len(old_routes)} routes",
+            'new_value': f"{len(new_routes)} routes",
+            'artccs': _get_artccs(new[play]),
+            'route_count': len(new_routes),
+        }
+        if added_r:
+            change['added_routes'] = added_r[:MAX_ROUTES]
+            if len(added_r) > MAX_ROUTES:
+                change['added_routes_total'] = len(added_r)
+        if removed_r:
+            change['removed_routes'] = removed_r[:MAX_ROUTES]
+            if len(removed_r) > MAX_ROUTES:
+                change['removed_routes_total'] = len(removed_r)
+        changes.append(change)
 
     for play in sorted(set(old) - set(new)):
         changes.append({
             'type': 'playbook', 'name': play, 'action': 'removed',
             'detail': f'{len(old[play])} routes removed',
             'old_name': play,
-            'old_value': f"{len(old[play])} routes"
+            'old_value': f"{len(old[play])} routes",
+            'artccs': _get_artccs(old[play]),
+            'route_count': len(old[play]),
         })
 
     for play in sorted(set(new) - set(old)):
+        sample = sorted(new[play].keys())[:5]
         changes.append({
             'type': 'playbook', 'name': play, 'action': 'added',
             'detail': f'{len(new[play])} routes',
-            'new_value': f"{len(new[play])} routes"
+            'new_value': f"{len(new[play])} routes",
+            'artccs': _get_artccs(new[play]),
+            'route_count': len(new[play]),
+            'sample_routes': sample,
         })
 
     return changes

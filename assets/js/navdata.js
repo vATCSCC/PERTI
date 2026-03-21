@@ -241,6 +241,17 @@
         if (c.delta_nm) {
             parts.push('<span class="delta-nm">' + c.delta_nm + ' nm</span>');
         }
+        if (c.type === 'playbook') {
+            parts.push(escapeHtml(c.detail));
+            if (c.route_count) {
+                parts.push('<span class="text-muted">(' + c.route_count + ' total)</span>');
+            }
+            if (c.artccs && c.artccs.length) {
+                parts.push('<span class="badge badge-secondary" style="font-size:0.7rem">' +
+                    escapeHtml(c.artccs.join(', ')) + '</span>');
+            }
+            return parts.join(' ');
+        }
         if (c.detail) {
             parts.push(escapeHtml(c.detail));
         }
@@ -262,6 +273,8 @@
             return buildRouteDetail(c);
         } else if (type === 'dp' || type === 'star') {
             return buildProcedureDetail(c);
+        } else if (type === 'playbook') {
+            return buildPlaybookDetail(c);
         }
         return buildGenericDetail(c);
     }
@@ -352,6 +365,71 @@
                 '<div class="navdata-detail-value" style="color:#dc3545;">' +
                     PERTII18n.t('navdata.detail.removedFromSource') + '</div>' +
                 '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    function buildPlaybookDetail(c) {
+        var html = '<div class="navdata-detail" style="flex-direction:column;gap:0.5rem;">';
+
+        // Header: play name + route count + ARTCCs
+        html += '<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">';
+        if (c.route_count) {
+            html += '<span class="badge badge-info">' + c.route_count + ' routes</span>';
+        }
+        if (c.artccs && c.artccs.length) {
+            html += '<span class="text-muted" style="font-size:0.8rem">ARTCCs: ' +
+                escapeHtml(c.artccs.join(', ')) + '</span>';
+        }
+        html += '</div>';
+
+        if (c.action === 'changed') {
+            // Added routes
+            if (c.added_routes && c.added_routes.length) {
+                var addedTotal = c.added_routes_total || c.added_routes.length;
+                html += '<div class="navdata-detail-label" style="color:#28a745">' +
+                    'Added routes (' + addedTotal + ')</div>';
+                html += '<div style="font-size:0.75rem;font-family:monospace;max-height:150px;overflow-y:auto">';
+                c.added_routes.forEach(function(r) {
+                    html += '<div style="color:#28a745;padding:1px 0">+ ' + escapeHtml(r) + '</div>';
+                });
+                if (c.added_routes_total && c.added_routes_total > c.added_routes.length) {
+                    html += '<div class="text-muted">... and ' +
+                        (c.added_routes_total - c.added_routes.length) + ' more</div>';
+                }
+                html += '</div>';
+            }
+            // Removed routes
+            if (c.removed_routes && c.removed_routes.length) {
+                var removedTotal = c.removed_routes_total || c.removed_routes.length;
+                html += '<div class="navdata-detail-label" style="color:#dc3545">' +
+                    'Removed routes (' + removedTotal + ')</div>';
+                html += '<div style="font-size:0.75rem;font-family:monospace;max-height:150px;overflow-y:auto">';
+                c.removed_routes.forEach(function(r) {
+                    html += '<div style="color:#dc3545;padding:1px 0;text-decoration:line-through">' +
+                        escapeHtml(r) + '</div>';
+                });
+                if (c.removed_routes_total && c.removed_routes_total > c.removed_routes.length) {
+                    html += '<div class="text-muted">... and ' +
+                        (c.removed_routes_total - c.removed_routes.length) + ' more</div>';
+                }
+                html += '</div>';
+            }
+        } else if (c.action === 'added' && c.sample_routes && c.sample_routes.length) {
+            html += '<div class="navdata-detail-label">Sample routes</div>';
+            html += '<div style="font-size:0.75rem;font-family:monospace">';
+            c.sample_routes.forEach(function(r) {
+                html += '<div style="color:#28a745;padding:1px 0">' + escapeHtml(r) + '</div>';
+            });
+            if (c.route_count > c.sample_routes.length) {
+                html += '<div class="text-muted">... and ' +
+                    (c.route_count - c.sample_routes.length) + ' more</div>';
+            }
+            html += '</div>';
+        } else if (c.action === 'removed') {
+            html += '<div style="color:#dc3545">' + escapeHtml(c.detail) + '</div>';
         }
 
         html += '</div>';
