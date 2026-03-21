@@ -5,6 +5,7 @@ TMI Compliance Analyzer - Data Models
 Core data classes for TMI compliance analysis.
 """
 
+import re
 from enum import Enum
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -704,6 +705,7 @@ class RouteEntry:
     destination: str = ''
     route_string: str = ''         # Full route with >fix< markers
     required_fixes: List[str] = field(default_factory=list)  # Extracted from >...< segment
+    required_airways: List[str] = field(default_factory=list)  # Airways from >...< segment
 
 
 @dataclass
@@ -850,6 +852,52 @@ def calculate_shortfall_pct(actual: float, required: float) -> float:
     if required <= 0:
         return 0.0
     return round(((required - actual) / required) * 100, 1)
+
+
+# --- Route token classification (mirrors PostGIS expand_route() lines 616-622) ---
+
+# Fast-path airway: known single-letter prefixes (PostGIS 004:616, JS perti.js:1770)
+AIRWAY_FAST_RE = re.compile(r'^[JVQTYLMABGRHWNUP]\d+$', re.IGNORECASE)
+# Broad airway: 1-2 letter prefix + digits (PostGIS 004:621)
+# Requires DB verification to avoid false positives (e.g., AR22 could be airway or fix)
+AIRWAY_BROAD_RE = re.compile(r'^[A-Z]{1,2}\d{1,3}$', re.IGNORECASE)
+# SID/STAR: 3+ letters followed by digit and optional letter (JS perti.js:1778)
+PROCEDURE_RE = re.compile(r'^[A-Z]{3,}\d[A-Z]?$', re.IGNORECASE)
+# Named fix: 2-5 uppercase letters only
+FIX_RE = re.compile(r'^[A-Z]{2,5}$')
+
+
+def classify_route_token(token: str, known_airways: set = None) -> str:
+    """Classify a route token as 'airway', 'procedure', 'fix', or 'other'.
+
+    Two-tier airway detection (mirrors PostGIS expand_route() lines 616-622):
+    1. Fast path: [JVQTYLMABGRHWNUP]\\d+ -> always airway
+    2. Broad path: [A-Z]{1,2}\\d{1,3} -> airway only if in known_airways set
+
+    Args:
+        token: Route token string (e.g., 'J79', 'CANDR', 'DEEZZ5', 'AR22')
+        known_airways: Optional set of known airway names from DB. If None,
+                       broad-path matches are assumed to be airways.
+
+    Returns:
+        'airway', 'procedure', 'fix', or 'other'
+    """
+    if not token or len(token) < 2:
+        return 'other'
+    t = token.strip().upper()
+    if AIRWAY_FAST_RE.match(t):
+        return 'airway'
+    if AIRWAY_BROAD_RE.match(t):
+        if known_airways and t in known_airways:
+            return 'airway'
+        elif known_airways is None:
+            return 'airway'  # No DB — assume airway (safe in advisory context)
+        # known_airways provided but token not in it — fall through to fix/other
+    if FIX_RE.match(t):
+        return 'fix'
+    if PROCEDURE_RE.match(t):
+        return 'procedure'
+    return 'other'
 
 
 def normalize_datetime(dt: datetime) -> datetime:

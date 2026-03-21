@@ -16,7 +16,8 @@ from .models import (
     TMI, TMIType, MITModifier, DelayEntry, DelayType, DelayTrend, HoldingStatus,
     AirportConfig, CancelEntry, TrafficDirection, TrafficFilter, AircraftType, AltitudeFilter,
     ComparisonOp, ThruType, ThruFilter, ScopeLogic, create_thru_filter, SkippedLine,
-    GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry
+    GSProgram, GSAdvisory, RerouteProgram, RerouteAdvisory, RouteEntry,
+    classify_route_token
 )
 
 logger = logging.getLogger(__name__)
@@ -853,21 +854,32 @@ def parse_advzy_reroute(lines: List[str], start_idx: int, event_start: datetime,
                 dest_code = route_match.group(2).upper()
                 route_string = route_match.group(3).strip()
 
-                # Extract required fixes from >...< markers
-                required_fixes = re.findall(r'>([^<]+)<', route_string)
+                # Extract required elements from >...< markers
+                marked_segments = re.findall(r'>([^<]+)<', route_string)
                 required_fix_list = []
-                for segment in required_fixes:
-                    # Split segment into individual fixes
-                    for fix in segment.split():
-                        fix_clean = fix.strip()
-                        if fix_clean and re.match(r'^[A-Z0-9]+$', fix_clean, re.IGNORECASE):
-                            required_fix_list.append(fix_clean.upper())
+                required_airway_list = []
+                for segment in marked_segments:
+                    for token in segment.split():
+                        token_clean = token.strip().upper()
+                        if not token_clean or not re.match(r'^[A-Z0-9]+$', token_clean, re.IGNORECASE):
+                            continue
+                        ttype = classify_route_token(token_clean)
+                        if ttype == 'airway':
+                            required_airway_list.append(token_clean)
+                        elif ttype == 'procedure':
+                            # Extract base fix from procedure (DEEZZ5 -> DEEZZ)
+                            base = re.match(r'^([A-Z]+)\d', token_clean)
+                            if base:
+                                required_fix_list.append(base.group(1))
+                        else:  # 'fix' or 'other'
+                            required_fix_list.append(token_clean)
 
                 routes.append(RouteEntry(
                     origins=[orig_code],
                     destination=dest_code,
                     route_string=route_string,
-                    required_fixes=required_fix_list
+                    required_fixes=required_fix_list,
+                    required_airways=required_airway_list,
                 ))
 
                 if orig_code not in origins:

@@ -22,7 +22,8 @@ from .models import (
     HOLD_MIN_HEADING_CHANGE_DEG, HOLD_MIN_DURATION_SEC, HOLD_MAX_RADIUS_NM,
     HOLD_CIRCLING_ALT_AGL_FT, HOLD_CIRCLING_DIST_NM, HOLD_MIN_GROUNDSPEED_KTS,
     HOLD_MIN_ALTITUDE_FT, HOLD_GAP_RESET_SEC, HOLD_LOW_CONFIDENCE_INTERVAL_SEC,
-    HOLD_FIX_MATCH_RADIUS_NM
+    HOLD_FIX_MATCH_RADIUS_NM,
+    classify_route_token
 )
 from .database import ADLConnection, GISConnection
 import json
@@ -1246,7 +1247,8 @@ class TMIComplianceAnalyzer:
             SELECT DISTINCT c.callsign, c.flight_uid, p.fp_dept_icao, p.fp_dest_icao,
                    c.first_seen_utc, c.last_seen_utc, p.fp_route, p.fp_route_expanded, p.afix,
                    t.atd_utc, t.off_utc, t.out_utc, p.fp_dept_artcc, p.fp_dept_tracon,
-                   a.airline_icao, a.airline_name
+                   a.airline_icao, a.airline_name,
+                   p.gcd_nm, p.route_dist_nm, p.fp_enroute_minutes
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
             LEFT JOIN dbo.adl_flight_times t ON c.flight_uid = t.flight_uid
@@ -1280,6 +1282,9 @@ class TMIComplianceAnalyzer:
                 'dept_tracon': row[13] if row[13] else None,
                 'airline_icao': row[14] if len(row) > 14 and row[14] else None,
                 'airline_name': row[15] if len(row) > 15 and row[15] else None,
+                'gcd_nm': float(row[16]) if len(row) > 16 and row[16] else None,
+                'route_dist_nm': float(row[17]) if len(row) > 17 and row[17] else None,
+                'fp_enroute_min': int(row[18]) if len(row) > 18 and row[18] else None,
             }
 
         cursor.close()
@@ -1732,6 +1737,59 @@ class TMIComplianceAnalyzer:
                 }
                 logger.info(f"  Airport {row[0]}: {row[1]:.4f}, {row[2]:.4f}")
         cursor.close()
+
+    def _load_known_airways(self) -> set:
+        """Load all known airway names from DB for token classification."""
+        if hasattr(self, '_known_airway_names'):
+            return self._known_airway_names
+        cursor = self.adl_conn.cursor()
+        cursor.execute("SELECT DISTINCT airway_name FROM dbo.airway_segments")
+        self._known_airway_names = {row[0].upper() for row in cursor.fetchall()}
+        cursor.close()
+        logger.info(f"  Loaded {len(self._known_airway_names)} known airway names")
+        return self._known_airway_names
+
+    def _expand_route_via_gis(self, route_string: str) -> List[Dict]:
+        """Expand a route string to ordered waypoints via PostGIS expand_route().
+
+        Uses the full PostGIS route expansion infrastructure:
+        - Airway expansion with multi-variant disambiguation
+        - FBD (Fix/Bearing/Distance) resolution
+        - Proximity-based fix disambiguation
+        - Distance sanity checks (4000nm cap)
+        - Procedure notation stripping
+        - Pseudo-fix filtering (UNKN, VARIOUS)
+
+        Returns list of dicts: [{seq, id, lat, lon, type}, ...]
+        """
+        if not self.gis_conn or not route_string:
+            return []
+        try:
+            cursor = self.gis_conn.cursor()
+            cursor.execute(
+                "SELECT waypoint_seq, waypoint_id, lat, lon, waypoint_type "
+                "FROM expand_route(%s)",
+                (route_string,)
+            )
+            waypoints = []
+            for row in cursor.fetchall():
+                waypoints.append({
+                    'seq': row[0],
+                    'id': row[1],
+                    'lat': float(row[2]) if row[2] else None,
+                    'lon': float(row[3]) if row[3] else None,
+                    'type': row[4]  # e.g., 'nav_fix', 'airway_J79', 'airport', 'fbd'
+                })
+            cursor.close()
+            return waypoints
+        except Exception as e:
+            logger.warning(f"  PostGIS expand_route failed for '{route_string[:50]}': {e}")
+            if self.gis_conn:
+                try:
+                    self.gis_conn.rollback()
+                except Exception:
+                    pass
+            return []
 
     def _preload_trajectories(self, callsigns: List[str]):
         """
@@ -3920,12 +3978,18 @@ class TMIComplianceAnalyzer:
 
             # Calculate GS delay: total additional ground time caused by the GS
             # = (dep_time - ready_time) - unimpeded_taxi
+            # Priority aligned with dep_time: out_utc > first_seen+connect
+            # (reversed from original which preferred first_seen — caused 840h phantom delays
+            #  on sticky flight records where first_seen is weeks/months stale)
             ready_time_for_delay = None
-            if first_seen:
-                connect_sec_d = self._get_connect_reference(dept)
-                ready_time_for_delay = normalize_datetime(first_seen) + timedelta(seconds=connect_sec_d)
-            elif out_utc:
+            if out_utc:
                 ready_time_for_delay = normalize_datetime(out_utc)
+            elif first_seen:
+                fs_dt = normalize_datetime(first_seen)
+                # Staleness guard: skip first_seen if >24h before dep_time
+                if abs((dep_time - fs_dt).total_seconds()) <= 86400:
+                    connect_sec_d = self._get_connect_reference(dept)
+                    ready_time_for_delay = fs_dt + timedelta(seconds=connect_sec_d)
 
             if ready_time_for_delay:
                 unimpeded_sec = self._get_taxi_reference(dept)
@@ -4122,14 +4186,20 @@ class TMIComplianceAnalyzer:
             # Calculate GS delay: total additional ground time caused by the GS
             # = (dep_time - ready_time) - unimpeded_taxi
             # This captures both gate hold AND excess taxi delay
-            # ready_time: when pilot was ready (first_seen+connect or out_utc)
+            # ready_time: when pilot was ready (out_utc or first_seen+connect)
             # dep_time: actual departure (off_utc, out_utc+taxi, or first_seen+connect)
+            # Priority aligned with dep_time: out_utc > first_seen+connect
+            # (reversed from original which preferred first_seen — caused 840h phantom delays
+            #  on sticky flight records where first_seen is weeks/months stale)
             ready_time_for_delay = None
-            if first_seen:
-                connect_sec = self._get_connect_reference(dept)
-                ready_time_for_delay = (normalize_datetime(first_seen) + timedelta(seconds=connect_sec))
-            elif out_utc:
+            if out_utc:
                 ready_time_for_delay = normalize_datetime(out_utc)
+            elif first_seen:
+                fs_dt = normalize_datetime(first_seen)
+                # Staleness guard: skip first_seen if >24h before dep_time
+                if abs((dep_time - fs_dt).total_seconds()) <= 86400:
+                    connect_sec = self._get_connect_reference(dept)
+                    ready_time_for_delay = fs_dt + timedelta(seconds=connect_sec)
 
             if ready_time_for_delay:
                 unimpeded_sec = self._get_taxi_reference(dept)
@@ -4408,23 +4478,63 @@ class TMIComplianceAnalyzer:
             }
 
         # Build route check patterns from reroute_routes
-        # Extract key fixes from required routes (marked with > <)
+        # Extract key fixes AND airways from required routes (marked with > <)
+        known_airways = self._load_known_airways()
         required_fixes = []
+        required_airways = []
+        required_route_strings = []  # For PostGIS expansion
         for route_spec in tmi.reroute_routes:
             route_str = route_spec.get('route', '')
-            # Extract fixes between > and < markers (mandatory segment)
             marked = re.findall(r'>([^<]+)<', route_str)
-            if marked:
-                for segment in marked:
-                    fixes = re.findall(r'[A-Z]{3,5}', segment)
-                    required_fixes.extend(fixes)
-            else:
-                # No markers - use all fixes
-                fixes = re.findall(r'[A-Z]{3,5}', route_str)
-                required_fixes.extend(fixes)
+            segments = marked if marked else [route_str]
+            for segment in segments:
+                required_route_strings.append(segment.strip())
+                for token in segment.split():
+                    t = token.strip().upper()
+                    if not t:
+                        continue
+                    ttype = classify_route_token(t, known_airways=known_airways)
+                    if ttype == 'airway':
+                        required_airways.append(t)
+                    elif ttype == 'procedure':
+                        base = re.match(r'^([A-Z]+)\d', t)
+                        if base:
+                            required_fixes.append(base.group(1))
+                    elif ttype == 'fix':
+                        required_fixes.append(t)
 
-        required_fixes = list(set(required_fixes))  # Deduplicate
+        required_fixes = list(dict.fromkeys(required_fixes))  # Dedupe preserving order
+        required_airways = list(dict.fromkeys(required_airways))
+
+        # Expand required route via PostGIS for full waypoint list
+        expanded_required = []
+        if self.gis_conn and required_route_strings:
+            combined_route = ' '.join(required_route_strings)
+            expanded_required = self._expand_route_via_gis(combined_route)
+            if expanded_required:
+                logger.info(f"  PostGIS expanded required route to {len(expanded_required)} waypoints")
+                for wp in expanded_required:
+                    if wp['type'] and wp['type'].startswith('airway_'):
+                        if wp['id'] not in self.fix_coords and wp['lat'] and wp['lon']:
+                            self.fix_coords[wp['id']] = {'lat': wp['lat'], 'lon': wp['lon']}
+
+        # Compute required route distance from PostGIS expanded waypoints
+        required_dist_nm = None
+        if expanded_required and len(expanded_required) >= 2:
+            total = 0
+            for i in range(1, len(expanded_required)):
+                wp0 = expanded_required[i - 1]
+                wp1 = expanded_required[i]
+                if wp0['lat'] and wp0['lon'] and wp1['lat'] and wp1['lon']:
+                    total += haversine_nm(wp0['lat'], wp0['lon'], wp1['lat'], wp1['lon'])
+            if total > 0:
+                required_dist_nm = round(total, 1)
+
         logger.info(f"  Required route fixes: {required_fixes}")
+        if required_airways:
+            logger.info(f"  Required route airways: {required_airways}")
+        if required_dist_nm:
+            logger.info(f"  Required route distance: {required_dist_nm} nm (PostGIS)")
 
         # Load coordinates for required fixes (for flown route analysis)
         fixes_to_load = [f for f in required_fixes if f not in self.fix_coords]
@@ -4442,12 +4552,17 @@ class TMIComplianceAnalyzer:
         if not self._trajectory_cache_loaded:
             self._preload_trajectories(all_callsigns)
 
+        # Build callsign lookup for distance data from flights_dict
+        flight_data_by_cs = {f.get('callsign'): f for f in flights_dict.values()}
+
         # Analyze each flight for both filed and flown compliance
         flight_results = []
         filed_compliant = []
         filed_non_compliant = []
         flown_compliant = []
         flown_non_compliant = []
+
+        total_elements = len(required_fixes) + len(required_airways)
 
         for row in flights:
             callsign, dept, dest, fp_route, first_seen, last_seen, route_expanded = row
@@ -4459,8 +4574,36 @@ class TMIComplianceAnalyzer:
             # Use expanded route (airways resolved to fixes) if available, fall back to raw
             match_route = route_expanded if route_expanded else fp_route
             route_upper = match_route.upper()
+            route_tokens = route_upper.split()
+
+            # Fix matching
             filed_matched_fixes = [f for f in required_fixes if f in route_upper]
-            filed_match_pct = len(filed_matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+
+            # Airway matching (token match + PostGIS expanded waypoint match)
+            airway_matched = []
+            for awy_name in required_airways:
+                awy_upper = awy_name.upper()
+                # Method 1: Airway name appears in filed route tokens
+                if awy_upper in route_tokens:
+                    airway_matched.append(awy_name)
+                    continue
+                # Method 2: Check expanded waypoints from PostGIS
+                awy_fixes = [wp['id'] for wp in expanded_required
+                             if wp['type'] == f'airway_{awy_upper}']
+                if len(awy_fixes) >= 2:
+                    consecutive = 0
+                    for af in awy_fixes:
+                        if af.upper() in route_tokens:
+                            consecutive += 1
+                            if consecutive >= 2:
+                                airway_matched.append(awy_name)
+                                break
+                        else:
+                            consecutive = 0
+
+            # Combined score (fixes + airways)
+            filed_matched_total = len(filed_matched_fixes) + len(airway_matched)
+            filed_match_pct = filed_matched_total / total_elements * 100 if total_elements else 0
             filed_status = 'FILED_COMPLIANT' if filed_match_pct >= 50 else 'FILED_NON_COMPLIANT'
 
             # === FLOWN ROUTE ANALYSIS ===
@@ -4468,8 +4611,9 @@ class TMIComplianceAnalyzer:
             trajectory = self._trajectory_cache.get(callsign, [])
             flown_matched_fixes = []
             flown_fix_details = []  # Details about each fix crossing
+            has_trajectory = bool(trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights)
 
-            if trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights:
+            if has_trajectory:
                 for fix_name in required_fixes:
                     if fix_name in self.fix_coords:
                         fix_lat = self.fix_coords[fix_name]['lat']
@@ -4487,7 +4631,6 @@ class TMIComplianceAnalyzer:
                                 crossing_time = pt['timestamp']
                                 crossing_alt = pt.get('alt', 0)
 
-                        # Consider "crossed" if within crossing radius (default 10nm)
                         if min_dist <= CROSSING_RADIUS_NM:
                             flown_matched_fixes.append(fix_name)
                             flown_fix_details.append({
@@ -4497,13 +4640,54 @@ class TMIComplianceAnalyzer:
                                 'altitude': int(crossing_alt) if crossing_alt else None
                             })
 
-            flown_match_pct = len(flown_matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+            # Flown airway matching via trajectory proximity to expanded waypoints
+            flown_airway_matched = []
+            if has_trajectory:
+                for awy_name in required_airways:
+                    awy_upper = awy_name.upper()
+                    awy_fixes = [wp for wp in expanded_required
+                                 if wp['type'] == f'airway_{awy_upper}' and wp['lat'] and wp['lon']]
+                    if not awy_fixes:
+                        continue
+                    consecutive = 0
+                    for wp in awy_fixes:
+                        min_dist = min(
+                            (haversine_nm(pt['lat'], pt['lon'], wp['lat'], wp['lon'])
+                             for pt in trajectory),
+                            default=float('inf')
+                        )
+                        if min_dist <= CROSSING_RADIUS_NM:
+                            consecutive += 1
+                            if consecutive >= 2:
+                                flown_airway_matched.append(awy_name)
+                                break
+                        else:
+                            consecutive = 0
+
+            flown_matched_total = len(flown_matched_fixes) + len(flown_airway_matched)
+            flown_match_pct = flown_matched_total / total_elements * 100 if total_elements else 0
             flown_status = 'FLOWN_COMPLIANT' if flown_match_pct >= 50 else 'FLOWN_NON_COMPLIANT'
 
-            # Handle case where no trajectory data is available
-            has_trajectory = bool(trajectory and len(trajectory) >= 2 and callsign not in self._low_quality_flights)
             if not has_trajectory:
                 flown_status = 'NO_TRAJECTORY'
+
+            # === DISTANCE DELTAS ===
+            flight_data = flight_data_by_cs.get(callsign, {})
+            filed_dist = flight_data.get('route_dist_nm') or flight_data.get('gcd_nm')
+            filed_enroute_min = flight_data.get('fp_enroute_min')
+
+            flown_dist_nm = None
+            flown_enroute_min = None
+            if has_trajectory and len(trajectory) >= 2:
+                total_d = sum(haversine_nm(
+                    trajectory[i - 1]['lat'], trajectory[i - 1]['lon'],
+                    trajectory[i]['lat'], trajectory[i]['lon']
+                ) for i in range(1, len(trajectory)))
+                flown_dist_nm = round(total_d, 1)
+                t0 = trajectory[0].get('timestamp')
+                t1 = trajectory[-1].get('timestamp')
+                if t0 and t1:
+                    flown_enroute_min = round((t1 - t0).total_seconds() / 60, 1)
 
             # Downsample trajectory for map display (every 3rd point, max 150)
             traj_coords = None
@@ -4520,16 +4704,28 @@ class TMIComplianceAnalyzer:
                 'route_expanded': route_expanded if route_expanded else None,
                 # Filed compliance
                 'filed_matched_fixes': filed_matched_fixes,
+                'filed_matched_airways': airway_matched,
                 'filed_match_pct': round(filed_match_pct, 1),
                 'filed_status': filed_status,
                 # Flown compliance
                 'has_trajectory': has_trajectory,
                 'flown_matched_fixes': flown_matched_fixes,
+                'flown_matched_airways': flown_airway_matched,
                 'flown_match_pct': round(flown_match_pct, 1),
                 'flown_status': flown_status,
                 'flown_fix_details': flown_fix_details,
                 # Trajectory for map display
                 'trajectory_coords': traj_coords,
+                # Distance deltas
+                'filed_dist_nm': filed_dist,
+                'flown_dist_nm': flown_dist_nm,
+                'required_dist_nm': required_dist_nm,
+                'filed_enroute_min': filed_enroute_min,
+                'flown_enroute_min': flown_enroute_min,
+                'filed_vs_required_nm': round(filed_dist - required_dist_nm, 1) if filed_dist and required_dist_nm else None,
+                'flown_vs_required_nm': round(flown_dist_nm - required_dist_nm, 1) if flown_dist_nm and required_dist_nm else None,
+                'flown_vs_filed_nm': round(flown_dist_nm - filed_dist, 1) if flown_dist_nm and filed_dist else None,
+                'flown_vs_filed_time_min': round(flown_enroute_min - filed_enroute_min, 1) if flown_enroute_min and filed_enroute_min else None,
                 # Overall status (filed takes precedence for reporting, flown for verification)
                 'filed_but_not_flown': filed_status == 'FILED_COMPLIANT' and flown_status == 'FLOWN_NON_COMPLIANT',
                 'flown_but_not_filed': filed_status == 'FILED_NON_COMPLIANT' and flown_status == 'FLOWN_COMPLIANT'
@@ -4577,6 +4773,9 @@ class TMIComplianceAnalyzer:
             'destinations': tmi.destinations,
             'required_routes': tmi.reroute_routes,
             'required_fixes': required_fixes,
+            'required_airways': required_airways,
+            'required_route_expanded': [{'id': wp['id'], 'type': wp['type']} for wp in expanded_required],
+            'required_dist_nm': required_dist_nm,
             'fix_coordinates': {name: self.fix_coords[name] for name in set(
                 required_fixes + (tmi.origins or []) + (tmi.destinations or [])
             ) if name in self.fix_coords},
@@ -4778,18 +4977,45 @@ class TMIComplianceAnalyzer:
                 'note': 'No flights found for reroute program scope'
             }
 
-        # Build required fixes from current routes
+        # Build required fixes and airways from current routes
+        known_airways = self._load_known_airways()
         required_fixes_by_od = {}  # (orig, dest) -> [fix_list]
+        required_airways_by_od = {}  # (orig, dest) -> [airway_list]
+        expanded_required_by_od = {}  # (orig, dest) -> [PostGIS expanded waypoints]
         all_required_fixes = []
+        all_required_airways = []
 
         for route in program.current_routes:
             for orig in route.origins:
                 key = (orig.upper(), route.destination.upper())
-                fixes = route.required_fixes if route.required_fixes else re.findall(r'[A-Z]{3,5}', route.route_string)
+                if route.required_fixes:
+                    fixes = route.required_fixes
+                else:
+                    fixes = [t for t in route.route_string.upper().split()
+                             if classify_route_token(t, known_airways) == 'fix']
+                if route.required_airways:
+                    airways = route.required_airways
+                else:
+                    airways = [t for t in route.route_string.upper().split()
+                               if classify_route_token(t, known_airways) == 'airway']
                 required_fixes_by_od[key] = fixes
+                required_airways_by_od[key] = airways
                 all_required_fixes.extend(fixes)
+                all_required_airways.extend(airways)
 
-        all_required_fixes = list(set(all_required_fixes))
+                # PostGIS expansion for route string
+                if self.gis_conn and route.route_string:
+                    expanded = self._expand_route_via_gis(route.route_string)
+                    if expanded:
+                        expanded_required_by_od[key] = expanded
+                        for wp in expanded:
+                            if wp['lat'] and wp['lon'] and wp['id'] not in self.fix_coords:
+                                self.fix_coords[wp['id']] = {'lat': wp['lat'], 'lon': wp['lon']}
+
+        all_required_fixes = list(dict.fromkeys(all_required_fixes))
+        all_required_airways = list(dict.fromkeys(all_required_airways))
+        if all_required_airways:
+            logger.info(f"  Required airways: {all_required_airways}")
 
         # Load fix coordinates for required fixes
         fixes_to_load = [f for f in all_required_fixes if f not in self.fix_coords]
@@ -4806,6 +5032,9 @@ class TMIComplianceAnalyzer:
         all_callsigns = [row[0] for row in flights]
         if not self._trajectory_cache_loaded:
             self._preload_trajectories(all_callsigns)
+
+        # Build callsign lookup for distance data from flights_dict
+        flight_data_by_cs = {f.get('callsign'): f for f in flights_dict.values()}
 
         # Analyze each flight
         flight_results = []
@@ -4842,6 +5071,8 @@ class TMIComplianceAnalyzer:
             od_key = (dept.upper(), dest.upper())
             # Try exact match first, then try with ICAO normalization
             required_fixes = required_fixes_by_od.get(od_key, [])
+            required_airways = required_airways_by_od.get(od_key, [])
+            expanded_required = expanded_required_by_od.get(od_key, [])
             if not required_fixes:
                 # Try normalized keys
                 for (o, d), fixes in required_fixes_by_od.items():
@@ -4849,11 +5080,30 @@ class TMIComplianceAnalyzer:
                     d_codes = set(normalize_icao_list([d]))
                     if dept.upper() in o_codes and dest.upper() in d_codes:
                         required_fixes = fixes
+                        required_airways = required_airways_by_od.get((o, d), [])
+                        expanded_required = expanded_required_by_od.get((o, d), [])
                         break
 
             if not required_fixes:
-                # No specific route for this OD pair - use all required fixes
+                # No specific route for this OD pair - use all required fixes/airways
                 required_fixes = all_required_fixes
+                required_airways = all_required_airways
+                # Use first available expanded route
+                expanded_required = next(iter(expanded_required_by_od.values()), [])
+
+            total_elements = len(required_fixes) + len(required_airways)
+
+            # Compute required route distance from PostGIS expansion for this OD
+            od_required_dist_nm = None
+            if expanded_required and len(expanded_required) >= 2:
+                total_d = 0
+                for i in range(1, len(expanded_required)):
+                    wp0 = expanded_required[i - 1]
+                    wp1 = expanded_required[i]
+                    if wp0['lat'] and wp0['lon'] and wp1['lat'] and wp1['lon']:
+                        total_d += haversine_nm(wp0['lat'], wp0['lon'], wp1['lat'], wp1['lon'])
+                if total_d > 0:
+                    od_required_dist_nm = round(total_d, 1)
 
             # === FILED ROUTE ANALYSIS ===
             # Prefer expanded route (airways resolved to constituent fixes) over raw filed route
@@ -4887,7 +5137,29 @@ class TMIComplianceAnalyzer:
                     # Fix present but out of order
                     filed_matched_fixes.append(fix)
 
-            filed_match_pct = len(filed_matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+            # Airway matching (token match + PostGIS expanded waypoint match)
+            airway_matched = []
+            for awy_name in required_airways:
+                awy_upper = awy_name.upper()
+                if awy_upper in route_tokens:
+                    airway_matched.append(awy_name)
+                    continue
+                awy_fixes = [wp['id'] for wp in expanded_required
+                             if wp['type'] == f'airway_{awy_upper}']
+                if len(awy_fixes) >= 2:
+                    consecutive = 0
+                    for af in awy_fixes:
+                        if af.upper() in route_tokens:
+                            consecutive += 1
+                            if consecutive >= 2:
+                                airway_matched.append(awy_name)
+                                break
+                        else:
+                            consecutive = 0
+
+            # Combined score
+            filed_matched_total = len(filed_matched_fixes) + len(airway_matched)
+            filed_match_pct = filed_matched_total / total_elements * 100 if total_elements else 0
 
             # Apply thresholds
             if filed_match_pct >= REROUTE_COMPLIANT_THRESHOLD * 100:
@@ -4934,7 +5206,32 @@ class TMIComplianceAnalyzer:
                                 'altitude': int(crossing_alt) if crossing_alt else None
                             })
 
-            flown_match_pct = len(flown_matched_fixes) / len(required_fixes) * 100 if required_fixes else 0
+            # Flown airway matching via trajectory proximity
+            flown_airway_matched = []
+            if has_trajectory:
+                for awy_name in required_airways:
+                    awy_upper = awy_name.upper()
+                    awy_fixes = [wp for wp in expanded_required
+                                 if wp['type'] == f'airway_{awy_upper}' and wp['lat'] and wp['lon']]
+                    if not awy_fixes:
+                        continue
+                    consecutive = 0
+                    for wp in awy_fixes:
+                        min_dist = min(
+                            (haversine_nm(pt['lat'], pt['lon'], wp['lat'], wp['lon'])
+                             for pt in trajectory),
+                            default=float('inf')
+                        )
+                        if min_dist <= CROSSING_RADIUS_NM:
+                            consecutive += 1
+                            if consecutive >= 2:
+                                flown_airway_matched.append(awy_name)
+                                break
+                        else:
+                            consecutive = 0
+
+            flown_matched_total = len(flown_matched_fixes) + len(flown_airway_matched)
+            flown_match_pct = flown_matched_total / total_elements * 100 if total_elements else 0
 
             if not has_trajectory:
                 flown_status = 'NO_TRAJECTORY'
@@ -4954,6 +5251,24 @@ class TMIComplianceAnalyzer:
             flown_level = flown_status.replace('FLOWN_', '') if flown_status != 'NO_TRAJECTORY' else filed_level
             final_status = max([filed_level, flown_level], key=lambda s: status_priority.get(s, 4))
 
+            # === DISTANCE DELTAS ===
+            flight_data = flight_data_by_cs.get(callsign, {})
+            filed_dist = flight_data.get('route_dist_nm') or flight_data.get('gcd_nm')
+            filed_enroute_min = flight_data.get('fp_enroute_min')
+
+            flown_dist_nm = None
+            flown_enroute_min = None
+            if has_trajectory and len(trajectory) >= 2:
+                total_d = sum(haversine_nm(
+                    trajectory[i - 1]['lat'], trajectory[i - 1]['lon'],
+                    trajectory[i]['lat'], trajectory[i]['lon']
+                ) for i in range(1, len(trajectory)))
+                flown_dist_nm = round(total_d, 1)
+                t0 = trajectory[0].get('timestamp')
+                t1 = trajectory[-1].get('timestamp')
+                if t0 and t1:
+                    flown_enroute_min = round((t1 - t0).total_seconds() / 60, 1)
+
             # Downsample trajectory for map display (every 3rd point, max 150)
             traj_coords = None
             if has_trajectory:
@@ -4967,17 +5282,30 @@ class TMIComplianceAnalyzer:
                 'dept_time': dep_time.strftime('%H:%M:%SZ'),
                 'filed_route': fp_route,
                 'filed_matched_fixes': filed_matched_fixes,
+                'filed_matched_airways': airway_matched,
                 'filed_match_pct': round(filed_match_pct, 1),
                 'filed_status': filed_status,
                 'has_trajectory': has_trajectory,
                 'flown_matched_fixes': flown_matched_fixes,
+                'flown_matched_airways': flown_airway_matched,
                 'flown_match_pct': round(flown_match_pct, 1),
                 'flown_status': flown_status,
                 'flown_fix_details': flown_fix_details,
                 'trajectory_coords': traj_coords,
                 'final_status': final_status,
                 'required_fixes': required_fixes,
-                'route_source': 'expanded' if route_expanded else 'filed'
+                'required_airways': required_airways,
+                'route_source': 'expanded' if route_expanded else 'filed',
+                # Distance deltas
+                'filed_dist_nm': filed_dist,
+                'flown_dist_nm': flown_dist_nm,
+                'required_dist_nm': od_required_dist_nm,
+                'filed_enroute_min': filed_enroute_min,
+                'flown_enroute_min': flown_enroute_min,
+                'filed_vs_required_nm': round(filed_dist - od_required_dist_nm, 1) if filed_dist and od_required_dist_nm else None,
+                'flown_vs_required_nm': round(flown_dist_nm - od_required_dist_nm, 1) if flown_dist_nm and od_required_dist_nm else None,
+                'flown_vs_filed_nm': round(flown_dist_nm - filed_dist, 1) if flown_dist_nm and filed_dist else None,
+                'flown_vs_filed_time_min': round(flown_enroute_min - filed_enroute_min, 1) if flown_enroute_min and filed_enroute_min else None,
             }
 
             flight_results.append(flight_info)
@@ -5018,6 +5346,7 @@ class TMIComplianceAnalyzer:
             'destinations': program.destinations,
             'required_routes': [{'orig': ','.join(r.origins), 'dest': r.destination, 'route': r.route_string} for r in program.current_routes],
             'required_fixes': all_required_fixes,
+            'required_airways': all_required_airways,
             'fix_coordinates': {name: self.fix_coords[name] for name in set(
                 all_required_fixes + program.origins + program.destinations
             ) if name in self.fix_coords},
