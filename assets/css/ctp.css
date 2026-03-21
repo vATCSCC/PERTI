@@ -523,9 +523,9 @@
 }
 
 .ctp-map-section.ctp-map-collapsed {
-    flex: 0 0 0px !important;
+    flex: 0 0 auto !important;
     min-height: 0 !important;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .ctp-map-section.ctp-map-collapsed .ctp-map,

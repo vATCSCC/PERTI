@@ -3148,6 +3148,187 @@
     };
 
     // ========================================================================
+    // Simulated Demand Charts (ECharts stacked bar from compute bins)
+    // ========================================================================
+
+    var SimDemandCharts = {
+        _charts: [],
+        _palette: [
+            '#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de',
+            '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#4dc9f6',
+            '#f7797d', '#c4b5fd', '#34d399', '#f59e0b', '#6366f1'
+        ],
+
+        dispose: function() {
+            this._charts.forEach(function(c) { if (c) c.dispose(); });
+            this._charts = [];
+        },
+
+        render: function($container, data) {
+            this.dispose();
+            if (typeof echarts === 'undefined') return;
+
+            var self = this;
+            var uid = 'sim_chart_' + Date.now();
+
+            // Chart selector tabs + container
+            $container.append(
+                '<div class="mt-2 mb-1">' +
+                '<div class="btn-group btn-group-sm mb-1" id="' + uid + '_tabs">' +
+                '<button class="btn btn-outline-info btn-sm active" data-chart="dep_track">' + t('ctp.planning.depByTrack') + '</button>' +
+                '<button class="btn btn-outline-info btn-sm" data-chart="dep_origin">' + t('ctp.planning.depByOrigin') + '</button>' +
+                '<button class="btn btn-outline-info btn-sm" data-chart="entry_track">' + t('ctp.planning.entryByTrack') + '</button>' +
+                '<button class="btn btn-outline-info btn-sm" data-chart="arr_dest">' + t('ctp.planning.arrByDest') + '</button>' +
+                '</div>' +
+                '<div id="' + uid + '_chart" style="width:100%;height:260px;"></div>' +
+                '</div>'
+            );
+
+            var chartEl = document.getElementById(uid + '_chart');
+            if (!chartEl) return;
+
+            var chart = echarts.init(chartEl);
+            self._charts.push(chart);
+
+            // Build all chart configs
+            var configs = {};
+
+            if (data.departure_profile && data.departure_profile.bins) {
+                configs.dep_track = self._buildConfig(data.departure_profile.bins, 'by_track', t('ctp.planning.departures') + ' (' + t('ctp.planning.byTrack') + ')');
+                configs.dep_origin = self._buildConfig(data.departure_profile.bins, 'by_origin', t('ctp.planning.departures') + ' (' + t('ctp.planning.byOrigin') + ')');
+            }
+            if (data.oceanic_entry_profile && data.oceanic_entry_profile.bins) {
+                configs.entry_track = self._buildConfig(data.oceanic_entry_profile.bins, 'by_track', t('ctp.planning.oceanEntry') + ' (' + t('ctp.planning.byTrack') + ')');
+            }
+            if (data.arrival_profile && data.arrival_profile.bins) {
+                configs.arr_dest = self._buildConfig(data.arrival_profile.bins, 'by_dest', t('ctp.planning.arrivals') + ' (' + t('ctp.planning.byDest') + ')');
+            }
+
+            // Show first available chart
+            var activeKey = 'dep_track';
+            if (configs[activeKey]) {
+                chart.setOption(configs[activeKey]);
+            }
+
+            // Tab switching
+            $('#' + uid + '_tabs').on('click', 'button', function() {
+                var key = $(this).data('chart');
+                $(this).addClass('active').siblings().removeClass('active');
+                if (configs[key]) {
+                    chart.setOption(configs[key], true);
+                }
+            });
+
+            // Resize on window resize
+            var resizeHandler = function() { chart.resize(); };
+            window.addEventListener('resize', resizeHandler);
+            // Also resize when panel is toggled/resized
+            setTimeout(function() { chart.resize(); }, 200);
+        },
+
+        _buildConfig: function(bins, breakdownKey, title) {
+            var self = this;
+
+            // Collect all category keys across bins
+            var keys = {};
+            bins.forEach(function(bin) {
+                var bd = bin[breakdownKey] || {};
+                Object.keys(bd).forEach(function(k) { keys[k] = true; });
+            });
+            var sortedKeys = Object.keys(keys).sort();
+
+            // Build series
+            var series = sortedKeys.map(function(key, idx) {
+                var seriesData = bins.map(function(bin) {
+                    var ts = self._parseUtc(bin.start_utc);
+                    var count = (bin[breakdownKey] || {})[key] || 0;
+                    return [ts, count];
+                });
+                return {
+                    name: key,
+                    type: 'bar',
+                    stack: 'demand',
+                    data: seriesData,
+                    itemStyle: { color: self._palette[idx % self._palette.length] },
+                    barMaxWidth: 28,
+                    emphasis: { focus: 'series' }
+                };
+            });
+
+            // Add total line
+            var totalData = bins.map(function(bin) {
+                return [self._parseUtc(bin.start_utc), bin.count || 0];
+            });
+            series.push({
+                name: 'Total',
+                type: 'line',
+                data: totalData,
+                lineStyle: { color: '#fff', width: 1.5, type: 'dashed' },
+                itemStyle: { color: '#fff' },
+                symbol: 'circle',
+                symbolSize: 4,
+                z: 10
+            });
+
+            return {
+                title: { text: title, left: 'center', top: 0, textStyle: { fontSize: 12, color: '#ccc' } },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    formatter: function(params) {
+                        if (!params || params.length === 0) return '';
+                        var d = new Date(params[0].value[0]);
+                        var hh = ('0' + d.getUTCHours()).slice(-2);
+                        var mm = ('0' + d.getUTCMinutes()).slice(-2);
+                        var tip = '<b>' + hh + ':' + mm + 'Z</b><br>';
+                        var total = 0;
+                        params.forEach(function(p) {
+                            if (p.seriesName !== 'Total' && p.value[1] > 0) {
+                                tip += '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + p.color + ';margin-right:4px;"></span>' +
+                                    p.seriesName + ': <b>' + p.value[1] + '</b><br>';
+                                total += p.value[1];
+                            }
+                        });
+                        tip += 'Total: <b>' + total + '</b>';
+                        return tip;
+                    }
+                },
+                legend: { top: 18, textStyle: { fontSize: 10, color: '#aaa' }, itemWidth: 12, type: 'scroll' },
+                grid: { left: 45, right: 15, top: 55, bottom: 25 },
+                xAxis: {
+                    type: 'time',
+                    axisLabel: {
+                        fontSize: 10,
+                        color: '#aaa',
+                        formatter: function(v) {
+                            var d = new Date(v);
+                            return ('0' + d.getUTCHours()).slice(-2) + ':' + ('0' + d.getUTCMinutes()).slice(-2);
+                        }
+                    },
+                    splitLine: { show: false }
+                },
+                yAxis: {
+                    type: 'value',
+                    name: t('ctp.demand.flights'),
+                    nameTextStyle: { fontSize: 10, color: '#888' },
+                    minInterval: 1,
+                    axisLabel: { fontSize: 10, color: '#aaa' },
+                    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } }
+                },
+                backgroundColor: 'rgba(26, 26, 46, 0.85)',
+                series: series
+            };
+        },
+
+        _parseUtc: function(utcStr) {
+            if (!utcStr) return 0;
+            // Parse "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DDTHH:MM:SS" as UTC
+            var p = utcStr.replace('T', ' ').split(/[- :]/);
+            return Date.UTC(+p[0], +p[1] - 1, +p[2], +p[3] || 0, +p[4] || 0, +p[5] || 0);
+        }
+    };
+
+    // ========================================================================
     // Planning Simulator
     // ========================================================================
     var PlanningSimulator = {
@@ -3783,6 +3964,9 @@
                 ComputeExport.exportAs($(this).data('ds'), $(this).data('fmt'));
             });
             $('#ctp_export_raw_json').on('click', function() { ComputeExport.exportFullJSON(); });
+
+            // Simulated demand charts (Departure by Origin, Oceanic Entry by Track, Arrival by Dest)
+            SimDemandCharts.render($results, data);
 
             // Constraint checks table
             if (data.constraint_checks && data.constraint_checks.length > 0) {
