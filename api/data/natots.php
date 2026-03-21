@@ -98,12 +98,14 @@ if ($html === false) {
     exit;
 }
 
-// Extract advisory header (ATCSCC ADVZY 045 DCC/ZBW 03/20/2026 NATOTS_RQD)
+// Extract advisory header (ATCSCC&nbsp;ADVZY&nbsp;045&nbsp;DCC/ZBW&nbsp;03/20/2026&nbsp;NATOTS_RQD)
+// The HTML uses &nbsp; entities between fields, so normalize them to spaces first
 $advzy_number = null;
 $advzy_date = null;
 $advzy_facilities = null;
 $advzy_type = null;
-if (preg_match('/ATCSCC\s+ADVZY\s+(\d+)\s+([A-Z\/]+)\s+(\d{2}\/\d{2}\/\d{4})\s+(\S+)/i', $html, $hm)) {
+$header_text = str_replace(['&nbsp;', '&#160;'], ' ', $html);
+if (preg_match('/ATCSCC\s+ADVZY\s+(\d+)\s+([A-Z\/]+)\s+(\d{2}\/\d{2}\/\d{4})\s+(\S+)/i', $header_text, $hm)) {
     $advzy_number = (int)$hm[1];
     $advzy_facilities = $hm[2];
     $advzy_date = $hm[3];
