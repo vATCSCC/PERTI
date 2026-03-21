@@ -366,6 +366,8 @@
       "unresolved": "Non r\u00e9solu"
     },
     "throughput": {
+      "title": "D\u00e9bit",
+      "configManager": "Gestionnaire de config. de d\u00e9bit",
       "config": "Config. de d\u00e9bit",
       "maxAcph": "ACPH max",
       "utilization": "Utilisation",
@@ -397,6 +399,8 @@
       "updated": "Config. de d\u00e9bit mise \u00e0 jour."
     },
     "planning": {
+      "title": "Planification",
+      "simulator": "Simulateur de planification",
       "scenario": "Sc\u00e9nario",
       "scenarioName": "Nom du sc\u00e9nario",
       "createScenario": "Cr\u00e9er un sc\u00e9nario",

@@ -202,20 +202,83 @@ include("load/connect.php");
             </button>
         </div>
 
-        <!-- Demand Chart (collapsible) -->
-        <div class="ctp-demand-section" id="ctp_demand_section" style="display:none;">
-            <div class="d-flex align-items-center justify-content-between px-3 py-1 border-top">
-                <span class="small font-weight-bold"><?= __('ctp.demand.title') ?></span>
-                <button class="btn btn-sm btn-link" id="ctp_demand_toggle" title="<?= __('ctp.demand.toggleTooltip') ?>">
-                    <i class="fas fa-chart-bar"></i>
-                </button>
-                <select id="ctp_demand_group_by" class="form-control form-control-sm d-inline-block ml-2" style="width:auto;display:inline-block !important">
-                    <option value="status"><?= __('ctp.demand.groupByStatus') ?></option>
-                    <option value="nat_track"><?= __('ctp.demand.groupByTrack') ?></option>
-                </select>
-            </div>
-            <div class="ctp-demand-chart-wrapper" id="ctp_demand_chart_wrapper">
-                <div id="ctp_demand_chart_container" style="height:300px"></div>
+        <!-- Bottom Tabs: Demand / Throughput / Planning -->
+        <div class="ctp-bottom-tabs" id="ctp_bottom_tabs" style="display:none;">
+            <ul class="nav nav-tabs nav-sm border-top px-2 pt-1" id="ctp_mgmt_tabs">
+                <li class="nav-item">
+                    <a class="nav-link active" data-toggle="tab" href="#ctp_demand_panel">
+                        <i class="fas fa-chart-bar mr-1"></i><?= __('ctp.demand.title') ?>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-toggle="tab" href="#ctp_throughput_panel">
+                        <i class="fas fa-tachometer-alt mr-1"></i><?= __('ctp.throughput.title') ?>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-toggle="tab" href="#ctp_planning_panel">
+                        <i class="fas fa-calculator mr-1"></i><?= __('ctp.planning.title') ?>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+                <!-- Demand Chart Tab -->
+                <div class="tab-pane fade show active" id="ctp_demand_panel">
+                    <div class="d-flex align-items-center px-3 py-1">
+                        <select id="ctp_demand_group_by" class="form-control form-control-sm d-inline-block" style="width:auto;">
+                            <option value="status"><?= __('ctp.demand.groupByStatus') ?></option>
+                            <option value="nat_track"><?= __('ctp.demand.groupByTrack') ?></option>
+                        </select>
+                    </div>
+                    <div class="ctp-demand-chart-wrapper" id="ctp_demand_chart_wrapper">
+                        <div id="ctp_demand_chart_container" style="height:300px"></div>
+                    </div>
+                </div>
+
+                <!-- Throughput Config Tab -->
+                <div class="tab-pane fade" id="ctp_throughput_panel">
+                    <div class="d-flex align-items-center justify-content-between px-3 py-2">
+                        <span class="small font-weight-bold"><?= __('ctp.throughput.configManager') ?></span>
+                        <button class="btn btn-sm btn-outline-primary" id="ctp_throughput_create">
+                            <i class="fas fa-plus mr-1"></i><?= __('ctp.throughput.createConfig') ?>
+                        </button>
+                    </div>
+                    <div class="px-3 pb-2">
+                        <table class="table table-sm table-striped table-hover mb-0" id="ctp_throughput_table">
+                            <thead>
+                                <tr>
+                                    <th><?= __('ctp.throughput.configLabel') ?></th>
+                                    <th><?= __('ctp.throughput.tracks') ?></th>
+                                    <th><?= __('ctp.throughput.origins') ?></th>
+                                    <th><?= __('ctp.throughput.destinations') ?></th>
+                                    <th><?= __('ctp.throughput.maxAcph') ?></th>
+                                    <th><?= __('ctp.throughput.priority') ?></th>
+                                    <th style="width:120px;"><?= __('common.actions') ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="7" class="text-center text-muted py-3"><?= __('ctp.throughput.noConfigs') ?></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Planning Simulator Tab -->
+                <div class="tab-pane fade" id="ctp_planning_panel">
+                    <div class="d-flex align-items-center justify-content-between px-3 py-2">
+                        <span class="small font-weight-bold"><?= __('ctp.planning.simulator') ?></span>
+                        <button class="btn btn-sm btn-outline-primary" id="ctp_planning_create">
+                            <i class="fas fa-plus mr-1"></i><?= __('ctp.planning.createScenario') ?>
+                        </button>
+                    </div>
+                    <div class="px-3 pb-2">
+                        <div id="ctp_planning_scenario_list" class="list-group list-group-flush mb-2">
+                            <div class="text-center text-muted py-3"><?= __('ctp.planning.noScenarios') ?></div>
+                        </div>
+                        <div id="ctp_planning_results" style="display:none;"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

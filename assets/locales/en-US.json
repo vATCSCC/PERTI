@@ -125,6 +125,7 @@
     }
   },
   "common": {
+    "actions": "Actions",
     "add": "Add",
     "all": "All",
     "apply": "Apply",
@@ -442,6 +443,8 @@
       "allActions": "All Actions"
     },
     "throughput": {
+      "title": "Throughput",
+      "configManager": "Throughput Config Manager",
       "config": "Throughput Config",
       "maxAcph": "Max ACPH",
       "utilization": "Utilization",
@@ -473,6 +476,8 @@
       "updated": "Throughput config updated."
     },
     "planning": {
+      "title": "Planning",
+      "simulator": "Planning Simulator",
       "scenario": "Scenario",
       "scenarioName": "Scenario Name",
       "createScenario": "Create Scenario",

@@ -212,7 +212,7 @@
                 $dirBadge.addClass('d-none');
                 $actions.hide();
                 $stats.hide();
-                $('#ctp_demand_section').hide();
+                $('#ctp_bottom_tabs').hide();
                 return;
             }
 
@@ -239,8 +239,8 @@
                 $stats.hide();
             }
 
-            // Demand chart visibility
-            $('#ctp_demand_section').toggle(s.status === 'ACTIVE' || s.status === 'MONITORING');
+            // Bottom tabs visibility (demand, throughput, planning)
+            $('#ctp_bottom_tabs').toggle(s.status === 'ACTIVE' || s.status === 'MONITORING' || s.status === 'DRAFT');
         },
 
         createSession: function() {
@@ -1498,7 +1498,7 @@
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({
-                    session_id: state.currentSession,
+                    session_id: state.currentSession.session_id,
                     dep_airport: flight.dep_airport || '',
                     arr_airport: flight.arr_airport || '',
                     is_event_flight: !!flight.is_event_flight,
@@ -1580,7 +1580,7 @@
                 contentType: 'application/json',
                 data: JSON.stringify({
                     route_string: routeStr,
-                    session_id: state.currentSession,
+                    session_id: state.currentSession.session_id,
                     dep_airport: this.currentFlight.dep_airport,
                     arr_airport: this.currentFlight.arr_airport,
                     altitude: parseInt($('#ctp_seg_altitude').val()) || null
@@ -1670,8 +1670,8 @@
                         }
 
                         // Refresh flight list and map
-                        FlightTable.loadFlights();
-                        MapController.loadRoutes();
+                        FlightTable.load();
+                        MapController.loadSessionData();
 
                         if (typeof PERTIDialog !== 'undefined') {
                             PERTIDialog.success('ctp.route.saved');
@@ -1775,7 +1775,7 @@
                 }),
                 success: function(resp) {
                     if (resp.status === 'ok') {
-                        FlightTable.loadFlights();
+                        FlightTable.load();
                         if (typeof PERTIDialog !== 'undefined') {
                             PERTIDialog.success('ctp.edct.assignedSuccess');
                         }
@@ -1803,7 +1803,7 @@
                 data: JSON.stringify({ ctp_control_id: ctpControlId }),
                 success: function(resp) {
                     if (resp.status === 'ok') {
-                        FlightTable.loadFlights();
+                        FlightTable.load();
                         if (typeof PERTIDialog !== 'undefined') {
                             PERTIDialog.success('ctp.edct.removedSuccess');
                         }
@@ -1889,13 +1889,13 @@
                     method: 'POST',
                     contentType: 'application/json',
                     data: JSON.stringify({
-                        session_id: state.currentSession,
+                        session_id: state.currentSession.session_id,
                         auto_assign: true,
                         base_time_utc: result.value.baseTime
                     }),
                     success: function(resp) {
                         if (resp.status === 'ok' && resp.data) {
-                            FlightTable.loadFlights();
+                            FlightTable.load();
                             DemandChart.refresh();
                             if (typeof PERTIDialog !== 'undefined') {
                                 PERTIDialog.success(t('ctp.edct.batchResult', {
@@ -1918,7 +1918,7 @@
                 method: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify({
-                    session_id: state.currentSession,
+                    session_id: state.currentSession.session_id,
                     auto_assign: true,
                     base_time_utc: baseTime,
                     interval_min: interval,
@@ -1927,7 +1927,7 @@
                 success: function(resp) {
                     if (resp.status === 'ok' && resp.data) {
                         state.selectedIds.clear();
-                        FlightTable.loadFlights();
+                        FlightTable.load();
                         DemandChart.refresh();
                         if (typeof PERTIDialog !== 'undefined') {
                             PERTIDialog.success(t('ctp.edct.batchResult', {
@@ -1974,7 +1974,7 @@
                 url: API.demand,
                 method: 'GET',
                 data: {
-                    session_id: state.currentSession,
+                    session_id: state.currentSession.session_id,
                     group_by: state.demandGroupBy || 'status',
                     bin_min: state.demandBinMin || 60
                 },
@@ -2437,7 +2437,7 @@
 
             $.ajax({
                 url: API.throughput.list,
-                data: { session_id: state.currentSession },
+                data: { session_id: state.currentSession.session_id },
                 success: function(resp) {
                     if (resp.status === 'ok' && resp.data) {
                         self.configs = resp.data.configs || [];
@@ -2517,7 +2517,7 @@
                 }
             }).then(function(result) {
                 if (result.isConfirmed && result.value) {
-                    result.value.session_id = state.currentSession;
+                    result.value.session_id = state.currentSession.session_id;
                     $.ajax({
                         url: API.throughput.create,
                         method: 'POST',
@@ -2619,7 +2619,7 @@
 
             $.ajax({
                 url: API.throughput.preview,
-                data: { session_id: state.currentSession, config_id: configId },
+                data: { session_id: state.currentSession.session_id, config_id: configId },
                 success: function(resp) {
                     if (resp.status === 'ok' && resp.data) {
                         var d = resp.data;
@@ -2661,7 +2661,7 @@
 
             $.ajax({
                 url: API.planning.scenarios,
-                data: { session_id: state.currentSession },
+                data: { session_id: state.currentSession.session_id },
                 success: function(resp) {
                     if (resp.status === 'ok' && resp.data) {
                         self.scenarios = resp.data.scenarios || [];
@@ -2711,7 +2711,7 @@
                         method: 'POST',
                         contentType: 'application/json',
                         data: JSON.stringify({
-                            session_id: state.currentSession,
+                            session_id: state.currentSession.session_id,
                             scenario_name: result.value
                         }),
                         success: function(resp) {
@@ -2852,7 +2852,7 @@
                         url: API.planning.apply_to_session,
                         method: 'POST',
                         contentType: 'application/json',
-                        data: JSON.stringify({ scenario_id: scenarioId, session_id: state.currentSession }),
+                        data: JSON.stringify({ scenario_id: scenarioId, session_id: state.currentSession.session_id }),
                         success: function(resp) {
                             if (resp.status === 'ok') {
                                 Swal.fire({ icon: 'success', title: t('ctp.planning.appliedSuccessfully'), timer: 2000, showConfirmButton: false });
