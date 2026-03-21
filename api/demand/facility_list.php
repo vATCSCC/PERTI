@@ -41,7 +41,8 @@ $response = [
 // Read TRACON tiers - organized by region (us/canada/caribbean/global)
 $traconFile = __DIR__ . "/../../assets/data/tracon_tiers.json";
 if (file_exists($traconFile)) {
-    $traconData = json_decode(file_get_contents($traconFile), true);
+    // Use JSON_INVALID_UTF8_IGNORE for files with CRLF line endings
+    $traconData = json_decode(file_get_contents($traconFile), true, 512, JSON_INVALID_UTF8_IGNORE);
     if ($traconData && is_array($traconData)) {
         // Extract regional sections (us, canada, caribbean, global)
         foreach (['us', 'canada', 'caribbean', 'global'] as $region) {
@@ -57,7 +58,7 @@ if (file_exists($traconFile)) {
 // Read ARTCC tiers - extract ARTCC codes from byFacility keys
 $artccFile = __DIR__ . "/../../assets/data/artcc_tiers.json";
 if (file_exists($artccFile)) {
-    $artccData = json_decode(file_get_contents($artccFile), true);
+    $artccData = json_decode(file_get_contents($artccFile), true, 512, JSON_INVALID_UTF8_IGNORE);
     if ($artccData && isset($artccData['byFacility']) && is_array($artccData['byFacility'])) {
         $artccs = array_keys($artccData['byFacility']);
         sort($artccs); // Alphabetical order
@@ -68,7 +69,7 @@ if (file_exists($artccFile)) {
 // Read FIR tiers - extract Canadian FIRs, organize groups
 $firFile = __DIR__ . "/../../assets/data/fir_tiers.json";
 if (file_exists($firFile)) {
-    $firData = json_decode(file_get_contents($firFile), true);
+    $firData = json_decode(file_get_contents($firFile), true, 512, JSON_INVALID_UTF8_IGNORE);
     if ($firData && is_array($firData)) {
         // Extract individual Canadian FIRs from regional section
         $canadianFirs = [];
