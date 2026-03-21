@@ -25,8 +25,10 @@
         bindEvents();
     });
 
+    var CACHE_BUST = '?_=' + Date.now();
+
     function discoverCycles() {
-        $.getJSON('assets/data/logs/changelog_index.json')
+        $.getJSON('assets/data/logs/changelog_index.json' + CACHE_BUST)
             .done(function (index) {
                 state.availableCycles = index.cycles || [];
                 populateCycleSelector();
@@ -54,7 +56,7 @@
     }
 
     function tryLoadChangelog(from, to) {
-        var url = 'assets/data/logs/AIRAC_CHANGELOG_' + from + '_' + to + '.json';
+        var url = 'assets/data/logs/AIRAC_CHANGELOG_' + from + '_' + to + '.json' + CACHE_BUST;
         $.getJSON(url)
             .done(function (data) {
                 var $sel = $('#cycle-selector');
@@ -70,7 +72,7 @@
 
     function loadChangelog(from, to) {
         showLoading();
-        var url = 'assets/data/logs/AIRAC_CHANGELOG_' + from + '_' + to + '.json';
+        var url = 'assets/data/logs/AIRAC_CHANGELOG_' + from + '_' + to + '.json' + CACHE_BUST;
         $.getJSON(url)
             .done(onChangelogLoaded)
             .fail(function () {

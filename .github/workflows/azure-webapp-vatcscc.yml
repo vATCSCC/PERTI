@@ -46,7 +46,7 @@ jobs:
                   --exclude='scripts/tmi/import_historical.php' \
                   --exclude='scripts/tmi/IMPORT_HISTORICAL_README.md' \
                   --exclude='assets/data/backups/' \
-                  --exclude='assets/data/logs/' \
+                  --exclude='assets/data/logs/navdata_changes_*' \
                   --exclude='assets/data/T_T100D_SEGMENT_US_CARRIER_ONLY.csv' \
                   --exclude='nul' \
                   . deploy/ || test $? = 24
