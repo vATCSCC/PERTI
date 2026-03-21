@@ -105,7 +105,7 @@ $advzy_date = null;
 $advzy_facilities = null;
 $advzy_type = null;
 $header_text = str_replace(['&nbsp;', '&#160;'], ' ', $html);
-if (preg_match('/ATCSCC\s+ADVZY\s+(\d+)\s+([A-Z\/]+)\s+(\d{2}\/\d{2}\/\d{4})\s+(\S+)/i', $header_text, $hm)) {
+if (preg_match('/ATCSCC\s+ADVZY\s+(\d+)\s+([A-Z\/]+)\s+(\d{2}\/\d{2}\/\d{4})\s+([\w_]+)/i', $header_text, $hm)) {
     $advzy_number = (int)$hm[1];
     $advzy_facilities = $hm[2];
     $advzy_date = $hm[3];
