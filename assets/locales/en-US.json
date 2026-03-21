@@ -575,7 +575,17 @@
       "exportBins": "Export time bins",
       "exportJSON": "Export full results as JSON",
       "exportAll": "Export All",
-      "timeBins": "Time Bins"
+      "timeBins": "Time Bins",
+      "depByTrack": "Departures by Track",
+      "depByOrigin": "Departures by Origin",
+      "entryByTrack": "Ocean Entry by Track",
+      "arrByDest": "Arrivals by Dest",
+      "departures": "Departures",
+      "arrivals": "Arrivals",
+      "oceanEntry": "Ocean Entry",
+      "byTrack": "by Track",
+      "byOrigin": "by Origin",
+      "byDest": "by Dest"
     },
     "routes": {
       "title": "Routes",
