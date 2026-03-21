@@ -318,6 +318,32 @@ for ($i = 0; $i < $num_extended_bins; $i++) {
         'end_ts' => $bin_end_oc->getTimestamp(),
         'count' => 0,
         'by_track' => [],
+        'by_origin' => [],
+        'by_dest' => [],
+    ];
+}
+
+// Extended bins for ocean exit (up to +8h past departure window)
+$exit_end = clone $dep_end;
+$exit_end->modify('+8 hours');
+$exit_minutes = (int)(($exit_end->getTimestamp() - $dep_start->getTimestamp()) / 60);
+$num_exit_bins = (int)ceil($exit_minutes / $BIN_SIZE_MINUTES);
+
+$ocean_exit_bins = [];
+for ($i = 0; $i < $num_exit_bins; $i++) {
+    $bin_start_ex = clone $dep_start;
+    $bin_start_ex->modify('+' . ($i * $BIN_SIZE_MINUTES) . ' minutes');
+    $bin_end_ex = clone $dep_start;
+    $bin_end_ex->modify('+' . min(($i + 1) * $BIN_SIZE_MINUTES, $exit_minutes) . ' minutes');
+    $ocean_exit_bins[$i] = [
+        'start_utc' => $bin_start_ex->format('Y-m-d\TH:i:s') . 'Z',
+        'end_utc' => $bin_end_ex->format('Y-m-d\TH:i:s') . 'Z',
+        'start_ts' => $bin_start_ex->getTimestamp(),
+        'end_ts' => $bin_end_ex->getTimestamp(),
+        'count' => 0,
+        'by_track' => [],
+        'by_origin' => [],
+        'by_dest' => [],
     ];
 }
 
@@ -340,6 +366,7 @@ for ($i = 0; $i < $num_arrival_bins; $i++) {
         'end_ts' => $bin_end_ar->getTimestamp(),
         'count' => 0,
         'by_dest' => [],
+        'by_track' => [],
     ];
 }
 
