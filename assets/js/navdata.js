@@ -5,18 +5,17 @@
 (function () {
     'use strict';
 
-    var PAGE_SIZE = 100;
-
     var state = {
         changelog: null,      // current changelog JSON
         allChanges: [],       // full changes array
         filtered: [],         // after search/filter/tab
-        displayed: 0,         // how many rows currently shown
         searchTerm: '',
         activeType: 'all',
         activeAction: 'all',
         activeScope: 'all',   // 'all', 'nasr', 'intl'
-        availableCycles: []
+        availableCycles: [],
+        currentPage: 1,
+        pageSize: 100
     };
 
     // ─── Initialization ───────────────────────────────────────────
@@ -145,9 +144,25 @@
             applyFilters();
         });
 
-        // Load more
-        $('#load-more-btn').on('click', function () {
-            renderMore();
+        // Pagination
+        $('#page-prev').on('click', function () {
+            if (state.currentPage > 1) {
+                state.currentPage--;
+                renderPage();
+            }
+        });
+        $('#page-next').on('click', function () {
+            var pages = state.pageSize ? Math.ceil(state.filtered.length / state.pageSize) : 1;
+            if (state.currentPage < pages) {
+                state.currentPage++;
+                renderPage();
+            }
+        });
+        $('#page-size').on('change', function () {
+            state.pageSize = parseInt($(this).val(), 10);
+            state.currentPage = 1;
+            renderPage();
+            updateResultCount();
         });
 
         // Expandable detail rows
@@ -185,7 +200,7 @@
         }
         if (state.activeScope !== 'all') {
             result = result.filter(function (c) {
-                if (c.type !== 'dp' && c.type !== 'star') return true;
+                if (!c.source) return true;
                 return c.source === state.activeScope;
             });
         }
@@ -217,41 +232,49 @@
         }
 
         state.filtered = result;
-        state.displayed = 0;
+        state.currentPage = 1;
         $('#changes-body').empty();
-        renderMore();
+        renderPage();
         updateResultCount();
     }
 
     // ─── Rendering ────────────────────────────────────────────────
 
-    function renderMore() {
-        var batch = state.filtered.slice(state.displayed, state.displayed + PAGE_SIZE);
-        if (batch.length === 0 && state.displayed === 0) {
+    function renderPage() {
+        var total = state.filtered.length;
+        if (total === 0) {
             showEmpty(state.searchTerm
                 ? PERTII18n.t('navdata.empty.noResults')
                 : PERTII18n.t('navdata.empty.noChanges'));
-            $('#load-more-row').hide();
+            $('#pagination-controls').hide();
             return;
         }
 
         $('#empty-state').hide();
-        var $body = $('#changes-body');
-        var startIdx = state.displayed;
-        batch.forEach(function (c, i) {
-            $body.append(renderChangeRow(c, startIdx + i));
-        });
-        state.displayed += batch.length;
+        var $body = $('#changes-body').empty();
 
-        var remaining = state.filtered.length - state.displayed;
-        if (remaining > 0) {
-            $('#load-more-row').show();
-            $('#load-more-btn').text(
-                PERTII18n.t('navdata.loadMore') + ' (' + remaining + ' ' + PERTII18n.t('navdata.remaining') + ')'
-            );
-        } else {
-            $('#load-more-row').hide();
-        }
+        // "All" mode: pageSize === 0
+        var pageSize = state.pageSize || total;
+        var start = (state.currentPage - 1) * pageSize;
+        var end = Math.min(start + pageSize, total);
+        var batch = state.filtered.slice(start, end);
+
+        batch.forEach(function (c, i) {
+            $body.append(renderChangeRow(c, start + i));
+        });
+
+        // Update pagination controls
+        var pages = Math.ceil(total / pageSize);
+        if (state.pageSize === 0) pages = 1;
+        var from = start + 1;
+        var to = end;
+
+        $('#page-info').text(
+            PERTII18n.t('navdata.pagination.showing', { from: from, to: to, total: total })
+        );
+        $('#page-prev').prop('disabled', state.currentPage <= 1);
+        $('#page-next').prop('disabled', state.currentPage >= pages);
+        $('#pagination-controls').toggle(total > 0);
     }
 
     function renderChangeRow(c, idx) {
@@ -262,7 +285,7 @@
         if (state.searchTerm) detail = highlightMatch(detail, state.searchTerm);
 
         var typeBadges = '<span class="badge badge-type">' + escapeHtml(c.type || '') + '</span>';
-        if ((c.type === 'dp' || c.type === 'star') && c.source) {
+        if (c.source) {
             var srcClass = c.source === 'nasr' ? 'badge-source-nasr' : 'badge-source-intl';
             var srcLabel = c.source === 'nasr'
                 ? PERTII18n.t('navdata.scope.nasr')
@@ -770,9 +793,9 @@
 
             // Pick the right summary based on scope filter
             var s;
-            if (activeScope === 'nasr' && (key === 'dps' || key === 'stars')) {
+            if (activeScope === 'nasr' && (nasrSummary[key] || intlSummary[key])) {
                 s = nasrSummary[key] || {};
-            } else if (activeScope === 'intl' && (key === 'dps' || key === 'stars')) {
+            } else if (activeScope === 'intl' && (nasrSummary[key] || intlSummary[key])) {
                 s = intlSummary[key] || {};
             } else {
                 s = summary[key] || {};
@@ -786,9 +809,9 @@
             if (s.removed) statsHtml += '<span class="stat-removed">-' + s.removed + '</span> ';
             if (!statsHtml) statsHtml = '<span class="stat-preserved">' + PERTII18n.t('navdata.noChanges') + '</span>';
 
-            // Sub-counts for DPs/STARs when showing all
+            // Sub-counts for types with mixed NASR/Intl data when showing all
             var subHtml = '';
-            if (activeScope === 'all' && (key === 'dps' || key === 'stars')) {
+            if (activeScope === 'all') {
                 var ns = nasrSummary[key] || {};
                 var is = intlSummary[key] || {};
                 var hasNasr = (ns.added || 0) + (ns.modified || 0) + (ns.removed || 0) > 0;
@@ -855,7 +878,7 @@
         var scopeFiltered = state.allChanges;
         if (state.activeScope !== 'all') {
             scopeFiltered = scopeFiltered.filter(function (c) {
-                if (c.type !== 'dp' && c.type !== 'star') return true;
+                if (!c.source) return true;
                 return c.source === state.activeScope;
             });
         }
@@ -893,7 +916,7 @@
         $('#loading-state').show();
         $('#empty-state').hide();
         $('#changes-body').empty();
-        $('#load-more-row').hide();
+        $('#pagination-controls').hide();
     }
 
     function hideLoading() {

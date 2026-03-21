@@ -2872,6 +2872,13 @@
       "intl": "International",
       "nasrLabel": "NASR (US)",
       "intlLabel": "International"
+    },
+    "pagination": {
+      "prev": "Prev",
+      "next": "Next",
+      "all": "All",
+      "perPage": "per page",
+      "showing": "Showing {from}\u2013{to} of {total}"
     }
   },
   "natots": {

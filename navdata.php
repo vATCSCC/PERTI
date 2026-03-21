@@ -116,11 +116,22 @@ include("load/i18n.php");
             </table>
         </div>
 
-        <!-- Load More / Empty State -->
-        <div id="load-more-row" class="text-center py-3" style="display:none">
-            <button id="load-more-btn" class="btn btn-sm btn-outline-secondary">
-                <?= __('navdata.loadMore') ?>
-            </button>
+        <!-- Pagination Controls -->
+        <div class="d-flex align-items-center justify-content-between mt-2" id="pagination-controls" style="display:none">
+            <div class="d-flex align-items-center">
+                <span id="page-info" class="text-muted small mr-3"></span>
+                <select id="page-size" class="custom-select custom-select-sm" style="width:auto">
+                    <option value="50">50</option>
+                    <option value="100" selected>100</option>
+                    <option value="250">250</option>
+                    <option value="0"><?= __('navdata.pagination.all') ?></option>
+                </select>
+                <span class="text-muted small ml-2"><?= __('navdata.pagination.perPage') ?></span>
+            </div>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary" id="page-prev" disabled>&laquo; <?= __('navdata.pagination.prev') ?></button>
+                <button class="btn btn-outline-secondary" id="page-next"><?= __('navdata.pagination.next') ?> &raquo;</button>
+            </div>
         </div>
         <div id="empty-state" class="text-center py-5" style="display:none">
             <i class="fas fa-inbox fa-3x text-muted mb-3 d-block"></i>
