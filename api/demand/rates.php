@@ -14,6 +14,7 @@ header('Cache-Control: no-cache, must-revalidate');
 
 require_once(__DIR__ . "/../../load/config.php");
 require_once(__DIR__ . "/../../load/input.php");
+require_once(__DIR__ . "/../../load/cache.php");
 
 // Check ADL database configuration
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
@@ -55,6 +56,15 @@ if (empty($airport)) {
 // Normalize airport code (add K prefix for US 3-letter codes)
 if (strlen($airport) === 3 && !preg_match('/^[PK]/', $airport)) {
     $airport = 'K' . $airport;
+}
+
+// Check APCu cache before opening DB connection (15s TTL - rates change with ATIS/config)
+$cacheKey = demand_cache_key('rates', ['airport' => $airport]);
+$cached = apcu_cache_get($cacheKey);
+if ($cached !== null) {
+    header('X-Cache: HIT');
+    echo json_encode($cached);
+    exit;
 }
 
 // Connect to ADL database
@@ -184,4 +194,7 @@ $response = [
     "override_end_utc" => $overrideEndUtc
 ];
 
+// Cache response (15s TTL)
+apcu_cache_set($cacheKey, $response, 15);
+header('X-Cache: MISS');
 echo json_encode($response);

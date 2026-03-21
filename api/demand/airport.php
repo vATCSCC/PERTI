@@ -13,6 +13,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once(__DIR__ . "/../../load/config.php");
 require_once(__DIR__ . "/../../load/input.php");
+require_once(__DIR__ . "/../../load/cache.php");
 
 // Check ADL database configuration
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
@@ -114,9 +115,31 @@ if ($end !== null) {
 $startSQL = $startDt->format('Y-m-d H:i:s');
 $endSQL = $endDt->format('Y-m-d H:i:s');
 
+// Check APCu cache before opening DB connection (30s TTL)
+$cacheKey = demand_cache_key('airport', [
+    'airport' => $airport,
+    'start' => $startSQL,
+    'end' => $endSQL,
+    'granularity' => $granularity,
+    'direction' => $direction,
+    'time_basis' => $timeBasis,
+    'program_id' => $programId
+]);
+$cached = apcu_cache_get($cacheKey);
+if ($cached !== null) {
+    header('X-Cache: HIT');
+    $clientHash = isset($_SERVER['HTTP_X_IF_DATA_HASH']) ? $_SERVER['HTTP_X_IF_DATA_HASH'] : null;
+    if ($clientHash && isset($cached['data_hash']) && $clientHash === $cached['data_hash']) {
+        echo json_encode(["unchanged" => true, "data_hash" => $cached['data_hash']]);
+    } else {
+        echo json_encode($cached);
+    }
+    exit;
+}
+
 // Use ADL Query Helper for normalized table support
 require_once(__DIR__ . '/../adl/AdlQueryHelper.php');
-$helper = new AdlQueryHelper();
+$helper = new AdlQueryHelper('normalized');
 
 $response = [
     "success" => true,
@@ -207,7 +230,12 @@ if ($timeBasis === 'ctd') {
     }
 
     sqlsrv_close($conn);
-    echo json_encode($response);
+    $dataHash = md5(json_encode($response));
+    $response['data_hash'] = $dataHash;
+    apcu_cache_set($cacheKey, $response, 30);
+    header('X-Cache: MISS');
+    $clientHash = isset($_SERVER['HTTP_X_IF_DATA_HASH']) ? $_SERVER['HTTP_X_IF_DATA_HASH'] : null;
+    echo json_encode($clientHash === $dataHash ? ["unchanged" => true, "data_hash" => $dataHash] : $response);
     exit;
 }
 
@@ -323,4 +351,14 @@ if ($lastUpdateStmt !== false) {
 
 sqlsrv_close($conn);
 
-echo json_encode($response);
+// Compute content hash for change detection
+$dataHash = md5(json_encode($response));
+$response['data_hash'] = $dataHash;
+
+// Cache response (30s TTL)
+apcu_cache_set($cacheKey, $response, 30);
+header('X-Cache: MISS');
+
+// Check if client already has this data
+$clientHash = isset($_SERVER['HTTP_X_IF_DATA_HASH']) ? $_SERVER['HTTP_X_IF_DATA_HASH'] : null;
+echo json_encode($clientHash === $dataHash ? ["unchanged" => true, "data_hash" => $dataHash] : $response);

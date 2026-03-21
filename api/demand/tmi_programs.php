@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once(__DIR__ . "/../../load/config.php");
+require_once(__DIR__ . "/../../load/cache.php");
 
 // Check TMI database configuration
 if (!defined("TMI_SQL_HOST") || !defined("TMI_SQL_DATABASE") ||
@@ -67,6 +68,22 @@ if (strlen($airport) === 3 && !preg_match('/^[PK]/', $airport)) {
 $airportFaa = strlen($airport) === 4 && preg_match('/^K[A-Z]{3}$/', $airport)
     ? substr($airport, 1)
     : $airport;
+
+// Check APCu cache (60s TTL - bucket times to 5-min intervals for key stability)
+$startBucket = floor($startDt->getTimestamp() / 300) * 300;
+$endBucket = floor($endDt->getTimestamp() / 300) * 300;
+$cacheKey = demand_cache_key('tmi_programs', [
+    'airport' => $airportNormalized,
+    'start_bucket' => $startBucket,
+    'end_bucket' => $endBucket,
+    'include_proposed' => $includeProposed ? '1' : '0'
+]);
+$cached = apcu_cache_get($cacheKey);
+if ($cached !== null) {
+    header('X-Cache: HIT');
+    echo json_encode($cached);
+    exit;
+}
 
 // Connect to TMI database
 try {
@@ -188,7 +205,7 @@ try {
         ];
     }
 
-    echo json_encode([
+    $programsResponse = [
         "success" => true,
         "airport_icao" => $airportNormalized,
         "programs" => $programs,
@@ -199,7 +216,10 @@ try {
             "end" => $endDt->format('Y-m-d\TH:i:s\Z')
         ],
         "server_utc" => gmdate('Y-m-d\TH:i:s\Z')
-    ]);
+    ];
+    apcu_cache_set($cacheKey, $programsResponse, 60);
+    header('X-Cache: MISS');
+    echo json_encode($programsResponse);
 
 } catch (Exception $e) {
     http_response_code(500);

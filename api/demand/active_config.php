@@ -17,6 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once(__DIR__ . "/../../load/config.php");
+require_once(__DIR__ . "/../../load/cache.php");
 
 // Check TMI database configuration
 if (!defined("TMI_SQL_HOST") || !defined("TMI_SQL_DATABASE") ||
@@ -45,6 +46,15 @@ if (strlen($airport) === 3 && !preg_match('/^[PK]/', $airport)) {
 $airportFaa = strlen($airport) === 4 && preg_match('/^K[A-Z]{3}$/', $airport)
     ? substr($airport, 1)
     : $airport;
+
+// Check APCu cache before opening DB connection (60s TTL - rarely changes once published)
+$cacheKey = demand_cache_key('active_config', ['airport' => $airportNormalized]);
+$cached = apcu_cache_get($cacheKey);
+if ($cached !== null) {
+    header('X-Cache: HIT');
+    echo json_encode($cached);
+    exit;
+}
 
 // Connect to TMI database
 try {
@@ -97,13 +107,16 @@ try {
 
     if (!$row) {
         // No active CONFIG entry found
-        echo json_encode([
+        $noConfigResponse = [
             "success" => true,
             "airport_icao" => $airportNormalized,
             "has_active_config" => false,
             "config" => null,
             "message" => "No active TMI CONFIG entry for this airport"
-        ]);
+        ];
+        apcu_cache_set($cacheKey, $noConfigResponse, 60);
+        header('X-Cache: MISS');
+        echo json_encode($noConfigResponse);
         exit;
     }
 
@@ -174,13 +187,16 @@ try {
         "source" => "TMI"
     ];
 
-    echo json_encode([
+    $configResponse = [
         "success" => true,
         "airport_icao" => $airportNormalized,
         "has_active_config" => true,
         "config" => $config,
         "server_utc" => gmdate('Y-m-d\TH:i:s\Z')
-    ]);
+    ];
+    apcu_cache_set($cacheKey, $configResponse, 60);
+    header('X-Cache: MISS');
+    echo json_encode($configResponse);
 
 } catch (Exception $e) {
     http_response_code(500);

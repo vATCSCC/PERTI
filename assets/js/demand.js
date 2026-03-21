@@ -846,7 +846,7 @@ const DEMAND_STATE = {
     artcc: '',
     tier: 'all',
     autoRefresh: true,
-    refreshInterval: 15000, // 15 seconds
+    refreshInterval: 60000, // 60 seconds
     refreshTimer: null,
     chart: null,
     lastUpdate: null,
@@ -887,8 +887,10 @@ const DEMAND_STATE = {
     atisData: null, // Store ATIS data from API
     // Cache management
     cacheTimestamp: null, // When data was last loaded from API
-    cacheValidityMs: 15000, // Cache is valid for 15 seconds
+    cacheValidityMs: 60000, // Cache is valid for 60 seconds
     summaryLoaded: false, // Whether summary breakdown data has been loaded
+    demandDataHash: null, // MD5 hash of last demand data for change detection
+    summaryDataHash: null, // MD5 hash of last summary data for change detection
     // Legend visibility (persisted in localStorage)
     legendVisible: localStorage.getItem('demand_legend_visible') !== 'false', // default true
     // ECharts legend selected state (preserved across auto-refresh)
@@ -1627,6 +1629,8 @@ function setupEventHandlers() {
     $('#demand_airport').on('change', function() {
         const airport = $(this).val();
         DEMAND_STATE.selectedAirport = airport;
+        DEMAND_STATE.demandDataHash = null; // Reset hash on airport change
+        DEMAND_STATE.summaryDataHash = null;
         if (airport) {
             loadDemandData();
             startAutoRefresh();
@@ -1852,6 +1856,9 @@ function initPhaseFilterFloatingPanel() {
 
     // Pop out to floating panel
     $popoutBtn.on('click', function() {
+        // Prevent duplicate popouts if panel is already visible
+        if ($floatingPanel.hasClass('visible')) return;
+
         // Move checkboxes to floating panel
         $checkboxes.appendTo($floatingBody);
 
@@ -2085,7 +2092,16 @@ function loadDemandData() {
 
     // Fetch demand data, rate suggestions, ATIS, active TMI config, and scheduled configs in parallel
     // Use Promise.allSettled so optional API failures don't block demand data
-    const demandPromise = $.getJSON(`api/demand/airport.php?${params.toString()}`);
+    // Send data hash header for change detection on demand endpoint
+    const demandHeaders = {};
+    if (DEMAND_STATE.demandDataHash) {
+        demandHeaders['X-If-Data-Hash'] = DEMAND_STATE.demandDataHash;
+    }
+    const demandPromise = $.ajax({
+        url: `api/demand/airport.php?${params.toString()}`,
+        dataType: 'json',
+        headers: demandHeaders
+    });
     const ratesPromise = $.getJSON(`api/demand/rates.php?airport=${encodeURIComponent(airport)}`);
     const atisPromise = $.getJSON(`api/demand/atis.php?airport=${encodeURIComponent(airport)}`);
     const tmiConfigPromise = $.getJSON(`api/demand/active_config.php?airport=${encodeURIComponent(airport)}`);
@@ -2104,16 +2120,24 @@ function loadDemandData() {
             }
 
             const demandResponse = demandResult.value;
-            if (!demandResponse.success) {
+            let demandUnchanged = false;
+
+            // Handle unchanged response (hash match — skip chart re-rendering but still process other endpoints)
+            if (demandResponse.unchanged) {
+                demandUnchanged = true;
+                DEMAND_STATE.lastUpdate = new Date();
+                DEMAND_STATE.cacheTimestamp = Date.now();
+            } else if (!demandResponse.success) {
                 console.error('API error:', demandResponse.error);
                 showError(PERTII18n.t('demand.error.loadDemandData') + ': ' + demandResponse.error);
                 return;
+            } else {
+                DEMAND_STATE.lastUpdate = new Date();
+                DEMAND_STATE.lastDemandData = demandResponse; // Store for view switching
+                DEMAND_STATE.demandDataHash = demandResponse.data_hash || null; // Store hash for next refresh
+                DEMAND_STATE.cacheTimestamp = Date.now(); // Mark cache as fresh
+                DEMAND_STATE.summaryLoaded = false; // Summary needs to be reloaded
             }
-
-            DEMAND_STATE.lastUpdate = new Date();
-            DEMAND_STATE.lastDemandData = demandResponse; // Store for view switching
-            DEMAND_STATE.cacheTimestamp = Date.now(); // Mark cache as fresh
-            DEMAND_STATE.summaryLoaded = false; // Summary needs to be reloaded
 
             // Handle rate data (optional - don't fail if unavailable)
             // Check for active TMI CONFIG first - it takes precedence
@@ -2189,19 +2213,27 @@ function loadDemandData() {
                 }
             }
 
-            // Render based on current view mode
-            if (DEMAND_STATE.chartView === 'status') {
-                // Status view - render immediately with demand data
-                renderChart(demandResponse);
-                // Load flight summary data (for tables, not chart)
-                loadFlightSummary(false);
-            } else {
-                // Any breakdown view - load breakdown data first, then render
-                loadFlightSummary(true);
-            }
+            // Render chart and update stats (skip if demand data unchanged)
+            if (!demandUnchanged) {
+                if (DEMAND_STATE.chartView === 'status') {
+                    // Status view - render immediately with demand data
+                    renderChart(demandResponse);
+                    // Load flight summary data (for tables, not chart)
+                    loadFlightSummary(false);
+                } else {
+                    // Any breakdown view - load breakdown data first, then render
+                    loadFlightSummary(true);
+                }
 
-            updateInfoBarStats(demandResponse);
-            updateLastUpdateDisplay(demandResponse.last_adl_update);
+                updateInfoBarStats(demandResponse);
+                updateLastUpdateDisplay(demandResponse.last_adl_update);
+            } else {
+                updateLastUpdateDisplay(DEMAND_STATE.lastDemandData ? DEMAND_STATE.lastDemandData.last_adl_update : null);
+                // Hide loading spinner since renderChart/renderBreakdownChart won't be called
+                if (DEMAND_STATE.chart) {
+                    DEMAND_STATE.chart.hideLoading();
+                }
+            }
 
             // Sync checkbox DOM state to ensure visual state matches JS state after refresh
             syncPhaseCheckboxes();
@@ -5526,8 +5558,25 @@ function loadFlightSummary(renderOriginChartAfter) {
     });
 
     console.log('[Demand] Summary API call - granularity:', getGranularityMinutes(), 'URL:', params.toString());
-    $.getJSON(`api/demand/summary.php?${params.toString()}`)
-        .done(function(response) {
+    const summaryHeaders = {};
+    if (DEMAND_STATE.summaryDataHash) {
+        summaryHeaders['X-If-Data-Hash'] = DEMAND_STATE.summaryDataHash;
+    }
+    $.ajax({
+        url: `api/demand/summary.php?${params.toString()}`,
+        dataType: 'json',
+        headers: summaryHeaders
+    }).done(function(response) {
+            // Handle unchanged response (hash match — skip re-rendering)
+            if (response.unchanged) {
+                DEMAND_STATE.summaryLoaded = true;
+                DEMAND_STATE.cacheTimestamp = Date.now();
+                if (renderOriginChartAfter && DEMAND_STATE.chartView !== 'status') {
+                    renderBreakdownChart(DEMAND_STATE.chartView);
+                }
+                return;
+            }
+
             if (response.success) {
                 updateTopOrigins(response.top_origins || []);
                 updateTopCarriers(response.top_carriers || []);
@@ -5546,6 +5595,7 @@ function loadFlightSummary(renderOriginChartAfter) {
 
                 // Mark summary data as loaded (for caching)
                 DEMAND_STATE.summaryLoaded = true;
+                DEMAND_STATE.summaryDataHash = response.data_hash || null;
                 DEMAND_STATE.cacheTimestamp = Date.now(); // Refresh cache timestamp
 
                 // Debug: Log breakdown data sizes and sample keys
