@@ -63,6 +63,12 @@ include("load/i18n.php");
                 </div>
             </div>
             <div class="d-flex align-items-center">
+                <!-- Scope Filter -->
+                <div class="btn-group btn-group-sm mr-3" id="scope-filter">
+                    <button class="btn btn-outline-secondary active" data-scope="all"><?= __('common.all') ?></button>
+                    <button class="btn btn-outline-primary" data-scope="nasr"><?= __('navdata.scope.nasr') ?></button>
+                    <button class="btn btn-outline-info" data-scope="intl"><?= __('navdata.scope.intl') ?></button>
+                </div>
                 <span id="result-count" class="text-muted small mr-3"></span>
             </div>
         </div>

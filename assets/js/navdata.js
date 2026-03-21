@@ -15,6 +15,7 @@
         searchTerm: '',
         activeType: 'all',
         activeAction: 'all',
+        activeScope: 'all',   // 'all', 'nasr', 'intl'
         availableCycles: []
     };
 
@@ -134,6 +135,16 @@
             applyFilters();
         });
 
+        // Scope filter
+        $('#scope-filter').on('click', 'button', function () {
+            $('#scope-filter .btn').removeClass('active');
+            $(this).addClass('active');
+            state.activeScope = $(this).data('scope');
+            renderSummaryCards(state.changelog);
+            updateTabCounts();
+            applyFilters();
+        });
+
         // Load more
         $('#load-more-btn').on('click', function () {
             renderMore();
@@ -172,6 +183,12 @@
         if (state.activeAction !== 'all') {
             result = result.filter(function (c) { return c.action === state.activeAction; });
         }
+        if (state.activeScope !== 'all') {
+            result = result.filter(function (c) {
+                if (c.type !== 'dp' && c.type !== 'star') return true;
+                return c.source === state.activeScope;
+            });
+        }
         if (state.searchTerm) {
             var term = state.searchTerm;
             result = result.filter(function (c) {
@@ -190,6 +207,9 @@
                     return true;
                 }
                 if (c.computer_codes && c.computer_codes.some(function(a) { return a.toUpperCase().indexOf(term) !== -1; })) {
+                    return true;
+                }
+                if (c.source && c.source.toUpperCase().indexOf(term) !== -1) {
                     return true;
                 }
                 return false;
@@ -241,9 +261,18 @@
         var detail = buildDetailText(c);
         if (state.searchTerm) detail = highlightMatch(detail, state.searchTerm);
 
+        var typeBadges = '<span class="badge badge-type">' + escapeHtml(c.type || '') + '</span>';
+        if ((c.type === 'dp' || c.type === 'star') && c.source) {
+            var srcClass = c.source === 'nasr' ? 'badge-source-nasr' : 'badge-source-intl';
+            var srcLabel = c.source === 'nasr'
+                ? PERTII18n.t('navdata.scope.nasr')
+                : PERTII18n.t('navdata.scope.intl');
+            typeBadges += ' <span class="badge ' + srcClass + '">' + escapeHtml(srcLabel) + '</span>';
+        }
+
         return '<tr class="change-row" data-idx="' + idx + '">' +
             '<td class="change-name">' + name + '</td>' +
-            '<td><span class="badge badge-type">' + escapeHtml(c.type || '') + '</span></td>' +
+            '<td>' + typeBadges + '</td>' +
             '<td><span class="badge badge-action badge-' + (c.action || '') + '">' + escapeHtml(c.action || '') + '</span></td>' +
             '<td class="change-detail">' + detail + '</td>' +
             '</tr>';
@@ -724,6 +753,8 @@
     function renderSummaryCards(data) {
         var $row = $('#summary-cards').empty();
         var summary = data.summary || {};
+        var nasrSummary = data.nasr_summary || {};
+        var intlSummary = data.intl_summary || {};
         var typeLabels = {
             fixes: { label: PERTII18n.t('navdata.type.fixes'), icon: 'fa-map-pin' },
             navaids: { label: PERTII18n.t('navdata.type.navaids'), icon: 'fa-broadcast-tower' },
@@ -733,10 +764,19 @@
             stars: { label: PERTII18n.t('navdata.type.stars'), icon: 'fa-plane-arrival' },
             playbook: { label: PERTII18n.t('navdata.type.playbook'), icon: 'fa-book' }
         };
-
         Object.keys(typeLabels).forEach(function (key) {
             var info = typeLabels[key];
-            var s = summary[key] || {};
+            var activeScope = state.activeScope;
+
+            // Pick the right summary based on scope filter
+            var s;
+            if (activeScope === 'nasr' && (key === 'dps' || key === 'stars')) {
+                s = nasrSummary[key] || {};
+            } else if (activeScope === 'intl' && (key === 'dps' || key === 'stars')) {
+                s = intlSummary[key] || {};
+            } else {
+                s = summary[key] || {};
+            }
             var hasChanges = (s.added || 0) + (s.modified || 0) + (s.removed || 0) > 0;
             var total = (data.meta && data.meta.totals) ? (data.meta.totals[key] || data.meta.totals[key.replace(/s$/, '')] || 0) : 0;
 
@@ -746,12 +786,39 @@
             if (s.removed) statsHtml += '<span class="stat-removed">-' + s.removed + '</span> ';
             if (!statsHtml) statsHtml = '<span class="stat-preserved">' + PERTII18n.t('navdata.noChanges') + '</span>';
 
+            // Sub-counts for DPs/STARs when showing all
+            var subHtml = '';
+            if (activeScope === 'all' && (key === 'dps' || key === 'stars')) {
+                var ns = nasrSummary[key] || {};
+                var is = intlSummary[key] || {};
+                var hasNasr = (ns.added || 0) + (ns.modified || 0) + (ns.removed || 0) > 0;
+                var hasIntl = (is.added || 0) + (is.modified || 0) + (is.removed || 0) > 0;
+                if (hasNasr || hasIntl) {
+                    subHtml = '<div style="font-size:0.6rem;margin-top:2px;line-height:1.4">';
+                    if (hasNasr) {
+                        subHtml += '<span class="summary-scope-label">' + PERTII18n.t('navdata.scope.nasr') + ':</span>';
+                        if (ns.added) subHtml += '<span class="stat-added">+' + ns.added + '</span> ';
+                        if (ns.modified) subHtml += '<span class="stat-modified">~' + ns.modified + '</span> ';
+                        if (ns.removed) subHtml += '<span class="stat-removed">-' + ns.removed + '</span> ';
+                    }
+                    if (hasNasr && hasIntl) subHtml += '<br>';
+                    if (hasIntl) {
+                        subHtml += '<span class="summary-scope-label">' + PERTII18n.t('navdata.scope.intl') + ':</span>';
+                        if (is.added) subHtml += '<span class="stat-added">+' + is.added + '</span> ';
+                        if (is.modified) subHtml += '<span class="stat-modified">~' + is.modified + '</span> ';
+                        if (is.removed) subHtml += '<span class="stat-removed">-' + is.removed + '</span> ';
+                    }
+                    subHtml += '</div>';
+                }
+            }
+
             $row.append(
                 '<div class="col-sm-6 col-md-4 col-lg mb-2">' +
                 '<div class="card navdata-card' + (hasChanges ? ' has-changes' : '') + '">' +
                 '<div class="card-body">' +
                 '<div class="card-title"><i class="fas ' + info.icon + ' mr-1"></i>' + info.label + '</div>' +
                 '<div class="card-stat">' + statsHtml + '</div>' +
+                subHtml +
                 (total ? '<div class="text-muted" style="font-size:0.65rem">' + total.toLocaleString() + ' ' + PERTII18n.t('navdata.total') + '</div>' : '') +
                 '</div></div></div>'
             );
@@ -785,8 +852,15 @@
     }
 
     function updateTabCounts() {
+        var scopeFiltered = state.allChanges;
+        if (state.activeScope !== 'all') {
+            scopeFiltered = scopeFiltered.filter(function (c) {
+                if (c.type !== 'dp' && c.type !== 'star') return true;
+                return c.source === state.activeScope;
+            });
+        }
         var counts = {};
-        state.allChanges.forEach(function (c) {
+        scopeFiltered.forEach(function (c) {
             counts[c.type] = (counts[c.type] || 0) + 1;
         });
         $('#type-tabs .nav-link').each(function () {
@@ -797,7 +871,7 @@
                 $(this).append($count);
             }
             if (type === 'all') {
-                $count.text(state.allChanges.length);
+                $count.text(scopeFiltered.length);
             } else {
                 $count.text(counts[type] || 0);
             }
@@ -807,7 +881,7 @@
     function updateResultCount() {
         var total = state.filtered.length;
         var text = total + ' ' + PERTII18n.t('navdata.results');
-        if (state.searchTerm || state.activeType !== 'all' || state.activeAction !== 'all') {
+        if (state.searchTerm || state.activeType !== 'all' || state.activeAction !== 'all' || state.activeScope !== 'all') {
             text += ' (' + PERTII18n.t('navdata.filtered') + ')';
         }
         $('#result-count').text(text);

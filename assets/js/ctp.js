@@ -2244,7 +2244,12 @@
     // Resize Handle (drag to resize map/table split)
     // ========================================================================
     var ResizeHandle = {
+        mapCollapsed: false,
+        panelCollapsed: false,
+        savedMapFlex: null,
+
         init: function() {
+            var self = this;
             var handle = document.getElementById('ctp_resize_handle');
             var container = document.getElementById('ctp_container');
             var mapSection = document.getElementById('ctp_map_section');
@@ -2279,6 +2284,53 @@
                     MapController.resize();
                 }
             });
+
+            // Map collapse toggle
+            $('#ctp_map_toggle').on('click', function() {
+                self.toggleMap();
+            });
+
+            // Bottom panel collapse toggle
+            $('#ctp_panel_toggle').on('click', function() {
+                self.togglePanel();
+            });
+        },
+
+        toggleMap: function() {
+            var $map = $('#ctp_map_section');
+            var $icon = $('#ctp_map_toggle i');
+            this.mapCollapsed = !this.mapCollapsed;
+
+            if (this.mapCollapsed) {
+                this.savedMapFlex = $map[0].style.flex || '';
+                $map.addClass('ctp-map-collapsed');
+                $icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+                $('#ctp_map_toggle').attr('title', t('ctp.layout.showMap') || 'Show Map').html('<i class="fas fa-chevron-down mr-1"></i>' + (t('ctp.layout.showMap') || 'Show Map'));
+            } else {
+                $map.removeClass('ctp-map-collapsed');
+                if (this.savedMapFlex) {
+                    $map[0].style.flex = this.savedMapFlex;
+                } else {
+                    $map[0].style.flex = '';
+                }
+                $icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+                $('#ctp_map_toggle').attr('title', t('ctp.layout.hideMap') || 'Hide Map').html('<i class="fas fa-chevron-up"></i>');
+                setTimeout(function() { MapController.resize(); }, 50);
+            }
+        },
+
+        togglePanel: function() {
+            var $tabs = $('#ctp_bottom_tabs');
+            var $icon = $('#ctp_panel_toggle i');
+            this.panelCollapsed = !this.panelCollapsed;
+
+            if (this.panelCollapsed) {
+                $tabs.addClass('ctp-panel-collapsed');
+                $icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+            } else {
+                $tabs.removeClass('ctp-panel-collapsed');
+                $icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+            }
         }
     };
 

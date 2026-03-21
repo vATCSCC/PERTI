@@ -1,185 +1,141 @@
 # AIRAC Cycle Update: 2602 -> 2603
 
-**Generated**: 2026-03-21 09:10:05Z
+**Generated**: 2026-03-21 17:20:16Z
 
 ## Summary
 
 | Data Type | Added | Modified | Removed | Preserved | Total |
 |-----------|-------|----------|---------|-----------|-------|
-| Points | 269 | 144 | 104 | 266595 | 269779 |
+| Points | 53218 | 17028 | 8 | 249807 | 386887 |
 | Navaids | 0 | 0 | 10 | 1760 | 1874 |
-| Airways | 3 | 16 | 0 | 1450 | 1547 |
+| Airways | 8682 | 930 | 0 | 536 | 22659 |
 | Cdrs | 97 | 2866 | 27 | 38175 | 47141 |
-| Dps | 3 | 6 | 11 | 1632 | 6506 |
-| Stars | 2 | 18 | 21 | 1424 | 8223 |
+| Dps | 10269 | 6 | 240 | 1403 | 38525 |
+| Stars | 9837 | 18 | 247 | 1198 | 37698 |
 | Playbook | 10 | 205 | 14 | 149 | 96019 |
 
 ## Points
 
-### Added (269)
+### Added (53218)
 
-- **09OH**: (39.854123,-84.270606)
-- **0A1**: (61.133061,-149.941900)
-- **0MN8**: (44.764746,-95.625539)
-- **11T**: (30.373307,-100.190224)
-- **24OH**: (39.651582,-84.113160)
-- **24WI**: (46.029794,-92.127030)
-- **2FL8**: (28.586150,-82.471914)
-- **2MI8**: (42.425132,-83.868554)
-- **42AZ**: (34.039728,-110.486906)
-- **47IL**: (41.916058,-89.272065)
-- **4WV6**: (38.923122,-81.092242)
-- **58SC**: (34.204861,-78.966944)
-- **59DC**: (38.917003,-76.955781)
-- **76WI**: (42.835424,-89.044246)
-- **78NK**: (41.293906,-74.345515)
-- **82MI**: (44.685331,-85.739028)
-- **8FA8**: (27.238056,-81.388194)
-- **ADEEM**: (34.426678,-119.893622)
-- **ADOYI**: (39.640061,-119.766414)
-- **AERIE**: (64.570497,-165.835244)
-- **AGABY**: (39.642942,-119.902931)
-- **AJPAY**: (33.682239,-112.675800)
-- **ALOSE**: (39.522114,-76.332831)
-- **ATGEY**: (40.989061,-109.315781)
-- **AUDNU**: (38.524831,-76.904281)
-- **AXLES**: (47.470586,-112.951942)
-- **AYERS**: (48.319131,-97.664719)
-- **AZTEC**: (46.909078,-112.747528)
-- **BAYSO**: (37.321569,-75.827881)
-- **BBOOT**: (39.191494,-119.584544)
-- **BEGWI**: (41.122836,-109.622636)
-- **BEZNY**: (39.656853,-119.768833)
-- **BISOO**: (21.072328,-72.580472)
-- **BLOKD**: (28.045647,-81.085875)
-- **BOITZ**: (64.097586,-160.702122)
-- **BOOSR**: (45.799578,-122.455656)
-- **BOZZE**: (25.786564,-80.622206)
-- **BRACY**: (25.792239,-80.553525)
-- **BUMOY**: (48.249767,-97.556939)
-- **BUPGE**: (40.634711,-109.393858)
-- **BUVGE**: (33.350353,-112.881242)
-- **CADOT**: (30.808197,-83.643097)
-- **CAGIV**: (41.008894,-108.962653)
-- **CANRO**: (39.781006,-104.888928)
-- **CASOR**: (39.025258,-77.584667)
-- **CAVMN**: (28.268981,-81.188417)
-- **CD08**: (38.613733,-108.085789)
-- **CEVIG**: (48.189828,-97.643450)
-- **CFFHK**: (64.610911,-165.802042)
-- **CFFSG**: (64.530067,-165.868294)
+- **002HP**: (30.909892,-85.556089)
+- **005HP**: (45.317417,-112.564847)
+- **00BRU**: (4.209722,113.354167)
+- **00BTR**: (31.283903,-89.592925)
+- **00CRL**: (43.166667,-85.116667)
+- **00E40**: (0.000000,140.000000)
+- **00E41**: (0.000000,141.000000)
+- **00E43**: (0.000000,143.000000)
+- **00E45**: (0.000000,145.000000)
+- **00E46**: (0.000000,146.000000)
+- **00E47**: (0.000000,147.000000)
+- **00E48**: (0.000000,148.000000)
+- **00E49**: (0.000000,149.000000)
+- **00E50**: (0.000000,150.000000)
+- **00E51**: (0.000000,151.000000)
+- **00E52**: (0.000000,152.000000)
+- **00E53**: (0.000000,153.000000)
+- **00E54**: (0.000000,154.000000)
+- **00E55**: (0.000000,155.000000)
+- **00E60**: (0.000000,160.000000)
+- **00E70**: (0.000000,170.000000)
+- **00E71**: (0.000000,171.000000)
+- **00E72**: (0.000000,172.000000)
+- **00E73**: (0.000000,173.000000)
+- **00E74**: (0.000000,174.000000)
+- **00E75**: (0.000000,175.000000)
+- **00E76**: (0.000000,176.000000)
+- **00E77**: (0.000000,177.000000)
+- **00E78**: (0.000000,178.000000)
+- **00E79**: (0.000000,179.000000)
+- **00E80**: (0.000000,180.000000)
+- **00GTC**: (39.509672,139.898394)
+- **00LIH**: (23.361000,-160.338944)
+- **00MK1**: (-4.520331,121.113967)
+- **00MK2**: (-4.777289,121.175642)
+- **00MK3**: (-5.893728,120.962703)
+- **00MK4**: (-6.134389,118.262742)
+- **00MK5**: (-5.364419,117.887731)
+- **00N10**: (0.000000,-110.000000)
+- **00N11**: (0.000000,-111.000000)
+- **00N12**: (0.000000,-112.000000)
+- **00N13**: (0.000000,-113.000000)
+- **00N14**: (0.000000,-114.000000)
+- **00N15**: (0.000000,-115.000000)
+- **00N16**: (0.000000,-116.000000)
+- **00N17**: (0.000000,-117.000000)
+- **00N18**: (0.000000,-118.000000)
+- **00N19**: (0.000000,-119.000000)
+- **00N21**: (0.000000,-121.000000)
+- **00N22**: (0.000000,-122.000000)
 
-... and 219 more
+... and 53168 more
 
-### Moved (144)
+### Moved (17028)
 
+- **07NM**: (0.398317,35.207292) -> (63.101778,7.746281)
 - **08MI**: (42.734444,-84.535833) -> (42.734479,-84.536043)
+- **1**: (44.244167,16.845278) -> (36.947167,67.275000)
+- **10DME**: (55.442911,49.212611) -> (55.940250,21.080583)
 - **10OK**: (35.163228,-97.222756) -> (35.163572,-97.222801)
+- **10THR**: (47.389822,17.486958) -> (48.316878,16.079911)
+- **11NM**: (16.648072,101.195083) -> (81.559883,-16.689625)
+- **12THR**: (46.900614,19.787581) -> (55.447697,65.387186)
+- **13NM**: (33.419510,-108.139494) -> (60.338117,5.170792)
+- **14DME**: (-19.478619,146.762222) -> (51.250208,6.463906)
+- **14NM**: (18.371572,-72.380292) -> (55.466897,9.347997)
+- **15DME**: (40.871056,112.170133) -> (20.890161,-17.041603)
+- **15NM**: (44.781344,145.604072) -> (-6.000333,142.862242)
+- **15THR**: (-4.653725,55.492547) -> (47.674756,-104.215981)
 - **15TT**: (33.115943,-96.551425) -> (33.116223,-96.551686)
+- **16DME**: (30.439442,56.692542) -> (35.163786,-80.947697)
+- **16NM**: (59.314114,39.926689) -> (47.065911,8.419906)
+- **16THR**: (-4.652853,55.491231) -> (39.426942,-87.268006)
+- **17DME**: (35.103206,126.791925) -> (39.762469,36.882078)
+- **17NM**: (18.493708,-72.299653) -> (-21.064692,164.915786)
+- **18DME**: (35.756864,23.943856) -> (45.477778,18.752944)
+- **18NM**: (52.159572,7.248972) -> (62.041308,-49.714353)
+- **18THR**: (-4.650814,55.488419) -> (47.739397,-104.173897)
 - **19NY**: (42.406177,-77.960836) -> (42.407131,-76.962705)
+- **1NM**: (4.362178,18.529683) -> (38.127386,-120.632183)
 - **1TE5**: (30.816303,-96.601081) -> (30.813889,-96.602222)
+- **2**: (43.704722,17.786944) -> (36.843500,67.596167)
+- **20DME**: (38.295353,45.833058) -> (38.011606,-122.047714)
+- **20NM**: (27.116869,-13.241461) -> (61.412403,5.911622)
+- **21DME**: (63.220886,54.013006) -> (-15.480442,167.192769)
+- **21NM**: (63.385794,53.110844) -> (-5.900817,142.839228)
+- **21THR**: (-4.647933,55.484325) -> (36.335436,-86.400694)
+- **22DME**: (63.782417,54.448625) -> (33.944822,71.518772)
+- **22NM**: (63.842914,54.324247) -> (26.556461,37.974942)
+- **24NM**: (63.829347,54.358789) -> (-15.677261,35.020794)
+- **25DME**: (38.345378,48.397539) -> (22.308836,113.842758)
+- **25NM**: (34.476944,-108.031111) -> (-17.816761,177.395619)
+- **26DME**: (51.763056,94.857222) -> (35.142428,33.541161)
+- **29DME**: (35.995169,24.305894) -> (56.195047,92.471533)
+- **29THR**: (-4.629250,55.483886) -> (30.644175,-96.373658)
+- **2H**: (49.037201,-77.020798) -> (49.035856,-77.020044)
+- **2NM**: (69.838994,19.444961) -> (40.539708,-81.893408)
+- **3**: (43.063611,17.685000) -> (36.589333,66.888167)
+- **30DME**: (37.297861,112.345861) -> (-28.838328,114.689656)
+- **30NM**: (36.116389,-103.096667) -> (61.438611,6.101656)
+- **30THR**: (47.421214,17.470517) -> (42.630397,-76.161331)
 - **30XS**: (29.518142,-97.428686) -> (29.518431,-97.429269)
-- **5AK0**: (60.815549,-151.798917) -> (60.816881,-151.799682)
-- **6MI9**: (44.415294,-83.929159) -> (44.415833,-83.931969)
-- **89TE**: (32.735919,-97.346222) -> (32.735935,-97.346093)
-- **AANAH**: (44.428156,-93.322008) -> (44.394583,-93.345822)
-- **ACCOW**: (44.707394,-71.200806) -> (44.702575,-71.244144)
-- **AHJUP**: (27.879014,-81.858483) -> (27.878397,-81.859206)
-- **ALPNE**: (39.454844,-104.723258) -> (39.446847,-104.721653)
-- **ALWUB**: (35.495392,-87.278489) -> (35.498728,-87.272944)
-- **ANIPE**: (32.883214,-98.464897) -> (32.889742,-98.460339)
-- **APAKE**: (33.073783,-96.853608) -> (32.957683,-96.918661)
-- **AR33**: (35.233418,-91.787361) -> (35.237297,-91.795058)
-- **ASHBO**: (40.185350,-112.175328) -> (40.181372,-112.195883)
-- **AVOBE**: (41.233353,-81.556167) -> (41.252253,-81.558881)
-- **AWIZO**: (35.934014,-111.783861) -> (35.932614,-111.780942)
-- **BCOAT**: (37.043636,-76.522294) -> (37.042525,-76.522608)
-- **BEEVS**: (45.534192,-121.886731) -> (45.538989,-121.945314)
-- **BETYA**: (39.633844,-119.768894) -> (39.634000,-119.768911)
-- **BJETN**: (40.241964,-104.708397) -> (40.242442,-104.708744)
-- **BLRUN**: (45.538161,-121.957506) -> (45.539475,-121.957389)
-- **BREKR**: (28.119822,-82.033933) -> (28.119228,-82.014194)
-- **BUNAC**: (40.933064,-81.342594) -> (40.961200,-81.303864)
-- **BUSHH**: (40.759878,-112.159294) -> (40.771525,-112.181292)
-- **C29**: (43.114330,-89.531649) -> (43.114412,-89.532137)
-- **CALEG**: (39.378072,-119.769583) -> (39.376406,-119.769569)
-- **CALSU**: (41.141397,-81.653869) -> (41.140283,-81.667300)
-- **CAMSO**: (32.913297,-96.917381) -> (32.896411,-96.902194)
-- **CBE**: (39.615306,-78.761478) -> (39.615667,-78.762282)
-- **CESID**: (40.552028,-73.883283) -> (40.540233,-73.856956)
-- **CEZBA**: (27.949556,-81.679106) -> (27.949611,-81.678025)
-- **CFPPW**: (39.749236,-104.572217) -> (39.749014,-104.572175)
-- **CFTWZ**: (39.642719,-119.838206) -> (39.642583,-119.838217)
-- **CFVFR**: (39.633947,-119.849922) -> (39.642822,-119.838475)
-- **CMMOE**: (44.962633,-93.106194) -> (44.961075,-93.102097)
-- **COHIL**: (60.108333,-139.000000) -> (60.108611,-139.000000)
-- **COPRA**: (25.793586,-80.470800) -> (25.793544,-80.471794)
-- **CORDE**: (39.780961,-104.688147) -> (39.780767,-104.688150)
-- **COSOV**: (33.041717,-98.238825) -> (33.024697,-98.204711)
-- **CUMUT**: (35.575428,-78.372000) -> (35.580025,-78.369572)
-- **DCM**: (34.785753,-81.200829) -> (34.789333,-81.195778)
-- **DNLAP**: (35.483181,-114.338861) -> (36.461411,-112.620003)
-- **DOXGU**: (35.368339,-87.317328) -> (35.349522,-87.300411)
-- **DVOLA**: (28.492739,-81.424167) -> (28.520631,-81.424156)
-- **DYMON**: (39.749297,-104.661497) -> (39.749061,-104.661500)
-- **EBPAD**: (27.868331,-82.006333) -> (27.876983,-82.015744)
+- **31NM**: (51.765675,107.106708) -> (21.290589,103.029322)
+- **32DME**: (27.251489,55.664267) -> (57.508233,-7.292967)
+- **32NM**: (-3.291633,-52.303006) -> (13.816767,109.132336)
 
-... and 94 more
+... and 16978 more
 
-### Removed (104)
+### Removed (8)
 
-- **AMOME**: No longer in NASR source
-- **BERCA**: No longer in NASR source
-- **BIISN**: No longer in NASR source
-- **BINAY**: No longer in NASR source
-- **BOKIN**: No longer in NASR source
-- **BROZE**: No longer in NASR source
-- **CADIR**: No longer in NASR source
-- **CAJIN**: No longer in NASR source
-- **CANUR**: No longer in NASR source
-- **CESRA**: No longer in NASR source
-- **CFFHF**: No longer in NASR source
-- **CFNKB**: No longer in NASR source
-- **CFNRG**: No longer in NASR source
-- **CFNRJ**: No longer in NASR source
-- **CFPPV**: No longer in NASR source
-- **CHIMP**: No longer in NASR source
-- **CHYMP**: No longer in NASR source
-- **CIDAS**: No longer in NASR source
-- **COZZZ**: No longer in NASR source
-- **CRIBS**: No longer in NASR source
 - **CULVR**: No longer in NASR source
 - **CUMPO**: No longer in NASR source
-- **DACCI**: No longer in NASR source
-- **DOLEE**: No longer in NASR source
-- **DOMJY**: No longer in NASR source
-- **EFFEE**: No longer in NASR source
-- **FAYRO**: No longer in NASR source
-- **FLAPS**: No longer in NASR source
-- **FLIMM**: No longer in NASR source
-- **FLLAM**: No longer in NASR source
-- **FOBAX**: No longer in NASR source
-- **GARNR**: No longer in NASR source
-- **GLLLM**: No longer in NASR source
-- **GWAIT**: No longer in NASR source
 - **HASOB**: No longer in NASR source
-- **HEDIN**: No longer in NASR source
-- **HEKPA**: No longer in NASR source
-- **HELDU**: No longer in NASR source
-- **HERMI**: No longer in NASR source
-- **HHOTY**: No longer in NASR source
-- **HOKIB**: No longer in NASR source
-- **HOLOE**: No longer in NASR source
-- **HRBIE**: No longer in NASR source
-- **HUSHU**: No longer in NASR source
-- **ICEAX**: No longer in NASR source
-- **ILREF**: No longer in NASR source
-- **IRRRV**: No longer in NASR source
-- **ITEMS**: No longer in NASR source
-- **IYOBE**: No longer in NASR source
-- **JAAEF**: No longer in NASR source
-
-... and 54 more
+- **JULEY**: No longer in NASR source
+- **ORRIL**: No longer in NASR source
+- **PABKE**: No longer in NASR source
+- **ZIMTO**: No longer in NASR source
+- **ZMBNI**: No longer in NASR source
 
 
 ## Navaids
@@ -200,30 +156,115 @@
 
 ## Airways
 
-### Added (3)
+### Added (8682)
 
-- **Q186**: New entry
-- **Q190**: New entry
-- **T497**: New entry
+- **A1**: New entry
+- **A10**: New entry
+- **A100**: New entry
+- **A102**: New entry
+- **A103**: New entry
+- **A107**: New entry
+- **A114**: New entry
+- **A117**: New entry
+- **A118**: New entry
+- **A120**: New entry
+- **A122**: New entry
+- **A125**: New entry
+- **A14**: New entry
+- **A145**: New entry
+- **A16**: New entry
+- **A17**: New entry
+- **A18**: New entry
+- **A180**: New entry
+- **A2**: New entry
+- **A201**: New entry
+- **A202**: New entry
+- **A203**: New entry
+- **A204**: New entry
+- **A206**: New entry
+- **A211**: New entry
+- **A212**: New entry
+- **A215**: New entry
+- **A218**: New entry
+- **A224**: New entry
+- **A225**: New entry
+- **A226**: New entry
+- **A228**: New entry
+- **A229**: New entry
+- **A230**: New entry
+- **A231**: New entry
+- **A233**: New entry
+- **A238**: New entry
+- **A24**: New entry
+- **A240**: New entry
+- **A242**: New entry
+- **A245**: New entry
+- **A247**: New entry
+- **A248**: New entry
+- **A25**: New entry
+- **A27**: New entry
+- **A277**: New entry
+- **A28**: New entry
+- **A285**: New entry
+- **A29**: New entry
+- **A299**: New entry
 
-### Changed (16)
+... and 8632 more
 
+### Changed (930)
+
+- **A216**: Content modified
+- **A220**: Content modified
+- **A315**: Content modified
+- **A337**: Content modified
+- **A339**: Content modified
+- **A450**: Content modified
+- **A517**: Content modified
+- **A554**: Content modified
+- **A555**: Content modified
+- **A578**: Content modified
+- **A579**: Content modified
+- **A590**: Content modified
+- **A597**: Content modified
+- **A598**: Content modified
+- **A638**: Content modified
+- **A756**: Content modified
+- **A766**: Content modified
+- **A770**: Content modified
+- **AR10**: Content modified
+- **AR15**: Content modified
+- **AR16**: Content modified
+- **AR17**: Content modified
+- **AR19**: Content modified
+- **AR22**: Content modified
+- **AR8**: Content modified
+- **B200**: Content modified
+- **B24**: Content modified
+- **B240**: Content modified
+- **B241**: Content modified
+- **B244**: Content modified
+- **B326**: Content modified
+- **B452**: Content modified
+- **B454**: Content modified
+- **B474**: Content modified
+- **B520**: Content modified
+- **B577**: Content modified
+- **B580**: Content modified
+- **B581**: Content modified
+- **B586**: Content modified
+- **B589**: Content modified
+- **B595**: Content modified
+- **B596**: Content modified
+- **B892**: Content modified
 - **B932**: Content modified
-- **J11**: Content modified
-- **J146**: Content modified
-- **Q29**: Content modified
-- **Q35**: Content modified
-- **Q842**: Content modified
-- **T303**: Content modified
-- **V1**: Content modified
-- **V15**: Content modified
-- **V191**: Content modified
-- **V194**: Content modified
-- **V300**: Content modified
-- **V55**: Content modified
-- **V63**: Content modified
-- **V66**: Content modified
-- **V70**: Content modified
+- **BR54V**: Content modified
+- **G1**: Content modified
+- **G10**: Content modified
+- **G12**: Content modified
+- **G2**: Content modified
+- **G205**: Content modified
+
+... and 880 more
 
 
 ## Cdrs
@@ -371,11 +412,60 @@
 
 ## Dps
 
-### Added (3)
+### Added (10269)
 
-- **AXLES1**: 1 transitions
-- **WEGEM1**: 1 transitions
-- **ZEYOU1**: 1 transitions
+- **ABA1Q**: 1 transitions
+- **ABAD6G**: 1 transitions
+- **ABAF1A**: 5 transitions
+- **ABAG3B**: 2 transitions
+- **ABAL1W**: 2 transitions
+- **ABAN4A**: 1 transitions
+- **ABAN4P**: 1 transitions
+- **ABAR1F**: 2 transitions
+- **ABAS1A**: 5 transitions
+- **ABAS1M**: 2 transitions
+- **ABAS1F**: 2 transitions
+- **ABAS2K**: 6 transitions
+- **ABAS5T**: 1 transitions
+- **ABB6R**: 2 transitions
+- **ABBEY3**: 1 transitions
+- **ABDET1**: 1 transitions
+- **ABDI1E**: 2 transitions
+- **ABDI2Z**: 3 transitions
+- **ABDO5B**: 2 transitions
+- **ABEL3H**: 2 transitions
+- **ABEL3K**: 3 transitions
+- **ABEL5M**: 6 transitions
+- **ABEL3M**: 4 transitions
+- **ABEN6Q**: 2 transitions
+- **ABER4R**: 2 transitions
+- **ABER2T**: 2 transitions
+- **ABER1B**: 2 transitions
+- **ABGA1J**: 6 transitions
+- **ABGO1B**: 2 transitions
+- **ABGO1D**: 1 transitions
+- **ABGU1L**: 2 transitions
+- **ABGU6F**: 2 transitions
+- **ABID2P**: 3 transitions
+- **ABIL1B**: 2 transitions
+- **ABIM1T**: 5 transitions
+- **ABIN6A**: 1 transitions
+- **ABIN1M**: 2 transitions
+- **ABIP3D**: 4 transitions
+- **ABIR1D**: 1 transitions
+- **ABIR5U**: 3 transitions
+- **ABIR2R**: 2 transitions
+- **ABKA1N**: 2 transitions
+- **ABKE5B**: 2 transitions
+- **ABKE2E**: 2 transitions
+- **ABKI4W**: 2 transitions
+- **ABKO2H**: 4 transitions
+- **ABL7E**: 2 transitions
+- **ABL1H**: 1 transitions
+- **ABLA2S**: 4 transitions
+- **ABLO3S**: 2 transitions
+
+... and 10219 more
 
 ### Changed (6)
 
@@ -386,27 +476,118 @@
 - **SCOT7**: ~5 modified
 - **ZIMMR4**: ~1 modified
 
-### Removed (11)
+### Removed (240)
 
+- **ABBEY3**: 1 transitions removed
+- **ACONY3**: 1 transitions removed
 - **ADELL7**: 1 transitions removed
+- **AGVIL8**: 1 transitions removed
+- **ALOKA1**: 1 transitions removed
+- **ALOTU5**: 1 transitions removed
+- **ALOVU1**: 1 transitions removed
+- **ALREX3**: 1 transitions removed
+- **ANRUB1**: 1 transitions removed
+- **ARSHI1**: 1 transitions removed
+- **ASTAR1**: 1 transitions removed
 - **AUREL4**: 3 transitions removed
+- **AVNEX5**: 1 transitions removed
+- **AVRED1**: 1 transitions removed
+- **AVSEP7**: 1 transitions removed
+- **AXIDA1**: 1 transitions removed
+- **BARUS1**: 1 transitions removed
+- **BBZ5**: 1 transitions removed
+- **BBZ7**: 1 transitions removed
+- **BETES3**: 1 transitions removed
+- **BEXUD1**: 1 transitions removed
+- **BGD1**: 1 transitions removed
+- **BIKNO1**: 1 transitions removed
+- **BIKNO2**: 1 transitions removed
+- **BINEG1**: 1 transitions removed
+- **BIVAN1**: 1 transitions removed
 - **BLOKR7**: 1 transitions removed
+- **BOGAT5**: 1 transitions removed
+- **BOGAT7**: 1 transitions removed
+- **BOMET7**: 1 transitions removed
+- **BOMET8**: 1 transitions removed
+- **BOPRI5**: 1 transitions removed
+- **BOPRI7**: 1 transitions removed
+- **BORAD1**: 1 transitions removed
+- **BOVMA8**: 1 transitions removed
+- **BOXAT5**: 1 transitions removed
+- **BURLI5**: 1 transitions removed
+- **BZE1**: 1 transitions removed
+- **CARMN1**: 1 transitions removed
 - **CARYN7**: 1 transitions removed
+- **CATEY1**: 1 transitions removed
+- **CLOAK7**: 1 transitions removed
 - **CONNR7**: 1 transitions removed
+- **CONUZ1**: 1 transitions removed
 - **COORZ6**: 1 transitions removed
-- **DARCY7**: 1 transitions removed
-- **DEEZZ5**: 1 transitions removed
-- **ELANR8**: 1 transitions removed
-- **JADKO1**: 1 transitions removed
-- **ZIMMR3**: 1 transitions removed
+- **CUDGN4**: 1 transitions removed
+- **CUNEK4**: 1 transitions removed
+- **CYPZ6**: 1 transitions removed
+- **DAGNI1**: 1 transitions removed
+- **DALTU1**: 1 transitions removed
+
+... and 190 more
 
 
 ## Stars
 
-### Added (2)
+### Added (9837)
 
-- **DNGLE1**: 1 transitions
-- **MUNGI1**: 28 transitions
+- **AA1F**: 1 transitions
+- **AA3J**: 4 transitions
+- **ABAD2Y**: 3 transitions
+- **ABAK2T**: 2 transitions
+- **ABAL1N**: 2 transitions
+- **ABAL1R**: 5 transitions
+- **ABAN1M**: 2 transitions
+- **ABAR1P**: 5 transitions
+- **ABAS1D**: 2 transitions
+- **ABASA**: 1 transitions
+- **ABB5F**: 3 transitions
+- **ABDA6D**: 2 transitions
+- **ABDET4**: 2 transitions
+- **ABDI3V**: 1 transitions
+- **ABDI8T**: 2 transitions
+- **ABDI3T**: 1 transitions
+- **ABDI3V**: 1 transitions
+- **ABDI1A**: 1 transitions
+- **ABDO5Y**: 2 transitions
+- **ABEL2K**: 2 transitions
+- **ABEL4G**: 4 transitions
+- **ABEL5W**: 5 transitions
+- **ABEL3H**: 3 transitions
+- **ABER1B**: 1 transitions
+- **ABER2C**: 2 transitions
+- **ABEY4A**: 3 transitions
+- **ABGA1F**: 3 transitions
+- **ABGU2A**: 2 transitions
+- **ABGU6D**: 5 transitions
+- **ABIL1C**: 1 transitions
+- **ABIM1Q**: 6 transitions
+- **ABIN1D**: 2 transitions
+- **ABIR2A**: 2 transitions
+- **ABIR2M**: 1 transitions
+- **ABIR4T**: 2 transitions
+- **ABKA1B**: 2 transitions
+- **ABKE4D**: 2 transitions
+- **ABKE1C**: 1 transitions
+- **ABKO2N**: 4 transitions
+- **ABL3M**: 2 transitions
+- **ABL2Q**: 2 transitions
+- **ABLA3V**: 1 transitions
+- **ABLA8R**: 1 transitions
+- **ABLA3T**: 1 transitions
+- **ABLA3V**: 1 transitions
+- **ABLA2P**: 2 transitions
+- **ABLE6C**: 3 transitions
+- **ABLI4L**: 1 transitions
+- **ABLO1X**: 1 transitions
+- **ABLO2S**: 2 transitions
+
+... and 9787 more
 
 ### Changed (18)
 
@@ -429,29 +610,60 @@
 - **TORGY4**: +9 new, -9 removed
 - **YUTES2**: ~2 modified
 
-### Removed (21)
+### Removed (247)
 
+- **ABVAS1**: 1 transitions removed
+- **ALDAK1**: 1 transitions removed
+- **ANIRO1**: 1 transitions removed
+- **APASS8**: 1 transitions removed
+- **ARSHI1**: 1 transitions removed
+- **ASBEX1**: 1 transitions removed
+- **ASDEL2**: 1 transitions removed
+- **ASTAR1**: 1 transitions removed
+- **ATATU4**: 1 transitions removed
+- **AXENA2**: 1 transitions removed
+- **AXIDA1**: 1 transitions removed
 - **BAINY3**: 1 transitions removed
+- **BEMUV7**: 1 transitions removed
+- **BHYQ2**: 1 transitions removed
+- **BHYT4**: 1 transitions removed
+- **BHYW6**: 1 transitions removed
+- **BHYY8**: 1 transitions removed
+- **BINAT6**: 1 transitions removed
 - **BLUEM4**: 1 transitions removed
+- **BODET2**: 1 transitions removed
+- **BRRGO3**: 1 transitions removed
+- **BUBOR5**: 1 transitions removed
+- **CAOBA5**: 1 transitions removed
+- **DAKAB1**: 1 transitions removed
+- **DALUD1**: 1 transitions removed
+- **DARVI2**: 1 transitions removed
+- **DELBA1**: 1 transitions removed
+- **DENGO1**: 1 transitions removed
 - **DRONE2**: 2 transitions removed
+- **DUXUM6**: 1 transitions removed
 - **EAU9**: 2 transitions removed
+- **EBLEM2**: 1 transitions removed
+- **ELBOW4**: 1 transitions removed
+- **ELLKS3**: 1 transitions removed
+- **EMTIK1**: 1 transitions removed
+- **EMULI3**: 1 transitions removed
+- **ENSER3**: 1 transitions removed
+- **ENTRY5**: 1 transitions removed
+- **ENVIP9**: 1 transitions removed
+- **EPMAR2**: 1 transitions removed
+- **EPMAR4**: 1 transitions removed
+- **EPTOV1**: 1 transitions removed
+- **EPVIV1**: 1 transitions removed
+- **ESEDI3**: 1 transitions removed
+- **ESVEL1**: 1 transitions removed
+- **EVRED2**: 1 transitions removed
+- **FAGUE2**: 1 transitions removed
+- **FOREY2**: 1 transitions removed
 - **FROGZ4**: 1 transitions removed
-- **HHOOD5**: 1 transitions removed
-- **JOKRS3**: 1 transitions removed
-- **KKILR3**: 1 transitions removed
-- **KRATR2**: 1 transitions removed
-- **LUBBR3**: 1 transitions removed
-- **MUSCL3**: 1 transitions removed
-- **NITZR3**: 1 transitions removed
-- **PRICY4**: 1 transitions removed
-- **RIDES2**: 28 transitions removed
-- **RIDES2**: 1 transitions removed
-- **SKETR5**: 2 transitions removed
-- **TEEKY3**: 1 transitions removed
-- **TERKS2**: 1 transitions removed
-- **TMBRS3**: 1 transitions removed
-- **TORGY3**: 1 transitions removed
-- **WILDD3**: 4 transitions removed
+- **GANAM1**: 1 transitions removed
+
+... and 197 more
 
 
 ## Playbook

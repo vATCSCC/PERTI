@@ -392,7 +392,11 @@
       "exitPoints": "Exit Fixes"
     },
     "layout": {
-      "resizeHandle": "Drag to resize map and table"
+      "resizeHandle": "Drag to resize map and table",
+      "toggleMap": "Toggle map visibility",
+      "hideMap": "Hide Map",
+      "showMap": "Show Map",
+      "togglePanel": "Toggle management panel"
     },
     "pagination": {
       "label": "Page {page} of {total}",
@@ -2860,6 +2864,12 @@
       "airports": "Airports",
       "routePoints": "Route Points",
       "mainBody": "Main body"
+    },
+    "scope": {
+      "nasr": "NASR",
+      "intl": "International",
+      "nasrLabel": "NASR (US)",
+      "intlLabel": "International"
     }
   },
   "natots": {

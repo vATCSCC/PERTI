@@ -187,6 +187,36 @@ tr.detail-row > td {
     font-weight: 600;
 }
 
+/* Scope Filter */
+#scope-filter .btn.active {
+    font-weight: 600;
+}
+
+/* Source Badges */
+.badge-source-nasr {
+    background-color: #1a5276;
+    color: #fff;
+    font-size: 0.6rem;
+    padding: 0.1em 0.35em;
+    text-transform: uppercase;
+}
+.badge-source-intl {
+    background-color: #7d3c98;
+    color: #fff;
+    font-size: 0.6rem;
+    padding: 0.1em 0.35em;
+    text-transform: uppercase;
+}
+
+/* Summary sub-counts for NASR/Intl breakdown */
+.summary-scope-label {
+    font-size: 0.6rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-right: 4px;
+}
+
 /* Tab Badge Count */
 .tab-count {
     font-size: 0.65rem;

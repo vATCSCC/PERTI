@@ -104,6 +104,10 @@ include("load/connect.php");
             <i class="fas fa-globe-americas fa-3x text-muted mb-2"></i>
             <div class="text-muted"><?= __('ctp.map.placeholder') ?></div>
         </div>
+        <!-- Map collapse toggle -->
+        <button class="btn btn-sm ctp-map-toggle" id="ctp_map_toggle" title="<?= __('ctp.layout.toggleMap') ?>">
+            <i class="fas fa-chevron-up"></i>
+        </button>
     </div>
 
     <!-- Resize Handle -->
@@ -207,10 +211,12 @@ include("load/connect.php");
                 <i class="fas fa-chevron-right"></i>
             </button>
         </div>
+    </div>
 
-        <!-- Bottom Tabs: Demand / Throughput / Planning -->
-        <div class="ctp-bottom-tabs" id="ctp_bottom_tabs" style="display:none;">
-            <ul class="nav nav-tabs nav-sm border-top px-2 pt-1" id="ctp_mgmt_tabs">
+    <!-- Bottom Management Tabs (own flex area, outside table section) -->
+    <div class="ctp-bottom-tabs" id="ctp_bottom_tabs" style="display:none;">
+        <div class="ctp-bottom-tabs-header">
+            <ul class="nav nav-tabs nav-sm px-2 pt-1 mb-0" id="ctp_mgmt_tabs">
                 <li class="nav-item">
                     <a class="nav-link active" data-toggle="tab" href="#ctp_demand_panel">
                         <i class="fas fa-chart-bar mr-1"></i><?= __('ctp.demand.title') ?>
@@ -237,7 +243,11 @@ include("load/connect.php");
                     </a>
                 </li>
             </ul>
-
+            <button class="btn btn-sm btn-link ctp-panel-toggle" id="ctp_panel_toggle" title="<?= __('ctp.layout.togglePanel') ?>">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+        <div class="ctp-bottom-tabs-body">
             <div class="tab-content">
                 <!-- Demand Chart Tab -->
                 <div class="tab-pane fade show active" id="ctp_demand_panel">
@@ -332,7 +342,6 @@ include("load/connect.php");
             </div>
         </div>
     </div>
-
 </div>
 
 <!-- Create Session Modal -->

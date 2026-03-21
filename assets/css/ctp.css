@@ -499,26 +499,118 @@
     padding: 12px 16px;
 }
 
-/* -- Bottom Tabs (Demand / Throughput / Planning) ------------------------- */
+/* -- Map Collapse Toggle -------------------------------------------------- */
+.ctp-map-toggle {
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    background: rgba(30, 30, 50, 0.7);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 3px;
+    padding: 1px 10px;
+    font-size: 0.65rem;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+}
+
+.ctp-map-toggle:hover {
+    opacity: 1;
+    color: #fff;
+    background: rgba(30, 30, 50, 0.9);
+}
+
+.ctp-map-section.ctp-map-collapsed {
+    flex: 0 0 0px !important;
+    min-height: 0 !important;
+    overflow: hidden;
+}
+
+.ctp-map-section.ctp-map-collapsed .ctp-map,
+.ctp-map-section.ctp-map-collapsed .ctp-map-placeholder {
+    display: none;
+}
+
+.ctp-map-section.ctp-map-collapsed .ctp-map-toggle {
+    position: static;
+    transform: none;
+    display: block;
+    width: 100%;
+    border-radius: 0;
+    padding: 2px 10px;
+    opacity: 1;
+    background: #e9ecef;
+    color: #495057;
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+    font-size: 0.72rem;
+}
+
+.ctp-map-section.ctp-map-collapsed + .ctp-resize-handle {
+    display: none;
+}
+
+/* -- Bottom Tabs (own flex area outside table section) -------------------- */
 .ctp-bottom-tabs {
-    flex: 0 0 auto;
-    border-top: 1px solid #dee2e6;
+    flex: 0 1 auto;
+    border-top: 2px solid #dee2e6;
     background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    min-height: 34px;
+    max-height: 50vh;
+    overflow: hidden;
 }
 
-.ctp-bottom-tabs .nav-tabs {
+.ctp-bottom-tabs-header {
+    display: flex;
+    align-items: center;
+    background: #f0f1f3;
+    border-bottom: 1px solid #dee2e6;
+    flex-shrink: 0;
+}
+
+.ctp-bottom-tabs-header .nav-tabs {
     font-size: 0.78rem;
+    border-bottom: none;
+    flex: 1;
 }
 
-.ctp-bottom-tabs .nav-link {
+.ctp-bottom-tabs-header .nav-link {
     padding: 4px 12px;
     font-size: 0.78rem;
+}
+
+.ctp-panel-toggle {
+    padding: 2px 8px;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+.ctp-panel-toggle:hover {
+    color: #212529;
+}
+
+.ctp-bottom-tabs-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.ctp-bottom-tabs.ctp-panel-collapsed .ctp-bottom-tabs-body {
+    display: none;
+}
+
+.ctp-bottom-tabs.ctp-panel-collapsed {
+    max-height: none;
 }
 
 /* -- Demand Chart --------------------------------------------------------- */
 .ctp-demand-chart-wrapper {
     padding: 4px 12px 8px;
-    max-height: 180px;
+    min-height: 180px;
 }
 
 /* -- Audit Entries -------------------------------------------------------- */

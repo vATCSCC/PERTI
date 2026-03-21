@@ -315,7 +315,11 @@
       "exitPoints": "Fixes de sortie"
     },
     "layout": {
-      "resizeHandle": "Glisser pour redimensionner la carte et le tableau"
+      "resizeHandle": "Glisser pour redimensionner la carte et le tableau",
+      "toggleMap": "Afficher/masquer la carte",
+      "hideMap": "Masquer la carte",
+      "showMap": "Afficher la carte",
+      "togglePanel": "Afficher/masquer le panneau de gestion"
     },
     "pagination": {
       "label": "Page {page} de {total}",
@@ -3007,6 +3011,12 @@
       "routeChanges": "Modifications de route",
       "status": "\u00c9tat",
       "type": "Type"
+    },
+    "scope": {
+      "nasr": "NASR",
+      "intl": "International",
+      "nasrLabel": "NASR (\u00c9.-U.)",
+      "intlLabel": "International"
     }
   },
   "natots": {

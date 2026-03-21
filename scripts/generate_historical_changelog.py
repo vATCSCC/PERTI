@@ -297,6 +297,7 @@ def diff_procs_enriched(old, new, typ):
             'name': new_g['versioned_name'],
             'action': 'changed',
             'detail': ', '.join(parts),
+            'source': 'intl' if len(new_g['artcc']) == 4 and ' ' not in new_g['artcc'] else 'nasr',
             'artccs': [new_g['artcc']],
             'airports': sorted(new_g['airports']),
             'computer_codes': sorted(new_g['computer_codes']),
@@ -330,6 +331,7 @@ def diff_procs_enriched(old, new, typ):
             'name': g['versioned_name'],
             'action': 'removed',
             'detail': f"{len(g['transitions'])} transitions removed",
+            'source': 'intl' if len(g['artcc']) == 4 and ' ' not in g['artcc'] else 'nasr',
             'artccs': [g['artcc']],
             'airports': sorted(g['airports']),
             'computer_codes': sorted(g['computer_codes']),
@@ -353,6 +355,7 @@ def diff_procs_enriched(old, new, typ):
             'name': g['versioned_name'],
             'action': 'added',
             'detail': f"{len(g['transitions'])} transitions",
+            'source': 'intl' if len(g['artcc']) == 4 and ' ' not in g['artcc'] else 'nasr',
             'artccs': [g['artcc']],
             'airports': sorted(g['airports']),
             'computer_codes': sorted(g['computer_codes']),
@@ -637,8 +640,10 @@ def diff_procs(old, new, typ):
 
 
 def summarize(changes):
-    """Build summary dict from changes list."""
+    """Build summary dicts (overall, nasr, intl) from changes list."""
     s = defaultdict(lambda: defaultdict(int))
+    nasr_s = defaultdict(lambda: defaultdict(int))
+    intl_s = defaultdict(lambda: defaultdict(int))
     type_map = {
         'fix': 'fixes', 'navaid': 'navaids', 'airway': 'airways',
         'cdr': 'cdrs', 'dp': 'dps', 'star': 'stars',
@@ -652,10 +657,20 @@ def summarize(changes):
         cat = type_map.get(c['type'], c['type'])
         act = act_map.get(c['action'], c['action'])
         s[cat][act] += 1
-    return {k: dict(v) for k, v in s.items() if v}
+        src = c.get('source')
+        if src == 'nasr':
+            nasr_s[cat][act] += 1
+        elif src == 'intl':
+            intl_s[cat][act] += 1
+    return (
+        {k: dict(v) for k, v in s.items() if v},
+        {k: dict(v) for k, v in nasr_s.items() if v},
+        {k: dict(v) for k, v in intl_s.items() if v},
+    )
 
 
-def write_json(changes, summary, totals, from_c, to_c, path):
+def write_json(changes, summary, nasr_summary, intl_summary,
+               totals, from_c, to_c, path):
     """Write changelog JSON matching existing format."""
     obj = {
         'meta': {
@@ -665,6 +680,8 @@ def write_json(changes, summary, totals, from_c, to_c, path):
             'totals': totals
         },
         'summary': summary,
+        'nasr_summary': nasr_summary,
+        'intl_summary': intl_summary,
         'changes': changes
     }
     with open(path, 'w', encoding='utf-8') as f:
@@ -898,7 +915,7 @@ def main():
     all_changes += diff_procs_enriched(old_st, new_st, 'star')
     all_changes += diff_playbook(old_pb, new_pb)
 
-    summary = summarize(all_changes)
+    summary, nasr_summary, intl_summary = summarize(all_changes)
     totals = {
         'points': new_pts_t, 'navaids': new_nav_t, 'airways': new_awy_t,
         'cdrs': new_cdr_t, 'dps': new_dp_t, 'stars': new_st_t,
@@ -919,7 +936,8 @@ def main():
     jp = os.path.join(
         logs, f'AIRAC_CHANGELOG_{args.from_cycle}_{args.to_cycle}.json'
     )
-    write_json(all_changes, summary, totals, args.from_cycle, args.to_cycle, jp)
+    write_json(all_changes, summary, nasr_summary, intl_summary,
+               totals, args.from_cycle, args.to_cycle, jp)
     print(f"\nJSON: {jp}")
 
     # Write Markdown
