@@ -1094,9 +1094,9 @@ function getDCCRegionColor(artcc) {
     if (typeof PERTI !== 'undefined' && PERTI.getDCCColor && PERTI.getDCCRegion) {
         return PERTI.getDCCColor(PERTI.getDCCRegion(artcc));
     }
-    // Use FacilityHierarchy if available
-    if (typeof FH !== 'undefined' && FH.getRegionColor) {
-        const regionColor = FH.getRegionColor(artcc);
+    // Use FacilityHierarchy if available (resolves aliases like ZEG→CZEG)
+    if (typeof FacilityHierarchy !== 'undefined' && FacilityHierarchy.getRegionColor) {
+        const regionColor = FacilityHierarchy.getRegionColor(artcc);
         if (regionColor) {
             return regionColor;
         }

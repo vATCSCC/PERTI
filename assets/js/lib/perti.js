@@ -1878,7 +1878,10 @@
      */
     function getDCCRegion(artcc) {
         if (!artcc) return 'OTHER';
-        return ARTCC_TO_DCC[artcc.toUpperCase()] || 'OTHER';
+        var upper = artcc.toUpperCase();
+        // Resolve aliases (e.g., ZEG→CZEG, ZMX→MMMX) before DCC lookup
+        var resolved = ARTCC_ALIASES[upper] || upper;
+        return ARTCC_TO_DCC[resolved] || 'OTHER';
     }
 
     /**
