@@ -7,9 +7,7 @@ info:
     This API provides access to flight data, traffic management initiatives,
     sector configurations, and operational planning tools for the VATSIM network.
 
-    > **System Status: HIBERNATED** (since March 9, 2026) — Most API endpoints
-    > return reduced data or are unavailable. Only ADL ingest daemon is active.
-    > See [Hibernation Runbook](../docs/HIBERNATION_RUNBOOK.md) for details.
+    > **System Status: OPERATIONAL** — All daemons and API endpoints are active.
 
     ## Authentication
     Most read-only endpoints are public. Management (POST/PUT/DELETE) endpoints
@@ -78,6 +76,12 @@ tags:
       understand the impact. Requires authentication.
   - name: User
     description: User-specific data and preferences
+  - name: SWIM-NAT
+    description: SWIM NAT Track throughput metrics and status for external consumers
+  - name: CTP-Throughput
+    description: CTP NAT track throughput configuration CRUD
+  - name: CTP-Planning
+    description: CTP planning simulator — scenario management and compute engine
 
 paths:
   # ============================================================================
@@ -4065,6 +4069,1029 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
+  # ============================================================================
+  # SWIM NAT TRACK ENDPOINTS
+  # ============================================================================
+
+  /swim/v1/tmi/nat_tracks/metrics:
+    get:
+      tags: [SWIM-NAT]
+      summary: Get NAT track throughput metrics
+      description: |
+        Pre-computed NAT track throughput metrics binned by time intervals.
+        Returns per-track flight counts, compliance rates, delay averages,
+        and flight level distributions. Requires SWIM API key.
+      security:
+        - swimApiKey: []
+      parameters:
+        - name: session_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: CTP session ID
+        - name: track
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by track names (comma-separated, e.g. NATA,NATB)
+        - name: bin_min
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 15
+            enum: [15, 30, 60]
+          description: Time bin size in minutes
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Start time filter (ISO 8601)
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: End time filter (ISO 8601)
+        - name: direction
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [WESTBOUND, EASTBOUND]
+          description: Filter by direction
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      session_id:
+                        type: integer
+                      bin_min:
+                        type: integer
+                      tracks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            track_name:
+                              type: string
+                            direction:
+                              type: string
+                            bins:
+                              type: array
+                              items:
+                                type: object
+                            totals:
+                              type: object
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid API key
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /swim/v1/tmi/nat_tracks/status:
+    get:
+      tags: [SWIM-NAT]
+      summary: Get live NAT track status
+      description: |
+        Live snapshot of NAT track definitions from VATSIM natTrak API
+        with optional real-time occupancy metrics. Public access — no API key required.
+      parameters:
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: CTP session ID for occupancy metrics
+        - name: source
+          in: query
+          required: false
+          schema:
+            type: string
+            default: all
+            enum: [nattrak, ctp, all]
+          description: Track source filter
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      tracks:
+                        type: array
+                        items:
+                          type: object
+                      fetched_at:
+                        type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================================
+  # CTP THROUGHPUT ENDPOINTS
+  # ============================================================================
+
+  /ctp/throughput/list.php:
+    get:
+      tags: [CTP-Throughput]
+      summary: List throughput configs
+      description: Returns active throughput config entries for a CTP session. Requires authentication.
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: session_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: CTP session ID
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ThroughputConfig'
+        '400':
+          description: Missing session_id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/throughput/create.php:
+    post:
+      tags: [CTP-Throughput]
+      summary: Create throughput config
+      description: Creates a new throughput rate cap configuration. NULL filter fields match all flights (wildcard).
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id, config_label, max_acph]
+              properties:
+                session_id:
+                  type: integer
+                config_label:
+                  type: string
+                max_acph:
+                  type: integer
+                  description: Maximum aircraft per hour
+                tracks_json:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                  description: NAT track filter (null=all)
+                origins_json:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                  description: Origin airport filter (null=all)
+                destinations_json:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                  description: Destination airport filter (null=all)
+                priority:
+                  type: integer
+                  default: 100
+                notes:
+                  type: string
+                  nullable: true
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  config_id:
+                    type: integer
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/throughput/update.php:
+    post:
+      tags: [CTP-Throughput]
+      summary: Update throughput config
+      description: |
+        Updates an existing config with optimistic concurrency control.
+        Provide `expected_updated_at` to prevent lost updates.
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [config_id, expected_updated_at]
+              properties:
+                config_id:
+                  type: integer
+                expected_updated_at:
+                  type: string
+                  format: date-time
+                  description: Optimistic concurrency timestamp
+                config_label:
+                  type: string
+                tracks_json:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                origins_json:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                destinations_json:
+                  type: array
+                  items:
+                    type: string
+                  nullable: true
+                max_acph:
+                  type: integer
+                priority:
+                  type: integer
+                notes:
+                  type: string
+                  nullable: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Config not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Concurrency conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [conflict]
+                  message:
+                    type: string
+                  current_state:
+                    $ref: '#/components/schemas/ThroughputConfig'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/throughput/delete.php:
+    post:
+      tags: [CTP-Throughput]
+      summary: Delete throughput config
+      description: Soft-deletes a throughput config (sets is_active=0).
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [config_id]
+              properties:
+                config_id:
+                  type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Config not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/throughput/preview.php:
+    get:
+      tags: [CTP-Throughput]
+      summary: Preview throughput utilization
+      description: |
+        Computes 15-minute binned flight counts matching a config's criteria
+        and identifies rate cap exceedances. Can use an existing config_id
+        or proposed filter parameters.
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: session_id
+          in: query
+          required: true
+          schema:
+            type: integer
+          description: CTP session ID
+        - name: config_id
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Existing config to preview
+        - name: tracks_json
+          in: query
+          required: false
+          schema:
+            type: string
+          description: JSON array of track names
+        - name: origins_json
+          in: query
+          required: false
+          schema:
+            type: string
+          description: JSON array of origin airports
+        - name: destinations_json
+          in: query
+          required: false
+          schema:
+            type: string
+          description: JSON array of destination airports
+        - name: max_acph
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Rate cap (required if no config_id)
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      config_label:
+                        type: string
+                      max_acph:
+                        type: integer
+                      total_flights:
+                        type: integer
+                      total_bins:
+                        type: integer
+                      bins_exceeding:
+                        type: integer
+                      max_bin_count:
+                        type: integer
+                      bins:
+                        type: array
+                        items:
+                          type: object
+                      criteria:
+                        type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Config or session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================================
+  # CTP PLANNING ENDPOINTS
+  # ============================================================================
+
+  /ctp/planning/scenarios.php:
+    get:
+      tags: [CTP-Planning]
+      summary: List planning scenarios
+      parameters:
+        - name: session_id
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Filter by session
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [DRAFT, ACTIVE, ARCHIVED]
+          description: Filter by status
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      type: object
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [CTP-Planning]
+      summary: Create planning scenario
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario_name, departure_window_start, departure_window_end]
+              properties:
+                scenario_name:
+                  type: string
+                session_id:
+                  type: integer
+                departure_window_start:
+                  type: string
+                  format: date-time
+                departure_window_end:
+                  type: string
+                  format: date-time
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  scenario_id:
+                    type: integer
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/planning/scenario_save.php:
+    post:
+      tags: [CTP-Planning]
+      summary: Update planning scenario
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario_id]
+              properties:
+                scenario_id:
+                  type: integer
+                scenario_name:
+                  type: string
+                notes:
+                  type: string
+                status:
+                  type: string
+                  enum: [DRAFT, ACTIVE, ARCHIVED]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/planning/scenario_delete.php:
+    post:
+      tags: [CTP-Planning]
+      summary: Delete planning scenario
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario_id]
+              properties:
+                scenario_id:
+                  type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/planning/scenario_clone.php:
+    post:
+      tags: [CTP-Planning]
+      summary: Clone planning scenario
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario_id]
+              properties:
+                scenario_id:
+                  type: integer
+                new_name:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  scenario_id:
+                    type: integer
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/planning/block_save.php:
+    post:
+      tags: [CTP-Planning]
+      summary: Create or update departure block
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario_id, block_label, block_start, block_end, flight_count]
+              properties:
+                scenario_id:
+                  type: integer
+                block_id:
+                  type: integer
+                  description: Omit for create, provide for update
+                block_label:
+                  type: string
+                block_start:
+                  type: string
+                  format: date-time
+                block_end:
+                  type: string
+                  format: date-time
+                flight_count:
+                  type: integer
+                distribution_type:
+                  type: string
+                  default: UNIFORM
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  block_id:
+                    type: integer
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/planning/block_delete.php:
+    post:
+      tags: [CTP-Planning]
+      summary: Delete departure block
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [block_id]
+              properties:
+                block_id:
+                  type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Block not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/planning/assignment_save.php:
+    post:
+      tags: [CTP-Planning]
+      summary: Create or update track assignment
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [block_id, track_name, percentage]
+              properties:
+                block_id:
+                  type: integer
+                assignment_id:
+                  type: integer
+                  description: Omit for create, provide for update
+                track_name:
+                  type: string
+                percentage:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  assignment_id:
+                    type: integer
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/planning/assignment_delete.php:
+    post:
+      tags: [CTP-Planning]
+      summary: Delete track assignment
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignment_id]
+              properties:
+                assignment_id:
+                  type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Assignment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/planning/compute.php:
+    post:
+      tags: [CTP-Planning]
+      summary: Compute planning scenario
+      description: |
+        Runs 5-step simulation: spread departures, expand routes via PostGIS,
+        BADA performance lookup, compute oceanic entry times, check constraints.
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario_id]
+              properties:
+                scenario_id:
+                  type: integer
+      responses:
+        '200':
+          description: Success — ECharts-compatible binned results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /ctp/planning/apply_to_session.php:
+    post:
+      tags: [CTP-Planning]
+      summary: Apply scenario to session
+      description: |
+        Promotes planning scenario's track assignments into live throughput configs.
+        Requires scenario to have a session_id.
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario_id]
+              properties:
+                scenario_id:
+                  type: integer
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  configs_created:
+                    type: integer
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
 # ==============================================================================
 # COMPONENTS
 # ==============================================================================
@@ -4785,6 +5812,49 @@ components:
         message:
           type: string
 
+    ThroughputConfig:
+      type: object
+      properties:
+        config_id:
+          type: integer
+        session_id:
+          type: integer
+        config_label:
+          type: string
+        max_acph:
+          type: integer
+          description: Maximum aircraft per hour
+        tracks_json:
+          type: array
+          items:
+            type: string
+          nullable: true
+        origins_json:
+          type: array
+          items:
+            type: string
+          nullable: true
+        destinations_json:
+          type: array
+          items:
+            type: string
+          nullable: true
+        priority:
+          type: integer
+        notes:
+          type: string
+          nullable: true
+        is_active:
+          type: integer
+        created_by:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
   responses:
     ServerError:
       description: Server error
@@ -4801,3 +5871,8 @@ components:
       description: |
         VATSIM session authentication. Login via VATSIM Connect OAuth
         to obtain a session cookie. Required for management operations.
+    swimApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: SWIM API key for external consumers
