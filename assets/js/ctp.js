@@ -72,7 +72,8 @@
             assignment_save:   'api/ctp/planning/assignment_save.php',
             assignment_delete: 'api/ctp/planning/assignment_delete.php',
             compute:           'api/ctp/planning/compute.php',
-            apply_to_session:  'api/ctp/planning/apply_to_session.php'
+            apply_to_session:  'api/ctp/planning/apply_to_session.php',
+            track_constraints: 'api/ctp/planning/track_constraints.php'
         }
     };
 
@@ -2877,9 +2878,11 @@
                     .append($('<div class="d-flex justify-content-between align-items-center">')
                         .append($('<span class="ps-expand" data-id="' + sc.scenario_id + '" style="cursor:pointer;">').html('<i class="fas fa-chevron-right mr-1 ps-chevron" style="font-size:0.6rem;transition:transform 0.15s;"></i>' + (sc.scenario_name || t('ctp.planning.scenario') + ' #' + sc.scenario_id) + statusBadge))
                         .append($('<span class="btn-group btn-group-sm">')
-                            .append('<button class="btn btn-outline-info ps-edit" data-id="' + sc.scenario_id + '" title="' + t('common.edit') + '"><i class="fas fa-pencil-alt"></i></button>')
-                            .append('<button class="btn btn-outline-primary ps-compute" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.compute') + '"><i class="fas fa-calculator"></i></button>')
-                            .append('<button class="btn btn-outline-secondary ps-clone" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.cloneScenario') + '"><i class="fas fa-copy"></i></button>')
+                            .append('<button class="btn btn-outline-info ps-edit" data-id="' + sc.scenario_id + '" title="' + t('common.edit') + '"><i class="fas fa-pencil-alt"></i> ' + t('common.edit') + '</button>')
+                            .append('<button class="btn btn-outline-primary ps-compute" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.compute') + '"><i class="fas fa-calculator"></i> ' + t('ctp.planning.compute') + '</button>')
+                        )
+                        .append($('<span class="btn-group btn-group-sm ml-2">')
+                            .append('<button class="btn btn-outline-secondary ps-clone" data-id="' + sc.scenario_id + '" title="' + t('ctp.planning.cloneScenario') + '"><i class="fas fa-copy"></i> ' + t('ctp.planning.cloneScenario') + '</button>')
                             .append('<button class="btn btn-outline-danger ps-delete" data-id="' + sc.scenario_id + '"><i class="fas fa-trash"></i></button>')
                         )
                     )
@@ -3445,30 +3448,113 @@
                     '</tr></thead><tbody></tbody></table>');
 
                 data.constraint_checks.forEach(function(check) {
-                    var status = check.violated
-                        ? '<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> ' + t('ctp.planning.violated') + '</span>'
-                        : '<span class="text-success"><i class="fas fa-check"></i> ' + t('ctp.planning.withinLimits') + '</span>';
+                    var status, planned, limit;
+                    if (check.violation_type === 'OCEAN_ENTRY_WINDOW') {
+                        status = '<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> ' + t('ctp.planning.oceanWindowViolation') + ' (' + check.flights_outside + '/' + check.total_flights + ')</span>';
+                        planned = check.total_flights;
+                        limit = (check.window_start || '').substring(11, 16) + '-' + (check.window_end || '').substring(11, 16) + 'Z';
+                    } else {
+                        status = check.violated
+                            ? '<span class="text-danger"><i class="fas fa-exclamation-triangle"></i> ' + t('ctp.planning.violated') + '</span>'
+                            : '<span class="text-success"><i class="fas fa-check"></i> ' + t('ctp.planning.withinLimits') + '</span>';
+                        planned = check.peak_actual || 0;
+                        limit = check.max_acph || '-';
+                    }
                     $table.find('tbody').append(
-                        '<tr><td>' + (check.config_label || '-') + '</td><td>' + (check.actual_acph || 0) + '</td><td>' + (check.max_acph || '-') + '</td><td>' + status + '</td></tr>'
+                        '<tr><td>' + (check.config_label || '-') + '</td><td>' + planned + '</td><td>' + limit + '</td><td>' + status + '</td></tr>'
                     );
                 });
                 $results.append($table);
             }
 
             // Track summary
-            if (data.track_summaries && data.track_summaries.length > 0) {
+            if (data.track_summary && data.track_summary.length > 0) {
                 var $summary = $('<table class="table table-sm"><thead><tr>' +
                     '<th>' + t('ctp.nat.trackResolved') + '</th>' +
                     '<th>' + t('ctp.planning.flightCount') + '</th>' +
                     '<th>' + t('ctp.planning.arrivalProfile') + '</th>' +
                     '</tr></thead><tbody></tbody></table>');
 
-                data.track_summaries.forEach(function(ts) {
+                data.track_summary.forEach(function(ts) {
                     $summary.find('tbody').append(
-                        '<tr><td>' + ts.track_name + '</td><td>' + ts.flight_count + '</td><td>' + (ts.peak_rate_hr || '-') + '/hr peak</td></tr>'
+                        '<tr><td>' + ts.track + '</td><td>' + ts.flight_count + '</td><td>' + (ts.peak_rate_hr || '-') + '/hr peak</td></tr>'
                     );
                 });
                 $results.append($summary);
+            }
+
+            // Volume profiles (segment timing per track)
+            if (data.volume_profiles && data.volume_profiles.length > 0) {
+                $results.append('<h6 class="mt-3 mb-1 text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.planning.volumeProfiles') + '</h6>');
+                var $vp = $('<table class="table table-sm table-bordered"><thead><tr>' +
+                    '<th>' + t('ctp.nat.trackResolved') + '</th><th>' + t('ctp.planning.flightCount') + '</th>' +
+                    '<th>' + t('ctp.planning.preOceanic') + '</th><th>' + t('ctp.planning.oceanic') + '</th>' +
+                    '<th>' + t('ctp.planning.postOceanic') + '</th><th>' + t('ctp.planning.totalTime') + '</th>' +
+                    '</tr></thead><tbody></tbody></table>');
+                data.volume_profiles.forEach(function(vp) {
+                    $vp.find('tbody').append('<tr><td>' + vp.track + '</td><td>' + vp.flight_count +
+                        '</td><td>' + vp.avg_pre_oceanic_min + 'm</td><td>' + vp.avg_oceanic_min +
+                        'm</td><td>' + vp.avg_post_oceanic_min + 'm</td><td>' + vp.avg_total_min + 'm</td></tr>');
+                });
+                $results.append($vp);
+            }
+
+            // Distribution tables in a collapsible accordion
+            if (data.distributions) {
+                $results.append('<h6 class="mt-3 mb-1 text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.planning.distributions') + '</h6>');
+                var distId = 'ctp_dist_accordion_' + Date.now();
+                var $accordion = $('<div class="accordion" id="' + distId + '"></div>');
+
+                var distSections = [
+                    { key: 'origins', title: t('ctp.planning.originDist'), cols: ['origin', 'count', 'pct'] },
+                    { key: 'destinations', title: t('ctp.planning.destDist'), cols: ['dest', 'count', 'pct'] },
+                    { key: 'od_pairs', title: t('ctp.planning.odPairs'), cols: ['origin', 'dest', 'count', 'pct'] },
+                    { key: 'origin_track', title: t('ctp.planning.originToTrack'), cols: ['origin', 'track', 'count'] },
+                    { key: 'track_dest', title: t('ctp.planning.trackToDest'), cols: ['track', 'dest', 'count'] }
+                ];
+
+                distSections.forEach(function(sec, idx) {
+                    var rows = data.distributions[sec.key];
+                    if (!rows || rows.length === 0) return;
+                    var cardId = distId + '_' + idx;
+                    var $card = $('<div class="card"><div class="card-header py-1 px-2"><a class="small" data-toggle="collapse" href="#' + cardId + '_body">' +
+                        sec.title + ' (' + rows.length + ')</a></div>' +
+                        '<div id="' + cardId + '_body" class="collapse" data-parent="#' + distId + '">' +
+                        '<div class="card-body p-0"></div></div></div>');
+                    var $tbl = $('<table class="table table-sm table-bordered mb-0"><thead><tr></tr></thead><tbody></tbody></table>');
+                    sec.cols.forEach(function(c) { $tbl.find('thead tr').append('<th>' + c + '</th>'); });
+                    rows.forEach(function(r) {
+                        var $row = $('<tr>');
+                        sec.cols.forEach(function(c) { $row.append('<td>' + (r[c] !== undefined ? r[c] : '-') + (c === 'pct' ? '%' : '') + '</td>'); });
+                        $tbl.find('tbody').append($row);
+                    });
+                    $card.find('.card-body').append($tbl);
+                    $accordion.append($card);
+                });
+                $results.append($accordion);
+            }
+
+            // Flight list (collapsible, sorted by ocean entry)
+            if (data.flight_list && data.flight_list.length > 0) {
+                $results.append('<h6 class="mt-3 mb-1 text-uppercase text-muted" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.planning.flightList') + ' (' + data.flight_list.length + ')</h6>');
+                var flId = 'ctp_flight_list_' + Date.now();
+                var $flWrap = $('<div><a class="small" data-toggle="collapse" href="#' + flId + '">' + t('ctp.planning.showFlightList') + '</a>' +
+                    '<div id="' + flId + '" class="collapse"><div class="table-responsive" style="max-height:300px;overflow-y:auto;"></div></div></div>');
+                var $flTbl = $('<table class="table table-sm table-bordered mb-0" style="font-size:0.7rem;"><thead><tr>' +
+                    '<th>#</th><th>' + t('ctp.planning.originLabel') + '</th><th>' + t('ctp.planning.destLabel') + '</th>' +
+                    '<th>' + t('ctp.nat.trackResolved') + '</th><th>DEP</th><th>ENTRY</th><th>EXIT</th><th>ARR</th>' +
+                    '<th>' + t('ctp.planning.totalTime') + '</th></tr></thead><tbody></tbody></table>');
+                data.flight_list.forEach(function(f, i) {
+                    var depTime = (f.dep_utc || '').substring(11, 16);
+                    var entryTime = (f.entry_utc || '').substring(11, 16);
+                    var exitTime = (f.exit_utc || '').substring(11, 16);
+                    var arrTime = (f.arr_utc || '').substring(11, 16);
+                    $flTbl.find('tbody').append('<tr><td>' + (i + 1) + '</td><td>' + f.origin + '</td><td>' + f.dest +
+                        '</td><td>' + f.track + '</td><td>' + depTime + 'Z</td><td>' + entryTime + 'Z</td><td>' + exitTime +
+                        'Z</td><td>' + arrTime + 'Z</td><td>' + f.total_min + 'm</td></tr>');
+                });
+                $flWrap.find('.table-responsive').append($flTbl);
+                $results.append($flWrap);
             }
 
             // Apply to session button
@@ -3500,6 +3586,7 @@
                             if (resp.status === 'ok') {
                                 Swal.fire({ icon: 'success', title: t('ctp.planning.appliedSuccessfully'), timer: 2000, showConfirmButton: false });
                                 ThroughputManager.refresh();
+                                SessionManager.loadSessions();
                             } else {
                                 Swal.fire({ icon: 'error', title: resp.message || 'Apply failed' });
                             }
@@ -3508,6 +3595,181 @@
                             var msg = 'Apply failed';
                             try { var r = JSON.parse(xhr.responseText); msg = r.message || msg; } catch(e) {}
                             Swal.fire({ icon: 'error', title: msg });
+                        }
+                    });
+                }
+            });
+        }
+    };
+
+    // ========================================================================
+    // Track Constraint Manager
+    // ========================================================================
+
+    var TrackConstraintManager = {
+        constraints: [],
+
+        init: function() {
+            var self = this;
+            $(document).on('click', '#ctp_track_constraint_add', function() { self.showAddDialog(); });
+            $(document).on('shown.bs.tab', 'a[href="#ctp_planning_panel"]', function() { self.refresh(); });
+        },
+
+        refresh: function() {
+            if (!state.currentSession) return;
+            var self = this;
+            $.ajax({
+                url: API.planning.track_constraints,
+                data: { session_id: state.currentSession.session_id },
+                success: function(resp) {
+                    if (resp.status === 'ok' && resp.data) {
+                        self.constraints = resp.data;
+                        self.renderTable();
+                    }
+                }
+            });
+        },
+
+        renderTable: function() {
+            var $container = $('#ctp_track_constraints_table');
+            $container.empty();
+
+            if (!this.constraints || this.constraints.length === 0) {
+                $container.html('<div class="text-center text-muted py-2 small">' + t('ctp.planning.noConstraints') + '</div>');
+                return;
+            }
+
+            var $table = $('<table class="table table-sm table-bordered table-striped mb-0"><thead><tr>' +
+                '<th>' + t('ctp.nat.trackResolved') + '</th>' +
+                '<th>' + t('ctp.throughput.maxAcph') + '</th>' +
+                '<th>' + t('ctp.planning.oceanEntryStart') + '</th>' +
+                '<th>' + t('ctp.planning.oceanEntryEnd') + '</th>' +
+                '<th>' + t('ctp.planning.flMin') + '</th>' +
+                '<th>' + t('ctp.planning.flMax') + '</th>' +
+                '<th>' + t('common.actions') + '</th>' +
+                '</tr></thead><tbody></tbody></table>');
+
+            var self = this;
+            this.constraints.forEach(function(c) {
+                var entryStart = c.ocean_entry_start ? c.ocean_entry_start.replace('T', ' ').replace('Z', '') : '-';
+                var entryEnd = c.ocean_entry_end ? c.ocean_entry_end.replace('T', ' ').replace('Z', '') : '-';
+                var $row = $('<tr>' +
+                    '<td>' + c.track_name + '</td>' +
+                    '<td>' + (c.max_acph || '-') + '</td>' +
+                    '<td>' + entryStart + '</td>' +
+                    '<td>' + entryEnd + '</td>' +
+                    '<td>' + (c.fl_min || '-') + '</td>' +
+                    '<td>' + (c.fl_max || '-') + '</td>' +
+                    '<td>' +
+                        '<button class="btn btn-xs btn-outline-info tc-edit" data-id="' + c.constraint_id + '"><i class="fas fa-pencil-alt"></i></button> ' +
+                        '<button class="btn btn-xs btn-outline-danger tc-delete" data-id="' + c.constraint_id + '"><i class="fas fa-trash"></i></button>' +
+                    '</td></tr>');
+                $table.find('tbody').append($row);
+            });
+
+            $container.append($table);
+
+            $container.find('.tc-edit').on('click', function() {
+                var id = $(this).data('id');
+                var constraint = self.constraints.find(function(c) { return c.constraint_id === id; });
+                if (constraint) self.showEditDialog(constraint);
+            });
+            $container.find('.tc-delete').on('click', function() {
+                var id = $(this).data('id');
+                self.deleteConstraint(id);
+            });
+        },
+
+        showAddDialog: function() {
+            if (!state.currentSession) return;
+            this._showDialog(null);
+        },
+
+        showEditDialog: function(constraint) {
+            this._showDialog(constraint);
+        },
+
+        _showDialog: function(existing) {
+            var self = this;
+            var isEdit = !!existing;
+            var title = isEdit ? t('ctp.planning.editConstraint') : t('ctp.planning.addConstraint');
+
+            Swal.fire({
+                title: title,
+                html:
+                    '<div class="form-group text-left mb-2"><label class="small font-weight-bold">' + t('ctp.nat.trackResolved') + '</label>' +
+                    '<input id="swal_tc_track" class="swal2-input" placeholder="e.g. NATA" value="' + (existing ? existing.track_name : '') + '"' + (isEdit ? ' readonly' : '') + '></div>' +
+                    '<div class="form-group text-left mb-2"><label class="small font-weight-bold">' + t('ctp.throughput.maxAcph') + '</label>' +
+                    '<input id="swal_tc_acph" type="number" class="swal2-input" placeholder="e.g. 120" value="' + (existing && existing.max_acph ? existing.max_acph : '') + '"></div>' +
+                    '<div class="form-group text-left mb-2"><label class="small font-weight-bold">' + t('ctp.planning.oceanEntryStart') + '</label>' +
+                    '<input id="swal_tc_start" type="datetime-local" class="swal2-input" value="' + (existing && existing.ocean_entry_start ? existing.ocean_entry_start.replace('Z', '').replace('T', 'T') : '') + '"></div>' +
+                    '<div class="form-group text-left mb-2"><label class="small font-weight-bold">' + t('ctp.planning.oceanEntryEnd') + '</label>' +
+                    '<input id="swal_tc_end" type="datetime-local" class="swal2-input" value="' + (existing && existing.ocean_entry_end ? existing.ocean_entry_end.replace('Z', '').replace('T', 'T') : '') + '"></div>' +
+                    '<div class="row"><div class="col-6 form-group text-left mb-2"><label class="small font-weight-bold">' + t('ctp.planning.flMin') + '</label>' +
+                    '<input id="swal_tc_flmin" type="number" class="swal2-input" placeholder="e.g. 310" value="' + (existing && existing.fl_min ? existing.fl_min : '') + '"></div>' +
+                    '<div class="col-6 form-group text-left mb-2"><label class="small font-weight-bold">' + t('ctp.planning.flMax') + '</label>' +
+                    '<input id="swal_tc_flmax" type="number" class="swal2-input" placeholder="e.g. 410" value="' + (existing && existing.fl_max ? existing.fl_max : '') + '"></div></div>' +
+                    '<div class="form-group text-left mb-2"><label class="small font-weight-bold">' + t('common.notes') + '</label>' +
+                    '<input id="swal_tc_notes" class="swal2-input" value="' + (existing && existing.notes ? existing.notes : '') + '"></div>',
+                showCancelButton: true,
+                confirmButtonText: isEdit ? t('common.save') : t('common.create'),
+                preConfirm: function() {
+                    var track = document.getElementById('swal_tc_track').value.trim().toUpperCase();
+                    if (!track) {
+                        Swal.showValidationMessage(t('ctp.planning.trackRequired'));
+                        return false;
+                    }
+                    return {
+                        session_id: state.currentSession.session_id,
+                        track_name: track,
+                        max_acph: document.getElementById('swal_tc_acph').value || null,
+                        ocean_entry_start: document.getElementById('swal_tc_start').value || null,
+                        ocean_entry_end: document.getElementById('swal_tc_end').value || null,
+                        fl_min: document.getElementById('swal_tc_flmin').value || null,
+                        fl_max: document.getElementById('swal_tc_flmax').value || null,
+                        notes: document.getElementById('swal_tc_notes').value || null
+                    };
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.planning.track_constraints,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(result.value),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.refresh();
+                            } else {
+                                Swal.fire({ icon: 'error', title: resp.message || 'Save failed' });
+                            }
+                        },
+                        error: function() {
+                            Swal.fire({ icon: 'error', title: 'Save failed' });
+                        }
+                    });
+                }
+            });
+        },
+
+        deleteConstraint: function(constraintId) {
+            var self = this;
+            Swal.fire({
+                title: t('common.confirmDelete'),
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33'
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: API.planning.track_constraints,
+                        method: 'DELETE',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ constraint_id: constraintId }),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.refresh();
+                            }
                         }
                     });
                 }
@@ -3796,6 +4058,7 @@
         AuditLog.init();
         ThroughputManager.init();
         PlanningSimulator.init();
+        TrackConstraintManager.init();
         RouteTemplateManager.init();
         StatsPanel.init();
         ResizeHandle.init();

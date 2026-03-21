@@ -3044,6 +3044,22 @@
     "duplicatesSkipped": "({count} doublons ignor\u00e9s)",
     "allAlreadyAdded": "Toutes les routes s\u00e9lectionn\u00e9es sont d\u00e9j\u00e0 dans le champ."
   },
+  "reroute": {
+    "fetching": "R\u00e9cup\u00e9ration de l'avis...",
+    "fetchFailed": "\u00c9chec de la r\u00e9cup\u00e9ration de l'avis de la FAA.",
+    "noRoutes": "Aucune route trouv\u00e9e dans cet avis.",
+    "routes": "routes",
+    "destinations": "destinations",
+    "addAll": "Tout ajouter",
+    "addToTextarea": "Ajouter au champ",
+    "plotRoute": "Tracer la route",
+    "plottingRoute": "Tra\u00e7age de la route...",
+    "plottingRoutes": "Tra\u00e7age de {count} routes...",
+    "noneSelected": "Aucune route s\u00e9lectionn\u00e9e.",
+    "addedRoutes": "{count} routes ajout\u00e9es.",
+    "duplicatesSkipped": "({count} doublons ignor\u00e9s)",
+    "allAlreadyAdded": "Toutes les routes s\u00e9lectionn\u00e9es sont d\u00e9j\u00e0 dans le champ."
+  },
   "nod": {
     "advisories": {
       "areaLabel": "Zone",
@@ -5005,6 +5021,12 @@
       "natotsDate": "Date",
       "natotsAdvn": "Avis #",
       "natotsPlaceholder": "Entrez une URL d'avis ou une date + num\u00e9ro pour charger les routes de d\u00e9part NATOTs.",
+      "rerouteTitle": "Avis de d\u00e9routement",
+      "rerouteUrl": "URL de l'avis",
+      "rerouteOr": "ou",
+      "rerouteDate": "Date",
+      "rerouteAdvn": "Avis #",
+      "reroutePlaceholder": "Entrez une URL d'avis ou une date + num\u00e9ro pour charger les routes de d\u00e9routement/FCA.",
       "playbookCdrSearch": "Recherche Playbook et CDR",
       "playbookDesc": "Syntaxe : PB.{NOM_DU_JEU}.{ORIGS}.{DESTS} — les origines et destinations sont des filtres optionnels séparés par des points.",
       "playbooks": "Cahiers de routes",

@@ -121,8 +121,8 @@
             var destPart = line.substring(destCol, routeCol).trimEnd();
             var routePart = line.substring(routeCol).trimEnd();
 
-            // New entry: has orig text AND route starts with > or UPT RTE:
-            var isNew = origPart.trim() && /^\s*(>|UPT RTE:)/i.test(routePart);
+            // New entry: has orig text AND (dest text present OR route starts with > or UPT RTE:)
+            var isNew = origPart.trim() && (destPart.trim() || /^\s*(>|UPT RTE:)/i.test(routePart));
             if (isNew) {
                 if (current) entries.push(current);
                 current = { origRaw: origPart.trim(), destRaw: destPart.trim(), routeRaw: routePart.trim() };

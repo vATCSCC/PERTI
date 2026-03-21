@@ -304,6 +304,16 @@ include("load/connect.php");
                         </div>
                         <div id="ctp_planning_results" style="display:none;"></div>
                     </div>
+                    <hr class="my-2">
+                    <div class="d-flex align-items-center justify-content-between px-3 py-2">
+                        <span class="small font-weight-bold"><?= __('ctp.planning.trackConstraints') ?></span>
+                        <button class="btn btn-sm btn-outline-primary" id="ctp_track_constraint_add">
+                            <i class="fas fa-plus mr-1"></i><?= __('ctp.planning.addConstraint') ?>
+                        </button>
+                    </div>
+                    <div class="px-3 pb-2">
+                        <div id="ctp_track_constraints_table"></div>
+                    </div>
                 </div>
 
                 <!-- Route Templates Tab -->
