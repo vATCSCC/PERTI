@@ -1645,7 +1645,7 @@ USA                       (named group: 20 CONUS ARTCCs)</pre>
 <pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">J25  V500  Q10  A574  UB881  RTE4</pre>
                             </li>
                             <li><strong><?= __('route.page.dpStars') ?></strong> <?= __('route.page.dpStarsDesc') ?>
-<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">KJFK.DEEZZ5   ZPLEN.LEESE   TERPZ8.MAULS</pre>
+<pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">TERPZ8.MAULS   ZPLEN.LEESE4</pre>
                             </li>
                             <li><strong>NAT Tracks:</strong> <?= __('route.page.natTrackDesc') ?>
 <pre class="bg-light p-1 mb-0 rounded" style="font-family: Inconsolata, monospace; font-size: 0.65rem; margin-top: 2px;">NATA   NAT-B   TRACKC   TRKA</pre>
@@ -1694,8 +1694,7 @@ KJFK >GREKI JUDDS CAM Q822 GONZZ< FARGN Q438 RUBYY >DABJU J36 BAE J16 FSD J82 CZ
                         <p class="mb-1"><?= __('route.page.colorsDesc') ?></p>
 <pre class="bg-light p-2 mb-1 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">KPHL DQO BELAY MORTY LITME HIRCK CLTCH KERRK MAULS Q40 ALEAN ZHU;ORANGE
 PANC NOEND JAGIT NCA12 GUDEN 56N122W KODIT MATIR ADVOX ADVOX9 CYYC;#3498db
-PANC NOEND JAGIT NCA12 GUDEN 56N122W KODIT MATIR ADVOX ADVOX9 CYYC            (auto-assigned)</pre>
-                        <p class="mb-2" style="font-size: 0.7rem;"><?= __('route.page.colorDefaultDesc') ?></p>
+PANC NOEND JAGIT NCA12 GUDEN 56N122W KODIT MATIR ADVOX ADVOX9 CYYC            (default red)</pre>
 
                         <!-- ============ ORIGIN & DESTINATION FILTERS ============ -->
                         <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-filter mr-1"></i> <?= __('route.page.facilityFilters') ?></p>
@@ -1732,11 +1731,11 @@ ABQATLER</pre>
                         <!-- ============ PLAYBOOK ============ -->
                         <p class="mb-1" style="font-weight: 600; color: #239BCD;"><i class="fas fa-book mr-1"></i> <?= __('route.page.playbook') ?></p>
                         <p class="mb-1"><?= __('route.page.playbookDesc') ?></p>
-<pre class="bg-light p-2 mb-2 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">PB.ATL NO HOBTT                   (all routes in play)
-PB.ATL NO HOBTT.KBWI              (filter to KBWI origins)
-PB.ATL NO HOBTT.KBWI.KATL         (filter KBWI &rarr; KATL)
-PB.ATL NO HOBTT.C90               (filter to C90 TRACON)
-PB.ATL NO HOBTT.ZDC               (filter to ZDC ARTCC)
+<pre class="bg-light p-2 mb-2 rounded" style="font-family: Inconsolata, monospace; font-size: 0.7rem;">PB.{PLAY_NAME}                    PB.ATL NO HOBTT
+PB.{PLAY_NAME}.{ORIGS}            PB.ATL NO HOBTT.KBWI
+PB.{PLAY_NAME}.{ORIGS}.{DESTS}    PB.ATL NO HOBTT.KBWI.KATL
+PB.{PLAY_NAME}.{TRACON}           PB.ATL NO HOBTT.C90
+PB.{PLAY_NAME}.{ARTCC}            PB.ATL NO HOBTT.ZDC
 >PB.ATL NO HOBTT<;RED             (mandatory + color)</pre>
 
                         <!-- ============ MAP TOOLBAR ============ -->
