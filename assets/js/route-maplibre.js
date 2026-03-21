@@ -160,7 +160,7 @@ $(document).ready(function() {
 
     // NAT (North Atlantic Track) cache for CTP oceanic route expansion
     let natTrackCache = null;
-    const natTokenPattern = /^(?:NAT|TRACK|TRK)-?[A-Z]$/;
+    const natTokenPattern = /^(?:NAT|TRACK|TRAK|TRK)-?([A-Z0-9]{1,5})$/;
 
     /**
      * Load all NAT tracks from the API into cache (synchronous, called once on first use).
@@ -179,14 +179,16 @@ $(document).ready(function() {
                         var name = (trk.name || '').toUpperCase();
                         var routeStr = trk.route_string || '';
                         natTrackCache[name] = routeStr;
-                        // Add alias variations so NATA, NAT-A, TRACKA, TRKA, etc. all resolve
-                        var m = name.match(/^NAT([A-Z])$/);
+                        // Add alias variations so NATA, NAT-A, TRACKA, TRKA, TRAKA, etc. all resolve
+                        var m = name.match(/^NAT([A-Z0-9]{1,5})$/);
                         if (m) {
                             natTrackCache['NAT-' + m[1]] = routeStr;
                             natTrackCache['TRACK' + m[1]] = routeStr;
                             natTrackCache['TRK' + m[1]] = routeStr;
+                            natTrackCache['TRAK' + m[1]] = routeStr;
                             natTrackCache['TRACK-' + m[1]] = routeStr;
                             natTrackCache['TRK-' + m[1]] = routeStr;
+                            natTrackCache['TRAK-' + m[1]] = routeStr;
                         }
                     });
                 }
