@@ -113,7 +113,8 @@ def classify_line(line: str) -> Tuple[str, Optional[dict]]:
         return ("empty", None)
 
     # ADVZY header detection - type-specific
-    if re.match(r'^vATCSCC\s+ADVZY\s+\d+', line, re.IGNORECASE):
+    # Support any org prefix (vATCSCC, CANOC, etc.)
+    if re.match(r'^\w+\s+ADVZY\s+\d+', line, re.IGNORECASE):
         upper = line.upper()
         if 'CDM GS CNX' in upper or 'GS CNX' in upper:
             return ("advzy_gs_cnx", {"line": line})
@@ -296,7 +297,7 @@ def parse_advzy_ground_stop(lines: List[str], start_idx: int, event_start: datet
             continue
 
         # Check if we've hit another TMI or ADVZY (end of this block)
-        if re.match(r'^\d{2}/\d{4}\s+', line) or re.match(r'^vATCSCC\s+ADVZY', line, re.IGNORECASE):
+        if re.match(r'^\d{2}/\d{4}\s+', line) or re.match(r'^\w+\s+ADVZY', line, re.IGNORECASE):
             break
 
         lines_consumed += 1
@@ -515,7 +516,7 @@ def parse_advzy_gs_cnx(lines: List[str], start_idx: int, event_start: datetime, 
             continue
 
         # Check if we've hit another TMI or ADVZY
-        if re.match(r'^\d{2}/\d{4}\s+', line) or re.match(r'^vATCSCC\s+ADVZY', line, re.IGNORECASE):
+        if re.match(r'^\d{2}/\d{4}\s+', line) or re.match(r'^\w+\s+ADVZY', line, re.IGNORECASE):
             break
 
         lines_consumed += 1
@@ -830,7 +831,7 @@ def parse_advzy_reroute(lines: List[str], start_idx: int, event_start: datetime,
             continue
 
         # Check if we've hit another TMI or ADVZY
-        if re.match(r'^vATCSCC\s+ADVZY', line, re.IGNORECASE):
+        if re.match(r'^\w+\s+ADVZY', line, re.IGNORECASE):
             break
         if re.match(r'^\d{2}/\d{4}\s+', line) and not in_route_table:
             break
@@ -1077,7 +1078,7 @@ def parse_advzy_reroute_cancellation(lines: List[str], start_idx: int,
             continue
 
         # Check if we've hit another ADVZY or TMI
-        if re.match(r'^vATCSCC\s+ADVZY', line, re.IGNORECASE):
+        if re.match(r'^\w+\s+ADVZY', line, re.IGNORECASE):
             break
         if re.match(r'^\d{2}/\d{4}\s+', line):
             break
