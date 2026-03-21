@@ -3,12 +3,31 @@
  * Split-pane layout: Map (top) / Table (bottom) with resize handle
  * ============================================================================ */
 
+/* -- Navbar Override (solid dark, matching NOD pattern) -------------------- */
+.cs-header.navbar-floating {
+    background: rgba(26, 26, 46, 0.98) !important;
+    border-bottom: 1px solid #333;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+}
+
+.cs-header.navbar-floating .nav-link {
+    color: rgba(255,255,255,0.8) !important;
+}
+
+.cs-header.navbar-floating .nav-link:hover {
+    color: #fff !important;
+}
+
 /* -- Container ------------------------------------------------------------ */
 .ctp-container {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    padding-top: 60px; /* space for floating navbar */
+    padding-top: var(--navbar-height, 76px);
     overflow: hidden;
 }
 
@@ -454,7 +473,7 @@
 .ctp-sidebar {
     position: fixed;
     right: 0;
-    top: 56px;
+    top: var(--navbar-height, 76px);
     bottom: 0;
     width: 420px;
     background: #fff;

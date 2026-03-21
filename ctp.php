@@ -476,6 +476,20 @@ include("load/connect.php");
 <!-- ECharts -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 
+<!-- Navbar height CSS variable (dynamic) -->
+<script>
+(function() {
+    function updateNavbarHeight() {
+        var navbar = document.querySelector('.cs-header.navbar-floating');
+        if (navbar) {
+            document.documentElement.style.setProperty('--navbar-height', navbar.offsetHeight + 'px');
+        }
+    }
+    document.addEventListener('DOMContentLoaded', updateNavbarHeight);
+    window.addEventListener('resize', updateNavbarHeight);
+})();
+</script>
+
 <!-- CTP Module -->
 <script src="assets/js/ctp.js<?= _v('assets/js/ctp.js') ?>"></script>
 
