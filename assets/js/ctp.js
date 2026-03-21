@@ -54,7 +54,26 @@
         changelog:  'api/ctp/changelog.php',
         nat_tracks: 'api/data/playbook/nat_tracks.php',
         demand:     'api/ctp/demand.php',
-        boundaries: 'api/ctp/boundaries.php'
+        boundaries: 'api/ctp/boundaries.php',
+        throughput: {
+            list:    'api/ctp/throughput/list.php',
+            create:  'api/ctp/throughput/create.php',
+            update:  'api/ctp/throughput/update.php',
+            delete:  'api/ctp/throughput/delete.php',
+            preview: 'api/ctp/throughput/preview.php'
+        },
+        planning: {
+            scenarios:         'api/ctp/planning/scenarios.php',
+            scenario_save:     'api/ctp/planning/scenario_save.php',
+            scenario_delete:   'api/ctp/planning/scenario_delete.php',
+            scenario_clone:    'api/ctp/planning/scenario_clone.php',
+            block_save:        'api/ctp/planning/block_save.php',
+            block_delete:      'api/ctp/planning/block_delete.php',
+            assignment_save:   'api/ctp/planning/assignment_save.php',
+            assignment_delete: 'api/ctp/planning/assignment_delete.php',
+            compute:           'api/ctp/planning/compute.php',
+            apply_to_session:  'api/ctp/planning/apply_to_session.php'
+        }
     };
 
     // ========================================================================
@@ -90,7 +109,11 @@
         // Map
         mapReady: false,
         mapHighlightedId: null,
-        boundariesLoaded: false
+        boundariesLoaded: false,
+
+        // Demand chart
+        demandGroupBy: 'status',
+        demandBinMin: 60
     };
 
     // ========================================================================
@@ -1922,25 +1945,39 @@
     };
 
     // ========================================================================
-    // Demand Chart (Chart.js stacked bar for oceanic entry demand)
+    // Demand Chart (ECharts stacked bar for oceanic entry demand)
     // ========================================================================
     var DemandChart = {
         chart: null,
-        canvas: null,
+        container: null,
+        resizeHandler: null,
 
         init: function() {
-            this.canvas = document.getElementById('ctp_demand_chart');
+            this.container = document.getElementById('ctp_demand_chart_container');
+
+            // Bind group_by dropdown
+            var groupBySelect = document.getElementById('ctp_demand_group_by');
+            if (groupBySelect) {
+                groupBySelect.addEventListener('change', function() {
+                    state.demandGroupBy = this.value;
+                    DemandChart.refresh();
+                });
+            }
         },
 
         refresh: function() {
-            if (!this.canvas || !state.currentSession) return;
-            if (typeof Chart === 'undefined') return;
+            if (!this.container || !state.currentSession) return;
+            if (typeof echarts === 'undefined') return;
             var self = this;
 
             $.ajax({
                 url: API.demand,
                 method: 'GET',
-                data: { session_id: state.currentSession },
+                data: {
+                    session_id: state.currentSession,
+                    group_by: state.demandGroupBy || 'status',
+                    bin_min: state.demandBinMin || 60
+                },
                 success: function(resp) {
                     if (resp.status !== 'ok' || !resp.data) return;
                     self.render(resp.data);
@@ -1949,76 +1986,79 @@
         },
 
         render: function(data) {
-            if (!this.canvas) return;
-            var ctx = this.canvas.getContext('2d');
+            if (!this.container) return;
 
-            if (this.chart) {
-                this.chart.destroy();
+            var binMin = data.bin_min || 60;
+            var series = [];
+            var datasets = data.datasets || [];
+
+            for (var i = 0; i < datasets.length; i++) {
+                var ds = datasets[i];
+                var seriesData = [];
+                for (var j = 0; j < (data.labels || []).length; j++) {
+                    var parts = data.labels[j].split(':');
+                    var ts = Date.UTC(2026, 0, 1, parseInt(parts[0]), parseInt(parts[1]));
+                    seriesData.push([ts + (binMin * 30000), ds.data[j] || 0]);
+                }
+
+                var seriesItem = {
+                    name: ds.label,
+                    type: 'bar',
+                    stack: 'demand',
+                    data: seriesData,
+                    itemStyle: { color: ds.backgroundColor },
+                    barMaxWidth: 30
+                };
+
+                if (i === 0 && data.rate_cap_per_bin) {
+                    seriesItem.markLine = {
+                        silent: true,
+                        symbol: 'none',
+                        lineStyle: { color: '#ff5252', type: 'dashed', width: 2 },
+                        data: [{ yAxis: data.rate_cap_per_bin,
+                                 label: { formatter: t('ctp.demand.rateCap') + ': ' + data.rate_cap_per_bin } }]
+                    };
+                }
+
+                series.push(seriesItem);
             }
 
-            var config = {
-                type: 'bar',
-                data: {
-                    labels: data.labels || [],
-                    datasets: data.datasets || []
+            if (this.chart) { this.chart.dispose(); }
+            this.chart = echarts.init(this.container);
+
+            var option = {
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { top: 0, textStyle: { fontSize: 10 }, itemWidth: 12 },
+                grid: { left: 50, right: 20, top: 40, bottom: 30 },
+                xAxis: {
+                    type: 'time',
+                    name: t('ctp.demand.timeUtc'),
+                    axisLabel: { fontSize: 10, formatter: function(v) {
+                        var d = new Date(v);
+                        return ('0'+d.getUTCHours()).slice(-2) + ':' + ('0'+d.getUTCMinutes()).slice(-2);
+                    }}
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            stacked: true,
-                            title: { display: true, text: t('ctp.demand.timeUtc'), font: { size: 11 } },
-                            ticks: { font: { size: 10 } }
-                        },
-                        y: {
-                            stacked: true,
-                            beginAtZero: true,
-                            title: { display: true, text: t('ctp.demand.flights'), font: { size: 11 } },
-                            ticks: { stepSize: 1, font: { size: 10 } }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: { font: { size: 10 }, boxWidth: 12 }
-                        },
-                        tooltip: {
-                            mode: 'index',
-                            intersect: false
-                        }
-                    }
-                }
+                yAxis: {
+                    type: 'value',
+                    name: t('ctp.demand.flights'),
+                    minInterval: 1
+                },
+                series: series
             };
 
-            // Add rate cap annotation line if available
-            if (data.rate_cap_per_bin) {
-                config.options.plugins.annotation = {
-                    annotations: {
-                        rateCap: {
-                            type: 'line',
-                            yMin: data.rate_cap_per_bin,
-                            yMax: data.rate_cap_per_bin,
-                            borderColor: 'rgba(220,53,69,0.8)',
-                            borderWidth: 2,
-                            borderDash: [6, 3],
-                            label: {
-                                content: t('ctp.demand.rateCap') + ': ' + data.rate_cap + '/hr',
-                                display: true,
-                                position: 'end',
-                                font: { size: 10 }
-                            }
-                        }
-                    }
-                };
-            }
+            this.chart.setOption(option);
 
-            this.chart = new Chart(ctx, config);
+            // Handle resize (debounced, single listener)
+            if (!this.resizeHandler) {
+                var self = this;
+                this.resizeHandler = function() { if (self.chart) self.chart.resize(); };
+                window.addEventListener('resize', this.resizeHandler);
+            }
         },
 
         clear: function() {
             if (this.chart) {
-                this.chart.destroy();
+                this.chart.dispose();
                 this.chart = null;
             }
         }
