@@ -1,0 +1,5166 @@
+{
+  "meta": {
+    "from_cycle": "2601",
+    "to_cycle": "2602",
+    "generated_utc": "2026-03-21T06:24:55.292060+00:00Z",
+    "totals": {
+      "points": 269366,
+      "navaids": 1874,
+      "airways": 1528,
+      "cdrs": 44178,
+      "dps": 4451,
+      "stars": 5821
+    }
+  },
+  "summary": {
+    "fixes": {
+      "removed": 303,
+      "added": 302
+    }
+  },
+  "changes": [
+    {
+      "type": "fix",
+      "name": "0.00E+00",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "0.00E+00",
+      "old_lat": 0.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+40",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+40",
+      "old_lat": 1.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+41",
+      "old_lat": 10.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+50",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+50",
+      "old_lat": 1.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+51",
+      "old_lat": 10.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+60",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+60",
+      "old_lat": 1.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+61",
+      "old_lat": 10.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+70",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+70",
+      "old_lat": 1.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+71",
+      "old_lat": 10.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+80",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+80",
+      "old_lat": 1.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.00E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.00E+81",
+      "old_lat": 10.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.10E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.10E+41",
+      "old_lat": 11.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.10E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.10E+51",
+      "old_lat": 11.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.10E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.10E+61",
+      "old_lat": 11.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.10E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.10E+71",
+      "old_lat": 11.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.10E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.10E+81",
+      "old_lat": 11.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.20E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.20E+31",
+      "old_lat": 12.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "1.20E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.20E+41",
+      "old_lat": 12.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.20E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.20E+51",
+      "old_lat": 12.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.20E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.20E+61",
+      "old_lat": 12.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.20E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.20E+71",
+      "old_lat": 12.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.20E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.20E+81",
+      "old_lat": 12.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.30E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.30E+31",
+      "old_lat": 13.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "1.30E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.30E+41",
+      "old_lat": 13.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.30E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.30E+51",
+      "old_lat": 13.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.30E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.30E+61",
+      "old_lat": 13.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.30E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.30E+71",
+      "old_lat": 13.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.30E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.30E+81",
+      "old_lat": 13.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.40E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.40E+41",
+      "old_lat": 14.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.40E+48",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.40E+48",
+      "old_lat": 14.0,
+      "old_lon": 147.0
+    },
+    {
+      "type": "fix",
+      "name": "1.40E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.40E+51",
+      "old_lat": 14.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.40E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.40E+61",
+      "old_lat": 14.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.40E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.40E+71",
+      "old_lat": 14.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.40E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.40E+81",
+      "old_lat": 14.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.50E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.50E+31",
+      "old_lat": 15.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "1.50E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.50E+41",
+      "old_lat": 15.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.50E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.50E+51",
+      "old_lat": 15.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.50E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.50E+61",
+      "old_lat": 15.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.50E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.50E+71",
+      "old_lat": 15.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.50E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.50E+81",
+      "old_lat": 15.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.60E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.60E+31",
+      "old_lat": 16.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "1.60E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.60E+41",
+      "old_lat": 16.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.60E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.60E+51",
+      "old_lat": 16.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.60E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.60E+61",
+      "old_lat": 16.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.60E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.60E+71",
+      "old_lat": 16.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.60E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.60E+81",
+      "old_lat": 16.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.70E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.70E+31",
+      "old_lat": 17.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "1.70E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.70E+41",
+      "old_lat": 17.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.70E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.70E+51",
+      "old_lat": 17.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.70E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.70E+61",
+      "old_lat": 17.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.70E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.70E+71",
+      "old_lat": 17.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.70E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.70E+81",
+      "old_lat": 17.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.80E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.80E+31",
+      "old_lat": 18.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "1.80E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.80E+41",
+      "old_lat": 18.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.80E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.80E+51",
+      "old_lat": 18.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.80E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.80E+61",
+      "old_lat": 18.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.80E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.80E+71",
+      "old_lat": 18.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.80E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.80E+81",
+      "old_lat": 18.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "1.90E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.90E+41",
+      "old_lat": 19.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "1.90E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.90E+51",
+      "old_lat": 19.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "1.90E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.90E+61",
+      "old_lat": 19.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "1.90E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.90E+71",
+      "old_lat": 19.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "1.90E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "1.90E+81",
+      "old_lat": 19.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+31",
+      "old_lat": 20.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+40",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+40",
+      "old_lat": 2.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+41",
+      "old_lat": 20.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+50",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+50",
+      "old_lat": 2.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+51",
+      "old_lat": 20.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+60",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+60",
+      "old_lat": 2.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+61",
+      "old_lat": 20.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+70",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+70",
+      "old_lat": 2.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+71",
+      "old_lat": 20.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+80",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+80",
+      "old_lat": 2.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.00E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.00E+81",
+      "old_lat": 20.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.10E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.10E+31",
+      "old_lat": 21.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "2.10E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.10E+41",
+      "old_lat": 21.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.10E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.10E+51",
+      "old_lat": 21.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.10E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.10E+61",
+      "old_lat": 21.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.10E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.10E+71",
+      "old_lat": 21.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.10E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.10E+81",
+      "old_lat": 21.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.20E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.20E+41",
+      "old_lat": 22.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.20E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.20E+51",
+      "old_lat": 22.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.20E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.20E+61",
+      "old_lat": 22.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.20E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.20E+71",
+      "old_lat": 22.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.20E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.20E+81",
+      "old_lat": 22.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.30E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.30E+31",
+      "old_lat": 23.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "2.30E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.30E+41",
+      "old_lat": 23.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.30E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.30E+51",
+      "old_lat": 23.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.30E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.30E+61",
+      "old_lat": 23.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.30E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.30E+71",
+      "old_lat": 23.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.30E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.30E+81",
+      "old_lat": 23.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.40E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.40E+41",
+      "old_lat": 24.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.40E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.40E+51",
+      "old_lat": 24.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.40E+56",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.40E+56",
+      "old_lat": 24.0,
+      "old_lon": 155.0
+    },
+    {
+      "type": "fix",
+      "name": "2.40E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.40E+61",
+      "old_lat": 24.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.40E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.40E+71",
+      "old_lat": 24.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.40E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.40E+81",
+      "old_lat": 24.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.50E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.50E+41",
+      "old_lat": 25.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.50E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.50E+51",
+      "old_lat": 25.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.50E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.50E+61",
+      "old_lat": 25.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.50E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.50E+71",
+      "old_lat": 25.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.50E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.50E+81",
+      "old_lat": 25.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.60E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.60E+41",
+      "old_lat": 26.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.60E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.60E+51",
+      "old_lat": 26.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.60E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.60E+61",
+      "old_lat": 26.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.60E+66",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.60E+66",
+      "old_lat": 26.0,
+      "old_lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "2.60E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.60E+71",
+      "old_lat": 26.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.60E+76",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.60E+76",
+      "old_lat": 26.0,
+      "old_lon": 175.0
+    },
+    {
+      "type": "fix",
+      "name": "2.60E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.60E+81",
+      "old_lat": 26.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.70E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.70E+41",
+      "old_lat": 27.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.70E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.70E+51",
+      "old_lat": 27.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.70E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.70E+61",
+      "old_lat": 27.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.70E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.70E+71",
+      "old_lat": 27.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.70E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.70E+81",
+      "old_lat": 27.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.80E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.80E+41",
+      "old_lat": 28.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.80E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.80E+51",
+      "old_lat": 28.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.80E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.80E+61",
+      "old_lat": 28.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.80E+66",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.80E+66",
+      "old_lat": 28.0,
+      "old_lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "2.80E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.80E+71",
+      "old_lat": 28.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.80E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.80E+81",
+      "old_lat": 28.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "2.90E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.90E+41",
+      "old_lat": 29.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "2.90E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.90E+51",
+      "old_lat": 29.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "2.90E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.90E+61",
+      "old_lat": 29.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "2.90E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.90E+71",
+      "old_lat": 29.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "2.90E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "2.90E+81",
+      "old_lat": 29.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+40",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+40",
+      "old_lat": 3.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+41",
+      "old_lat": 30.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+50",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+50",
+      "old_lat": 3.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+56",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+56",
+      "old_lat": 30.0,
+      "old_lon": 155.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+60",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+60",
+      "old_lat": 3.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+61",
+      "old_lat": 30.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+70",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+70",
+      "old_lat": 3.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+71",
+      "old_lat": 30.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+80",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+80",
+      "old_lat": 3.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.00E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.00E+81",
+      "old_lat": 30.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.10E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.10E+41",
+      "old_lat": 31.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.10E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.10E+51",
+      "old_lat": 31.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "3.10E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.10E+61",
+      "old_lat": 31.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.10E+66",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.10E+66",
+      "old_lat": 31.0,
+      "old_lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "3.10E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.10E+71",
+      "old_lat": 31.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.10E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.10E+81",
+      "old_lat": 31.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.20E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.20E+41",
+      "old_lat": 32.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.20E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.20E+51",
+      "old_lat": 32.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "3.20E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.20E+61",
+      "old_lat": 32.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.20E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.20E+71",
+      "old_lat": 32.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.20E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.20E+81",
+      "old_lat": 32.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.30E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.30E+41",
+      "old_lat": 33.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.30E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.30E+51",
+      "old_lat": 33.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "3.30E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.30E+61",
+      "old_lat": 33.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.30E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.30E+71",
+      "old_lat": 33.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.30E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.30E+81",
+      "old_lat": 33.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.40E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.40E+41",
+      "old_lat": 34.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.40E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.40E+51",
+      "old_lat": 34.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "3.40E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.40E+61",
+      "old_lat": 34.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.40E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.40E+71",
+      "old_lat": 34.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.40E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.40E+81",
+      "old_lat": 34.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.50E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.50E+41",
+      "old_lat": 35.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.50E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.50E+51",
+      "old_lat": 35.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "3.50E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.50E+61",
+      "old_lat": 35.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.50E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.50E+71",
+      "old_lat": 35.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.50E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.50E+81",
+      "old_lat": 35.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.60E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.60E+41",
+      "old_lat": 36.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.60E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.60E+51",
+      "old_lat": 36.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "3.60E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.60E+61",
+      "old_lat": 36.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.60E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.60E+71",
+      "old_lat": 36.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.60E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.60E+81",
+      "old_lat": 36.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.70E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.70E+41",
+      "old_lat": 37.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.70E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.70E+61",
+      "old_lat": 37.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.70E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.70E+71",
+      "old_lat": 37.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.70E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.70E+81",
+      "old_lat": 37.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.80E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.80E+41",
+      "old_lat": 38.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.80E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.80E+51",
+      "old_lat": 38.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "3.80E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.80E+61",
+      "old_lat": 38.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.80E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.80E+71",
+      "old_lat": 38.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.80E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.80E+81",
+      "old_lat": 38.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "3.90E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.90E+31",
+      "old_lat": 39.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "3.90E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.90E+41",
+      "old_lat": 39.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "3.90E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.90E+51",
+      "old_lat": 39.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "3.90E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.90E+61",
+      "old_lat": 39.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "3.90E+66",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.90E+66",
+      "old_lat": 39.0,
+      "old_lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "3.90E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.90E+71",
+      "old_lat": 39.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "3.90E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "3.90E+81",
+      "old_lat": 39.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+31",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+31",
+      "old_lat": 40.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+40",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+40",
+      "old_lat": 4.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+41",
+      "old_lat": 40.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+50",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+50",
+      "old_lat": 4.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+51",
+      "old_lat": 40.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+60",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+60",
+      "old_lat": 4.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+61",
+      "old_lat": 40.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+70",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+70",
+      "old_lat": 4.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+71",
+      "old_lat": 40.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+80",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+80",
+      "old_lat": 4.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.00E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.00E+81",
+      "old_lat": 40.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.10E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.10E+51",
+      "old_lat": 41.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.10E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.10E+61",
+      "old_lat": 41.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.10E+66",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.10E+66",
+      "old_lat": 41.0,
+      "old_lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "4.10E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.10E+71",
+      "old_lat": 41.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.10E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.10E+81",
+      "old_lat": 41.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.20E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.20E+41",
+      "old_lat": 42.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "4.20E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.20E+51",
+      "old_lat": 42.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.20E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.20E+61",
+      "old_lat": 42.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.20E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.20E+71",
+      "old_lat": 42.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.20E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.20E+81",
+      "old_lat": 42.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.30E+41",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.30E+41",
+      "old_lat": 43.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "4.30E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.30E+51",
+      "old_lat": 43.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.30E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.30E+61",
+      "old_lat": 43.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.30E+66",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.30E+66",
+      "old_lat": 43.0,
+      "old_lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "4.30E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.30E+71",
+      "old_lat": 43.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.30E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.30E+81",
+      "old_lat": 43.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.40E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.40E+51",
+      "old_lat": 44.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.40E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.40E+61",
+      "old_lat": 44.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.40E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.40E+71",
+      "old_lat": 44.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.40E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.40E+81",
+      "old_lat": 44.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.50E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.50E+51",
+      "old_lat": 45.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.50E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.50E+61",
+      "old_lat": 45.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.50E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.50E+71",
+      "old_lat": 45.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.50E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.50E+81",
+      "old_lat": 45.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.60E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.60E+51",
+      "old_lat": 46.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.60E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.60E+61",
+      "old_lat": 46.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.60E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.60E+71",
+      "old_lat": 46.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.60E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.60E+81",
+      "old_lat": 46.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.70E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.70E+51",
+      "old_lat": 47.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.70E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.70E+61",
+      "old_lat": 47.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.70E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.70E+71",
+      "old_lat": 47.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.70E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.70E+81",
+      "old_lat": 47.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.80E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.80E+51",
+      "old_lat": 48.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.80E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.80E+61",
+      "old_lat": 48.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.80E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.80E+71",
+      "old_lat": 48.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.80E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.80E+81",
+      "old_lat": 48.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "4.90E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.90E+51",
+      "old_lat": 49.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "4.90E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.90E+61",
+      "old_lat": 49.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "4.90E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.90E+71",
+      "old_lat": 49.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "4.90E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "4.90E+81",
+      "old_lat": 49.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.00E+40",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.00E+40",
+      "old_lat": 5.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "5.00E+50",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.00E+50",
+      "old_lat": 5.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.00E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.00E+51",
+      "old_lat": 50.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.00E+60",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.00E+60",
+      "old_lat": 5.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.00E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.00E+61",
+      "old_lat": 50.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.00E+70",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.00E+70",
+      "old_lat": 5.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.00E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.00E+71",
+      "old_lat": 50.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.00E+80",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.00E+80",
+      "old_lat": 5.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.00E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.00E+81",
+      "old_lat": 50.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.10E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.10E+51",
+      "old_lat": 51.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.10E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.10E+61",
+      "old_lat": 51.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.10E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.10E+71",
+      "old_lat": 51.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.10E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.10E+81",
+      "old_lat": 51.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.20E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.20E+51",
+      "old_lat": 52.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.20E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.20E+61",
+      "old_lat": 52.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.20E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.20E+71",
+      "old_lat": 52.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.20E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.20E+81",
+      "old_lat": 52.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.30E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.30E+51",
+      "old_lat": 53.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.30E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.30E+61",
+      "old_lat": 53.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.30E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.30E+71",
+      "old_lat": 53.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.30E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.30E+81",
+      "old_lat": 53.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.40E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.40E+51",
+      "old_lat": 54.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.40E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.40E+61",
+      "old_lat": 54.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.40E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.40E+71",
+      "old_lat": 54.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.40E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.40E+81",
+      "old_lat": 54.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.50E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.50E+51",
+      "old_lat": 55.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.50E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.50E+61",
+      "old_lat": 55.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.50E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.50E+71",
+      "old_lat": 55.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.50E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.50E+81",
+      "old_lat": 55.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.60E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.60E+51",
+      "old_lat": 56.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.60E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.60E+61",
+      "old_lat": 56.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.60E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.60E+71",
+      "old_lat": 56.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.60E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.60E+81",
+      "old_lat": 56.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.70E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.70E+51",
+      "old_lat": 57.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.70E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.70E+61",
+      "old_lat": 57.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.70E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.70E+71",
+      "old_lat": 57.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.70E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.70E+81",
+      "old_lat": 57.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.80E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.80E+51",
+      "old_lat": 58.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.80E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.80E+61",
+      "old_lat": 58.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.80E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.80E+71",
+      "old_lat": 58.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.80E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.80E+81",
+      "old_lat": 58.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "5.90E+51",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.90E+51",
+      "old_lat": 59.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "5.90E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.90E+61",
+      "old_lat": 59.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "5.90E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.90E+71",
+      "old_lat": 59.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "5.90E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "5.90E+81",
+      "old_lat": 59.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "6.00E+40",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "6.00E+40",
+      "old_lat": 6.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "6.00E+50",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "6.00E+50",
+      "old_lat": 6.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "6.00E+60",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "6.00E+60",
+      "old_lat": 6.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "6.00E+61",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "6.00E+61",
+      "old_lat": 60.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "6.00E+70",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "6.00E+70",
+      "old_lat": 6.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "6.00E+71",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "6.00E+71",
+      "old_lat": 60.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "6.00E+80",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "6.00E+80",
+      "old_lat": 6.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "6.00E+81",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "6.00E+81",
+      "old_lat": 60.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "7.00E+40",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "7.00E+40",
+      "old_lat": 7.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "7.00E+50",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "7.00E+50",
+      "old_lat": 7.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "7.00E+60",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "7.00E+60",
+      "old_lat": 7.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "7.00E+70",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "7.00E+70",
+      "old_lat": 7.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "7.00E+80",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "7.00E+80",
+      "old_lat": 7.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "8.00E+40",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "8.00E+40",
+      "old_lat": 8.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "8.00E+50",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "8.00E+50",
+      "old_lat": 8.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "8.00E+60",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "8.00E+60",
+      "old_lat": 8.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "8.00E+70",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "8.00E+70",
+      "old_lat": 8.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "8.00E+80",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "8.00E+80",
+      "old_lat": 8.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "9.00E+30",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "9.00E+30",
+      "old_lat": 9.0,
+      "old_lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "9.00E+40",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "9.00E+40",
+      "old_lat": 9.0,
+      "old_lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "9.00E+50",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "9.00E+50",
+      "old_lat": 9.0,
+      "old_lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "9.00E+60",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "9.00E+60",
+      "old_lat": 9.0,
+      "old_lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "9.00E+70",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "9.00E+70",
+      "old_lat": 9.0,
+      "old_lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "9.00E+80",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "9.00E+80",
+      "old_lat": 9.0,
+      "old_lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "FADW",
+      "action": "removed",
+      "detail": "No longer in NASR source",
+      "old_name": "FADW",
+      "old_lat": 0.0,
+      "old_lon": 0.0
+    },
+    {
+      "type": "fix",
+      "name": "00E170",
+      "action": "added",
+      "detail": "(0.000000,170.000000)",
+      "lat": 0.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "01E140",
+      "action": "added",
+      "detail": "(1.000000,140.000000)",
+      "lat": 1.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "01E150",
+      "action": "added",
+      "detail": "(1.000000,150.000000)",
+      "lat": 1.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "01E160",
+      "action": "added",
+      "detail": "(1.000000,160.000000)",
+      "lat": 1.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "01E170",
+      "action": "added",
+      "detail": "(1.000000,170.000000)",
+      "lat": 1.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "01E180",
+      "action": "added",
+      "detail": "(1.000000,180.000000)",
+      "lat": 1.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "02E140",
+      "action": "added",
+      "detail": "(2.000000,140.000000)",
+      "lat": 2.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "02E150",
+      "action": "added",
+      "detail": "(2.000000,150.000000)",
+      "lat": 2.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "02E160",
+      "action": "added",
+      "detail": "(2.000000,160.000000)",
+      "lat": 2.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "02E170",
+      "action": "added",
+      "detail": "(2.000000,170.000000)",
+      "lat": 2.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "02E180",
+      "action": "added",
+      "detail": "(2.000000,180.000000)",
+      "lat": 2.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "03E140",
+      "action": "added",
+      "detail": "(3.000000,140.000000)",
+      "lat": 3.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "03E150",
+      "action": "added",
+      "detail": "(3.000000,150.000000)",
+      "lat": 3.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "03E160",
+      "action": "added",
+      "detail": "(3.000000,160.000000)",
+      "lat": 3.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "03E170",
+      "action": "added",
+      "detail": "(3.000000,170.000000)",
+      "lat": 3.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "03E180",
+      "action": "added",
+      "detail": "(3.000000,180.000000)",
+      "lat": 3.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "04E140",
+      "action": "added",
+      "detail": "(4.000000,140.000000)",
+      "lat": 4.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "04E150",
+      "action": "added",
+      "detail": "(4.000000,150.000000)",
+      "lat": 4.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "04E160",
+      "action": "added",
+      "detail": "(4.000000,160.000000)",
+      "lat": 4.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "04E170",
+      "action": "added",
+      "detail": "(4.000000,170.000000)",
+      "lat": 4.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "04E180",
+      "action": "added",
+      "detail": "(4.000000,180.000000)",
+      "lat": 4.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "05E140",
+      "action": "added",
+      "detail": "(5.000000,140.000000)",
+      "lat": 5.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "05E150",
+      "action": "added",
+      "detail": "(5.000000,150.000000)",
+      "lat": 5.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "05E160",
+      "action": "added",
+      "detail": "(5.000000,160.000000)",
+      "lat": 5.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "05E170",
+      "action": "added",
+      "detail": "(5.000000,170.000000)",
+      "lat": 5.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "05E180",
+      "action": "added",
+      "detail": "(5.000000,180.000000)",
+      "lat": 5.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "06E140",
+      "action": "added",
+      "detail": "(6.000000,140.000000)",
+      "lat": 6.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "06E150",
+      "action": "added",
+      "detail": "(6.000000,150.000000)",
+      "lat": 6.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "06E160",
+      "action": "added",
+      "detail": "(6.000000,160.000000)",
+      "lat": 6.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "06E170",
+      "action": "added",
+      "detail": "(6.000000,170.000000)",
+      "lat": 6.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "06E180",
+      "action": "added",
+      "detail": "(6.000000,180.000000)",
+      "lat": 6.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "07E140",
+      "action": "added",
+      "detail": "(7.000000,140.000000)",
+      "lat": 7.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "07E150",
+      "action": "added",
+      "detail": "(7.000000,150.000000)",
+      "lat": 7.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "07E160",
+      "action": "added",
+      "detail": "(7.000000,160.000000)",
+      "lat": 7.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "07E170",
+      "action": "added",
+      "detail": "(7.000000,170.000000)",
+      "lat": 7.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "07E180",
+      "action": "added",
+      "detail": "(7.000000,180.000000)",
+      "lat": 7.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "08E140",
+      "action": "added",
+      "detail": "(8.000000,140.000000)",
+      "lat": 8.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "08E150",
+      "action": "added",
+      "detail": "(8.000000,150.000000)",
+      "lat": 8.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "08E160",
+      "action": "added",
+      "detail": "(8.000000,160.000000)",
+      "lat": 8.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "08E170",
+      "action": "added",
+      "detail": "(8.000000,170.000000)",
+      "lat": 8.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "08E180",
+      "action": "added",
+      "detail": "(8.000000,180.000000)",
+      "lat": 8.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "09E130",
+      "action": "added",
+      "detail": "(9.000000,130.000000)",
+      "lat": 9.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "09E140",
+      "action": "added",
+      "detail": "(9.000000,140.000000)",
+      "lat": 9.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "09E150",
+      "action": "added",
+      "detail": "(9.000000,150.000000)",
+      "lat": 9.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "09E160",
+      "action": "added",
+      "detail": "(9.000000,160.000000)",
+      "lat": 9.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "09E170",
+      "action": "added",
+      "detail": "(9.000000,170.000000)",
+      "lat": 9.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "09E180",
+      "action": "added",
+      "detail": "(9.000000,180.000000)",
+      "lat": 9.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "10E140",
+      "action": "added",
+      "detail": "(10.000000,140.000000)",
+      "lat": 10.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "10E150",
+      "action": "added",
+      "detail": "(10.000000,150.000000)",
+      "lat": 10.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "10E160",
+      "action": "added",
+      "detail": "(10.000000,160.000000)",
+      "lat": 10.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "10E170",
+      "action": "added",
+      "detail": "(10.000000,170.000000)",
+      "lat": 10.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "10E180",
+      "action": "added",
+      "detail": "(10.000000,180.000000)",
+      "lat": 10.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "11E140",
+      "action": "added",
+      "detail": "(11.000000,140.000000)",
+      "lat": 11.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "11E150",
+      "action": "added",
+      "detail": "(11.000000,150.000000)",
+      "lat": 11.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "11E160",
+      "action": "added",
+      "detail": "(11.000000,160.000000)",
+      "lat": 11.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "11E170",
+      "action": "added",
+      "detail": "(11.000000,170.000000)",
+      "lat": 11.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "11E180",
+      "action": "added",
+      "detail": "(11.000000,180.000000)",
+      "lat": 11.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "12E130",
+      "action": "added",
+      "detail": "(12.000000,130.000000)",
+      "lat": 12.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "12E140",
+      "action": "added",
+      "detail": "(12.000000,140.000000)",
+      "lat": 12.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "12E150",
+      "action": "added",
+      "detail": "(12.000000,150.000000)",
+      "lat": 12.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "12E160",
+      "action": "added",
+      "detail": "(12.000000,160.000000)",
+      "lat": 12.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "12E170",
+      "action": "added",
+      "detail": "(12.000000,170.000000)",
+      "lat": 12.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "12E180",
+      "action": "added",
+      "detail": "(12.000000,180.000000)",
+      "lat": 12.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "13E130",
+      "action": "added",
+      "detail": "(13.000000,130.000000)",
+      "lat": 13.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "13E140",
+      "action": "added",
+      "detail": "(13.000000,140.000000)",
+      "lat": 13.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "13E150",
+      "action": "added",
+      "detail": "(13.000000,150.000000)",
+      "lat": 13.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "13E160",
+      "action": "added",
+      "detail": "(13.000000,160.000000)",
+      "lat": 13.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "13E170",
+      "action": "added",
+      "detail": "(13.000000,170.000000)",
+      "lat": 13.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "13E180",
+      "action": "added",
+      "detail": "(13.000000,180.000000)",
+      "lat": 13.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "14E140",
+      "action": "added",
+      "detail": "(14.000000,140.000000)",
+      "lat": 14.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "14E147",
+      "action": "added",
+      "detail": "(14.000000,147.000000)",
+      "lat": 14.0,
+      "lon": 147.0
+    },
+    {
+      "type": "fix",
+      "name": "14E150",
+      "action": "added",
+      "detail": "(14.000000,150.000000)",
+      "lat": 14.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "14E160",
+      "action": "added",
+      "detail": "(14.000000,160.000000)",
+      "lat": 14.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "14E170",
+      "action": "added",
+      "detail": "(14.000000,170.000000)",
+      "lat": 14.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "14E180",
+      "action": "added",
+      "detail": "(14.000000,180.000000)",
+      "lat": 14.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "15E130",
+      "action": "added",
+      "detail": "(15.000000,130.000000)",
+      "lat": 15.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "15E140",
+      "action": "added",
+      "detail": "(15.000000,140.000000)",
+      "lat": 15.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "15E150",
+      "action": "added",
+      "detail": "(15.000000,150.000000)",
+      "lat": 15.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "15E160",
+      "action": "added",
+      "detail": "(15.000000,160.000000)",
+      "lat": 15.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "15E170",
+      "action": "added",
+      "detail": "(15.000000,170.000000)",
+      "lat": 15.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "15E180",
+      "action": "added",
+      "detail": "(15.000000,180.000000)",
+      "lat": 15.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "16E130",
+      "action": "added",
+      "detail": "(16.000000,130.000000)",
+      "lat": 16.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "16E140",
+      "action": "added",
+      "detail": "(16.000000,140.000000)",
+      "lat": 16.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "16E150",
+      "action": "added",
+      "detail": "(16.000000,150.000000)",
+      "lat": 16.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "16E160",
+      "action": "added",
+      "detail": "(16.000000,160.000000)",
+      "lat": 16.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "16E170",
+      "action": "added",
+      "detail": "(16.000000,170.000000)",
+      "lat": 16.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "16E180",
+      "action": "added",
+      "detail": "(16.000000,180.000000)",
+      "lat": 16.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "17E130",
+      "action": "added",
+      "detail": "(17.000000,130.000000)",
+      "lat": 17.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "17E140",
+      "action": "added",
+      "detail": "(17.000000,140.000000)",
+      "lat": 17.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "17E150",
+      "action": "added",
+      "detail": "(17.000000,150.000000)",
+      "lat": 17.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "17E160",
+      "action": "added",
+      "detail": "(17.000000,160.000000)",
+      "lat": 17.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "17E170",
+      "action": "added",
+      "detail": "(17.000000,170.000000)",
+      "lat": 17.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "17E180",
+      "action": "added",
+      "detail": "(17.000000,180.000000)",
+      "lat": 17.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "18E130",
+      "action": "added",
+      "detail": "(18.000000,130.000000)",
+      "lat": 18.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "18E140",
+      "action": "added",
+      "detail": "(18.000000,140.000000)",
+      "lat": 18.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "18E150",
+      "action": "added",
+      "detail": "(18.000000,150.000000)",
+      "lat": 18.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "18E160",
+      "action": "added",
+      "detail": "(18.000000,160.000000)",
+      "lat": 18.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "18E170",
+      "action": "added",
+      "detail": "(18.000000,170.000000)",
+      "lat": 18.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "18E180",
+      "action": "added",
+      "detail": "(18.000000,180.000000)",
+      "lat": 18.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "19E140",
+      "action": "added",
+      "detail": "(19.000000,140.000000)",
+      "lat": 19.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "19E150",
+      "action": "added",
+      "detail": "(19.000000,150.000000)",
+      "lat": 19.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "19E160",
+      "action": "added",
+      "detail": "(19.000000,160.000000)",
+      "lat": 19.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "19E170",
+      "action": "added",
+      "detail": "(19.000000,170.000000)",
+      "lat": 19.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "19E180",
+      "action": "added",
+      "detail": "(19.000000,180.000000)",
+      "lat": 19.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "20E130",
+      "action": "added",
+      "detail": "(20.000000,130.000000)",
+      "lat": 20.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "20E140",
+      "action": "added",
+      "detail": "(20.000000,140.000000)",
+      "lat": 20.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "20E150",
+      "action": "added",
+      "detail": "(20.000000,150.000000)",
+      "lat": 20.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "20E160",
+      "action": "added",
+      "detail": "(20.000000,160.000000)",
+      "lat": 20.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "20E170",
+      "action": "added",
+      "detail": "(20.000000,170.000000)",
+      "lat": 20.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "20E180",
+      "action": "added",
+      "detail": "(20.000000,180.000000)",
+      "lat": 20.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "21E130",
+      "action": "added",
+      "detail": "(21.000000,130.000000)",
+      "lat": 21.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "21E140",
+      "action": "added",
+      "detail": "(21.000000,140.000000)",
+      "lat": 21.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "21E150",
+      "action": "added",
+      "detail": "(21.000000,150.000000)",
+      "lat": 21.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "21E160",
+      "action": "added",
+      "detail": "(21.000000,160.000000)",
+      "lat": 21.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "21E170",
+      "action": "added",
+      "detail": "(21.000000,170.000000)",
+      "lat": 21.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "21E180",
+      "action": "added",
+      "detail": "(21.000000,180.000000)",
+      "lat": 21.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "22E140",
+      "action": "added",
+      "detail": "(22.000000,140.000000)",
+      "lat": 22.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "22E150",
+      "action": "added",
+      "detail": "(22.000000,150.000000)",
+      "lat": 22.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "22E160",
+      "action": "added",
+      "detail": "(22.000000,160.000000)",
+      "lat": 22.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "22E170",
+      "action": "added",
+      "detail": "(22.000000,170.000000)",
+      "lat": 22.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "22E180",
+      "action": "added",
+      "detail": "(22.000000,180.000000)",
+      "lat": 22.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "23E130",
+      "action": "added",
+      "detail": "(23.000000,130.000000)",
+      "lat": 23.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "23E140",
+      "action": "added",
+      "detail": "(23.000000,140.000000)",
+      "lat": 23.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "23E150",
+      "action": "added",
+      "detail": "(23.000000,150.000000)",
+      "lat": 23.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "23E160",
+      "action": "added",
+      "detail": "(23.000000,160.000000)",
+      "lat": 23.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "23E170",
+      "action": "added",
+      "detail": "(23.000000,170.000000)",
+      "lat": 23.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "23E180",
+      "action": "added",
+      "detail": "(23.000000,180.000000)",
+      "lat": 23.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "24E140",
+      "action": "added",
+      "detail": "(24.000000,140.000000)",
+      "lat": 24.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "24E150",
+      "action": "added",
+      "detail": "(24.000000,150.000000)",
+      "lat": 24.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "24E155",
+      "action": "added",
+      "detail": "(24.000000,155.000000)",
+      "lat": 24.0,
+      "lon": 155.0
+    },
+    {
+      "type": "fix",
+      "name": "24E160",
+      "action": "added",
+      "detail": "(24.000000,160.000000)",
+      "lat": 24.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "24E170",
+      "action": "added",
+      "detail": "(24.000000,170.000000)",
+      "lat": 24.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "24E180",
+      "action": "added",
+      "detail": "(24.000000,180.000000)",
+      "lat": 24.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "25E140",
+      "action": "added",
+      "detail": "(25.000000,140.000000)",
+      "lat": 25.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "25E150",
+      "action": "added",
+      "detail": "(25.000000,150.000000)",
+      "lat": 25.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "25E160",
+      "action": "added",
+      "detail": "(25.000000,160.000000)",
+      "lat": 25.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "25E170",
+      "action": "added",
+      "detail": "(25.000000,170.000000)",
+      "lat": 25.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "25E180",
+      "action": "added",
+      "detail": "(25.000000,180.000000)",
+      "lat": 25.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "26E140",
+      "action": "added",
+      "detail": "(26.000000,140.000000)",
+      "lat": 26.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "26E150",
+      "action": "added",
+      "detail": "(26.000000,150.000000)",
+      "lat": 26.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "26E160",
+      "action": "added",
+      "detail": "(26.000000,160.000000)",
+      "lat": 26.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "26E165",
+      "action": "added",
+      "detail": "(26.000000,165.000000)",
+      "lat": 26.0,
+      "lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "26E170",
+      "action": "added",
+      "detail": "(26.000000,170.000000)",
+      "lat": 26.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "26E175",
+      "action": "added",
+      "detail": "(26.000000,175.000000)",
+      "lat": 26.0,
+      "lon": 175.0
+    },
+    {
+      "type": "fix",
+      "name": "26E180",
+      "action": "added",
+      "detail": "(26.000000,180.000000)",
+      "lat": 26.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "27E140",
+      "action": "added",
+      "detail": "(27.000000,140.000000)",
+      "lat": 27.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "27E150",
+      "action": "added",
+      "detail": "(27.000000,150.000000)",
+      "lat": 27.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "27E160",
+      "action": "added",
+      "detail": "(27.000000,160.000000)",
+      "lat": 27.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "27E170",
+      "action": "added",
+      "detail": "(27.000000,170.000000)",
+      "lat": 27.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "27E180",
+      "action": "added",
+      "detail": "(27.000000,180.000000)",
+      "lat": 27.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "28E140",
+      "action": "added",
+      "detail": "(28.000000,140.000000)",
+      "lat": 28.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "28E150",
+      "action": "added",
+      "detail": "(28.000000,150.000000)",
+      "lat": 28.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "28E160",
+      "action": "added",
+      "detail": "(28.000000,160.000000)",
+      "lat": 28.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "28E165",
+      "action": "added",
+      "detail": "(28.000000,165.000000)",
+      "lat": 28.0,
+      "lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "28E170",
+      "action": "added",
+      "detail": "(28.000000,170.000000)",
+      "lat": 28.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "28E180",
+      "action": "added",
+      "detail": "(28.000000,180.000000)",
+      "lat": 28.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "29E140",
+      "action": "added",
+      "detail": "(29.000000,140.000000)",
+      "lat": 29.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "29E150",
+      "action": "added",
+      "detail": "(29.000000,150.000000)",
+      "lat": 29.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "29E160",
+      "action": "added",
+      "detail": "(29.000000,160.000000)",
+      "lat": 29.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "29E170",
+      "action": "added",
+      "detail": "(29.000000,170.000000)",
+      "lat": 29.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "29E180",
+      "action": "added",
+      "detail": "(29.000000,180.000000)",
+      "lat": 29.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "30E140",
+      "action": "added",
+      "detail": "(30.000000,140.000000)",
+      "lat": 30.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "30E155",
+      "action": "added",
+      "detail": "(30.000000,155.000000)",
+      "lat": 30.0,
+      "lon": 155.0
+    },
+    {
+      "type": "fix",
+      "name": "30E160",
+      "action": "added",
+      "detail": "(30.000000,160.000000)",
+      "lat": 30.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "30E170",
+      "action": "added",
+      "detail": "(30.000000,170.000000)",
+      "lat": 30.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "30E180",
+      "action": "added",
+      "detail": "(30.000000,180.000000)",
+      "lat": 30.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "31E140",
+      "action": "added",
+      "detail": "(31.000000,140.000000)",
+      "lat": 31.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "31E150",
+      "action": "added",
+      "detail": "(31.000000,150.000000)",
+      "lat": 31.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "31E160",
+      "action": "added",
+      "detail": "(31.000000,160.000000)",
+      "lat": 31.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "31E165",
+      "action": "added",
+      "detail": "(31.000000,165.000000)",
+      "lat": 31.0,
+      "lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "31E170",
+      "action": "added",
+      "detail": "(31.000000,170.000000)",
+      "lat": 31.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "31E180",
+      "action": "added",
+      "detail": "(31.000000,180.000000)",
+      "lat": 31.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "32E140",
+      "action": "added",
+      "detail": "(32.000000,140.000000)",
+      "lat": 32.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "32E150",
+      "action": "added",
+      "detail": "(32.000000,150.000000)",
+      "lat": 32.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "32E160",
+      "action": "added",
+      "detail": "(32.000000,160.000000)",
+      "lat": 32.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "32E170",
+      "action": "added",
+      "detail": "(32.000000,170.000000)",
+      "lat": 32.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "32E180",
+      "action": "added",
+      "detail": "(32.000000,180.000000)",
+      "lat": 32.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "33E140",
+      "action": "added",
+      "detail": "(33.000000,140.000000)",
+      "lat": 33.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "33E150",
+      "action": "added",
+      "detail": "(33.000000,150.000000)",
+      "lat": 33.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "33E160",
+      "action": "added",
+      "detail": "(33.000000,160.000000)",
+      "lat": 33.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "33E170",
+      "action": "added",
+      "detail": "(33.000000,170.000000)",
+      "lat": 33.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "33E180",
+      "action": "added",
+      "detail": "(33.000000,180.000000)",
+      "lat": 33.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "34E140",
+      "action": "added",
+      "detail": "(34.000000,140.000000)",
+      "lat": 34.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "34E150",
+      "action": "added",
+      "detail": "(34.000000,150.000000)",
+      "lat": 34.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "34E160",
+      "action": "added",
+      "detail": "(34.000000,160.000000)",
+      "lat": 34.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "34E170",
+      "action": "added",
+      "detail": "(34.000000,170.000000)",
+      "lat": 34.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "34E180",
+      "action": "added",
+      "detail": "(34.000000,180.000000)",
+      "lat": 34.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "35E140",
+      "action": "added",
+      "detail": "(35.000000,140.000000)",
+      "lat": 35.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "35E150",
+      "action": "added",
+      "detail": "(35.000000,150.000000)",
+      "lat": 35.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "35E160",
+      "action": "added",
+      "detail": "(35.000000,160.000000)",
+      "lat": 35.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "35E170",
+      "action": "added",
+      "detail": "(35.000000,170.000000)",
+      "lat": 35.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "35E180",
+      "action": "added",
+      "detail": "(35.000000,180.000000)",
+      "lat": 35.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "36E140",
+      "action": "added",
+      "detail": "(36.000000,140.000000)",
+      "lat": 36.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "36E150",
+      "action": "added",
+      "detail": "(36.000000,150.000000)",
+      "lat": 36.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "36E160",
+      "action": "added",
+      "detail": "(36.000000,160.000000)",
+      "lat": 36.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "36E170",
+      "action": "added",
+      "detail": "(36.000000,170.000000)",
+      "lat": 36.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "36E180",
+      "action": "added",
+      "detail": "(36.000000,180.000000)",
+      "lat": 36.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "37E140",
+      "action": "added",
+      "detail": "(37.000000,140.000000)",
+      "lat": 37.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "37E160",
+      "action": "added",
+      "detail": "(37.000000,160.000000)",
+      "lat": 37.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "37E170",
+      "action": "added",
+      "detail": "(37.000000,170.000000)",
+      "lat": 37.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "37E180",
+      "action": "added",
+      "detail": "(37.000000,180.000000)",
+      "lat": 37.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "38E140",
+      "action": "added",
+      "detail": "(38.000000,140.000000)",
+      "lat": 38.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "38E150",
+      "action": "added",
+      "detail": "(38.000000,150.000000)",
+      "lat": 38.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "38E160",
+      "action": "added",
+      "detail": "(38.000000,160.000000)",
+      "lat": 38.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "38E170",
+      "action": "added",
+      "detail": "(38.000000,170.000000)",
+      "lat": 38.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "38E180",
+      "action": "added",
+      "detail": "(38.000000,180.000000)",
+      "lat": 38.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "39E130",
+      "action": "added",
+      "detail": "(39.000000,130.000000)",
+      "lat": 39.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "39E140",
+      "action": "added",
+      "detail": "(39.000000,140.000000)",
+      "lat": 39.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "39E150",
+      "action": "added",
+      "detail": "(39.000000,150.000000)",
+      "lat": 39.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "39E160",
+      "action": "added",
+      "detail": "(39.000000,160.000000)",
+      "lat": 39.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "39E165",
+      "action": "added",
+      "detail": "(39.000000,165.000000)",
+      "lat": 39.0,
+      "lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "39E170",
+      "action": "added",
+      "detail": "(39.000000,170.000000)",
+      "lat": 39.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "39E180",
+      "action": "added",
+      "detail": "(39.000000,180.000000)",
+      "lat": 39.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "40E130",
+      "action": "added",
+      "detail": "(40.000000,130.000000)",
+      "lat": 40.0,
+      "lon": 130.0
+    },
+    {
+      "type": "fix",
+      "name": "40E140",
+      "action": "added",
+      "detail": "(40.000000,140.000000)",
+      "lat": 40.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "40E150",
+      "action": "added",
+      "detail": "(40.000000,150.000000)",
+      "lat": 40.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "40E160",
+      "action": "added",
+      "detail": "(40.000000,160.000000)",
+      "lat": 40.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "40E170",
+      "action": "added",
+      "detail": "(40.000000,170.000000)",
+      "lat": 40.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "40E180",
+      "action": "added",
+      "detail": "(40.000000,180.000000)",
+      "lat": 40.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "41E150",
+      "action": "added",
+      "detail": "(41.000000,150.000000)",
+      "lat": 41.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "41E160",
+      "action": "added",
+      "detail": "(41.000000,160.000000)",
+      "lat": 41.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "41E165",
+      "action": "added",
+      "detail": "(41.000000,165.000000)",
+      "lat": 41.0,
+      "lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "41E170",
+      "action": "added",
+      "detail": "(41.000000,170.000000)",
+      "lat": 41.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "41E180",
+      "action": "added",
+      "detail": "(41.000000,180.000000)",
+      "lat": 41.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "42E140",
+      "action": "added",
+      "detail": "(42.000000,140.000000)",
+      "lat": 42.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "42E150",
+      "action": "added",
+      "detail": "(42.000000,150.000000)",
+      "lat": 42.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "42E160",
+      "action": "added",
+      "detail": "(42.000000,160.000000)",
+      "lat": 42.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "42E170",
+      "action": "added",
+      "detail": "(42.000000,170.000000)",
+      "lat": 42.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "42E180",
+      "action": "added",
+      "detail": "(42.000000,180.000000)",
+      "lat": 42.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "43E140",
+      "action": "added",
+      "detail": "(43.000000,140.000000)",
+      "lat": 43.0,
+      "lon": 140.0
+    },
+    {
+      "type": "fix",
+      "name": "43E150",
+      "action": "added",
+      "detail": "(43.000000,150.000000)",
+      "lat": 43.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "43E160",
+      "action": "added",
+      "detail": "(43.000000,160.000000)",
+      "lat": 43.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "43E165",
+      "action": "added",
+      "detail": "(43.000000,165.000000)",
+      "lat": 43.0,
+      "lon": 165.0
+    },
+    {
+      "type": "fix",
+      "name": "43E170",
+      "action": "added",
+      "detail": "(43.000000,170.000000)",
+      "lat": 43.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "43E180",
+      "action": "added",
+      "detail": "(43.000000,180.000000)",
+      "lat": 43.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "44E150",
+      "action": "added",
+      "detail": "(44.000000,150.000000)",
+      "lat": 44.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "44E160",
+      "action": "added",
+      "detail": "(44.000000,160.000000)",
+      "lat": 44.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "44E170",
+      "action": "added",
+      "detail": "(44.000000,170.000000)",
+      "lat": 44.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "44E180",
+      "action": "added",
+      "detail": "(44.000000,180.000000)",
+      "lat": 44.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "45E150",
+      "action": "added",
+      "detail": "(45.000000,150.000000)",
+      "lat": 45.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "45E160",
+      "action": "added",
+      "detail": "(45.000000,160.000000)",
+      "lat": 45.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "45E170",
+      "action": "added",
+      "detail": "(45.000000,170.000000)",
+      "lat": 45.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "45E180",
+      "action": "added",
+      "detail": "(45.000000,180.000000)",
+      "lat": 45.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "46E150",
+      "action": "added",
+      "detail": "(46.000000,150.000000)",
+      "lat": 46.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "46E160",
+      "action": "added",
+      "detail": "(46.000000,160.000000)",
+      "lat": 46.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "46E170",
+      "action": "added",
+      "detail": "(46.000000,170.000000)",
+      "lat": 46.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "46E180",
+      "action": "added",
+      "detail": "(46.000000,180.000000)",
+      "lat": 46.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "47E150",
+      "action": "added",
+      "detail": "(47.000000,150.000000)",
+      "lat": 47.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "47E160",
+      "action": "added",
+      "detail": "(47.000000,160.000000)",
+      "lat": 47.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "47E170",
+      "action": "added",
+      "detail": "(47.000000,170.000000)",
+      "lat": 47.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "47E180",
+      "action": "added",
+      "detail": "(47.000000,180.000000)",
+      "lat": 47.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "48E150",
+      "action": "added",
+      "detail": "(48.000000,150.000000)",
+      "lat": 48.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "48E160",
+      "action": "added",
+      "detail": "(48.000000,160.000000)",
+      "lat": 48.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "48E170",
+      "action": "added",
+      "detail": "(48.000000,170.000000)",
+      "lat": 48.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "48E180",
+      "action": "added",
+      "detail": "(48.000000,180.000000)",
+      "lat": 48.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "49E150",
+      "action": "added",
+      "detail": "(49.000000,150.000000)",
+      "lat": 49.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "49E160",
+      "action": "added",
+      "detail": "(49.000000,160.000000)",
+      "lat": 49.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "49E170",
+      "action": "added",
+      "detail": "(49.000000,170.000000)",
+      "lat": 49.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "49E180",
+      "action": "added",
+      "detail": "(49.000000,180.000000)",
+      "lat": 49.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "50E150",
+      "action": "added",
+      "detail": "(50.000000,150.000000)",
+      "lat": 50.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "50E160",
+      "action": "added",
+      "detail": "(50.000000,160.000000)",
+      "lat": 50.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "50E170",
+      "action": "added",
+      "detail": "(50.000000,170.000000)",
+      "lat": 50.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "50E180",
+      "action": "added",
+      "detail": "(50.000000,180.000000)",
+      "lat": 50.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "51E150",
+      "action": "added",
+      "detail": "(51.000000,150.000000)",
+      "lat": 51.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "51E160",
+      "action": "added",
+      "detail": "(51.000000,160.000000)",
+      "lat": 51.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "51E170",
+      "action": "added",
+      "detail": "(51.000000,170.000000)",
+      "lat": 51.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "51E180",
+      "action": "added",
+      "detail": "(51.000000,180.000000)",
+      "lat": 51.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "52E150",
+      "action": "added",
+      "detail": "(52.000000,150.000000)",
+      "lat": 52.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "52E160",
+      "action": "added",
+      "detail": "(52.000000,160.000000)",
+      "lat": 52.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "52E170",
+      "action": "added",
+      "detail": "(52.000000,170.000000)",
+      "lat": 52.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "52E180",
+      "action": "added",
+      "detail": "(52.000000,180.000000)",
+      "lat": 52.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "53E150",
+      "action": "added",
+      "detail": "(53.000000,150.000000)",
+      "lat": 53.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "53E160",
+      "action": "added",
+      "detail": "(53.000000,160.000000)",
+      "lat": 53.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "53E170",
+      "action": "added",
+      "detail": "(53.000000,170.000000)",
+      "lat": 53.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "53E180",
+      "action": "added",
+      "detail": "(53.000000,180.000000)",
+      "lat": 53.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "54E150",
+      "action": "added",
+      "detail": "(54.000000,150.000000)",
+      "lat": 54.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "54E160",
+      "action": "added",
+      "detail": "(54.000000,160.000000)",
+      "lat": 54.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "54E170",
+      "action": "added",
+      "detail": "(54.000000,170.000000)",
+      "lat": 54.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "54E180",
+      "action": "added",
+      "detail": "(54.000000,180.000000)",
+      "lat": 54.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "55E150",
+      "action": "added",
+      "detail": "(55.000000,150.000000)",
+      "lat": 55.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "55E160",
+      "action": "added",
+      "detail": "(55.000000,160.000000)",
+      "lat": 55.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "55E170",
+      "action": "added",
+      "detail": "(55.000000,170.000000)",
+      "lat": 55.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "55E180",
+      "action": "added",
+      "detail": "(55.000000,180.000000)",
+      "lat": 55.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "56E150",
+      "action": "added",
+      "detail": "(56.000000,150.000000)",
+      "lat": 56.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "56E160",
+      "action": "added",
+      "detail": "(56.000000,160.000000)",
+      "lat": 56.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "56E170",
+      "action": "added",
+      "detail": "(56.000000,170.000000)",
+      "lat": 56.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "56E180",
+      "action": "added",
+      "detail": "(56.000000,180.000000)",
+      "lat": 56.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "57E150",
+      "action": "added",
+      "detail": "(57.000000,150.000000)",
+      "lat": 57.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "57E160",
+      "action": "added",
+      "detail": "(57.000000,160.000000)",
+      "lat": 57.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "57E170",
+      "action": "added",
+      "detail": "(57.000000,170.000000)",
+      "lat": 57.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "57E180",
+      "action": "added",
+      "detail": "(57.000000,180.000000)",
+      "lat": 57.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "58E150",
+      "action": "added",
+      "detail": "(58.000000,150.000000)",
+      "lat": 58.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "58E160",
+      "action": "added",
+      "detail": "(58.000000,160.000000)",
+      "lat": 58.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "58E170",
+      "action": "added",
+      "detail": "(58.000000,170.000000)",
+      "lat": 58.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "58E180",
+      "action": "added",
+      "detail": "(58.000000,180.000000)",
+      "lat": 58.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "59E150",
+      "action": "added",
+      "detail": "(59.000000,150.000000)",
+      "lat": 59.0,
+      "lon": 150.0
+    },
+    {
+      "type": "fix",
+      "name": "59E160",
+      "action": "added",
+      "detail": "(59.000000,160.000000)",
+      "lat": 59.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "59E170",
+      "action": "added",
+      "detail": "(59.000000,170.000000)",
+      "lat": 59.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "59E180",
+      "action": "added",
+      "detail": "(59.000000,180.000000)",
+      "lat": 59.0,
+      "lon": 180.0
+    },
+    {
+      "type": "fix",
+      "name": "60E160",
+      "action": "added",
+      "detail": "(60.000000,160.000000)",
+      "lat": 60.0,
+      "lon": 160.0
+    },
+    {
+      "type": "fix",
+      "name": "60E170",
+      "action": "added",
+      "detail": "(60.000000,170.000000)",
+      "lat": 60.0,
+      "lon": 170.0
+    },
+    {
+      "type": "fix",
+      "name": "60E180",
+      "action": "added",
+      "detail": "(60.000000,180.000000)",
+      "lat": 60.0,
+      "lon": 180.0
+    }
+  ]
+}
