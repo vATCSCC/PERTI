@@ -284,7 +284,7 @@ function parseSection($lines) {
         }
     }
 
-    if ($facility === null && empty($tracks)) {
+    if (empty($tracks)) {
         return null;
     }
 
