@@ -3013,12 +3013,17 @@
             };
             if (d.departure_profile) addBins('Departure', '15min', d.departure_profile.bins);
             if (d.oceanic_entry_profile) addBins('Oceanic_Entry', '15min', d.oceanic_entry_profile.bins);
+            if (d.oceanic_exit_profile) addBins('Oceanic_Exit', '15min', d.oceanic_exit_profile.bins);
             if (d.arrival_profile) addBins('Arrival', '15min', d.arrival_profile.bins);
             if (d.multi_resolution) {
                 addBins('Departure', '30min', d.multi_resolution.departure_30min);
                 addBins('Departure', '60min', d.multi_resolution.departure_60min);
                 addBins('Oceanic_Entry', '30min', d.multi_resolution.oceanic_entry_30min);
                 addBins('Oceanic_Entry', '60min', d.multi_resolution.oceanic_entry_60min);
+                addBins('Oceanic_Exit', '30min', d.multi_resolution.oceanic_exit_30min);
+                addBins('Oceanic_Exit', '60min', d.multi_resolution.oceanic_exit_60min);
+                addBins('Arrival', '30min', d.multi_resolution.arrival_30min);
+                addBins('Arrival', '60min', d.multi_resolution.arrival_60min);
             }
             return { 'Time Bins': { headers: headers, rows: rows } };
         },
@@ -3158,6 +3163,9 @@
             '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#4dc9f6',
             '#f7797d', '#c4b5fd', '#34d399', '#f59e0b', '#6366f1'
         ],
+        _data: null,
+        _resolution: '15min',
+        _activeView: 'dep_track',
 
         dispose: function() {
             this._charts.forEach(function(c) { if (c) c.dispose(); });
@@ -3169,18 +3177,46 @@
             if (typeof echarts === 'undefined') return;
 
             var self = this;
+            self._data = data;
+            self._resolution = '15min';
+            self._activeView = 'dep_track';
             var uid = 'sim_chart_' + Date.now();
+            self._uid = uid;
 
-            // Chart selector tabs + container
+            // View tabs (two rows for space)
+            var viewTabs = [
+                { key: 'dep_track', label: t('ctp.planning.depByTrack') },
+                { key: 'dep_origin', label: t('ctp.planning.depByOrigin') },
+                { key: 'entry_track', label: t('ctp.planning.entryByTrack') },
+                { key: 'entry_origin', label: t('ctp.planning.entryByOrigin') },
+                { key: 'entry_dest', label: t('ctp.planning.entryByDest') },
+                { key: 'exit_track', label: t('ctp.planning.exitByTrack') },
+                { key: 'exit_origin', label: t('ctp.planning.exitByOrigin') },
+                { key: 'exit_dest', label: t('ctp.planning.exitByDest') },
+                { key: 'arr_track', label: t('ctp.planning.arrByTrack') },
+                { key: 'arr_dest', label: t('ctp.planning.arrByDest') }
+            ];
+            var tabsHtml = '';
+            viewTabs.forEach(function(vt) {
+                var cls = vt.key === 'dep_track' ? 'active' : '';
+                tabsHtml += '<button class="btn btn-outline-info btn-sm ' + cls + '" data-chart="' + vt.key + '">' + vt.label + '</button>';
+            });
+
+            // Resolution toggle
+            var resHtml =
+                '<div class="btn-group btn-group-sm ml-2" id="' + uid + '_res">' +
+                '<button class="btn btn-outline-secondary btn-sm active" data-res="15min">15m</button>' +
+                '<button class="btn btn-outline-secondary btn-sm" data-res="30min">30m</button>' +
+                '<button class="btn btn-outline-secondary btn-sm" data-res="60min">60m</button>' +
+                '</div>';
+
             $container.append(
                 '<div class="mt-2 mb-1">' +
-                '<div class="btn-group btn-group-sm mb-1" id="' + uid + '_tabs">' +
-                '<button class="btn btn-outline-info btn-sm active" data-chart="dep_track">' + t('ctp.planning.depByTrack') + '</button>' +
-                '<button class="btn btn-outline-info btn-sm" data-chart="dep_origin">' + t('ctp.planning.depByOrigin') + '</button>' +
-                '<button class="btn btn-outline-info btn-sm" data-chart="entry_track">' + t('ctp.planning.entryByTrack') + '</button>' +
-                '<button class="btn btn-outline-info btn-sm" data-chart="arr_dest">' + t('ctp.planning.arrByDest') + '</button>' +
+                '<div class="d-flex align-items-start flex-wrap mb-1">' +
+                '<div class="btn-group btn-group-sm flex-wrap" id="' + uid + '_tabs">' + tabsHtml + '</div>' +
+                resHtml +
                 '</div>' +
-                '<div id="' + uid + '_chart" style="width:100%;height:260px;"></div>' +
+                '<div id="' + uid + '_chart" style="width:100%;height:280px;"></div>' +
                 '</div>'
             );
 
@@ -3189,45 +3225,139 @@
 
             var chart = echarts.init(chartEl);
             self._charts.push(chart);
+            self._chart = chart;
 
-            // Build all chart configs
-            var configs = {};
+            // Initial render
+            self._updateChart();
 
-            if (data.departure_profile && data.departure_profile.bins) {
-                configs.dep_track = self._buildConfig(data.departure_profile.bins, 'by_track', t('ctp.planning.departures') + ' (' + t('ctp.planning.byTrack') + ')');
-                configs.dep_origin = self._buildConfig(data.departure_profile.bins, 'by_origin', t('ctp.planning.departures') + ' (' + t('ctp.planning.byOrigin') + ')');
-            }
-            if (data.oceanic_entry_profile && data.oceanic_entry_profile.bins) {
-                configs.entry_track = self._buildConfig(data.oceanic_entry_profile.bins, 'by_track', t('ctp.planning.oceanEntry') + ' (' + t('ctp.planning.byTrack') + ')');
-            }
-            if (data.arrival_profile && data.arrival_profile.bins) {
-                configs.arr_dest = self._buildConfig(data.arrival_profile.bins, 'by_dest', t('ctp.planning.arrivals') + ' (' + t('ctp.planning.byDest') + ')');
-            }
-
-            // Show first available chart
-            var activeKey = 'dep_track';
-            if (configs[activeKey]) {
-                chart.setOption(configs[activeKey]);
-            }
-
-            // Tab switching
+            // View tab switching
             $('#' + uid + '_tabs').on('click', 'button', function() {
-                var key = $(this).data('chart');
+                self._activeView = $(this).data('chart');
                 $(this).addClass('active').siblings().removeClass('active');
-                if (configs[key]) {
-                    chart.setOption(configs[key], true);
-                }
+                self._updateChart();
+            });
+
+            // Resolution switching
+            $('#' + uid + '_res').on('click', 'button', function() {
+                self._resolution = $(this).data('res');
+                $(this).addClass('active').siblings().removeClass('active');
+                self._updateChart();
             });
 
             // Resize on window resize
-            var resizeHandler = function() { chart.resize(); };
-            window.addEventListener('resize', resizeHandler);
-            // Also resize when panel is toggled/resized
+            window.addEventListener('resize', function() { chart.resize(); });
             setTimeout(function() { chart.resize(); }, 200);
         },
 
-        _buildConfig: function(bins, breakdownKey, title) {
+        _getBins: function(view, resolution) {
+            var d = this._data;
+            if (!d) return [];
+            var mr = d.multi_resolution || {};
+            // Map view prefix to profile key and multi-resolution key prefix
+            var profileMap = {
+                dep: { profile: 'departure_profile', mr_prefix: 'departure' },
+                entry: { profile: 'oceanic_entry_profile', mr_prefix: 'oceanic_entry' },
+                exit: { profile: 'oceanic_exit_profile', mr_prefix: 'oceanic_exit' },
+                arr: { profile: 'arrival_profile', mr_prefix: 'arrival' }
+            };
+            var parts = view.split('_');
+            var prefix = parts[0];
+            var pm = profileMap[prefix];
+            if (!pm) return [];
+
+            if (resolution === '15min') {
+                return (d[pm.profile] && d[pm.profile].bins) ? d[pm.profile].bins : [];
+            }
+            var mrKey = pm.mr_prefix + '_' + resolution;
+            return mr[mrKey] || [];
+        },
+
+        _getConstraintLines: function(view) {
+            var d = this._data;
+            if (!d) return [];
+            var lines = [];
+            // Only show ACPH constraints on entry_track view (oceanic entry is where throughput is measured)
+            if (view !== 'entry_track') return lines;
+
+            // From throughput configs
+            if (d.throughput_configs) {
+                d.throughput_configs.forEach(function(cfg) {
+                    if (cfg.max_acph) {
+                        lines.push({
+                            label: cfg.config_label,
+                            value: cfg.max_acph,
+                            color: '#ff4444',
+                            type: 'acph'
+                        });
+                    }
+                });
+            }
+            // From track constraints
+            if (d.track_constraints) {
+                d.track_constraints.forEach(function(tc) {
+                    if (tc.max_acph) {
+                        lines.push({
+                            label: tc.track_name + ' cap',
+                            value: tc.max_acph,
+                            color: '#ff8800',
+                            type: 'acph'
+                        });
+                    }
+                });
+            }
+            return lines;
+        },
+
+        _getEntryWindows: function(view) {
+            var d = this._data;
+            if (!d || !d.track_constraints) return [];
+            // Show ocean entry windows on entry_* views
+            if (view.indexOf('entry_') !== 0) return [];
             var self = this;
+            var windows = [];
+            d.track_constraints.forEach(function(tc) {
+                if (tc.ocean_entry_start && tc.ocean_entry_end) {
+                    windows.push({
+                        label: tc.track_name,
+                        start: self._parseUtc(tc.ocean_entry_start),
+                        end: self._parseUtc(tc.ocean_entry_end)
+                    });
+                }
+            });
+            return windows;
+        },
+
+        _updateChart: function() {
+            var self = this;
+            if (!self._chart || !self._data) return;
+            var bins = self._getBins(self._activeView, self._resolution);
+            var parts = self._activeView.split('_');
+            var breakdownKey = 'by_' + parts.slice(1).join('_');
+
+            // Build title
+            var viewLabels = {
+                dep_track: t('ctp.planning.departures') + ' (' + t('ctp.planning.byTrack') + ')',
+                dep_origin: t('ctp.planning.departures') + ' (' + t('ctp.planning.byOrigin') + ')',
+                entry_track: t('ctp.planning.oceanEntry') + ' (' + t('ctp.planning.byTrack') + ')',
+                entry_origin: t('ctp.planning.oceanEntry') + ' (' + t('ctp.planning.byOrigin') + ')',
+                entry_dest: t('ctp.planning.oceanEntry') + ' (' + t('ctp.planning.byDest') + ')',
+                exit_track: t('ctp.planning.oceanExit') + ' (' + t('ctp.planning.byTrack') + ')',
+                exit_origin: t('ctp.planning.oceanExit') + ' (' + t('ctp.planning.byOrigin') + ')',
+                exit_dest: t('ctp.planning.oceanExit') + ' (' + t('ctp.planning.byDest') + ')',
+                arr_track: t('ctp.planning.arrivals') + ' (' + t('ctp.planning.byTrack') + ')',
+                arr_dest: t('ctp.planning.arrivals') + ' (' + t('ctp.planning.byDest') + ')'
+            };
+            var title = (viewLabels[self._activeView] || '') + ' [' + self._resolution + ']';
+            var constraints = self._getConstraintLines(self._activeView);
+            var entryWindows = self._getEntryWindows(self._activeView);
+            var config = self._buildConfig(bins, breakdownKey, title, constraints, entryWindows);
+            self._chart.setOption(config, true);
+        },
+
+        _buildConfig: function(bins, breakdownKey, title, constraints, entryWindows) {
+            var self = this;
+            constraints = constraints || [];
+            entryWindows = entryWindows || [];
 
             // Collect all category keys across bins
             var keys = {};
@@ -3269,6 +3399,52 @@
                 symbolSize: 4,
                 z: 10
             });
+
+            // Scale constraint ACPH values to per-bin counts based on resolution
+            var binMinutes = self._resolution === '60min' ? 60 : (self._resolution === '30min' ? 30 : 15);
+            var scaleFactor = binMinutes / 60; // e.g. 15min = 0.25, so 120 ACPH -> 30 per bin
+
+            // Add constraint markLines
+            var markLineData = [];
+            constraints.forEach(function(c) {
+                if (c.type === 'acph' && c.value) {
+                    var perBinValue = Math.round(c.value * scaleFactor);
+                    markLineData.push({
+                        name: c.label + ' (' + c.value + '/hr)',
+                        yAxis: perBinValue,
+                        lineStyle: { color: c.color, width: 2, type: 'dashed' },
+                        label: {
+                            formatter: c.label + ' ' + c.value + '/hr',
+                            fontSize: 9,
+                            color: c.color,
+                            position: 'insideEndTop'
+                        }
+                    });
+                }
+            });
+            if (markLineData.length > 0) {
+                // Attach markLine to total series
+                series[series.length - 1].markLine = {
+                    silent: true,
+                    symbol: 'none',
+                    data: markLineData
+                };
+            }
+
+            // Add entry window markAreas
+            var markAreaData = [];
+            entryWindows.forEach(function(w) {
+                markAreaData.push([
+                    { xAxis: w.start, itemStyle: { color: 'rgba(50,205,50,0.08)' } },
+                    { xAxis: w.end }
+                ]);
+            });
+            if (markAreaData.length > 0) {
+                series[series.length - 1].markArea = {
+                    silent: true,
+                    data: markAreaData
+                };
+            }
 
             return {
                 title: { text: title, left: 'center', top: 0, textStyle: { fontSize: 12, color: '#ccc' } },
@@ -3322,8 +3498,8 @@
 
         _parseUtc: function(utcStr) {
             if (!utcStr) return 0;
-            // Parse "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DDTHH:MM:SS" as UTC
-            var p = utcStr.replace('T', ' ').split(/[- :]/);
+            var s = String(utcStr).replace('Z', '').replace('T', ' ');
+            var p = s.split(/[- :]/);
             return Date.UTC(+p[0], +p[1] - 1, +p[2], +p[3] || 0, +p[4] || 0, +p[5] || 0);
         }
     };
