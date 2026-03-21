@@ -26,6 +26,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('CTP_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once(__DIR__ . '/../../../load/services/NATTrackResolver.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, ['status' => 'error', 'message' => 'Method not allowed. Use POST.']);
@@ -55,7 +56,7 @@ $notes = isset($payload['notes']) ? trim($payload['notes']) : null;
 
 // Get flight record
 $flight_result = ctp_fetch_one($conn_tmi,
-    "SELECT ctp_control_id, session_id, callsign, seg_na_route, seg_oceanic_route, seg_eu_route, modified_route, filed_route FROM dbo.ctp_flight_control WHERE ctp_control_id = ?",
+    "SELECT ctp_control_id, session_id, callsign, flight_uid, seg_na_route, seg_oceanic_route, seg_eu_route, modified_route, filed_route FROM dbo.ctp_flight_control WHERE ctp_control_id = ?",
     [$ctp_control_id]
 );
 if (!$flight_result['success'] || !$flight_result['data']) {
@@ -154,6 +155,28 @@ $params[] = $ctp_control_id;
 $result = ctp_execute($conn_tmi, $update_sql, $params);
 if (!$result['success']) {
     respond_json(500, ['status' => 'error', 'message' => 'Failed to update route.']);
+}
+
+// Re-resolve NAT track after route modification
+if ($segment === 'OCEANIC' || $segment === 'FULL') {
+    $active_tracks = getActiveTracksForResolution($session_id);
+    $new_oceanic = ($segment === 'OCEANIC') ? $route_string : ($flight['seg_oceanic_route'] ?? '');
+    $filed = $flight['filed_route'] ?? '';
+    resolveAndPersistNATTrack($conn_tmi, $ctp_control_id, $filed, $new_oceanic, $active_tracks);
+
+    // SWIM immediate push for resolved_nat_track
+    $conn_swim = get_conn_swim();
+    if ($conn_swim && !empty($flight['flight_uid'])) {
+        $nat_data = ctp_fetch_one($conn_tmi,
+            "SELECT resolved_nat_track, nat_track_resolved_at, nat_track_source FROM dbo.ctp_flight_control WHERE ctp_control_id = ?",
+            [$ctp_control_id]);
+        if ($nat_data['success'] && $nat_data['data']) {
+            $nd = $nat_data['data'];
+            sqlsrv_query($conn_swim,
+                "UPDATE dbo.swim_flights SET resolved_nat_track = ?, nat_track_resolved_at = ?, nat_track_source = ? WHERE flight_uid = ?",
+                [$nd['resolved_nat_track'], $nd['nat_track_resolved_at'], $nd['nat_track_source'], $flight['flight_uid']]);
+        }
+    }
 }
 
 // Audit log

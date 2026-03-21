@@ -36,6 +36,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('CTP_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once(__DIR__ . '/../../../load/services/NATTrackResolver.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, ['status' => 'error', 'message' => 'Method not allowed. Use POST.']);
@@ -294,6 +295,31 @@ foreach ($candidates as $uid => $c) {
     }
 }
 
+// Resolve NAT tracks for newly detected flights
+$nat_resolved_count = 0;
+if ($detected > 0) {
+    $active_tracks = getActiveTracksForResolution($session_id);
+    // Token matching uses filed_route (works immediately); sequence matching needs seg_oceanic_route.
+    // Include flights with either field so token resolution works even before oceanic decomposition.
+    $resolve_sql = "SELECT ctp_control_id, filed_route, seg_oceanic_route
+                    FROM dbo.ctp_flight_control
+                    WHERE session_id = ? AND resolved_nat_track IS NULL
+                      AND (filed_route IS NOT NULL OR seg_oceanic_route IS NOT NULL)";
+    $resolve_result = ctp_fetch_all($conn_tmi, $resolve_sql, [$session_id]);
+    if ($resolve_result['success'] && !empty($resolve_result['data'])) {
+        foreach ($resolve_result['data'] as $f) {
+            $res = resolveAndPersistNATTrack(
+                $conn_tmi,
+                (int)$f['ctp_control_id'],
+                $f['filed_route'] ?? '',
+                $f['seg_oceanic_route'] ?? '',
+                $active_tracks
+            );
+            if ($res !== null) $nat_resolved_count++;
+        }
+    }
+}
+
 // Update session stats
 ctp_execute($conn_tmi,
     "UPDATE dbo.ctp_sessions SET total_flights = (SELECT COUNT(*) FROM dbo.ctp_flight_control WHERE session_id = ?) WHERE session_id = ?",
@@ -322,6 +348,7 @@ respond_json(200, [
         'detected' => $detected,
         'skipped_event' => $skipped_event,
         'skipped_existing' => $skipped_existing,
-        'total_candidates' => $total_candidates
+        'total_candidates' => $total_candidates,
+        'nat_resolved' => $nat_resolved_count
     ]
 ]);

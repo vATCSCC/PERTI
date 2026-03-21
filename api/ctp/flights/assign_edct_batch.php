@@ -36,6 +36,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('CTP_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once(__DIR__ . '/../../../load/services/NATTrackResolver.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, ['status' => 'error', 'message' => 'Method not allowed. Use POST.']);
@@ -147,6 +148,7 @@ if (empty($assignments)) {
 $now = gmdate('Y-m-d H:i:s');
 $success_count = 0;
 $errors = [];
+$updated_control_ids = []; // Track successful updates for SWIM batch push
 
 foreach ($assignments as $a) {
     $ctrl_id = $a['ctp_control_id'];
@@ -182,6 +184,7 @@ foreach ($assignments as $a) {
 
     if ($result['success']) {
         $success_count++;
+        $updated_control_ids[] = $ctrl_id;
 
         ctp_audit_log($conn_tmi, $session_id, $ctrl_id, 'EDCT_ASSIGN', [
             'new_edct' => $edct, 'delay_min' => $delay, 'batch' => true
@@ -197,6 +200,30 @@ ctp_push_swim_event('ctp.edct.batch_assigned', [
     'count' => $success_count,
     'auto_assign' => $auto_assign
 ]);
+
+// SWIM immediate push for resolved_nat_track columns (batch)
+if (!empty($updated_control_ids)) {
+    $conn_swim = get_conn_swim();
+    if ($conn_swim) {
+        // Batch query to get all NAT track data for updated flights
+        $placeholders = implode(',', array_fill(0, count($updated_control_ids), '?'));
+        $nat_query = "SELECT c.flight_uid, c.resolved_nat_track, c.nat_track_resolved_at, c.nat_track_source
+                      FROM dbo.ctp_flight_control c
+                      WHERE c.ctp_control_id IN ($placeholders)
+                        AND c.flight_uid IS NOT NULL";
+        $nat_result = ctp_fetch_all($conn_tmi, $nat_query, $updated_control_ids);
+
+        if ($nat_result['success'] && !empty($nat_result['data'])) {
+            foreach ($nat_result['data'] as $nd) {
+                if (!empty($nd['flight_uid'])) {
+                    sqlsrv_query($conn_swim,
+                        "UPDATE dbo.swim_flights SET resolved_nat_track = ?, nat_track_resolved_at = ?, nat_track_source = ? WHERE flight_uid = ?",
+                        [$nd['resolved_nat_track'], $nd['nat_track_resolved_at'], $nd['nat_track_source'], $nd['flight_uid']]);
+                }
+            }
+        }
+    }
+}
 
 respond_json(200, [
     'status' => 'ok',
