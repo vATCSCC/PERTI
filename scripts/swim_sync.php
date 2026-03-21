@@ -785,6 +785,279 @@ function delete_stale_flights($conn_swim) {
     return $deleted;
 }
 
+/**
+ * Sync CTP-specific data to SWIM.
+ * Three independent sub-steps, each in its own try/catch:
+ *   1. Per-flight sync (resolved_nat_track → swim_flights)
+ *   2. Metrics recompute (ctp_flight_control → swim_nat_track_metrics)
+ *   3. Throughput utilization recompute (configs → swim_nat_track_throughput)
+ *
+ * @return array ['success' => bool, 'message' => string, 'skipped' => bool]
+ */
+function swim_sync_ctp_to_swim(): array {
+    $conn_tmi = get_conn_tmi();
+    $conn_swim = get_conn_swim();
+
+    if (!$conn_tmi) {
+        return ['success' => false, 'message' => 'TMI connection unavailable', 'skipped' => false];
+    }
+    if (!$conn_swim) {
+        return ['success' => false, 'message' => 'SWIM connection unavailable', 'skipped' => false];
+    }
+
+    // Pre-check: any active CTP sessions?
+    $sess_result = sqlsrv_query($conn_tmi,
+        "SELECT session_id FROM dbo.ctp_sessions WHERE status IN ('ACTIVE', 'MONITORING')");
+    if ($sess_result === false) {
+        return ['success' => false, 'message' => 'Failed to check CTP sessions', 'skipped' => false];
+    }
+    $active_sessions = [];
+    while ($row = sqlsrv_fetch_array($sess_result, SQLSRV_FETCH_ASSOC)) {
+        $active_sessions[] = (int)$row['session_id'];
+    }
+    sqlsrv_free_stmt($sess_result);
+
+    if (empty($active_sessions)) {
+        return ['success' => true, 'message' => 'No active CTP sessions', 'skipped' => true];
+    }
+
+    $stats = ['flights_synced' => 0, 'metrics_bins' => 0, 'throughput_bins' => 0, 'errors' => 0];
+
+    // Sub-step 1: Per-flight sync (resolved_nat_track → swim_flights)
+    try {
+        $stats['flights_synced'] = swim_sync_ctp_flights($conn_tmi, $conn_swim, $active_sessions);
+    } catch (Throwable $e) {
+        $stats['errors']++;
+        swim_log("CTP flight sync error: " . $e->getMessage(), 'ERROR');
+    }
+
+    // Sub-step 2: Metrics recompute (only if flight sync had no errors)
+    if ($stats['errors'] === 0) {
+        try {
+            $stats['metrics_bins'] = swim_sync_ctp_metrics($conn_tmi, $conn_swim, $active_sessions);
+        } catch (Throwable $e) {
+            $stats['errors']++;
+            swim_log("CTP metrics sync error: " . $e->getMessage(), 'ERROR');
+        }
+    }
+
+    // Sub-step 3: Throughput utilization recompute
+    try {
+        $stats['throughput_bins'] = swim_sync_ctp_throughput($conn_tmi, $conn_swim, $active_sessions);
+    } catch (Throwable $e) {
+        $stats['errors']++;
+        swim_log("CTP throughput sync error: " . $e->getMessage(), 'ERROR');
+    }
+
+    // Update sync state watermarks
+    try {
+        sqlsrv_query($conn_swim,
+            "UPDATE dbo.swim_sync_state SET last_sync_utc = SYSUTCDATETIME(), last_row_count = ? WHERE table_name = 'ctp_nat_track_metrics'",
+            [$stats['metrics_bins']]);
+        sqlsrv_query($conn_swim,
+            "UPDATE dbo.swim_sync_state SET last_sync_utc = SYSUTCDATETIME(), last_row_count = ? WHERE table_name = 'ctp_nat_track_throughput'",
+            [$stats['throughput_bins']]);
+    } catch (Throwable $e) {
+        // Non-fatal
+    }
+
+    $msg = sprintf("flights=%d metrics=%d throughput=%d errors=%d",
+        $stats['flights_synced'], $stats['metrics_bins'], $stats['throughput_bins'], $stats['errors']);
+
+    return ['success' => $stats['errors'] === 0, 'message' => $msg, 'skipped' => false];
+}
+
+/**
+ * Sub-step 1: Sync per-flight NAT track data from TMI to SWIM.
+ * Finds flights where swim_push_version > swim_pushed_version (delta detection).
+ */
+function swim_sync_ctp_flights($conn_tmi, $conn_swim, array $session_ids): int {
+    $placeholders = implode(',', array_fill(0, count($session_ids), '?'));
+    $sql = "SELECT ctp_control_id, flight_uid, resolved_nat_track, nat_track_resolved_at, nat_track_source
+            FROM dbo.ctp_flight_control
+            WHERE session_id IN ($placeholders)
+              AND resolved_nat_track IS NOT NULL
+              AND swim_push_version > ISNULL(swim_pushed_version, 0)";
+    $stmt = sqlsrv_query($conn_tmi, $sql, $session_ids);
+    if ($stmt === false) return 0;
+
+    $synced = 0;
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        if (empty($row['flight_uid'])) continue;
+
+        $upd = sqlsrv_query($conn_swim,
+            "UPDATE dbo.swim_flights SET resolved_nat_track = ?, nat_track_resolved_at = ?, nat_track_source = ? WHERE flight_uid = ?",
+            [$row['resolved_nat_track'], $row['nat_track_resolved_at'], $row['nat_track_source'], $row['flight_uid']]);
+        if ($upd !== false) {
+            sqlsrv_free_stmt($upd);
+            // Mark as pushed
+            sqlsrv_query($conn_tmi,
+                "UPDATE dbo.ctp_flight_control SET swim_pushed_version = swim_push_version WHERE ctp_control_id = ?",
+                [$row['ctp_control_id']]);
+            $synced++;
+        }
+    }
+    sqlsrv_free_stmt($stmt);
+    return $synced;
+}
+
+/**
+ * Sub-step 2: Recompute NAT track metrics bins in SWIM.
+ * Aggregates ctp_flight_control by track + 15-min bin → MERGE into swim_nat_track_metrics.
+ */
+function swim_sync_ctp_metrics($conn_tmi, $conn_swim, array $session_ids): int {
+    $total_bins = 0;
+
+    foreach ($session_ids as $session_id) {
+        // Aggregate per-track per-bin from TMI
+        $agg_sql = "SELECT
+                        resolved_nat_track AS track_name,
+                        DATEADD(MINUTE, (DATEDIFF(MINUTE, 0, oceanic_entry_utc) / 15) * 15, 0) AS bin_start,
+                        DATEADD(MINUTE, (DATEDIFF(MINUTE, 0, oceanic_entry_utc) / 15) * 15 + 15, 0) AS bin_end,
+                        COUNT(*) AS flight_count,
+                        SUM(CASE WHEN edct_utc IS NOT NULL THEN 1 ELSE 0 END) AS slotted_count,
+                        AVG(CAST(delay_minutes AS FLOAT)) AS avg_delay_min
+                    FROM dbo.ctp_flight_control
+                    WHERE session_id = ?
+                      AND resolved_nat_track IS NOT NULL
+                      AND oceanic_entry_utc IS NOT NULL
+                    GROUP BY resolved_nat_track,
+                             DATEADD(MINUTE, (DATEDIFF(MINUTE, 0, oceanic_entry_utc) / 15) * 15, 0),
+                             DATEADD(MINUTE, (DATEDIFF(MINUTE, 0, oceanic_entry_utc) / 15) * 15 + 15, 0)";
+
+        $stmt = sqlsrv_query($conn_tmi, $agg_sql, [$session_id]);
+        if ($stmt === false) continue;
+
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            // MERGE into swim_nat_track_metrics
+            $merge_sql = "MERGE dbo.swim_nat_track_metrics AS t
+                          USING (SELECT ? AS session_id, ? AS track_name, ? AS bin_start, ? AS bin_end) AS s
+                          ON t.session_id = s.session_id AND t.track_name = s.track_name AND t.bin_start_utc = s.bin_start
+                          WHEN MATCHED THEN UPDATE SET
+                              flight_count = ?, slotted_count = ?, avg_delay_min = ?,
+                              peak_rate_hr = ? * 4, computed_at = SYSUTCDATETIME()
+                          WHEN NOT MATCHED THEN INSERT
+                              (session_id, track_name, bin_start_utc, bin_end_utc, flight_count, slotted_count, avg_delay_min, peak_rate_hr, source)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ? * 4, 'CTP');";
+
+            $fc = (int)$row['flight_count'];
+            $sc = (int)$row['slotted_count'];
+            $ad = $row['avg_delay_min'];
+            $bin_start = $row['bin_start'];
+            $bin_end = $row['bin_end'];
+
+            $params = [
+                $session_id, $row['track_name'], $bin_start, $bin_end,
+                $fc, $sc, $ad, $fc,
+                $session_id, $row['track_name'], $bin_start, $bin_end, $fc, $sc, $ad, $fc
+            ];
+
+            $m = sqlsrv_query($conn_swim, $merge_sql, $params);
+            if ($m !== false) {
+                sqlsrv_free_stmt($m);
+                $total_bins++;
+            }
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $total_bins;
+}
+
+/**
+ * Sub-step 3: Recompute throughput utilization bins in SWIM.
+ * For each active config, aggregate matching flights per bin → MERGE into swim_nat_track_throughput.
+ */
+function swim_sync_ctp_throughput($conn_tmi, $conn_swim, array $session_ids): int {
+    $total_bins = 0;
+
+    foreach ($session_ids as $session_id) {
+        // Fetch active configs
+        $cfg_sql = "SELECT config_id, config_label, tracks_json, origins_json, destinations_json, max_acph
+                    FROM dbo.ctp_track_throughput_config
+                    WHERE session_id = ? AND is_active = 1";
+        $cfg_stmt = sqlsrv_query($conn_tmi, $cfg_sql, [$session_id]);
+        if ($cfg_stmt === false) continue;
+
+        while ($cfg = sqlsrv_fetch_array($cfg_stmt, SQLSRV_FETCH_ASSOC)) {
+            // Build WHERE conditions based on config filters (NULL = match all)
+            $where = "session_id = ? AND oceanic_entry_utc IS NOT NULL";
+            $params = [$session_id];
+
+            $tracks = $cfg['tracks_json'] ? json_decode($cfg['tracks_json'], true) : null;
+            if ($tracks && is_array($tracks) && !empty($tracks)) {
+                $ph = implode(',', array_fill(0, count($tracks), '?'));
+                $where .= " AND resolved_nat_track IN ($ph)";
+                $params = array_merge($params, $tracks);
+            }
+
+            $origins = $cfg['origins_json'] ? json_decode($cfg['origins_json'], true) : null;
+            if ($origins && is_array($origins) && !empty($origins)) {
+                $ph = implode(',', array_fill(0, count($origins), '?'));
+                $where .= " AND dep_airport IN ($ph)";
+                $params = array_merge($params, $origins);
+            }
+
+            $dests = $cfg['destinations_json'] ? json_decode($cfg['destinations_json'], true) : null;
+            if ($dests && is_array($dests) && !empty($dests)) {
+                $ph = implode(',', array_fill(0, count($dests), '?'));
+                $where .= " AND arr_airport IN ($ph)";
+                $params = array_merge($params, $dests);
+            }
+
+            // Aggregate into 15-min bins
+            $bin_sql = "SELECT
+                            DATEADD(MINUTE, (DATEDIFF(MINUTE, 0, oceanic_entry_utc) / 15) * 15, 0) AS bin_start,
+                            DATEADD(MINUTE, (DATEDIFF(MINUTE, 0, oceanic_entry_utc) / 15) * 15 + 15, 0) AS bin_end,
+                            COUNT(*) AS actual_count
+                        FROM dbo.ctp_flight_control
+                        WHERE $where
+                        GROUP BY
+                            DATEADD(MINUTE, (DATEDIFF(MINUTE, 0, oceanic_entry_utc) / 15) * 15, 0),
+                            DATEADD(MINUTE, (DATEDIFF(MINUTE, 0, oceanic_entry_utc) / 15) * 15 + 15, 0)";
+
+            $bin_stmt = sqlsrv_query($conn_tmi, $bin_sql, $params);
+            if ($bin_stmt === false) continue;
+
+            while ($bin = sqlsrv_fetch_array($bin_stmt, SQLSRV_FETCH_ASSOC)) {
+                $actual = (int)$bin['actual_count'];
+                $rate_hr = $actual * 4; // 15-min bin → hourly rate
+                $util_pct = $cfg['max_acph'] > 0 ? round(($rate_hr / $cfg['max_acph']) * 100, 1) : null;
+
+                $merge_sql = "MERGE dbo.swim_nat_track_throughput AS t
+                              USING (SELECT ? AS session_id, ? AS config_id, ? AS bin_start) AS s
+                              ON t.session_id = s.session_id AND t.config_id = s.config_id AND t.bin_start_utc = s.bin_start
+                              WHEN MATCHED THEN UPDATE SET
+                                  actual_count = ?, actual_rate_hr = ?, utilization_pct = ?,
+                                  computed_at = SYSUTCDATETIME()
+                              WHEN NOT MATCHED THEN INSERT
+                                  (session_id, config_id, config_label, tracks_json, origins_json, destinations_json,
+                                   bin_start_utc, bin_end_utc, max_acph, actual_count, actual_rate_hr, utilization_pct)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+
+                $m_params = [
+                    $session_id, (int)$cfg['config_id'], $bin['bin_start'],
+                    $actual, $rate_hr, $util_pct,
+                    $session_id, (int)$cfg['config_id'], $cfg['config_label'],
+                    $cfg['tracks_json'], $cfg['origins_json'], $cfg['destinations_json'],
+                    $bin['bin_start'], $bin['bin_end'], (int)$cfg['max_acph'],
+                    $actual, $rate_hr, $util_pct
+                ];
+
+                $m = sqlsrv_query($conn_swim, $merge_sql, $m_params);
+                if ($m !== false) {
+                    sqlsrv_free_stmt($m);
+                    $total_bins++;
+                }
+            }
+            sqlsrv_free_stmt($bin_stmt);
+        }
+        sqlsrv_free_stmt($cfg_stmt);
+    }
+
+    return $total_bins;
+}
+
 // ============================================================================
 // Run if executed directly (for testing)
 // ============================================================================

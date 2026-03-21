@@ -158,6 +158,24 @@ do {
     }
 
     // ========================================================================
+    // Run CTP-to-SWIM Sync (if active CTP session)
+    // ========================================================================
+    try {
+        $ctp_result = swim_sync_ctp_to_swim();
+        if ($ctp_result['success']) {
+            if ($ctp_result['skipped']) {
+                // No active CTP session — zero overhead
+            } else {
+                swim_log("CTP sync: " . $ctp_result['message']);
+            }
+        } else {
+            swim_log("CTP sync error: " . $ctp_result['message'], 'ERROR');
+        }
+    } catch (Throwable $e) {
+        swim_log("CTP sync exception: " . $e->getMessage(), 'ERROR');
+    }
+
+    // ========================================================================
     // Run Cleanup (if due)
     // ========================================================================
     $timeSinceCleanup = time() - $lastCleanupTime;
