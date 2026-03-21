@@ -135,7 +135,7 @@
                 }
             });
 
-            $('#ctp_btn_session_settings').on('click', function() {
+            $('#ctp_btn_session_settings, #ctp_btn_new_session').on('click', function() {
                 $('#ctpCreateSessionModal').modal('show');
             });
 

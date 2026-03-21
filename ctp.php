@@ -32,11 +32,14 @@ include("load/connect.php");
     <div class="ctp-top-bar">
         <div class="d-flex align-items-center flex-wrap gap-2">
             <!-- Session Selector -->
-            <div class="ctp-session-selector mr-3">
+            <div class="ctp-session-selector mr-2">
                 <select class="form-control form-control-sm" id="ctp_session_select" title="<?= __('ctp.session.select') ?>">
                     <option value=""><?= __('ctp.session.selectPlaceholder') ?></option>
                 </select>
             </div>
+            <button class="btn btn-sm btn-primary mr-3" id="ctp_btn_new_session" title="<?= __('ctp.session.createTitle') ?>">
+                <i class="fas fa-plus mr-1"></i><?= __('ctp.session.create') ?>
+            </button>
 
             <!-- Status Badge -->
             <span class="badge badge-secondary ctp-status-badge" id="ctp_status_badge"><?= __('ctp.session.noSession') ?></span>
