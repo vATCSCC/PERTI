@@ -244,11 +244,13 @@
         if (c.type === 'playbook') {
             parts.push(escapeHtml(c.detail));
             if (c.route_count) {
-                parts.push('<span class="text-muted">(' + c.route_count + ' total)</span>');
+                parts.push('<span class="text-muted">(' + PERTII18n.t('navdata.playbook.routeTotal', { count: c.route_count }) + ')</span>');
             }
             if (c.artccs && c.artccs.length) {
-                parts.push('<span class="badge badge-secondary" style="font-size:0.7rem">' +
-                    escapeHtml(c.artccs.join(', ')) + '</span>');
+                c.artccs.forEach(function(a) {
+                    parts.push('<span class="badge badge-secondary" style="font-size:0.65rem;padding:1px 4px">' +
+                        escapeHtml(a) + '</span>');
+                });
             }
             return parts.join(' ');
         }
@@ -374,67 +376,123 @@
     function buildPlaybookDetail(c) {
         var html = '<div class="navdata-detail" style="flex-direction:column;gap:0.5rem;">';
 
-        // Header: play name + route count + ARTCCs
+        // Header: route count + ARTCCs
         html += '<div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">';
         if (c.route_count) {
-            html += '<span class="badge badge-info">' + c.route_count + ' routes</span>';
+            html += '<span class="badge badge-info">' + PERTII18n.t('navdata.playbook.routeCount', { count: c.route_count }) + '</span>';
         }
         if (c.artccs && c.artccs.length) {
-            html += '<span class="text-muted" style="font-size:0.8rem">ARTCCs: ' +
+            html += '<span class="text-muted" style="font-size:0.8rem">' + PERTII18n.t('navdata.playbook.artccs') + ': ' +
                 escapeHtml(c.artccs.join(', ')) + '</span>';
         }
         html += '</div>';
 
         if (c.action === 'changed') {
-            // Added routes
-            if (c.added_routes && c.added_routes.length) {
-                var addedTotal = c.added_routes_total || c.added_routes.length;
-                html += '<div class="navdata-detail-label" style="color:#28a745">' +
-                    'Added routes (' + addedTotal + ')</div>';
-                html += '<div style="font-size:0.75rem;font-family:monospace;max-height:150px;overflow-y:auto">';
-                c.added_routes.forEach(function(r) {
-                    html += '<div style="color:#28a745;padding:1px 0">+ ' + escapeHtml(r) + '</div>';
-                });
-                if (c.added_routes_total && c.added_routes_total > c.added_routes.length) {
-                    html += '<div class="text-muted">... and ' +
-                        (c.added_routes_total - c.added_routes.length) + ' more</div>';
-                }
-                html += '</div>';
-            }
-            // Removed routes
-            if (c.removed_routes && c.removed_routes.length) {
-                var removedTotal = c.removed_routes_total || c.removed_routes.length;
-                html += '<div class="navdata-detail-label" style="color:#dc3545">' +
-                    'Removed routes (' + removedTotal + ')</div>';
-                html += '<div style="font-size:0.75rem;font-family:monospace;max-height:150px;overflow-y:auto">';
-                c.removed_routes.forEach(function(r) {
-                    html += '<div style="color:#dc3545;padding:1px 0;text-decoration:line-through">' +
-                        escapeHtml(r) + '</div>';
-                });
-                if (c.removed_routes_total && c.removed_routes_total > c.removed_routes.length) {
-                    html += '<div class="text-muted">... and ' +
-                        (c.removed_routes_total - c.removed_routes.length) + ' more</div>';
-                }
-                html += '</div>';
-            }
-        } else if (c.action === 'added' && c.sample_routes && c.sample_routes.length) {
-            html += '<div class="navdata-detail-label">Sample routes</div>';
-            html += '<div style="font-size:0.75rem;font-family:monospace">';
-            c.sample_routes.forEach(function(r) {
-                html += '<div style="color:#28a745;padding:1px 0">' + escapeHtml(r) + '</div>';
-            });
-            if (c.route_count > c.sample_routes.length) {
-                html += '<div class="text-muted">... and ' +
-                    (c.route_count - c.sample_routes.length) + ' more</div>';
-            }
-            html += '</div>';
+            html += buildPlaybookChangedSection(c);
+        } else if (c.action === 'added') {
+            html += buildPlaybookRouteList(c.added_routes || [], PERTII18n.t('navdata.playbook.routes'), '#28a745', '+');
         } else if (c.action === 'removed') {
-            html += '<div style="color:#dc3545">' + escapeHtml(c.detail) + '</div>';
+            html += buildPlaybookRouteList(c.removed_routes || [], PERTII18n.t('navdata.playbook.routes'), '#dc3545', null, true);
         }
 
         html += '</div>';
         return html;
     }
+
+    function buildPlaybookChangedSection(c) {
+        var html = '';
+        var PAGE_SZ = 20;
+
+        // Modified routes (paired old→new with word-level diff)
+        if (c.modified_routes && c.modified_routes.length) {
+            var modId = 'pb-mod-' + Date.now();
+            html += '<div class="navdata-detail-label" style="color:#0d6efd">' +
+                PERTII18n.t('navdata.playbook.modifiedRoutes', { count: c.modified_routes.length }) + '</div>';
+            html += '<div id="' + modId + '" class="route-diff" style="font-size:0.75rem;font-family:monospace">';
+            c.modified_routes.forEach(function(pair, i) {
+                var hidden = i >= PAGE_SZ ? ' style="display:none"' : '';
+                html += '<div class="pb-route-pair" data-page-group="' + modId + '"' + hidden + '>' +
+                    '<div style="padding:2px 0">' + diffRouteStrings(pair.old, pair['new']) + '</div>' +
+                    '</div>';
+            });
+            if (c.modified_routes.length > PAGE_SZ) {
+                html += buildPaginationControls(modId, c.modified_routes.length, PAGE_SZ);
+            }
+            html += '</div>';
+        }
+
+        // Truly new routes (no matching old route)
+        if (c.added_routes && c.added_routes.length) {
+            html += buildPlaybookRouteList(c.added_routes, PERTII18n.t('navdata.playbook.newRoutes'), '#28a745', '+');
+        }
+
+        // Truly removed routes (no matching new route)
+        if (c.removed_routes && c.removed_routes.length) {
+            html += buildPlaybookRouteList(c.removed_routes, PERTII18n.t('navdata.playbook.removedRoutes'), '#dc3545', null, true);
+        }
+
+        return html;
+    }
+
+    function buildPlaybookRouteList(routes, label, color, prefix, strikethrough) {
+        if (!routes || !routes.length) return '';
+        var PAGE_SZ = 20;
+        var listId = 'pb-list-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+        var html = '<div class="navdata-detail-label" style="color:' + color + '">' +
+            label + ' (' + routes.length + ')</div>';
+        html += '<div id="' + listId + '" style="font-size:0.75rem;font-family:monospace">';
+        routes.forEach(function(r, i) {
+            var hidden = i >= PAGE_SZ ? ' style="display:none"' : '';
+            var style = 'color:' + color + ';padding:1px 0' +
+                (strikethrough ? ';text-decoration:line-through' : '');
+            html += '<div class="pb-route-item" data-page-group="' + listId + '"' + hidden + '>' +
+                '<span style="' + style + '">' +
+                (prefix ? prefix + ' ' : '') + escapeHtml(r) +
+                '</span></div>';
+        });
+        if (routes.length > PAGE_SZ) {
+            html += buildPaginationControls(listId, routes.length, PAGE_SZ);
+        }
+        html += '</div>';
+        return html;
+    }
+
+    function buildPaginationControls(groupId, total, pageSize) {
+        var pages = Math.ceil(total / pageSize);
+        return '<div class="pb-pagination" style="margin-top:4px;display:flex;gap:4px;align-items:center">' +
+            '<span class="text-muted" style="font-size:0.7rem">' + PERTII18n.t('navdata.playbook.page', { current: 1, total: pages }) + '</span> ' +
+            '<button class="btn btn-sm btn-outline-secondary py-0 px-1" style="font-size:0.65rem" ' +
+                'onclick="window._pbPageChange(\'' + groupId + '\',-1,' + pageSize + ',' + total + ',this)"' +
+                ' disabled>&laquo; ' + PERTII18n.t('navdata.playbook.prev') + '</button>' +
+            '<button class="btn btn-sm btn-outline-secondary py-0 px-1" style="font-size:0.65rem" ' +
+                'onclick="window._pbPageChange(\'' + groupId + '\',1,' + pageSize + ',' + total + ',this)"' +
+                '">' + PERTII18n.t('navdata.playbook.next') + ' &raquo;</button>' +
+            '</div>';
+    }
+
+    // Global pagination handler (needs to be on window for inline onclick)
+    window._pbPageState = {};
+    window._pbPageChange = function(groupId, dir, pageSize, total, btn) {
+        var cur = window._pbPageState[groupId] || 0;
+        var pages = Math.ceil(total / pageSize);
+        cur += dir;
+        if (cur < 0) cur = 0;
+        if (cur >= pages) cur = pages - 1;
+        window._pbPageState[groupId] = cur;
+
+        var items = document.querySelectorAll('[data-page-group="' + groupId + '"]');
+        var start = cur * pageSize;
+        var end = start + pageSize;
+        for (var i = 0; i < items.length; i++) {
+            items[i].style.display = (i >= start && i < end) ? '' : 'none';
+        }
+
+        var controls = btn.parentElement;
+        controls.querySelector('span').textContent = PERTII18n.t('navdata.playbook.page', { current: cur + 1, total: pages });
+        var btns = controls.querySelectorAll('button');
+        btns[0].disabled = (cur === 0);
+        btns[1].disabled = (cur >= pages - 1);
+    };
 
     function buildGenericDetail(c) {
         var html = '';

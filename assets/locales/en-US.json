@@ -2679,6 +2679,18 @@
       "navaids": "Navaids",
       "playbook": "Playbook",
       "stars": "STARs"
+    },
+    "playbook": {
+      "artccs": "ARTCCs",
+      "modifiedRoutes": "Modified routes ({count})",
+      "newRoutes": "New routes",
+      "next": "Next",
+      "page": "Page {current}/{total}",
+      "prev": "Prev",
+      "removedRoutes": "Removed routes",
+      "routeCount": "{count} routes",
+      "routeTotal": "{count} total",
+      "routes": "Routes"
     }
   },
   "natots": {

@@ -2809,6 +2809,18 @@
       "navaids": "Navaids",
       "playbook": "Carnet de jeu",
       "stars": "STAR"
+    },
+    "playbook": {
+      "artccs": "ARTCC",
+      "modifiedRoutes": "Routes modifi\u00e9es ({count})",
+      "newRoutes": "Nouvelles routes",
+      "next": "Suiv",
+      "page": "Page {current}/{total}",
+      "prev": "Pr\u00e9c",
+      "removedRoutes": "Routes supprim\u00e9es",
+      "routeCount": "{count} routes",
+      "routeTotal": "{count} au total",
+      "routes": "Routes"
     }
   },
   "natots": {

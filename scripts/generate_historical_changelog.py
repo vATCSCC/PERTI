@@ -153,10 +153,71 @@ def _get_artccs(play_routes):
     return sorted(artccs)
 
 
+def _route_key(route):
+    """Extract (origin_artcc, destination) from a route string for matching."""
+    parts = route.split()
+    if len(parts) < 2:
+        return (route, route)
+    return (parts[0], parts[-1])
+
+
+def _word_similarity(a, b):
+    """Jaccard similarity of word sets between two route strings."""
+    wa = set(a.split())
+    wb = set(b.split())
+    if not wa or not wb:
+        return 0.0
+    return len(wa & wb) / len(wa | wb)
+
+
+def _match_routes(removed, added):
+    """Match removed routes to added routes by origin+dest, then similarity.
+
+    Returns (modified_pairs, unmatched_added, unmatched_removed) where
+    modified_pairs is [(old_route, new_route), ...].
+    """
+    # Group by (origin_artcc, destination)
+    rem_by_key = defaultdict(list)
+    add_by_key = defaultdict(list)
+    for r in removed:
+        rem_by_key[_route_key(r)].append(r)
+    for r in added:
+        add_by_key[_route_key(r)].append(r)
+
+    modified = []
+    used_added = set()
+    used_removed = set()
+
+    for key in rem_by_key:
+        if key not in add_by_key:
+            continue
+        rems = rem_by_key[key]
+        adds = [a for a in add_by_key[key] if a not in used_added]
+        for old_r in rems:
+            if not adds:
+                break
+            # Find best match by word similarity
+            best_sim = 0.0
+            best_idx = -1
+            for i, new_r in enumerate(adds):
+                sim = _word_similarity(old_r, new_r)
+                if sim > best_sim:
+                    best_sim = sim
+                    best_idx = i
+            if best_sim >= 0.3 and best_idx >= 0:
+                modified.append((old_r, adds[best_idx]))
+                used_removed.add(old_r)
+                used_added.add(adds[best_idx])
+                adds.pop(best_idx)
+
+    unmatched_added = sorted(r for r in added if r not in used_added)
+    unmatched_removed = sorted(r for r in removed if r not in used_removed)
+    return modified, unmatched_added, unmatched_removed
+
+
 def diff_playbook(old, new):
-    """Diff playbook plays with route-level detail."""
+    """Diff playbook plays with route-level detail and pair matching."""
     changes = []
-    MAX_ROUTES = 10
 
     for play in sorted(set(old) & set(new)):
         old_routes = set(old[play].keys())
@@ -165,11 +226,20 @@ def diff_playbook(old, new):
             continue
         added_r = sorted(new_routes - old_routes)
         removed_r = sorted(old_routes - new_routes)
+
+        # Match removed/added routes by origin+dest to find modifications
+        modified, unmatched_added, unmatched_removed = _match_routes(
+            removed_r, added_r
+        )
+
         parts = []
-        if added_r:
-            parts.append(f"+{len(added_r)} routes")
-        if removed_r:
-            parts.append(f"-{len(removed_r)} routes")
+        if modified:
+            parts.append(f"~{len(modified)} modified")
+        if unmatched_added:
+            parts.append(f"+{len(unmatched_added)} new")
+        if unmatched_removed:
+            parts.append(f"-{len(unmatched_removed)} removed")
+
         change = {
             'type': 'playbook', 'name': play, 'action': 'changed',
             'detail': ', '.join(parts),
@@ -179,14 +249,15 @@ def diff_playbook(old, new):
             'artccs': _get_artccs(new[play]),
             'route_count': len(new_routes),
         }
-        if added_r:
-            change['added_routes'] = added_r[:MAX_ROUTES]
-            if len(added_r) > MAX_ROUTES:
-                change['added_routes_total'] = len(added_r)
-        if removed_r:
-            change['removed_routes'] = removed_r[:MAX_ROUTES]
-            if len(removed_r) > MAX_ROUTES:
-                change['removed_routes_total'] = len(removed_r)
+        if modified:
+            change['modified_routes'] = [
+                {'old': o, 'new': n} for o, n in
+                sorted(modified, key=lambda x: x[1])
+            ]
+        if unmatched_added:
+            change['added_routes'] = unmatched_added
+        if unmatched_removed:
+            change['removed_routes'] = unmatched_removed
         changes.append(change)
 
     for play in sorted(set(old) - set(new)):
@@ -197,17 +268,17 @@ def diff_playbook(old, new):
             'old_value': f"{len(old[play])} routes",
             'artccs': _get_artccs(old[play]),
             'route_count': len(old[play]),
+            'removed_routes': sorted(old[play].keys()),
         })
 
     for play in sorted(set(new) - set(old)):
-        sample = sorted(new[play].keys())[:5]
         changes.append({
             'type': 'playbook', 'name': play, 'action': 'added',
             'detail': f'{len(new[play])} routes',
             'new_value': f"{len(new[play])} routes",
             'artccs': _get_artccs(new[play]),
             'route_count': len(new[play]),
-            'sample_routes': sample,
+            'added_routes': sorted(new[play].keys()),
         })
 
     return changes
