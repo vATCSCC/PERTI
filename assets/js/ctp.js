@@ -3359,6 +3359,10 @@
             constraints = constraints || [];
             entryWindows = entryWindows || [];
 
+            // Convert bin counts to hourly rates so constraint ACPH lines align directly
+            var binMinutes = self._resolution === '60min' ? 60 : (self._resolution === '30min' ? 30 : 15);
+            var rateMultiplier = 60 / binMinutes; // e.g. 15min bins × 4 = hourly rate
+
             // Collect all category keys across bins
             var keys = {};
             bins.forEach(function(bin) {
@@ -3367,12 +3371,12 @@
             });
             var sortedKeys = Object.keys(keys).sort();
 
-            // Build series
+            // Build series — values are hourly rates
             var series = sortedKeys.map(function(key, idx) {
                 var seriesData = bins.map(function(bin) {
                     var ts = self._parseUtc(bin.start_utc);
                     var count = (bin[breakdownKey] || {})[key] || 0;
-                    return [ts, count];
+                    return [ts, count * rateMultiplier];
                 });
                 return {
                     name: key,
@@ -3385,9 +3389,9 @@
                 };
             });
 
-            // Add total line
+            // Add total line (hourly rate)
             var totalData = bins.map(function(bin) {
-                return [self._parseUtc(bin.start_utc), bin.count || 0];
+                return [self._parseUtc(bin.start_utc), (bin.count || 0) * rateMultiplier];
             });
             series.push({
                 name: 'Total',
@@ -3400,21 +3404,16 @@
                 z: 10
             });
 
-            // Scale constraint ACPH values to per-bin counts based on resolution
-            var binMinutes = self._resolution === '60min' ? 60 : (self._resolution === '30min' ? 30 : 15);
-            var scaleFactor = binMinutes / 60; // e.g. 15min = 0.25, so 120 ACPH -> 30 per bin
-
-            // Add constraint markLines
+            // Add constraint markLines at actual ACPH values (Y-axis is now in AC/hr)
             var markLineData = [];
             constraints.forEach(function(c) {
                 if (c.type === 'acph' && c.value) {
-                    var perBinValue = Math.round(c.value * scaleFactor);
                     markLineData.push({
-                        name: c.label + ' (' + c.value + '/hr)',
-                        yAxis: perBinValue,
+                        name: c.label,
+                        yAxis: c.value,
                         lineStyle: { color: c.color, width: 2, type: 'dashed' },
                         label: {
-                            formatter: c.label + ' ' + c.value + '/hr',
+                            formatter: c.label + ': ' + c.value + ' AC/hr',
                             fontSize: 9,
                             color: c.color,
                             position: 'insideEndTop'
@@ -3423,7 +3422,6 @@
                 }
             });
             if (markLineData.length > 0) {
-                // Attach markLine to total series
                 series[series.length - 1].markLine = {
                     silent: true,
                     symbol: 'none',
@@ -3461,11 +3459,11 @@
                         params.forEach(function(p) {
                             if (p.seriesName !== 'Total' && p.value[1] > 0) {
                                 tip += '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + p.color + ';margin-right:4px;"></span>' +
-                                    p.seriesName + ': <b>' + p.value[1] + '</b><br>';
+                                    p.seriesName + ': <b>' + p.value[1] + ' AC/hr</b><br>';
                                 total += p.value[1];
                             }
                         });
-                        tip += 'Total: <b>' + total + '</b>';
+                        tip += 'Total: <b>' + total + ' AC/hr</b>';
                         return tip;
                     }
                 },
@@ -3485,7 +3483,7 @@
                 },
                 yAxis: {
                     type: 'value',
-                    name: t('ctp.demand.flights'),
+                    name: 'AC/hr',
                     nameTextStyle: { fontSize: 10, color: '#888' },
                     minInterval: 1,
                     axisLabel: { fontSize: 10, color: '#aaa' },
