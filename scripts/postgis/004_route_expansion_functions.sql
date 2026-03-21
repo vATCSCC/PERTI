@@ -27,8 +27,9 @@
 -- Input: Fix identifier (e.g., 'BNA', 'KDFW', 'ZBW')
 -- Output: fix_id, lat, lon, source (nav_fix, airport, airport_faa, airport_k, area_center)
 -- -----------------------------------------------------------------------------
--- Drop old single-param version so callers resolve to the new multi-param version with defaults
+-- Drop old overloads so callers resolve to the new 5-param version with defaults
 DROP FUNCTION IF EXISTS resolve_waypoint(VARCHAR);
+DROP FUNCTION IF EXISTS resolve_waypoint(VARCHAR, DECIMAL, DECIMAL);
 
 CREATE OR REPLACE FUNCTION resolve_waypoint(
     p_fix_name VARCHAR,
@@ -576,7 +577,7 @@ BEGIN
                         v_next_fix := split_part(v_next_fix, '.', 1);
                     END IF;
                     SELECT rw.lat, rw.lon INTO v_fbd_next_lat, v_fbd_next_lon
-                    FROM resolve_waypoint(v_next_fix) rw LIMIT 1;
+                    FROM resolve_waypoint(v_next_fix::VARCHAR, NULL::DECIMAL, NULL::DECIMAL, NULL::DECIMAL, NULL::DECIMAL) rw LIMIT 1;
                 END IF;
             END IF;
 
@@ -724,7 +725,7 @@ BEGIN
                 END IF;
                 -- Resolve without context (avoid circular dependency)
                 SELECT rw.lat, rw.lon INTO v_next_wp_lat, v_next_wp_lon
-                FROM resolve_waypoint(v_lookahead_token) rw LIMIT 1;
+                FROM resolve_waypoint(v_lookahead_token::VARCHAR, NULL::DECIMAL, NULL::DECIMAL, NULL::DECIMAL, NULL::DECIMAL) rw LIMIT 1;
                 EXIT; -- Use first resolvable non-airway token
             END LOOP;
 
@@ -735,6 +736,12 @@ BEGIN
             LIMIT 1;
 
             IF v_wp.fix_id IS NOT NULL AND v_wp.lat IS NOT NULL THEN
+                -- Skip consecutive duplicate waypoints (e.g., ALS from J102 exit + ALS standalone)
+                IF v_prev_fix = v_part AND v_prev_lat = v_wp.lat AND v_prev_lon = v_wp.lon THEN
+                    v_idx := v_idx + 1;
+                    CONTINUE;
+                END IF;
+
                 -- Distance sanity check (mirrors client-side confirmReasonableDistance 4000nm cap)
                 IF v_prev_lat IS NOT NULL AND ST_Distance(
                     ST_SetSRID(ST_MakePoint(v_prev_lon, v_prev_lat), 4326)::geography,

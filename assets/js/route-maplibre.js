@@ -649,14 +649,16 @@ $(document).ready(function() {
     // POINT LOOKUP FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function getPointByName(pointName, previousPointData, nextPointData) {
+    function getPointByName(pointName, previousPointData, nextPointData, isEndpoint) {
         if (!pointName) {return undefined;}
         const name = String(pointName).toUpperCase();
         let key = null;
 
         if (name.startsWith('ZZ_')) {
             if (points[name]) {key = name;}
-        } else if (facilityCodes.has(name)) {
+        } else if (isEndpoint && facilityCodes.has(name)) {
+            // Only prefer ZZ_ airport pseudo-fixes for route endpoints (first/last token).
+            // Mid-route tokens like MCI on J80 should resolve to the VOR, not the airport.
             const zzKey = 'ZZ_' + name;
             if (points[zzKey]) {key = zzKey;}
             else if (points[name]) {key = name;}
@@ -708,11 +710,11 @@ $(document).ready(function() {
         return undefined;
     }
 
-    function countOccurrencesOfPointName(pointName) {
+    function countOccurrencesOfPointName(pointName, isEndpoint) {
         if (!pointName) {return 0;}
         const name = String(pointName).toUpperCase();
         if (name.startsWith('ZZ_')) {return points[name] ? points[name].length : 0;}
-        if (facilityCodes.has(name)) {
+        if (isEndpoint && facilityCodes.has(name)) {
             if (points['ZZ_' + name]) {return points['ZZ_' + name].length;}
             if (points[name]) {return points[name].length;}
             return 0;
@@ -2839,6 +2841,7 @@ $(document).ready(function() {
 
             for (let i = 0; i < expandedTokens.length; i++) {
                 const pointName = expandedTokens[i].toUpperCase();
+                const isEndpoint = (i === 0 || i === expandedTokens.length - 1);
 
                 // Skip pseudo-fix placeholders — don't set previousPointData
                 // context (UNKN pseudo-located in Atlantic breaks Pacific routes)
@@ -2847,7 +2850,7 @@ $(document).ready(function() {
                 let nextPointData;
                 if (i < expandedTokens.length - 1) {
                     let dataForCurrentFix;
-                    if (countOccurrencesOfPointName(pointName) === 1) {dataForCurrentFix = getPointByName(pointName);}
+                    if (countOccurrencesOfPointName(pointName, false) === 1) {dataForCurrentFix = getPointByName(pointName);}
                     // Look ahead, skipping unresolvable tokens (airway names)
                     for (let la = i + 1; la < expandedTokens.length && la <= i + 3; la++) {
                         nextPointData = getPointByName(expandedTokens[la], previousPointData, dataForCurrentFix);
@@ -2866,7 +2869,7 @@ $(document).ready(function() {
                     }
                 }
 
-                const pointData = getPointByName(pointName, previousPointData, nextPointData);
+                const pointData = getPointByName(pointName, previousPointData, nextPointData, isEndpoint);
                 if (!pointData || pointData.length < 3) {
                     if (areaCenters[pointName]) {
                         const center = areaCenters[pointName];

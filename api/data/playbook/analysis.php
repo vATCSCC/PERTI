@@ -237,8 +237,18 @@ if (!$cached) {
 
         // Build full route string with origin/dest bookends for expand_route()
         $full_route = $route_string;
-        if ($origin) $full_route = $origin . ' ' . $full_route;
-        if ($dest)   $full_route = $full_route . ' ' . $dest;
+        if ($origin) {
+            $first_token = strtoupper(explode(' ', trim($full_route))[0] ?? '');
+            if ($first_token !== $origin) {
+                $full_route = $origin . ' ' . $full_route;
+            }
+        }
+        if ($dest) {
+            $last_token = strtoupper(trim(substr($full_route, strrpos($full_route, ' ') + 1)));
+            if ($last_token !== $dest) {
+                $full_route = $full_route . ' ' . $dest;
+            }
+        }
 
         $er_sql = "WITH expanded AS (
                        SELECT waypoint_seq, waypoint_id, lat, lon, waypoint_type
