@@ -641,6 +641,11 @@ BEGIN
                 FROM expand_airway(v_part, v_prev_fix, v_next_fix, v_prev_lat, v_prev_lon) ea
                 WHERE ea.seq > 1
             LOOP
+                -- Skip consecutive duplicate waypoints (e.g., ALS at end of J102 + start of J110)
+                IF v_prev_fix = v_airway_wp.fix_id AND v_prev_lat = v_airway_wp.lat AND v_prev_lon = v_airway_wp.lon THEN
+                    CONTINUE;
+                END IF;
+
                 -- Skip airway waypoints that jump unreasonably from previous point
                 IF v_prev_lat IS NOT NULL AND ST_Distance(
                     ST_SetSRID(ST_MakePoint(v_prev_lon, v_prev_lat), 4326)::geography,
