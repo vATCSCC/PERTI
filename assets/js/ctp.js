@@ -3166,6 +3166,7 @@
         _data: null,
         _resolution: '15min',
         _activeView: 'dep_track',
+        _trackFilter: null, // null = All, string = specific track/origin/dest
 
         dispose: function() {
             this._charts.forEach(function(c) { if (c) c.dispose(); });
@@ -3180,6 +3181,7 @@
             self._data = data;
             self._resolution = '15min';
             self._activeView = 'dep_track';
+            self._trackFilter = null;
             var uid = 'sim_chart_' + Date.now();
             self._uid = uid;
 
@@ -3215,6 +3217,8 @@
                 '<div class="d-flex align-items-start flex-wrap mb-1">' +
                 '<div class="btn-group btn-group-sm flex-wrap" id="' + uid + '_tabs">' + tabsHtml + '</div>' +
                 resHtml +
+                '<select class="form-control form-control-sm ml-2" id="' + uid + '_filter" style="width:auto;max-width:140px;display:inline-block;background:#2a2a4a;color:#ccc;border-color:#555;font-size:11px;">' +
+                '<option value="">All</option></select>' +
                 '</div>' +
                 '<div id="' + uid + '_chart" style="width:100%;height:280px;"></div>' +
                 '</div>'
@@ -3230,10 +3234,15 @@
             // Initial render
             self._updateChart();
 
+            // Populate filter dropdown for initial view
+            self._populateFilter();
+
             // View tab switching
             $('#' + uid + '_tabs').on('click', 'button', function() {
                 self._activeView = $(this).data('chart');
                 $(this).addClass('active').siblings().removeClass('active');
+                self._trackFilter = null;
+                self._populateFilter();
                 self._updateChart();
             });
 
@@ -3241,6 +3250,12 @@
             $('#' + uid + '_res').on('click', 'button', function() {
                 self._resolution = $(this).data('res');
                 $(this).addClass('active').siblings().removeClass('active');
+                self._updateChart();
+            });
+
+            // Filter switching
+            $('#' + uid + '_filter').on('change', function() {
+                self._trackFilter = $(this).val() || null;
                 self._updateChart();
             });
 
@@ -3274,15 +3289,24 @@
 
         _getConstraintLines: function(view) {
             var d = this._data;
+            var self = this;
             if (!d) return [];
             var lines = [];
-            // Only show ACPH constraints on entry_track view (oceanic entry is where throughput is measured)
-            if (view !== 'entry_track') return lines;
+            // Only show ACPH constraints on entry_* views (oceanic entry is where throughput is measured)
+            if (view.indexOf('entry_') !== 0) return lines;
 
-            // From throughput configs
-            if (d.throughput_configs) {
+            var filter = self._trackFilter; // null = all, string = specific track
+
+            // From throughput configs — only show when a specific track is filtered
+            // (aggregate configs on stacked "All" view are meaningless)
+            if (d.throughput_configs && filter) {
                 d.throughput_configs.forEach(function(cfg) {
-                    if (cfg.max_acph) {
+                    if (!cfg.max_acph) return;
+                    // Match configs whose tracks include the filtered track
+                    var tracks = cfg.tracks_json || [];
+                    if (typeof tracks === 'string') { try { tracks = JSON.parse(tracks); } catch(e) { tracks = []; } }
+                    var matches = tracks.length === 0 || tracks.indexOf(filter) >= 0;
+                    if (matches) {
                         lines.push({
                             label: cfg.config_label,
                             value: cfg.max_acph,
@@ -3292,17 +3316,19 @@
                     }
                 });
             }
-            // From track constraints
+            // From track constraints — only show when matching filter
             if (d.track_constraints) {
                 d.track_constraints.forEach(function(tc) {
-                    if (tc.max_acph) {
-                        lines.push({
-                            label: tc.track_name + ' cap',
-                            value: tc.max_acph,
-                            color: '#ff8800',
-                            type: 'acph'
-                        });
-                    }
+                    if (!tc.max_acph) return;
+                    if (filter && tc.track_name !== filter) return;
+                    // Skip on "All" view — per-track lines are meaningless on stacked total
+                    if (!filter) return;
+                    lines.push({
+                        label: tc.track_name + ' cap',
+                        value: tc.max_acph,
+                        color: '#ff8800',
+                        type: 'acph'
+                    });
                 });
             }
             return lines;
@@ -3347,7 +3373,7 @@
                 arr_track: t('ctp.planning.arrivals') + ' (' + t('ctp.planning.byTrack') + ')',
                 arr_dest: t('ctp.planning.arrivals') + ' (' + t('ctp.planning.byDest') + ')'
             };
-            var title = (viewLabels[self._activeView] || '') + ' [' + self._resolution + ']';
+            var title = (viewLabels[self._activeView] || '') + (self._trackFilter ? ' — ' + self._trackFilter : '') + ' [' + self._resolution + ']';
             var constraints = self._getConstraintLines(self._activeView);
             var entryWindows = self._getEntryWindows(self._activeView);
             var config = self._buildConfig(bins, breakdownKey, title, constraints, entryWindows);
@@ -3370,9 +3396,14 @@
                 Object.keys(bd).forEach(function(k) { keys[k] = true; });
             });
             var sortedKeys = Object.keys(keys).sort();
+            var filter = self._trackFilter;
 
             // Build series — values are hourly rates
-            var series = sortedKeys.map(function(key, idx) {
+            // When filter is set, only show that one series (unstacked, as bar)
+            var displayKeys = filter ? sortedKeys.filter(function(k) { return k === filter; }) : sortedKeys;
+            var series = displayKeys.map(function(key, idx) {
+                // Use the same color index as in the full set so colors stay consistent
+                var fullIdx = sortedKeys.indexOf(key);
                 var seriesData = bins.map(function(bin) {
                     var ts = self._parseUtc(bin.start_utc);
                     var count = (bin[breakdownKey] || {})[key] || 0;
@@ -3381,28 +3412,30 @@
                 return {
                     name: key,
                     type: 'bar',
-                    stack: 'demand',
+                    stack: filter ? undefined : 'demand',
                     data: seriesData,
-                    itemStyle: { color: self._palette[idx % self._palette.length] },
+                    itemStyle: { color: self._palette[fullIdx % self._palette.length] },
                     barMaxWidth: 28,
                     emphasis: { focus: 'series' }
                 };
             });
 
-            // Add total line (hourly rate)
-            var totalData = bins.map(function(bin) {
-                return [self._parseUtc(bin.start_utc), (bin.count || 0) * rateMultiplier];
-            });
-            series.push({
-                name: 'Total',
-                type: 'line',
-                data: totalData,
-                lineStyle: { color: '#fff', width: 1.5, type: 'dashed' },
-                itemStyle: { color: '#fff' },
-                symbol: 'circle',
-                symbolSize: 4,
-                z: 10
-            });
+            // Add total line only when showing all (stacked)
+            if (!filter) {
+                var totalData = bins.map(function(bin) {
+                    return [self._parseUtc(bin.start_utc), (bin.count || 0) * rateMultiplier];
+                });
+                series.push({
+                    name: 'Total',
+                    type: 'line',
+                    data: totalData,
+                    lineStyle: { color: '#fff', width: 1.5, type: 'dashed' },
+                    itemStyle: { color: '#fff' },
+                    symbol: 'circle',
+                    symbolSize: 4,
+                    z: 10
+                });
+            }
 
             // Add constraint markLines at actual ACPH values (Y-axis is now in AC/hr)
             var markLineData = [];
@@ -3421,7 +3454,7 @@
                     });
                 }
             });
-            if (markLineData.length > 0) {
+            if (markLineData.length > 0 && series.length > 0) {
                 series[series.length - 1].markLine = {
                     silent: true,
                     symbol: 'none',
@@ -3437,7 +3470,7 @@
                     { xAxis: w.end }
                 ]);
             });
-            if (markAreaData.length > 0) {
+            if (markAreaData.length > 0 && series.length > 0) {
                 series[series.length - 1].markArea = {
                     silent: true,
                     data: markAreaData
@@ -3499,6 +3532,27 @@
             var s = String(utcStr).replace('Z', '').replace('T', ' ');
             var p = s.split(/[- :]/);
             return Date.UTC(+p[0], +p[1] - 1, +p[2], +p[3] || 0, +p[4] || 0, +p[5] || 0);
+        },
+
+        _populateFilter: function() {
+            var self = this;
+            var $sel = $('#' + self._uid + '_filter');
+            if (!$sel.length) return;
+            $sel.empty().append('<option value="">All</option>');
+
+            // Collect unique keys from the current view's breakdown
+            var bins = self._getBins(self._activeView, '15min');
+            var parts = self._activeView.split('_');
+            var breakdownKey = 'by_' + parts.slice(1).join('_');
+            var keys = {};
+            bins.forEach(function(bin) {
+                var bd = bin[breakdownKey] || {};
+                Object.keys(bd).forEach(function(k) { keys[k] = true; });
+            });
+            Object.keys(keys).sort().forEach(function(k) {
+                $sel.append('<option value="' + k + '">' + k + '</option>');
+            });
+            $sel.val('');
         }
     };
 
