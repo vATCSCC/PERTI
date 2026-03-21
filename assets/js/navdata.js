@@ -269,6 +269,17 @@
         }
         if (c.type === 'dp' || c.type === 'star') {
             parts.push(escapeHtml(c.detail));
+            // Fix-level diff summary
+            if (c.fixes_removed && c.fixes_removed.length) {
+                c.fixes_removed.forEach(function(f) {
+                    parts.push('<span class="diff-removed" style="font-size:0.7rem">' + escapeHtml(f) + '</span>');
+                });
+            }
+            if (c.fixes_added && c.fixes_added.length) {
+                c.fixes_added.forEach(function(f) {
+                    parts.push('<span class="diff-added" style="font-size:0.7rem">' + escapeHtml(f) + '</span>');
+                });
+            }
             if (c.transition_count) {
                 parts.push('<span class="text-muted">(' +
                     PERTII18n.t('navdata.procedure.transitionCount', { count: c.transition_count }) + ')</span>');
@@ -426,6 +437,22 @@
     function buildProcChangedSection(c) {
         var html = '';
         var PAGE_SZ = 20;
+
+        // Fix-level summary (which fixes were added/removed across all transitions)
+        if ((c.fixes_removed && c.fixes_removed.length) || (c.fixes_added && c.fixes_added.length)) {
+            html += '<div style="margin-bottom:0.5rem;font-size:0.8rem">';
+            if (c.fixes_removed && c.fixes_removed.length) {
+                c.fixes_removed.forEach(function(f) {
+                    html += '<span class="diff-removed" style="margin-right:4px">' + escapeHtml(f) + '</span>';
+                });
+            }
+            if (c.fixes_added && c.fixes_added.length) {
+                c.fixes_added.forEach(function(f) {
+                    html += '<span class="diff-added" style="margin-right:4px">' + escapeHtml(f) + '</span>';
+                });
+            }
+            html += '</div>';
+        }
 
         // Modified transitions with word-level diff
         if (c.modified_transitions && c.modified_transitions.length) {

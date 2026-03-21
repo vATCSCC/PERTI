@@ -129,6 +129,29 @@ def _extract_airports(group_str):
     return airports
 
 
+def _versioned_name(comp_code, proc_name):
+    """Extract versioned procedure name from computer code.
+
+    DP format:   DEEZZ6.DEEZZ  -> DEEZZ6   (version before dot)
+    STAR format: BAINY.BAINY3  -> BAINY3   (version after dot)
+    Heuristic: pick the part ending with a digit that starts with the
+    proc name (case-insensitive).  Falls back to proc_name.
+    """
+    if '.' not in comp_code:
+        return comp_code if comp_code[-1:].isdigit() else proc_name
+    parts = comp_code.split('.', 1)
+    # Prefer the part that starts with proc_name and ends with a digit
+    pn = proc_name.upper()
+    for p in parts:
+        if p.upper().startswith(pn) and p[-1:].isdigit():
+            return p
+    # Fallback: any part ending with a digit
+    for p in parts:
+        if p[-1:].isdigit():
+            return p
+    return proc_name
+
+
 def parse_procs_enriched(text):
     """Parse DP/STAR CSV grouped by (proc_name, artcc) with transition detail.
 
@@ -162,12 +185,16 @@ def parse_procs_enriched(text):
                 'artcc': artcc,
                 'airports': set(),
                 'computer_codes': set(),
+                'versioned_name': proc_name,
                 'transitions': {},
             }
         g = groups[key]
         g['airports'] |= _extract_airports(airport_group)
 
-        # Extract base computer code (before dot)
+        # Extract versioned name and base computer code
+        vname = _versioned_name(comp_code, proc_name)
+        if vname != proc_name:
+            g['versioned_name'] = vname
         base_code = comp_code.split('.')[0] if '.' in comp_code else comp_code
         g['computer_codes'].add(base_code)
 
@@ -237,6 +264,15 @@ def diff_procs_enriched(old, new, typ):
         if not modified and not added_t and not removed_t:
             continue
 
+        # Compute fix-level diff summary across all modified transitions
+        all_old_fixes = set()
+        all_new_fixes = set()
+        for m in modified:
+            all_old_fixes |= set(m['old_route'].split())
+            all_new_fixes |= set(m['new_route'].split())
+        fixes_added = sorted(all_new_fixes - all_old_fixes)
+        fixes_removed = sorted(all_old_fixes - all_new_fixes)
+
         parts = []
         if modified:
             parts.append(f"~{len(modified)} modified")
@@ -247,7 +283,7 @@ def diff_procs_enriched(old, new, typ):
 
         change = {
             'type': typ,
-            'name': new_g['proc_name'],
+            'name': new_g['versioned_name'],
             'action': 'changed',
             'detail': ', '.join(parts),
             'artccs': [new_g['artcc']],
@@ -255,6 +291,10 @@ def diff_procs_enriched(old, new, typ):
             'computer_codes': sorted(new_g['computer_codes']),
             'transition_count': len(new_trans),
         }
+        if fixes_added:
+            change['fixes_added'] = fixes_added
+        if fixes_removed:
+            change['fixes_removed'] = fixes_removed
         if modified:
             change['modified_transitions'] = modified
         if added_t:
@@ -276,7 +316,7 @@ def diff_procs_enriched(old, new, typ):
             })
         changes.append({
             'type': typ,
-            'name': g['proc_name'],
+            'name': g['versioned_name'],
             'action': 'removed',
             'detail': f"{len(g['transitions'])} transitions removed",
             'artccs': [g['artcc']],
@@ -299,7 +339,7 @@ def diff_procs_enriched(old, new, typ):
             })
         changes.append({
             'type': typ,
-            'name': g['proc_name'],
+            'name': g['versioned_name'],
             'action': 'added',
             'detail': f"{len(g['transitions'])} transitions",
             'artccs': [g['artcc']],

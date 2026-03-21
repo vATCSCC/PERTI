@@ -2,7 +2,7 @@
   "meta": {
     "from_cycle": "2602",
     "to_cycle": "2603",
-    "generated_utc": "2026-03-21T08:48:04.529774+00:00Z",
+    "generated_utc": "2026-03-21T09:10:05.625471+00:00Z",
     "totals": {
       "points": 269779,
       "navaids": 1874,
@@ -31810,7 +31810,7 @@
     },
     {
       "type": "dp",
-      "name": "BUCKEYE",
+      "name": "BXK4",
       "action": "changed",
       "detail": "~3 modified",
       "artccs": [
@@ -31823,6 +31823,10 @@
         "BXK4"
       ],
       "transition_count": 4,
+      "fixes_removed": [
+        "CULTS",
+        "WLVRN"
+      ],
       "modified_transitions": [
         {
           "name": "PALM SPRINGS TRANSITION",
@@ -31846,7 +31850,7 @@
     },
     {
       "type": "dp",
-      "name": "CONNR",
+      "name": "CONNR8",
       "action": "changed",
       "detail": "~1 modified",
       "artccs": [
@@ -31859,6 +31863,9 @@
         "CONNR8"
       ],
       "transition_count": 2,
+      "fixes_added": [
+        "HEMVO"
+      ],
       "modified_transitions": [
         {
           "name": "WERNR TRANSITION",
@@ -31870,7 +31877,7 @@
     },
     {
       "type": "dp",
-      "name": "COORZ",
+      "name": "COORZ7",
       "action": "changed",
       "detail": "~1 modified",
       "artccs": [
@@ -31883,6 +31890,9 @@
         "COORZ7"
       ],
       "transition_count": 2,
+      "fixes_added": [
+        "JOROS"
+      ],
       "modified_transitions": [
         {
           "name": "VOAXA TRANSITION",
@@ -31894,7 +31904,7 @@
     },
     {
       "type": "dp",
-      "name": "DEEZZ",
+      "name": "DEEZZ6",
       "action": "changed",
       "detail": "+2 new",
       "artccs": [
@@ -31923,7 +31933,7 @@
     },
     {
       "type": "dp",
-      "name": "SCOTTSDALE",
+      "name": "SCOT7",
       "action": "changed",
       "detail": "~5 modified",
       "artccs": [
@@ -31936,6 +31946,20 @@
         "SCOT7"
       ],
       "transition_count": 7,
+      "fixes_removed": [
+        "ACOMA",
+        "CHEKR",
+        "FORPE",
+        "HOZER",
+        "IZTIR",
+        "JAROZ",
+        "PERRL",
+        "SALTS",
+        "SODSE",
+        "VICKO",
+        "WEKUM",
+        "WINRR"
+      ],
       "modified_transitions": [
         {
           "name": "ALBUQUERQUE TRANSITION",
@@ -31971,7 +31995,7 @@
     },
     {
       "type": "dp",
-      "name": "ZIMMR",
+      "name": "ZIMMR4",
       "action": "changed",
       "detail": "~1 modified",
       "artccs": [
@@ -31984,6 +32008,9 @@
         "ZIMMR4"
       ],
       "transition_count": 2,
+      "fixes_added": [
+        "WEGEL"
+      ],
       "modified_transitions": [
         {
           "name": "CHNGY TRANSITION",
@@ -32018,7 +32045,7 @@
     },
     {
       "type": "dp",
-      "name": "AURELIA",
+      "name": "AUREL4",
       "action": "removed",
       "detail": "3 transitions removed",
       "artccs": [
@@ -32258,7 +32285,7 @@
     },
     {
       "type": "dp",
-      "name": "AXLES",
+      "name": "AXLES1",
       "action": "added",
       "detail": "1 transitions",
       "artccs": [
@@ -32281,7 +32308,7 @@
     },
     {
       "type": "dp",
-      "name": "WEGEM",
+      "name": "WEGEM1",
       "action": "added",
       "detail": "1 transitions",
       "artccs": [
@@ -32304,7 +32331,7 @@
     },
     {
       "type": "dp",
-      "name": "ZEYOU",
+      "name": "ZEYOU1",
       "action": "added",
       "detail": "1 transitions",
       "artccs": [
@@ -32327,7 +32354,7 @@
     },
     {
       "type": "star",
-      "name": "BAINY",
+      "name": "BAINY4",
       "action": "changed",
       "detail": "+24 new, -24 removed",
       "artccs": [
@@ -32587,7 +32614,7 @@
     },
     {
       "type": "star",
-      "name": "BLUEM",
+      "name": "BLUEM5",
       "action": "changed",
       "detail": "+10 new, -10 removed",
       "artccs": [
@@ -32707,7 +32734,7 @@
     },
     {
       "type": "star",
-      "name": "FROGZ",
+      "name": "FROGZ5",
       "action": "changed",
       "detail": "+56 new",
       "artccs": [
@@ -33009,7 +33036,7 @@
     },
     {
       "type": "star",
-      "name": "HHOOD",
+      "name": "HHOOD6",
       "action": "changed",
       "detail": "~21 modified",
       "artccs": [
@@ -33153,7 +33180,7 @@
     },
     {
       "type": "star",
-      "name": "JOKRS",
+      "name": "JOKRS4",
       "action": "changed",
       "detail": "+5 new, -5 removed",
       "artccs": [
@@ -33228,7 +33255,7 @@
     },
     {
       "type": "star",
-      "name": "KKILR",
+      "name": "KKILR4",
       "action": "changed",
       "detail": "+8 new, -8 removed",
       "artccs": [
@@ -33328,7 +33355,7 @@
     },
     {
       "type": "star",
-      "name": "KRATR",
+      "name": "KRATR3",
       "action": "changed",
       "detail": "~2 modified, +2 new, -2 removed",
       "artccs": [
@@ -33341,6 +33368,12 @@
         "KRATR"
       ],
       "transition_count": 6,
+      "fixes_added": [
+        "VEEGN"
+      ],
+      "fixes_removed": [
+        "VOODU"
+      ],
       "modified_transitions": [
         {
           "name": "BUWZO TRANSITION",
@@ -33382,7 +33415,7 @@
     },
     {
       "type": "star",
-      "name": "LUBBR",
+      "name": "LUBBR4",
       "action": "changed",
       "detail": "-1 removed",
       "artccs": [
@@ -33409,7 +33442,7 @@
     },
     {
       "type": "star",
-      "name": "MUSCL",
+      "name": "MUSCL4",
       "action": "changed",
       "detail": "+10 new, -10 removed",
       "artccs": [
@@ -33529,7 +33562,7 @@
     },
     {
       "type": "star",
-      "name": "NITZR",
+      "name": "NITZR4",
       "action": "changed",
       "detail": "+6 new, -6 removed",
       "artccs": [
@@ -33609,7 +33642,7 @@
     },
     {
       "type": "star",
-      "name": "PRICY",
+      "name": "PRICY5",
       "action": "changed",
       "detail": "+6 new, -6 removed",
       "artccs": [
@@ -33694,7 +33727,7 @@
     },
     {
       "type": "star",
-      "name": "TANDY",
+      "name": "TANDY6",
       "action": "changed",
       "detail": "+2 new, -2 removed",
       "artccs": [
@@ -33735,7 +33768,7 @@
     },
     {
       "type": "star",
-      "name": "TARVR",
+      "name": "TARVR2",
       "action": "changed",
       "detail": "+4 new, -4 removed",
       "artccs": [
@@ -33795,7 +33828,7 @@
     },
     {
       "type": "star",
-      "name": "TAYTR",
+      "name": "TAYTR3",
       "action": "changed",
       "detail": "~1 modified, +10 new, -2 removed",
       "artccs": [
@@ -33808,6 +33841,9 @@
         "TAYTR"
       ],
       "transition_count": 15,
+      "fixes_added": [
+        "KNOXY"
+      ],
       "modified_transitions": [
         {
           "name": "FRNZY TRANSITION",
@@ -33883,7 +33919,7 @@
     },
     {
       "type": "star",
-      "name": "TEEKY",
+      "name": "TEEKY4",
       "action": "changed",
       "detail": "+22 new, -10 removed",
       "artccs": [
@@ -34065,7 +34101,7 @@
     },
     {
       "type": "star",
-      "name": "TMBRS",
+      "name": "TMBRS4",
       "action": "changed",
       "detail": "~7 modified, +7 new, -7 removed",
       "artccs": [
@@ -34078,6 +34114,9 @@
         "TMBRS"
       ],
       "transition_count": 21,
+      "fixes_added": [
+        "HAZEE"
+      ],
       "modified_transitions": [
         {
           "name": "CITYY TRANSITION",
@@ -34199,7 +34238,7 @@
     },
     {
       "type": "star",
-      "name": "TORGY",
+      "name": "TORGY4",
       "action": "changed",
       "detail": "+9 new, -9 removed",
       "artccs": [
@@ -34309,7 +34348,7 @@
     },
     {
       "type": "star",
-      "name": "YUTES",
+      "name": "YUTES2",
       "action": "changed",
       "detail": "~2 modified",
       "artccs": [
@@ -34322,6 +34361,13 @@
         "YUTES"
       ],
       "transition_count": 2,
+      "fixes_added": [
+        "MAGNE",
+        "MARYZ"
+      ],
+      "fixes_removed": [
+        "RIBSS"
+      ],
       "modified_transitions": [
         {
           "name": "FLECC TRANSITION",
@@ -34385,7 +34431,7 @@
     },
     {
       "type": "star",
-      "name": "DRONE",
+      "name": "DRONE2",
       "action": "removed",
       "detail": "2 transitions removed",
       "artccs": [
@@ -34419,7 +34465,7 @@
     },
     {
       "type": "star",
-      "name": "EAU CLAIRE",
+      "name": "EAU9",
       "action": "removed",
       "detail": "2 transitions removed",
       "artccs": [
@@ -34654,7 +34700,7 @@
     },
     {
       "type": "star",
-      "name": "RIDES",
+      "name": "RIDES2",
       "action": "removed",
       "detail": "28 transitions removed",
       "artccs": [
@@ -34839,7 +34885,7 @@
     },
     {
       "type": "star",
-      "name": "SKETR",
+      "name": "SKETR5",
       "action": "removed",
       "detail": "2 transitions removed",
       "artccs": [
@@ -34890,7 +34936,7 @@
     },
     {
       "type": "star",
-      "name": "TERKS",
+      "name": "TERKS2",
       "action": "removed",
       "detail": "1 transitions removed",
       "artccs": [
@@ -34964,7 +35010,7 @@
     },
     {
       "type": "star",
-      "name": "WILDD",
+      "name": "WILDD3",
       "action": "removed",
       "detail": "4 transitions removed",
       "artccs": [
@@ -35002,7 +35048,7 @@
     },
     {
       "type": "star",
-      "name": "DNGLE",
+      "name": "DNGLE1",
       "action": "added",
       "detail": "1 transitions",
       "artccs": [
@@ -35025,7 +35071,7 @@
     },
     {
       "type": "star",
-      "name": "MUNGI",
+      "name": "MUNGI1",
       "action": "added",
       "detail": "28 transitions",
       "artccs": [
