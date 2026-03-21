@@ -21,6 +21,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('CTP_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once(__DIR__ . '/../../../load/services/NATTrackResolver.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, ['status' => 'error', 'message' => 'Method not allowed. Use POST.']);
@@ -37,7 +38,7 @@ if ($ctp_control_id <= 0) {
 
 // Get flight
 $flight_result = ctp_fetch_one($conn_tmi,
-    "SELECT ctp_control_id, session_id, callsign, edct_utc, edct_status, tmi_control_id
+    "SELECT ctp_control_id, session_id, callsign, flight_uid, edct_utc, edct_status, tmi_control_id
      FROM dbo.ctp_flight_control WHERE ctp_control_id = ?",
     [$ctp_control_id]
 );
@@ -97,6 +98,20 @@ ctp_push_swim_event('ctp.edct.removed', [
     'ctp_control_id' => $ctp_control_id,
     'callsign' => $flight['callsign']
 ]);
+
+// SWIM immediate push for resolved_nat_track columns
+$conn_swim = get_conn_swim();
+if ($conn_swim && !empty($flight['flight_uid'])) {
+    $nat_data = ctp_fetch_one($conn_tmi,
+        "SELECT resolved_nat_track, nat_track_resolved_at, nat_track_source FROM dbo.ctp_flight_control WHERE ctp_control_id = ?",
+        [$ctp_control_id]);
+    if ($nat_data['success'] && $nat_data['data']) {
+        $nd = $nat_data['data'];
+        sqlsrv_query($conn_swim,
+            "UPDATE dbo.swim_flights SET resolved_nat_track = ?, nat_track_resolved_at = ?, nat_track_source = ? WHERE flight_uid = ?",
+            [$nd['resolved_nat_track'], $nd['nat_track_resolved_at'], $nd['nat_track_source'], $flight['flight_uid']]);
+    }
+}
 
 respond_json(200, [
     'status' => 'ok',

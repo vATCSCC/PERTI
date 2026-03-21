@@ -209,9 +209,13 @@ include("load/connect.php");
                 <button class="btn btn-sm btn-link" id="ctp_demand_toggle" title="<?= __('ctp.demand.toggleTooltip') ?>">
                     <i class="fas fa-chart-bar"></i>
                 </button>
+                <select id="ctp_demand_group_by" class="form-control form-control-sm d-inline-block ml-2" style="width:auto;display:inline-block !important">
+                    <option value="status"><?= __('ctp.demand.groupByStatus') ?></option>
+                    <option value="nat_track"><?= __('ctp.demand.groupByTrack') ?></option>
+                </select>
             </div>
             <div class="ctp-demand-chart-wrapper" id="ctp_demand_chart_wrapper">
-                <canvas id="ctp_demand_chart" height="140"></canvas>
+                <div id="ctp_demand_chart_container" style="height:300px"></div>
             </div>
         </div>
     </div>
@@ -402,6 +406,9 @@ include("load/connect.php");
 
 <!-- Locales -->
 <script src="assets/locales/index.js<?= _v('assets/locales/index.js') ?>"></script>
+
+<!-- ECharts -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 
 <!-- CTP Module -->
 <script src="assets/js/ctp.js<?= _v('assets/js/ctp.js') ?>"></script>

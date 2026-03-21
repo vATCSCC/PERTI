@@ -2,6 +2,11 @@
   "advisoryConfig": {
     "usDcc": "US NOC"
   },
+  "ctp": {
+    "planning": {
+      "applyToSession": "Apply to Programme"
+    }
+  },
   "dccRegion": {
     "canadaEast": "Eastern Canada",
     "canadaWest": "Western Canada",
