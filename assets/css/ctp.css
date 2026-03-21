@@ -104,7 +104,7 @@
 .ctp-map-section {
     position: relative;
     flex: 0 0 35%;
-    min-height: 180px;
+    min-height: 80px;
 }
 
 .ctp-map {
@@ -176,7 +176,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    min-height: 200px;
+    min-height: 100px;
 }
 
 /* -- Filter Bar ----------------------------------------------------------- */
@@ -552,6 +552,23 @@
     display: none;
 }
 
+/* -- Bottom Tabs Resize Handle -------------------------------------------- */
+.ctp-bottom-resize-handle {
+    flex: 0 0 5px;
+    background: #dee2e6;
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    z-index: 10;
+    border-top: 1px solid #ced4da;
+}
+
+.ctp-bottom-resize-handle:hover {
+    background: #ced4da;
+}
+
 /* -- Bottom Tabs (own flex area outside table section) -------------------- */
 .ctp-bottom-tabs {
     flex: 0 1 auto;
@@ -560,7 +577,7 @@
     display: flex;
     flex-direction: column;
     min-height: 34px;
-    max-height: 50vh;
+    max-height: 75vh;
     overflow: hidden;
 }
 

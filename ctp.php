@@ -213,6 +213,11 @@ include("load/connect.php");
         </div>
     </div>
 
+    <!-- Bottom Panel Resize Handle -->
+    <div class="ctp-bottom-resize-handle" id="ctp_bottom_resize_handle" style="display:none;" title="<?= __('ctp.layout.resizeHandle') ?>">
+        <i class="fas fa-grip-lines" style="font-size:0.5rem;color:#6c757d;"></i>
+    </div>
+
     <!-- Bottom Management Tabs (own flex area, outside table section) -->
     <div class="ctp-bottom-tabs" id="ctp_bottom_tabs" style="display:none;">
         <div class="ctp-bottom-tabs-header">
