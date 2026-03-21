@@ -2989,14 +2989,15 @@ function renderOriginChart() {
     });
 
     // Use shared renderBreakdownChart with DCC regional colors and standard legend
+    // Pass allArtccs as order so series stack by region (same-color segments adjacent)
     renderBreakdownChart(
         DEMAND_STATE.originBreakdown,
         PERTII18n.t('demand.breakdown.byOriginArtcc', { direction: dirLabel }),
         'origin',
         'artcc',
-        getDCCRegionColor,  // Use DCC regional color function
+        getDCCRegionColor,
         null,
-        null,
+        allArtccs,
         {
             // Use standard legend config - scroll handles overflow
             legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
@@ -3483,6 +3484,7 @@ function renderDestChart() {
         allArtccs.push(...regionGroups[region]);
     });
 
+    // Pass allArtccs as order so series stack by region (same-color segments adjacent)
     renderBreakdownChart(
         DEMAND_STATE.destBreakdown,
         PERTII18n.t('demand.breakdown.byDestArtcc', { direction: dirLabel }),
@@ -3490,7 +3492,7 @@ function renderDestChart() {
         'artcc',
         getDCCRegionColor,
         null,
-        null,
+        allArtccs,
         {
             // Use standard legend config - scroll handles overflow
             legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
