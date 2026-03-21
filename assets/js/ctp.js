@@ -2442,7 +2442,7 @@
                 data: { session_id: state.currentSession.session_id },
                 success: function(resp) {
                     if (resp.status === 'ok' && resp.data) {
-                        self.configs = resp.data.configs || [];
+                        self.configs = resp.data || [];
                         self.renderTable(self.configs);
                     }
                 }
@@ -2459,9 +2459,9 @@
             }
 
             configs.forEach(function(cfg) {
-                var tracks = cfg.tracks_json ? JSON.parse(cfg.tracks_json).join(', ') : t('ctp.throughput.wildcard');
-                var origins = cfg.origins_json ? JSON.parse(cfg.origins_json).join(', ') : t('ctp.throughput.wildcard');
-                var dests = cfg.destinations_json ? JSON.parse(cfg.destinations_json).join(', ') : t('ctp.throughput.wildcard');
+                var tracks = cfg.tracks_json ? [].concat(cfg.tracks_json).join(', ') : t('ctp.throughput.wildcard');
+                var origins = cfg.origins_json ? [].concat(cfg.origins_json).join(', ') : t('ctp.throughput.wildcard');
+                var dests = cfg.destinations_json ? [].concat(cfg.destinations_json).join(', ') : t('ctp.throughput.wildcard');
 
                 var $row = $('<tr>')
                     .append($('<td>').text(cfg.config_label || ''))
@@ -2540,9 +2540,9 @@
 
         showEditDialog: function(cfg) {
             var self = this;
-            var tracks = cfg.tracks_json ? JSON.parse(cfg.tracks_json).join(',') : '';
-            var origins = cfg.origins_json ? JSON.parse(cfg.origins_json).join(',') : '';
-            var dests = cfg.destinations_json ? JSON.parse(cfg.destinations_json).join(',') : '';
+            var tracks = cfg.tracks_json ? [].concat(cfg.tracks_json).join(',') : '';
+            var origins = cfg.origins_json ? [].concat(cfg.origins_json).join(',') : '';
+            var dests = cfg.destinations_json ? [].concat(cfg.destinations_json).join(',') : '';
 
             Swal.fire({
                 title: t('ctp.throughput.editConfig'),
@@ -2578,11 +2578,17 @@
                             if (resp.status === 'ok') {
                                 Swal.fire({ icon: 'success', title: t('ctp.throughput.updated'), timer: 1500, showConfirmButton: false });
                                 self.refresh();
-                            } else if (resp.code === 409) {
-                                Swal.fire({ icon: 'warning', title: t('ctp.throughput.conflictDetected', { configs: '' }) });
-                                self.refresh();
                             } else {
                                 Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                            }
+                        },
+                        error: function(xhr) {
+                            if (xhr.status === 409) {
+                                Swal.fire({ icon: 'warning', title: t('ctp.throughput.conflictDetected') || 'Conflict detected — config was modified. Refreshing.' });
+                                self.refresh();
+                            } else {
+                                var msg = xhr.responseJSON ? xhr.responseJSON.message : 'Error';
+                                Swal.fire({ icon: 'error', title: msg });
                             }
                         }
                     });
@@ -2625,19 +2631,22 @@
                 success: function(resp) {
                     if (resp.status === 'ok' && resp.data) {
                         var d = resp.data;
-                        var html = '<table class="table table-sm"><thead><tr>' +
+                        var html = '<div class="mb-2 small text-muted">' + t('ctp.throughput.totalFlights') + ': ' + (d.total_flights || 0) +
+                            ' &middot; ' + t('ctp.throughput.binsExceeding') + ': ' + (d.bins_exceeding || 0) + '</div>' +
+                            '<table class="table table-sm"><thead><tr>' +
                             '<th>' + t('ctp.demand.timeUtc') + '</th>' +
-                            '<th>' + t('ctp.throughput.acph') + '</th>' +
+                            '<th>' + t('ctp.throughput.flights') + '</th>' +
                             '<th>' + t('ctp.throughput.maxAcph') + '</th>' +
-                            '<th>' + t('ctp.throughput.utilization') + '</th>' +
+                            '<th>' + t('ctp.throughput.status') + '</th>' +
                             '</tr></thead><tbody>';
                         (d.bins || []).forEach(function(bin) {
-                            var pct = bin.utilization_pct || 0;
-                            var cls = pct > 100 ? 'text-danger font-weight-bold' : (pct > 80 ? 'text-warning' : 'text-success');
-                            html += '<tr><td>' + bin.bin_label + '</td><td>' + bin.actual_acph + '</td><td>' + bin.max_acph + '</td><td class="' + cls + '">' + pct + '%</td></tr>';
+                            var cls = bin.exceeds ? 'text-danger font-weight-bold' : 'text-success';
+                            var label = (bin.bin_start || '').substring(11, 16);
+                            html += '<tr><td>' + label + '</td><td>' + bin.flight_count + '</td><td>' + bin.max_acph + '</td>' +
+                                '<td class="' + cls + '">' + (bin.exceeds ? '+' + bin.overage : 'OK') + '</td></tr>';
                         });
                         html += '</tbody></table>';
-                        Swal.fire({ title: t('ctp.throughput.previewImpact'), html: html, width: 600 });
+                        Swal.fire({ title: d.config_label || t('ctp.throughput.previewImpact'), html: html, width: 600 });
                     }
                 }
             });
@@ -2666,7 +2675,7 @@
                 data: { session_id: state.currentSession.session_id },
                 success: function(resp) {
                     if (resp.status === 'ok' && resp.data) {
-                        self.scenarios = resp.data.scenarios || [];
+                        self.scenarios = resp.data || [];
                         self.renderScenarioList(self.scenarios);
                     }
                 }
@@ -2701,21 +2710,41 @@
 
         createScenario: function() {
             var self = this;
+            var sess = state.currentSession;
+            var defStart = sess.window_start_utc || '';
+            var defEnd = sess.window_end_utc || '';
+            // Convert ISO to datetime-local format
+            if (defStart) defStart = defStart.replace(/Z$/, '').replace(/\.\d+$/, '').substring(0, 16);
+            if (defEnd) defEnd = defEnd.replace(/Z$/, '').replace(/\.\d+$/, '').substring(0, 16);
+
             Swal.fire({
                 title: t('ctp.planning.createScenario'),
-                input: 'text',
-                inputPlaceholder: t('ctp.planning.scenarioName'),
-                showCancelButton: true
+                html:
+                    '<input id="swal_ps_name" class="swal2-input" placeholder="' + t('ctp.planning.scenarioName') + '">' +
+                    '<label class="swal2-input-label">' + t('ctp.session.windowStart') + '</label>' +
+                    '<input id="swal_ps_start" class="swal2-input" type="datetime-local" value="' + defStart + '">' +
+                    '<label class="swal2-input-label">' + t('ctp.session.windowEnd') + '</label>' +
+                    '<input id="swal_ps_end" class="swal2-input" type="datetime-local" value="' + defEnd + '">',
+                focusConfirm: false,
+                showCancelButton: true,
+                preConfirm: function() {
+                    var name = $('#swal_ps_name').val();
+                    var start = $('#swal_ps_start').val();
+                    var end = $('#swal_ps_end').val();
+                    if (!name || !start || !end) {
+                        Swal.showValidationMessage(t('ctp.planning.allFieldsRequired') || 'All fields are required');
+                        return false;
+                    }
+                    return { scenario_name: name, departure_window_start: start + ':00Z', departure_window_end: end + ':00Z' };
+                }
             }).then(function(result) {
                 if (result.isConfirmed && result.value) {
+                    result.value.session_id = sess.session_id;
                     $.ajax({
                         url: API.planning.scenarios,
                         method: 'POST',
                         contentType: 'application/json',
-                        data: JSON.stringify({
-                            session_id: state.currentSession.session_id,
-                            scenario_name: result.value
-                        }),
+                        data: JSON.stringify(result.value),
                         success: function(resp) {
                             if (resp.status === 'ok') {
                                 self.loadScenarios();
@@ -2728,15 +2757,28 @@
 
         cloneScenario: function(scenarioId) {
             var self = this;
-            $.ajax({
-                url: API.planning.scenario_clone,
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ scenario_id: scenarioId }),
-                success: function(resp) {
-                    if (resp.status === 'ok') {
-                        self.loadScenarios();
-                    }
+            var orig = this.scenarios.find(function(s) { return s.scenario_id === scenarioId; });
+            var defaultName = (orig ? orig.scenario_name + ' (copy)' : '');
+
+            Swal.fire({
+                title: t('ctp.planning.cloneScenario'),
+                input: 'text',
+                inputValue: defaultName,
+                inputPlaceholder: t('ctp.planning.scenarioName'),
+                showCancelButton: true
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    $.ajax({
+                        url: API.planning.scenario_clone,
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ scenario_id: scenarioId, new_name: result.value }),
+                        success: function(resp) {
+                            if (resp.status === 'ok') {
+                                self.loadScenarios();
+                            }
+                        }
+                    });
                 }
             });
         },

@@ -227,7 +227,9 @@
       "activate": "Activate",
       "activated": "Session activated.",
       "complete": "Complete",
-      "completeTooltip": "Mark session as completed or cancel",
+      "completeTooltip": "Mark session as completed",
+      "cancel": "Cancel",
+      "cancelTooltip": "Cancel this session",
       "confirmComplete": "Mark this session as COMPLETED? This cannot be undone.",
       "confirmCancel": "Mark this session as CANCELLED? This cannot be undone.",
       "statusChanged": "Session status changed to {status}."
@@ -475,7 +477,11 @@
       "noConfigs": "No throughput configs for this session.",
       "saved": "Throughput config saved.",
       "deleted": "Throughput config deleted.",
-      "updated": "Throughput config updated."
+      "updated": "Throughput config updated.",
+      "totalFlights": "Total flights",
+      "binsExceeding": "Bins exceeding",
+      "flights": "Flights",
+      "status": "Status"
     },
     "planning": {
       "title": "Planning",
@@ -521,7 +527,8 @@
       "suggestTrack": "Suggest Track",
       "remainingCapacity": "Remaining Capacity",
       "slotsAvailable": "{count} slots available",
-      "noScenarios": "No planning scenarios yet."
+      "noScenarios": "No planning scenarios yet.",
+      "allFieldsRequired": "Name, start time, and end time are all required."
     }
   },
   "deeplink": {

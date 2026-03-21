@@ -35,7 +35,7 @@ if ($method === 'GET') {
     }
 
     respond_json(200, [
-        'status' => 'success',
+        'status' => 'ok',
         'data' => $result['data']
     ]);
 
@@ -99,7 +99,7 @@ if ($method === 'GET') {
     ], $cid);
 
     respond_json(201, [
-        'status' => 'success',
+        'status' => 'ok',
         'message' => 'Scenario created',
         'scenario_id' => $scenario_id
     ]);

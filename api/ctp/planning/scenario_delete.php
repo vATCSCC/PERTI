@@ -63,6 +63,6 @@ ctp_audit_log($conn, $session_id, null, 'SCENARIO_DELETE', [
 ], $cid);
 
 respond_json(200, [
-    'status' => 'success',
+    'status' => 'ok',
     'message' => 'Scenario deleted'
 ]);

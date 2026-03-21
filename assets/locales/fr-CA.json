@@ -150,7 +150,9 @@
       "activate": "Activer",
       "activated": "Session activ\u00e9e.",
       "complete": "Terminer",
-      "completeTooltip": "Marquer la session comme termin\u00e9e ou annul\u00e9e",
+      "completeTooltip": "Marquer la session comme termin\u00e9e",
+      "cancel": "Annuler",
+      "cancelTooltip": "Annuler cette session",
       "confirmComplete": "Marquer cette session comme TERMIN\u00c9E\u00a0? Cette action est irr\u00e9versible.",
       "confirmCancel": "Marquer cette session comme ANNUL\u00c9E\u00a0? Cette action est irr\u00e9versible.",
       "statusChanged": "Statut de la session chang\u00e9 en {status}."
@@ -398,7 +400,11 @@
       "noConfigs": "Aucune config. de d\u00e9bit pour cette session.",
       "saved": "Config. de d\u00e9bit enregistr\u00e9e.",
       "deleted": "Config. de d\u00e9bit supprim\u00e9e.",
-      "updated": "Config. de d\u00e9bit mise \u00e0 jour."
+      "updated": "Config. de d\u00e9bit mise \u00e0 jour.",
+      "totalFlights": "Total des vols",
+      "binsExceeding": "Cr\u00e9neaux en d\u00e9passement",
+      "flights": "Vols",
+      "status": "Statut"
     },
     "planning": {
       "title": "Planification",
@@ -444,7 +450,8 @@
       "suggestTrack": "Sugg\u00e9rer une route",
       "remainingCapacity": "Capacit\u00e9 r\u00e9siduelle",
       "slotsAvailable": "{count} cr\u00e9neaux disponibles",
-      "noScenarios": "Aucun sc\u00e9nario de planification."
+      "noScenarios": "Aucun sc\u00e9nario de planification.",
+      "allFieldsRequired": "Le nom, l'heure de d\u00e9but et l'heure de fin sont tous requis."
     }
   },
   "deeplink": {

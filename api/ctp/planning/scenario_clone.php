@@ -158,7 +158,7 @@ ctp_audit_log($conn, $source['session_id'], null, 'SCENARIO_CLONE', [
 ], $cid);
 
 respond_json(201, [
-    'status' => 'success',
+    'status' => 'ok',
     'message' => 'Scenario cloned',
     'new_scenario_id' => $new_scenario_id
 ]);

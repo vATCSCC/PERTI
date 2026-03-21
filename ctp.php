@@ -73,6 +73,9 @@ include("load/connect.php");
                 <button class="btn btn-outline-dark btn-sm" id="ctp_btn_complete_session" title="<?= __('ctp.session.completeTooltip') ?>">
                     <i class="fas fa-flag-checkered"></i> <?= __('ctp.session.complete') ?>
                 </button>
+                <button class="btn btn-outline-danger btn-sm" id="ctp_btn_cancel_session" title="<?= __('ctp.session.cancelTooltip') ?>">
+                    <i class="fas fa-times-circle"></i> <?= __('ctp.session.cancel') ?>
+                </button>
             </div>
             <span class="badge badge-success ml-1" id="ctp_compliance_badge" style="display:none;"></span>
         </div>
