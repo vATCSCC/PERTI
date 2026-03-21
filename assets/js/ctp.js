@@ -3047,21 +3047,13 @@
 
         loadBlocks: function(scenarioId, $panel) {
             var self = this;
-            $panel.html('<div class="text-center text-muted py-2"><i class="fas fa-spinner fa-spin"></i></div>');
+            // Always re-query DOM for fresh panel reference — loadScenarios() can rebuild
+            // the scenario list while a compute AJAX is in-flight, detaching stale $panel refs
+            var freshSelector = '.ps-blocks-panel[data-scenario="' + scenarioId + '"]';
+            var $fresh = $(freshSelector);
+            if ($fresh.length) $panel = $fresh;
 
-            // Fetch blocks + assignments for this scenario via a lightweight query
-            // We'll reuse the compute endpoint data or fetch blocks from the scenario_save GET (not available)
-            // Actually, blocks are part of the scenario — we need a blocks list endpoint.
-            // Since no dedicated "list blocks" endpoint exists, we fetch scenario detail from compute
-            // and extract the blocks. But compute is expensive, so instead let's build a simple list.
-            // For now, create a custom fetch using the block_save endpoint pattern.
-            // The block_save endpoint doesn't have GET. Let's query via a scenario recompute with summary only.
-            // Actually - let's just build the UI with the scenario_id and call block_save to create.
-            // We'll use a direct AJAX to get blocks from the database via a generic approach.
-
-            // Since no list-blocks endpoint exists, we'll reuse compute which returns block data,
-            // or we just show the "add block" button and manage inline.
-            $panel.html(
+            var blocksHtml =
                 '<div class="pl-3 border-left border-primary" style="border-width:2px !important;">' +
                     '<div class="d-flex justify-content-between align-items-center mb-1">' +
                         '<small class="font-weight-bold text-uppercase" style="font-size:0.68rem;">' + t('ctp.planning.trafficBlocks') + '</small>' +
@@ -3072,10 +3064,9 @@
                     '<div class="ps-blocks-list" data-scenario="' + scenarioId + '">' +
                         '<div class="text-muted small py-1">' + t('ctp.planning.noBlocks') + '</div>' +
                     '</div>' +
-                '</div>'
-            );
+                '</div>';
+            $panel.html(blocksHtml);
 
-            // Try to load blocks via compute (lightweight - it should return block data in summary)
             $.ajax({
                 url: API.planning.compute,
                 method: 'POST',
@@ -3083,7 +3074,10 @@
                 data: JSON.stringify({ scenario_id: scenarioId }),
                 success: function(resp) {
                     if (resp.status === 'ok' && resp.data && resp.data.blocks) {
-                        self.renderBlocks(scenarioId, resp.data.blocks, $panel.find('.ps-blocks-list'));
+                        // Re-query DOM for fresh reference — scenarios may have reloaded during AJAX
+                        var $livePanel = $(freshSelector);
+                        var $target = $livePanel.length ? $livePanel.find('.ps-blocks-list') : $panel.find('.ps-blocks-list');
+                        self.renderBlocks(scenarioId, resp.data.blocks, $target);
                     }
                 }
             });
