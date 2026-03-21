@@ -732,6 +732,7 @@ if ($org_mismatch):
                                 <div class="card-body py-2">
                                     <label class="small"><?= __('review.page.pasteNtmlEntries') ?></label>
                                     <textarea class="form-control form-control-sm" id="tmr_bulk_ntml_input" rows="6"
+                                        style="font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 0.8rem;"
                                         placeholder="Paste NTML entries here, e.g.:
 LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z
 LAS via ELLDA 20MIT ZLA:ZAB 2359Z-0400Z
@@ -1079,6 +1080,7 @@ BOS 15MIT ZBW:ZNY 2300Z-0100Z"></textarea>
                                                 <div class="form-group">
                                                     <label class="small"><?= __('review.page.ntmlEntries') ?></label>
                                                     <textarea class="form-control form-control-sm" id="tmi_ntml_input" rows="8"
+                                                        style="font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 0.8rem;"
                                                         placeholder="Paste NTML entries here, e.g.:
 LAS via FLCHR 20MIT ZLA:ZOA 2359Z-0400Z
 LAS via ELLDA 20MIT ZLA:ZAB 2359Z-0400Z

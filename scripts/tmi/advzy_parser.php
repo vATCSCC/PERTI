@@ -53,7 +53,7 @@ function parseAdvzyFile(string $content): array {
         }
 
         // New ADVZY header starts a new block
-        if (preg_match('/^vATCSCC\s+ADVZY\s+/i', $trimmed)) {
+        if (preg_match('/^\w+\s+ADVZY\s+/i', $trimmed)) {
             // Flush previous block
             if (!empty($blockLines)) {
                 $entry = parseAdvzyBlock($blockLines, $blockStart);
@@ -194,8 +194,8 @@ function parseAdvzyBlock(array $lines, int $lineNum): ?array {
  * @return array|null {adv_num, facility, date, type, subtype}
  */
 function parseAdvzyHeader(string $line): ?array {
-    // Pattern: vATCSCC ADVZY NNN FACILITY [DATE] TYPE
-    if (!preg_match('/^vATCSCC\s+ADVZY\s+(\d{3})\s+(\S+)\s+(?:(\d{2}\/\d{2}\/\d{4})\s+)?(.+)$/i', $line, $m)) {
+    // Pattern: ORG ADVZY NNN FACILITY [DATE] TYPE (any org prefix: vATCSCC, CANOC, etc.)
+    if (!preg_match('/^\w+\s+ADVZY\s+(\d{3})\s+(\S+)\s+(?:(\d{2}\/\d{2}\/\d{4})\s+)?(.+)$/i', $line, $m)) {
         return null;
     }
 
