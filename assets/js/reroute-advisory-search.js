@@ -90,7 +90,7 @@ const RerouteAdvisorySearch = (function() {
             if (route) {
                 addRoutes([route], false);
                 $('#plot_r').click();
-                showToast(PERTII18n.t('reroute.plottingRoute'), 'success');
+                showToast(PERTII18n.t('rerouteAdvisory.plottingRoute'), 'success');
             }
         });
 
@@ -121,7 +121,7 @@ const RerouteAdvisorySearch = (function() {
         $results.html(
             '<div class="reroute-loading">' +
                 '<i class="fas fa-spinner fa-spin"></i> ' +
-                PERTII18n.t('reroute.fetching') +
+                PERTII18n.t('rerouteAdvisory.fetching') +
             '</div>'
         );
 
@@ -145,11 +145,11 @@ const RerouteAdvisorySearch = (function() {
                 currentAdvisory = resp.advisory;
                 renderAdvisory(resp.advisory);
             } else {
-                showError(resp.message || PERTII18n.t('reroute.fetchFailed'));
+                showError(resp.message || PERTII18n.t('rerouteAdvisory.fetchFailed'));
             }
         })
         .fail(function(xhr) {
-            var msg = PERTII18n.t('reroute.fetchFailed');
+            var msg = PERTII18n.t('rerouteAdvisory.fetchFailed');
             if (xhr.responseJSON && xhr.responseJSON.message) {
                 msg = xhr.responseJSON.message;
             }
@@ -205,7 +205,7 @@ const RerouteAdvisorySearch = (function() {
         }
 
         if (parsed.length === 0) {
-            $results.append('<div class="reroute-empty">' + PERTII18n.t('reroute.noRoutes') + '</div>');
+            $results.append('<div class="reroute-empty">' + PERTII18n.t('rerouteAdvisory.noRoutes') + '</div>');
             return;
         }
 
@@ -232,8 +232,8 @@ const RerouteAdvisorySearch = (function() {
         // Summary
         $results.append(
             '<div class="reroute-summary">' +
-                groupOrder.length + ' ' + PERTII18n.t('reroute.destinations') + ', ' +
-                parsed.length + ' ' + PERTII18n.t('reroute.routes') +
+                groupOrder.length + ' ' + PERTII18n.t('rerouteAdvisory.destinations') + ', ' +
+                parsed.length + ' ' + PERTII18n.t('rerouteAdvisory.routes') +
             '</div>'
         );
 
@@ -250,8 +250,8 @@ const RerouteAdvisorySearch = (function() {
         html += '<span class="reroute-section-dest">' + escapeHtml(destCode) + '</span>';
         html += '<span class="reroute-section-count ml-2">(' + routes.length + ')</span>';
         html += '</div>';
-        html += '<button class="btn btn-outline-warning btn-sm reroute-section-addall" title="' + PERTII18n.t('reroute.addAll') + '">';
-        html += '<i class="fas fa-plus mr-1"></i>' + PERTII18n.t('reroute.addAll');
+        html += '<button class="btn btn-outline-warning btn-sm reroute-section-addall" title="' + PERTII18n.t('rerouteAdvisory.addAll') + '">';
+        html += '<i class="fas fa-plus mr-1"></i>' + PERTII18n.t('rerouteAdvisory.addAll');
         html += '</button>';
         html += '</div>';
 
@@ -269,8 +269,8 @@ const RerouteAdvisorySearch = (function() {
             html += '<span class="reroute-route-origin" title="' + escapeAttr(originLabel) + '">' + escapeHtml(originLabel || '-') + '</span>';
             html += '<span class="reroute-route-string" title="' + escapeAttr(displayRoute) + '">' + escapeHtml(displayRoute) + '</span>';
             html += '<div class="reroute-route-actions">';
-            html += '<button class="btn btn-outline-warning reroute-route-add" title="' + PERTII18n.t('reroute.addToTextarea') + '"><i class="fas fa-plus"></i></button>';
-            html += '<button class="btn btn-outline-success reroute-route-plot" title="' + PERTII18n.t('reroute.plotRoute') + '"><i class="fas fa-pencil-alt"></i></button>';
+            html += '<button class="btn btn-outline-warning reroute-route-add" title="' + PERTII18n.t('rerouteAdvisory.addToTextarea') + '"><i class="fas fa-plus"></i></button>';
+            html += '<button class="btn btn-outline-success reroute-route-plot" title="' + PERTII18n.t('rerouteAdvisory.plotRoute') + '"><i class="fas fa-pencil-alt"></i></button>';
             html += '</div>';
             html += '</div>';
         }
@@ -351,7 +351,7 @@ const RerouteAdvisorySearch = (function() {
     function addSelectedToTextarea() {
         var routes = getSelectedRoutes();
         if (routes.length === 0) {
-            showToast(PERTII18n.t('reroute.noneSelected'), 'info');
+            showToast(PERTII18n.t('rerouteAdvisory.noneSelected'), 'info');
             return;
         }
         addRoutes(routes, true);
@@ -360,12 +360,12 @@ const RerouteAdvisorySearch = (function() {
     function plotSelected() {
         var routes = getSelectedRoutes();
         if (routes.length === 0) {
-            showToast(PERTII18n.t('reroute.noneSelected'), 'info');
+            showToast(PERTII18n.t('rerouteAdvisory.noneSelected'), 'info');
             return;
         }
         addRoutes(routes, false);
         $('#plot_r').click();
-        showToast(PERTII18n.t('reroute.plottingRoutes', { count: routes.length }), 'success');
+        showToast(PERTII18n.t('rerouteAdvisory.plottingRoutes', { count: routes.length }), 'success');
     }
 
     function addRoutes(routes, showFeedback) {
@@ -394,7 +394,7 @@ const RerouteAdvisorySearch = (function() {
         }
 
         if (newRoutes.length === 0) {
-            if (showFeedback) showToast(PERTII18n.t('reroute.allAlreadyAdded'), 'info');
+            if (showFeedback) showToast(PERTII18n.t('rerouteAdvisory.allAlreadyAdded'), 'info');
             return 0;
         }
 
@@ -403,9 +403,9 @@ const RerouteAdvisorySearch = (function() {
 
         if (showFeedback) {
             var skipped = routes.length - newRoutes.length;
-            var msg = PERTII18n.t('reroute.addedRoutes', { count: newRoutes.length });
+            var msg = PERTII18n.t('rerouteAdvisory.addedRoutes', { count: newRoutes.length });
             if (skipped > 0) {
-                msg += ' ' + PERTII18n.t('reroute.duplicatesSkipped', { count: skipped });
+                msg += ' ' + PERTII18n.t('rerouteAdvisory.duplicatesSkipped', { count: skipped });
             }
             showToast(msg, 'success');
         }

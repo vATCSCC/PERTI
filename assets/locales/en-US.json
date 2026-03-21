@@ -568,7 +568,13 @@
       "flightList": "Flight List",
       "showFlightList": "Show/Hide Flight List",
       "originLabel": "Origin",
-      "destLabel": "Destination"
+      "destLabel": "Destination",
+      "exportFlights": "Export flight list as CSV",
+      "exportDist": "Export distributions",
+      "exportBins": "Export time bins",
+      "exportJSON": "Export full results as JSON",
+      "exportAll": "Export All",
+      "timeBins": "Time Bins"
     },
     "routes": {
       "title": "Routes",
@@ -2922,7 +2928,7 @@
     "duplicatesSkipped": "({count} duplicates skipped)",
     "allAlreadyAdded": "All selected routes are already in the textarea."
   },
-  "reroute": {
+  "rerouteAdvisory": {
     "fetching": "Fetching advisory...",
     "fetchFailed": "Failed to fetch advisory from FAA.",
     "noRoutes": "No routes found in this advisory.",
