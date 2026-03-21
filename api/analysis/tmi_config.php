@@ -364,8 +364,8 @@ function parse_tmi_text($text, $event_start = null) {
             continue;
         }
 
-        // Detect ADVZY header: "vATCSCC ADVZY 001 ..." or "vATCSCC ADVZY ADVZY 001 ..."
-        if (preg_match('/^vATCSCC\s+ADVZY\b/i', $line)) {
+        // Detect ADVZY header: "vATCSCC ADVZY 001 ..." or "CANOC ADVZY 001 ..." (any org prefix)
+        if (preg_match('/^\w+\s+ADVZY\b/i', $line)) {
             // Parse ADVZY block
             $advzy_result = parse_advzy_block($lines, $i, $event_start);
             if ($advzy_result['tmi']) {
@@ -623,7 +623,7 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
         for ($i = $start_idx + 1; $i < min($start_idx + 20, count($lines)); $i++) {
             $line = trim($lines[$i]);
             if (empty($line)) { $lines_consumed++; continue; }
-            if (preg_match('/^vATCSCC\s+ADVZY/i', $line) || preg_match('/^\d{2}\/\d{4}\s+\w+\s+via\s+/i', $line)) break;
+            if (preg_match('/^\w+\s+ADVZY/i', $line) || preg_match('/^\d{2}\/\d{4}\s+\w+\s+via\s+/i', $line)) break;
             $lines_consumed++;
 
             if (preg_match('/^CTL\s+ELEMENT:\s*(\w+)/i', $line, $m)) { $tmi['dest'] = strtoupper($m[1]); continue; }
@@ -652,7 +652,7 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
         for ($i = $start_idx + 1; $i < min($start_idx + 10, count($lines)); $i++) {
             $line = trim($lines[$i]);
             if (empty($line)) { $lines_consumed++; continue; }
-            if (preg_match('/^vATCSCC\s+ADVZY/i', $line)) break;
+            if (preg_match('/^\w+\s+ADVZY/i', $line)) break;
             $lines_consumed++;
 
             // "MCO_NO_GRNCH_PRICY HAS BEEN CANCELLED AT 2108Z"
@@ -716,7 +716,7 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
         }
 
         // End of ADVZY block - hit another ADVZY or NTML entry
-        if (preg_match('/^vATCSCC\s+ADVZY/i', $line) ||
+        if (preg_match('/^\w+\s+ADVZY/i', $line) ||
             preg_match('/^\d{2}\/\d{4}\s+\w+\s+via\s+/i', $line)) {
             break;
         }
@@ -814,7 +814,7 @@ function parse_advzy_block($lines, $start_idx, $event_start = null) {
             // Accumulate continuation lines
             while ($i + 1 < count($lines)) {
                 $next = trim($lines[$i + 1]);
-                if (empty($next) || preg_match('/^[A-Z\s]+:/i', $next) || preg_match('/^vATCSCC/i', $next)) break;
+                if (empty($next) || preg_match('/^[A-Z\s]+:/i', $next) || preg_match('/^\w+\s+ADVZY/i', $next)) break;
                 $i++;
                 $lines_consumed++;
                 $comments .= ' ' . $next;
