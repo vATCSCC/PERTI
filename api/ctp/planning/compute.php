@@ -688,6 +688,23 @@ foreach ($arrival_bins as $bin) {
 // Respond
 // ============================================================================
 
+// Build blocks array with nested assignments for UI rendering
+$blocks_output = [];
+foreach ($blocks as $block) {
+    $bid = (int)$block['block_id'];
+    $b = [
+        'block_id' => $bid,
+        'scenario_id' => (int)$block['scenario_id'],
+        'block_label' => $block['block_label'],
+        'origins_json' => !empty($block['origins_json']) ? json_decode($block['origins_json'], true) : [],
+        'destinations_json' => !empty($block['destinations_json']) ? json_decode($block['destinations_json'], true) : [],
+        'flight_count' => (int)$block['flight_count'],
+        'dep_distribution' => $block['dep_distribution'],
+        'assignments' => isset($assignments_by_block[$bid]) ? array_values($assignments_by_block[$bid]) : [],
+    ];
+    $blocks_output[] = $b;
+}
+
 respond_json(200, [
     'status' => 'ok',
     'data' => [
@@ -697,6 +714,7 @@ respond_json(200, [
             'start' => $dep_start->format('Y-m-d\TH:i:s') . 'Z',
             'end' => $dep_end->format('Y-m-d\TH:i:s') . 'Z',
         ],
+        'blocks' => $blocks_output,
         'summary' => [
             'total_flights' => $total_flights,
             'tracks_used' => $tracks_used,
