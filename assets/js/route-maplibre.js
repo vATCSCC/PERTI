@@ -3413,7 +3413,7 @@ $(document).ready(function() {
                 features.push({
                     type: 'Feature',
                     properties: { name },
-                    geometry: { type: 'LineString', coordinates: coords },
+                    geometry: { type: 'LineString', coordinates: normalizeForIDL(coords) },
                 });
             });
         });
