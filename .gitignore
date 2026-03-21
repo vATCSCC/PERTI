@@ -93,6 +93,25 @@ docs/FUNDING_PACKET*.md
 # Playwright MCP artifacts
 .playwright-mcp/
 
+# NASR navdata cache (downloaded FAA zip/extractions)
+.nasr_cache/
+
+# Navdata ephemeral change reports (generated per-run, not canonical)
+assets/data/logs/navdata_changes_*.json
+assets/data/logs/navdata_changes_*.txt
+
+# Navdata CSV backups (auto-generated during AIRAC updates, git history suffices)
+assets/data/backups/
+
+# Playbook route backups (auto-generated during AIRAC updates)
+assets/data/playbook_routes_backup_*.csv
+
+# Root-level PDFs (reference documents, not code)
+/*.pdf
+
+# Bash crash dumps
+bash.exe.stackdump
+
 # Temporary screenshots
 *.png
 # But keep tracked assets
