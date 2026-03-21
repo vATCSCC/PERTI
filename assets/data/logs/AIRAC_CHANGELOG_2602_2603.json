@@ -2,14 +2,15 @@
   "meta": {
     "from_cycle": "2602",
     "to_cycle": "2603",
-    "generated_utc": "2026-02-26T23:09:07.435117+00:00Z",
+    "generated_utc": "2026-03-21T06:00:00+00:00Z",
     "totals": {
       "points": 269779,
       "navaids": 1874,
       "airways": 1547,
       "cdrs": 47141,
       "dps": 6506,
-      "stars": 8223
+      "stars": 8223,
+      "playbook": 96019
     }
   },
   "summary": {
@@ -39,6 +40,11 @@
       "added": 393,
       "modified": 4691,
       "removed": 129
+    },
+    "playbook": {
+      "added": 10,
+      "modified": 205,
+      "removed": 14
     }
   },
   "changes": [
@@ -102966,6 +102972,2033 @@
       "action": "removed",
       "detail": "No longer in NASR source",
       "old_name": "TORGY.TORGY3_old_2602_removed"
+    },
+    {
+      "type": "playbook",
+      "name": "BAE 2",
+      "action": "changed",
+      "detail": "+24 routes, -24 routes",
+      "old_name": "BAE 2",
+      "old_value": "72 routes",
+      "new_value": "72 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN AGLIN EAST 1",
+      "action": "changed",
+      "detail": "+5 routes, -5 routes",
+      "old_name": "CAN AGLIN EAST 1",
+      "old_value": "65 routes",
+      "new_value": "65 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN AGLIN EAST 2",
+      "action": "changed",
+      "detail": "+5 routes, -5 routes",
+      "old_name": "CAN AGLIN EAST 2",
+      "old_value": "65 routes",
+      "new_value": "65 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN AGLIN EAST 3",
+      "action": "changed",
+      "detail": "+5 routes, -5 routes",
+      "old_name": "CAN AGLIN EAST 3",
+      "old_value": "65 routes",
+      "new_value": "65 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN AGLIN WEST 1",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN AGLIN WEST 1",
+      "old_value": "42 routes",
+      "new_value": "42 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN AGLIN WEST 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN AGLIN WEST 2",
+      "old_value": "42 routes",
+      "new_value": "42 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN AGLIN WEST 3",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN AGLIN WEST 3",
+      "old_value": "42 routes",
+      "new_value": "42 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN CHICA WEST 1",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN CHICA WEST 1",
+      "old_value": "42 routes",
+      "new_value": "42 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN CHICA WEST 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN CHICA WEST 2",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN CHICA WEST 3",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN CHICA WEST 3",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN GERTY EAST 1",
+      "action": "changed",
+      "detail": "+5 routes, -5 routes",
+      "old_name": "CAN GERTY EAST 1",
+      "old_value": "65 routes",
+      "new_value": "65 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN GERTY EAST 2",
+      "action": "changed",
+      "detail": "+5 routes, -5 routes",
+      "old_name": "CAN GERTY EAST 2",
+      "old_value": "65 routes",
+      "new_value": "65 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN GERTY EAST 3",
+      "action": "changed",
+      "detail": "+5 routes, -5 routes",
+      "old_name": "CAN GERTY EAST 3",
+      "old_value": "65 routes",
+      "new_value": "65 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN KENPA WEST 1",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN KENPA WEST 1",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN KENPA WEST 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN KENPA WEST 2",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN KENPA WEST 3",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN KENPA WEST 3",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN KENPA WEST 4",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN KENPA WEST 4",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN KENPA WEST 5",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN KENPA WEST 5",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN KENPA WEST 6",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN KENPA WEST 6",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN NOSIK WEST 1",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN NOSIK WEST 1",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN NOSIK WEST 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN NOSIK WEST 2",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN NOSIK WEST 3",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN NOSIK WEST 3",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN NOSIK WEST 4",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN NOSIK WEST 4",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN NOTAP EAST 1",
+      "action": "changed",
+      "detail": "+15 routes, -15 routes",
+      "old_name": "CAN NOTAP EAST 1",
+      "old_value": "195 routes",
+      "new_value": "195 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN NOTAP EAST 2",
+      "action": "changed",
+      "detail": "+15 routes, -15 routes",
+      "old_name": "CAN NOTAP EAST 2",
+      "old_value": "195 routes",
+      "new_value": "195 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN NOTAP EAST 3",
+      "action": "changed",
+      "detail": "+15 routes, -15 routes",
+      "old_name": "CAN NOTAP EAST 3",
+      "old_value": "195 routes",
+      "new_value": "195 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN OVORA WEST 1",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN OVORA WEST 1",
+      "old_value": "42 routes",
+      "new_value": "42 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN OVORA WEST 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN OVORA WEST 2",
+      "old_value": "42 routes",
+      "new_value": "42 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN ROTMA WEST 1",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN ROTMA WEST 1",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN ROTMA WEST 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN ROTMA WEST 2",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN ROTMA WEST 3",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN ROTMA WEST 3",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN ROTMA WEST 4",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN ROTMA WEST 4",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN RUBKI EAST 1",
+      "action": "changed",
+      "detail": "+16 routes, -16 routes",
+      "old_name": "CAN RUBKI EAST 1",
+      "old_value": "208 routes",
+      "new_value": "208 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN RUBKI EAST 2",
+      "action": "changed",
+      "detail": "+16 routes, -16 routes",
+      "old_name": "CAN RUBKI EAST 2",
+      "old_value": "208 routes",
+      "new_value": "208 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN RUBKI EAST 3",
+      "action": "changed",
+      "detail": "+16 routes, -16 routes",
+      "old_name": "CAN RUBKI EAST 3",
+      "old_value": "208 routes",
+      "new_value": "208 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN RUBKI EAST 4",
+      "action": "changed",
+      "detail": "+16 routes, -16 routes",
+      "old_name": "CAN RUBKI EAST 4",
+      "old_value": "208 routes",
+      "new_value": "208 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN SSM WEST 1",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN SSM WEST 1",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN SSM WEST 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN SSM WEST 2",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN SSM WEST 3",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN SSM WEST 3",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN SSM WEST 4",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN SSM WEST 4",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN SSM WEST 5",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN SSM WEST 5",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN SSM WEST 6",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN SSM WEST 6",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN SSM WEST 7",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN SSM WEST 7",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN SSM WEST 8",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN SSM WEST 8",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN STNRD EAST 1",
+      "action": "changed",
+      "detail": "+14 routes, -14 routes",
+      "old_name": "CAN STNRD EAST 1",
+      "old_value": "182 routes",
+      "new_value": "182 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN STNRD EAST 2",
+      "action": "changed",
+      "detail": "+28 routes, -28 routes",
+      "old_name": "CAN STNRD EAST 2",
+      "old_value": "364 routes",
+      "new_value": "364 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN STNRD WEST 1",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN STNRD WEST 1",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN STNRD WEST 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "CAN STNRD WEST 2",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN ULUTO EAST 1",
+      "action": "changed",
+      "detail": "+14 routes, -14 routes",
+      "old_name": "CAN ULUTO EAST 1",
+      "old_value": "182 routes",
+      "new_value": "182 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN ULUTO EAST 2",
+      "action": "changed",
+      "detail": "+14 routes, -14 routes",
+      "old_name": "CAN ULUTO EAST 2",
+      "old_value": "182 routes",
+      "new_value": "182 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN ULUTO EAST 3",
+      "action": "changed",
+      "detail": "+14 routes, -14 routes",
+      "old_name": "CAN ULUTO EAST 3",
+      "old_value": "182 routes",
+      "new_value": "182 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAN ULUTO EAST 4",
+      "action": "changed",
+      "detail": "+14 routes, -14 routes",
+      "old_name": "CAN ULUTO EAST 4",
+      "old_value": "182 routes",
+      "new_value": "182 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAPE LAUNCH 2A",
+      "action": "changed",
+      "detail": "+700 routes, -92 routes",
+      "old_name": "CAPE LAUNCH 2A",
+      "old_value": "161 routes",
+      "new_value": "769 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAPE LAUNCH 2B",
+      "action": "changed",
+      "detail": "+211 routes, -73 routes",
+      "old_name": "CAPE LAUNCH 2B",
+      "old_value": "94 routes",
+      "new_value": "232 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAPE LAUNCH NB",
+      "action": "changed",
+      "detail": "+6 routes",
+      "old_name": "CAPE LAUNCH NB",
+      "old_value": "6 routes",
+      "new_value": "12 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CARIBBEAN HARP SOUTH",
+      "action": "changed",
+      "detail": "+233 routes",
+      "old_name": "CARIBBEAN HARP SOUTH",
+      "old_value": "61 routes",
+      "new_value": "294 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CEW",
+      "action": "changed",
+      "detail": "+6 routes, -6 routes",
+      "old_name": "CEW",
+      "old_value": "54 routes",
+      "new_value": "54 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DC NORTH",
+      "action": "changed",
+      "detail": "+383 routes, -23 routes",
+      "old_name": "DC NORTH",
+      "old_value": "60 routes",
+      "new_value": "420 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DC NORTH 2",
+      "action": "changed",
+      "detail": "+21 routes, -3 routes",
+      "old_name": "DC NORTH 2",
+      "old_value": "9 routes",
+      "new_value": "27 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DELMARVA 1",
+      "action": "changed",
+      "detail": "+126 routes",
+      "old_name": "DELMARVA 1",
+      "old_value": "126 routes",
+      "new_value": "252 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DEN GCK 1",
+      "action": "changed",
+      "detail": "+23 routes, -24 routes",
+      "old_name": "DEN GCK 1",
+      "old_value": "34 routes",
+      "new_value": "33 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DEN GCK 2",
+      "action": "changed",
+      "detail": "+15 routes, -15 routes",
+      "old_name": "DEN GCK 2",
+      "old_value": "15 routes",
+      "new_value": "15 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DFW NO DOGS HEAD",
+      "action": "changed",
+      "detail": "+14 routes",
+      "old_name": "DFW NO DOGS HEAD",
+      "old_value": "14 routes",
+      "new_value": "28 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DFW SEEVR 3",
+      "action": "changed",
+      "detail": "+156 routes",
+      "old_name": "DFW SEEVR 3",
+      "old_value": "78 routes",
+      "new_value": "234 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DOM REP CARIBBEAN HARP NORTH",
+      "action": "changed",
+      "detail": "+1399 routes",
+      "old_name": "DOM REP CARIBBEAN HARP NORTH",
+      "old_value": "401 routes",
+      "new_value": "1800 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DOMESTIC HARP NORTH",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "DOMESTIC HARP NORTH",
+      "old_value": "120 routes",
+      "new_value": "120 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FAM",
+      "action": "changed",
+      "detail": "+11 routes, -11 routes",
+      "old_name": "FAM",
+      "old_value": "176 routes",
+      "new_value": "176 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO MIDWEST 2",
+      "action": "changed",
+      "detail": "+4 routes, -4 routes",
+      "old_name": "FLORIDA TO MIDWEST 2",
+      "old_value": "32 routes",
+      "new_value": "32 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO MIDWEST ESCAPE",
+      "action": "changed",
+      "detail": "+20 routes, -1 routes",
+      "old_name": "FLORIDA TO MIDWEST ESCAPE",
+      "old_value": "9 routes",
+      "new_value": "28 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO NE 1",
+      "action": "changed",
+      "detail": "+100 routes, -10 routes",
+      "old_name": "FLORIDA TO NE 1",
+      "old_value": "90 routes",
+      "new_value": "180 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO NE 2",
+      "action": "changed",
+      "detail": "+322 routes",
+      "old_name": "FLORIDA TO NE 2",
+      "old_value": "94 routes",
+      "new_value": "416 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO NE 3",
+      "action": "changed",
+      "detail": "+574 routes, -41 routes",
+      "old_name": "FLORIDA TO NE 3",
+      "old_value": "183 routes",
+      "new_value": "716 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO NE 4",
+      "action": "changed",
+      "detail": "+17 routes, -17 routes",
+      "old_name": "FLORIDA TO NE 4",
+      "old_value": "408 routes",
+      "new_value": "408 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO NE 5",
+      "action": "changed",
+      "detail": "+88 routes, -10 routes",
+      "old_name": "FLORIDA TO NE 5",
+      "old_value": "66 routes",
+      "new_value": "144 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO NE ESCAPE",
+      "action": "changed",
+      "detail": "+88 routes, -4 routes",
+      "old_name": "FLORIDA TO NE ESCAPE",
+      "old_value": "88 routes",
+      "new_value": "172 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO OHIO VALLEY 1",
+      "action": "changed",
+      "detail": "+291 routes",
+      "old_name": "FLORIDA TO OHIO VALLEY 1",
+      "old_value": "111 routes",
+      "new_value": "402 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "FLORIDA TO OHIO VALLEY 2",
+      "action": "changed",
+      "detail": "+304 routes, -19 routes",
+      "old_name": "FLORIDA TO OHIO VALLEY 2",
+      "old_value": "285 routes",
+      "new_value": "570 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "GA LIGHT JETS TO MIA AND SATS",
+      "action": "changed",
+      "detail": "+240 routes, -120 routes",
+      "old_name": "GA LIGHT JETS TO MIA AND SATS",
+      "old_value": "120 routes",
+      "new_value": "240 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "GA TO BCT AREA",
+      "action": "changed",
+      "detail": "+814 routes, -92 routes",
+      "old_name": "GA TO BCT AREA",
+      "old_value": "145 routes",
+      "new_value": "867 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "GA TO EWR AND SATS",
+      "action": "changed",
+      "detail": "+1357 routes",
+      "old_name": "GA TO EWR AND SATS",
+      "old_value": "258 routes",
+      "new_value": "1615 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "GA TO MIA AND SATS VIA MOGAE",
+      "action": "changed",
+      "detail": "+205 routes, -15 routes",
+      "old_name": "GA TO MIA AND SATS VIA MOGAE",
+      "old_value": "160 routes",
+      "new_value": "350 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "GA TO SUA",
+      "action": "changed",
+      "detail": "+28 routes",
+      "old_name": "GA TO SUA",
+      "old_value": "14 routes",
+      "new_value": "42 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "GREKI 2",
+      "action": "changed",
+      "detail": "+5 routes, -5 routes",
+      "old_name": "GREKI 2",
+      "old_value": "20 routes",
+      "new_value": "20 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "GREKI 3",
+      "action": "changed",
+      "detail": "+5 routes, -5 routes",
+      "old_name": "GREKI 3",
+      "old_value": "20 routes",
+      "new_value": "20 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "GTK ZSU SB",
+      "action": "changed",
+      "detail": "+61 routes",
+      "old_name": "GTK ZSU SB",
+      "old_value": "28 routes",
+      "new_value": "89 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "HLC",
+      "action": "changed",
+      "detail": "+21 routes, -21 routes",
+      "old_name": "HLC",
+      "old_value": "105 routes",
+      "new_value": "105 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "HNKER 1",
+      "action": "changed",
+      "detail": "+13 routes, -13 routes",
+      "old_name": "HNKER 1",
+      "old_value": "208 routes",
+      "new_value": "208 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "HNKER 2",
+      "action": "changed",
+      "detail": "+13 routes, -13 routes",
+      "old_name": "HNKER 2",
+      "old_value": "208 routes",
+      "new_value": "208 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "HOLIDAY GULF ROUTES",
+      "action": "changed",
+      "detail": "+518 routes, -30 routes",
+      "old_name": "HOLIDAY GULF ROUTES",
+      "old_value": "158 routes",
+      "new_value": "646 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "IAH DRLLR NORTH",
+      "action": "changed",
+      "detail": "+34 routes",
+      "old_name": "IAH DRLLR NORTH",
+      "old_value": "34 routes",
+      "new_value": "68 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "IAH DRLLR SOUTH",
+      "action": "changed",
+      "detail": "+34 routes",
+      "old_name": "IAH DRLLR SOUTH",
+      "old_value": "34 routes",
+      "new_value": "68 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "JOT 1",
+      "action": "changed",
+      "detail": "+119 routes, -119 routes",
+      "old_name": "JOT 1",
+      "old_value": "255 routes",
+      "new_value": "255 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "JOT 2",
+      "action": "changed",
+      "detail": "+105 routes, -105 routes",
+      "old_name": "JOT 2",
+      "old_value": "225 routes",
+      "new_value": "225 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "LAKE ERIE EAST",
+      "action": "changed",
+      "detail": "+552 routes, -12 routes",
+      "old_name": "LAKE ERIE EAST",
+      "old_value": "180 routes",
+      "new_value": "720 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "LAKE ERIE WEST",
+      "action": "changed",
+      "detail": "+201 routes, -21 routes",
+      "old_name": "LAKE ERIE WEST",
+      "old_value": "90 routes",
+      "new_value": "270 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "LAS AREA AVOIDANCE EAST",
+      "action": "changed",
+      "detail": "+7 routes, -2 routes",
+      "old_name": "LAS AREA AVOIDANCE EAST",
+      "old_value": "7 routes",
+      "new_value": "12 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "LAS AREA AVOIDANCE WEST",
+      "action": "changed",
+      "detail": "+66 routes",
+      "old_name": "LAS AREA AVOIDANCE WEST",
+      "old_value": "25 routes",
+      "new_value": "91 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "LEV EAST 1",
+      "action": "changed",
+      "detail": "+7 routes, -7 routes",
+      "old_name": "LEV EAST 1",
+      "old_value": "63 routes",
+      "new_value": "63 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "LEV EAST 2",
+      "action": "changed",
+      "detail": "+7 routes, -7 routes",
+      "old_name": "LEV EAST 2",
+      "old_value": "63 routes",
+      "new_value": "63 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "LIMBO WEST",
+      "action": "changed",
+      "detail": "+4 routes, -4 routes",
+      "old_name": "LIMBO WEST",
+      "old_value": "16 routes",
+      "new_value": "16 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "LNK",
+      "action": "changed",
+      "detail": "+23 routes, -23 routes",
+      "old_name": "LNK",
+      "old_value": "119 routes",
+      "new_value": "119 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MACER 1",
+      "action": "changed",
+      "detail": "+93 routes, -30 routes",
+      "old_name": "MACER 1",
+      "old_value": "37 routes",
+      "new_value": "100 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MACER 2",
+      "action": "changed",
+      "detail": "+108 routes, -33 routes",
+      "old_name": "MACER 2",
+      "old_value": "37 routes",
+      "new_value": "112 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MCI",
+      "action": "changed",
+      "detail": "+9 routes, -9 routes",
+      "old_name": "MCI",
+      "old_value": "117 routes",
+      "new_value": "117 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MCI WEST",
+      "action": "changed",
+      "detail": "+10 routes, -10 routes",
+      "old_name": "MCI WEST",
+      "old_value": "150 routes",
+      "new_value": "150 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MCO ESCAPE",
+      "action": "changed",
+      "detail": "+90 routes, -2 routes",
+      "old_name": "MCO ESCAPE",
+      "old_value": "44 routes",
+      "new_value": "132 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MCO NO GRNCH",
+      "action": "changed",
+      "detail": "+194 routes, -29 routes",
+      "old_name": "MCO NO GRNCH",
+      "old_value": "55 routes",
+      "new_value": "220 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MCO NO GRNCH PRICY",
+      "action": "changed",
+      "detail": "+46 routes",
+      "old_name": "MCO NO GRNCH PRICY",
+      "old_value": "46 routes",
+      "new_value": "92 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MCO NO GTOUT",
+      "action": "changed",
+      "detail": "+289 routes, -7 routes",
+      "old_name": "MCO NO GTOUT",
+      "old_value": "47 routes",
+      "new_value": "329 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MCW WEST",
+      "action": "changed",
+      "detail": "+24 routes, -24 routes",
+      "old_name": "MCW WEST",
+      "old_value": "136 routes",
+      "new_value": "136 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MDW BVT",
+      "action": "changed",
+      "detail": "+22 routes",
+      "old_name": "MDW BVT",
+      "old_value": "22 routes",
+      "new_value": "44 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MDW FWA GSH",
+      "action": "changed",
+      "detail": "+31 routes",
+      "old_name": "MDW FWA GSH",
+      "old_value": "9 routes",
+      "new_value": "40 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MDW NO JILLZ",
+      "action": "changed",
+      "detail": "+13 routes",
+      "old_name": "MDW NO JILLZ",
+      "old_value": "13 routes",
+      "new_value": "26 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MDW PIA",
+      "action": "changed",
+      "detail": "+5 routes",
+      "old_name": "MDW PIA",
+      "old_value": "5 routes",
+      "new_value": "10 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MEX AMUDI EAST 1",
+      "action": "changed",
+      "detail": "+3 routes, -3 routes",
+      "old_name": "MEX AMUDI EAST 1",
+      "old_value": "33 routes",
+      "new_value": "33 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MEX AMUDI EAST 2",
+      "action": "changed",
+      "detail": "+36 routes, -3 routes",
+      "old_name": "MEX AMUDI EAST 2",
+      "old_value": "33 routes",
+      "new_value": "66 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MEX CUS EAST",
+      "action": "changed",
+      "detail": "+60 routes, -5 routes",
+      "old_name": "MEX CUS EAST",
+      "old_value": "55 routes",
+      "new_value": "110 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MEX VYLLA EAST",
+      "action": "changed",
+      "detail": "+60 routes, -5 routes",
+      "old_name": "MEX VYLLA EAST",
+      "old_value": "55 routes",
+      "new_value": "110 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MGM 1",
+      "action": "changed",
+      "detail": "+110 routes, -11 routes",
+      "old_name": "MGM 1",
+      "old_value": "99 routes",
+      "new_value": "198 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MGM 2",
+      "action": "changed",
+      "detail": "+60 routes, -6 routes",
+      "old_name": "MGM 2",
+      "old_value": "54 routes",
+      "new_value": "108 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MGM 3",
+      "action": "changed",
+      "detail": "+6 routes, -6 routes",
+      "old_name": "MGM 3",
+      "old_value": "54 routes",
+      "new_value": "54 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MGM 4",
+      "action": "changed",
+      "detail": "+10 routes, -10 routes",
+      "old_name": "MGM 4",
+      "old_value": "90 routes",
+      "new_value": "90 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MIA VIA MOGAE",
+      "action": "changed",
+      "detail": "+34 routes, -3 routes",
+      "old_name": "MIA VIA MOGAE",
+      "old_value": "31 routes",
+      "new_value": "62 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MIDWEST TO FLORIDA",
+      "action": "changed",
+      "detail": "+2636 routes, -90 routes",
+      "old_name": "MIDWEST TO FLORIDA",
+      "old_value": "437 routes",
+      "new_value": "2983 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MSP BAINY",
+      "action": "changed",
+      "detail": "+10 routes, -10 routes",
+      "old_name": "MSP BAINY",
+      "old_value": "10 routes",
+      "new_value": "10 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MSP BLUEM",
+      "action": "changed",
+      "detail": "+48 routes, -48 routes",
+      "old_name": "MSP BLUEM",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MSP EAST",
+      "action": "changed",
+      "detail": "+47 routes, -47 routes",
+      "old_name": "MSP EAST",
+      "old_value": "47 routes",
+      "new_value": "47 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MSP KKILR",
+      "action": "changed",
+      "detail": "+71 routes, -71 routes",
+      "old_name": "MSP KKILR",
+      "old_value": "71 routes",
+      "new_value": "71 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MSP NORTH WEST",
+      "action": "changed",
+      "detail": "+13 routes, -13 routes",
+      "old_name": "MSP NORTH WEST",
+      "old_value": "13 routes",
+      "new_value": "13 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MSP SOUTH",
+      "action": "changed",
+      "detail": "+49 routes, -49 routes",
+      "old_name": "MSP SOUTH",
+      "old_value": "49 routes",
+      "new_value": "49 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MSP SOUTH EAST",
+      "action": "changed",
+      "detail": "+45 routes, -45 routes",
+      "old_name": "MSP SOUTH EAST",
+      "old_value": "45 routes",
+      "new_value": "45 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MSP TORGY",
+      "action": "changed",
+      "detail": "+8 routes, -8 routes",
+      "old_name": "MSP TORGY",
+      "old_value": "8 routes",
+      "new_value": "8 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "N90 PREF ROUTES",
+      "action": "changed",
+      "detail": "+38 routes, -38 routes",
+      "old_name": "N90 PREF ROUTES",
+      "old_value": "134 routes",
+      "new_value": "134 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "N90 THROUGH ZBW",
+      "action": "changed",
+      "detail": "+10 routes, -10 routes",
+      "old_name": "N90 THROUGH ZBW",
+      "old_value": "74 routes",
+      "new_value": "74 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA J48 2",
+      "action": "changed",
+      "detail": "+98 routes, -21 routes",
+      "old_name": "NE TO FLORIDA VIA J48 2",
+      "old_value": "77 routes",
+      "new_value": "154 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA J48 3",
+      "action": "changed",
+      "detail": "+14 routes, -14 routes",
+      "old_name": "NE TO FLORIDA VIA J48 3",
+      "old_value": "84 routes",
+      "new_value": "84 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA J6",
+      "action": "changed",
+      "detail": "+14 routes, -14 routes",
+      "old_name": "NE TO FLORIDA VIA J6",
+      "old_value": "84 routes",
+      "new_value": "84 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA J64 1",
+      "action": "changed",
+      "detail": "+5 routes, -5 routes",
+      "old_name": "NE TO FLORIDA VIA J64 1",
+      "old_value": "20 routes",
+      "new_value": "20 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA J64 2",
+      "action": "changed",
+      "detail": "+17 routes, -17 routes",
+      "old_name": "NE TO FLORIDA VIA J64 2",
+      "old_value": "32 routes",
+      "new_value": "32 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA J64 3",
+      "action": "changed",
+      "detail": "+8 routes, -8 routes",
+      "old_name": "NE TO FLORIDA VIA J64 3",
+      "old_value": "44 routes",
+      "new_value": "44 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA Q409",
+      "action": "changed",
+      "detail": "+24 routes, -24 routes",
+      "old_name": "NE TO FLORIDA VIA Q409",
+      "old_value": "60 routes",
+      "new_value": "60 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA Q480 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "NE TO FLORIDA VIA Q480 2",
+      "old_value": "32 routes",
+      "new_value": "32 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA Q480 3",
+      "action": "changed",
+      "detail": "+8 routes, -8 routes",
+      "old_name": "NE TO FLORIDA VIA Q480 3",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA Q75 2",
+      "action": "changed",
+      "detail": "+30 routes, -30 routes",
+      "old_name": "NE TO FLORIDA VIA Q75 2",
+      "old_value": "80 routes",
+      "new_value": "80 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA Q97 1",
+      "action": "changed",
+      "detail": "+91 routes",
+      "old_name": "NE TO FLORIDA VIA Q97 1",
+      "old_value": "35 routes",
+      "new_value": "126 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NE TO FLORIDA VIA Q97 2",
+      "action": "changed",
+      "detail": "+72 routes",
+      "old_name": "NE TO FLORIDA VIA Q97 2",
+      "old_value": "60 routes",
+      "new_value": "132 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NEW YORK DUCT NORTH",
+      "action": "changed",
+      "detail": "+4 routes, -4 routes",
+      "old_name": "NEW YORK DUCT NORTH",
+      "old_value": "52 routes",
+      "new_value": "52 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NO Q34 1",
+      "action": "changed",
+      "detail": "+30 routes, -3 routes",
+      "old_name": "NO Q34 1",
+      "old_value": "27 routes",
+      "new_value": "54 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NO Q34 2",
+      "action": "changed",
+      "detail": "+4 routes, -4 routes",
+      "old_name": "NO Q34 2",
+      "old_value": "56 routes",
+      "new_value": "56 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NO Q34 3",
+      "action": "changed",
+      "detail": "+90 routes, -9 routes",
+      "old_name": "NO Q34 3",
+      "old_value": "81 routes",
+      "new_value": "162 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NYSATS TO FL",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "NYSATS TO FL",
+      "old_value": "56 routes",
+      "new_value": "56 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "OBK",
+      "action": "changed",
+      "detail": "+36 routes, -36 routes",
+      "old_name": "OBK",
+      "old_value": "66 routes",
+      "new_value": "66 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "OHIO VALLEY TO FLORIDA 2",
+      "action": "changed",
+      "detail": "+443 routes, -12 routes",
+      "old_name": "OHIO VALLEY TO FLORIDA 2",
+      "old_value": "193 routes",
+      "new_value": "624 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ORD EAST 1",
+      "action": "changed",
+      "detail": "+1 routes, -1 routes",
+      "old_name": "ORD EAST 1",
+      "old_value": "11 routes",
+      "new_value": "11 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PHL TO ZBW CZU ZEU",
+      "action": "changed",
+      "detail": "+1 routes, -1 routes",
+      "old_name": "PHL TO ZBW CZU ZEU",
+      "old_value": "13 routes",
+      "new_value": "13 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PHLYER NORTH",
+      "action": "changed",
+      "detail": "+3 routes, -3 routes",
+      "old_name": "PHLYER NORTH",
+      "old_value": "18 routes",
+      "new_value": "18 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PHLYER SOUTH",
+      "action": "changed",
+      "detail": "+1 routes, -1 routes",
+      "old_name": "PHLYER SOUTH",
+      "old_value": "10 routes",
+      "new_value": "10 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PHLYER WEST",
+      "action": "changed",
+      "detail": "+3 routes, -3 routes",
+      "old_name": "PHLYER WEST",
+      "old_value": "27 routes",
+      "new_value": "27 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PHX EAGUL NO ZUN",
+      "action": "changed",
+      "detail": "+1 routes, -1 routes",
+      "old_name": "PHX EAGUL NO ZUN",
+      "old_value": "31 routes",
+      "new_value": "31 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PHX NO EAGUL",
+      "action": "changed",
+      "detail": "+1 routes, -1 routes",
+      "old_name": "PHX NO EAGUL",
+      "old_value": "28 routes",
+      "new_value": "28 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PNH 1",
+      "action": "changed",
+      "detail": "+27 routes, -27 routes",
+      "old_name": "PNH 1",
+      "old_value": "192 routes",
+      "new_value": "192 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PNH 2",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "PNH 2",
+      "old_value": "192 routes",
+      "new_value": "192 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "POTOMAC NORTH LOW",
+      "action": "changed",
+      "detail": "+3 routes, -3 routes",
+      "old_name": "POTOMAC NORTH LOW",
+      "old_value": "27 routes",
+      "new_value": "27 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PXV",
+      "action": "changed",
+      "detail": "+12 routes, -12 routes",
+      "old_name": "PXV",
+      "old_value": "144 routes",
+      "new_value": "144 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ROCKIES NORTH 1",
+      "action": "changed",
+      "detail": "+8 routes, -8 routes",
+      "old_name": "ROCKIES NORTH 1",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ROCKIES NORTH 2",
+      "action": "changed",
+      "detail": "+8 routes, -8 routes",
+      "old_name": "ROCKIES NORTH 2",
+      "old_value": "48 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ROCKIES SOUTH 1",
+      "action": "changed",
+      "detail": "+24 routes, -24 routes",
+      "old_name": "ROCKIES SOUTH 1",
+      "old_value": "56 routes",
+      "new_value": "56 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ROCKIES SOUTH 2",
+      "action": "changed",
+      "detail": "+30 routes, -2 routes",
+      "old_name": "ROCKIES SOUTH 2",
+      "old_value": "28 routes",
+      "new_value": "56 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ROD",
+      "action": "changed",
+      "detail": "+11 routes, -11 routes",
+      "old_name": "ROD",
+      "old_value": "55 routes",
+      "new_value": "55 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SENTRY MAYHEM SOUTHBOUND",
+      "action": "changed",
+      "detail": "+56 routes",
+      "old_name": "SENTRY MAYHEM SOUTHBOUND",
+      "old_value": "252 routes",
+      "new_value": "308 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SERBOS 1",
+      "action": "changed",
+      "detail": "+7 routes, -7 routes",
+      "old_name": "SERBOS 1",
+      "old_value": "72 routes",
+      "new_value": "72 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SERMN EAST",
+      "action": "changed",
+      "detail": "+6 routes, -6 routes",
+      "old_name": "SERMN EAST",
+      "old_value": "135 routes",
+      "new_value": "135 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SERMN NORTH",
+      "action": "changed",
+      "detail": "+6 routes, -6 routes",
+      "old_name": "SERMN NORTH",
+      "old_value": "174 routes",
+      "new_value": "174 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SIERRA 1",
+      "action": "changed",
+      "detail": "+26 routes, -4 routes",
+      "old_name": "SIERRA 1",
+      "old_value": "22 routes",
+      "new_value": "44 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SIERRA 2",
+      "action": "changed",
+      "detail": "+29 routes, -4 routes",
+      "old_name": "SIERRA 2",
+      "old_value": "30 routes",
+      "new_value": "55 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SKI COUNTRY 2",
+      "action": "changed",
+      "detail": "+1197 routes",
+      "old_name": "SKI COUNTRY 2",
+      "old_value": "99 routes",
+      "new_value": "1296 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SKI COUNTRY 3",
+      "action": "changed",
+      "detail": "+1602 routes",
+      "old_name": "SKI COUNTRY 3",
+      "old_value": "102 routes",
+      "new_value": "1704 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SLN",
+      "action": "changed",
+      "detail": "+20 routes, -20 routes",
+      "old_name": "SLN",
+      "old_value": "98 routes",
+      "new_value": "98 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SOUTH TO DCMETS",
+      "action": "changed",
+      "detail": "+27 routes, -9 routes",
+      "old_name": "SOUTH TO DCMETS",
+      "old_value": "30 routes",
+      "new_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SOUTH TO NY SATS",
+      "action": "changed",
+      "detail": "+36 routes",
+      "old_name": "SOUTH TO NY SATS",
+      "old_value": "36 routes",
+      "new_value": "72 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SOUTH TO PHL AND PHL SATS",
+      "action": "changed",
+      "detail": "+42 routes",
+      "old_name": "SOUTH TO PHL AND PHL SATS",
+      "old_value": "42 routes",
+      "new_value": "84 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SOUTH TO ZBW",
+      "action": "changed",
+      "detail": "+676 routes",
+      "old_name": "SOUTH TO ZBW",
+      "old_value": "160 routes",
+      "new_value": "836 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SPI",
+      "action": "changed",
+      "detail": "+9 routes, -9 routes",
+      "old_name": "SPI",
+      "old_value": "126 routes",
+      "new_value": "126 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "STAVE 1",
+      "action": "changed",
+      "detail": "+52 routes",
+      "old_name": "STAVE 1",
+      "old_value": "58 routes",
+      "new_value": "110 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "STAVE 2 FLORIDA ARVLS",
+      "action": "changed",
+      "detail": "+513 routes, -34 routes",
+      "old_name": "STAVE 2 FLORIDA ARVLS",
+      "old_value": "196 routes",
+      "new_value": "675 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "STL",
+      "action": "changed",
+      "detail": "+11 routes, -11 routes",
+      "old_name": "STL",
+      "old_value": "165 routes",
+      "new_value": "165 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "TEXAS TO FLORIDA",
+      "action": "changed",
+      "detail": "+192 routes, -24 routes",
+      "old_name": "TEXAS TO FLORIDA",
+      "old_value": "72 routes",
+      "new_value": "240 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "TPA AREA ESCAPE",
+      "action": "changed",
+      "detail": "+214 routes, -3 routes",
+      "old_name": "TPA AREA ESCAPE",
+      "old_value": "58 routes",
+      "new_value": "269 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "VHP",
+      "action": "changed",
+      "detail": "+10 routes, -10 routes",
+      "old_name": "VHP",
+      "old_value": "120 routes",
+      "new_value": "120 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "VLKNN",
+      "action": "changed",
+      "detail": "+170 routes, -17 routes",
+      "old_name": "VLKNN",
+      "old_value": "153 routes",
+      "new_value": "306 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "WATRS",
+      "action": "changed",
+      "detail": "+366 routes, -12 routes",
+      "old_name": "WATRS",
+      "old_value": "348 routes",
+      "new_value": "702 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "WATRS ROUTES TO AVOID SENTRY",
+      "action": "changed",
+      "detail": "+392 routes, -13 routes",
+      "old_name": "WATRS ROUTES TO AVOID SENTRY",
+      "old_value": "377 routes",
+      "new_value": "756 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "WEST TO Q-Y",
+      "action": "changed",
+      "detail": "+187 routes, -57 routes",
+      "old_name": "WEST TO Q-Y",
+      "old_value": "95 routes",
+      "new_value": "225 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "WEVEL",
+      "action": "changed",
+      "detail": "+6 routes, -6 routes",
+      "old_name": "WEVEL",
+      "old_value": "39 routes",
+      "new_value": "39 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "YANKEE PHL DEPT TO ZBW CZU",
+      "action": "changed",
+      "detail": "+1 routes, -1 routes",
+      "old_name": "YANKEE PHL DEPT TO ZBW CZU",
+      "old_value": "12 routes",
+      "new_value": "12 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "YANKEE WEST TO BDL BED BVY LWM",
+      "action": "changed",
+      "detail": "+72 routes",
+      "old_name": "YANKEE WEST TO BDL BED BVY LWM",
+      "old_value": "4 routes",
+      "new_value": "76 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "YYZ NO LINNG",
+      "action": "changed",
+      "detail": "+179 routes, -9 routes",
+      "old_name": "YYZ NO LINNG",
+      "old_value": "37 routes",
+      "new_value": "207 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ZBW HEADI",
+      "action": "changed",
+      "detail": "+836 routes",
+      "old_name": "ZBW HEADI",
+      "old_value": "418 routes",
+      "new_value": "1254 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ZBW MICAH",
+      "action": "changed",
+      "detail": "+46 routes, -46 routes",
+      "old_name": "ZBW MICAH",
+      "old_value": "345 routes",
+      "new_value": "345 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ZBW TO FLORIDA VIA Q29 1",
+      "action": "changed",
+      "detail": "+1 routes, -1 routes",
+      "old_name": "ZBW TO FLORIDA VIA Q29 1",
+      "old_value": "8 routes",
+      "new_value": "8 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ZBW TO FLORIDA VIA Q29 2",
+      "action": "changed",
+      "detail": "+3 routes, -3 routes",
+      "old_name": "ZBW TO FLORIDA VIA Q29 2",
+      "old_value": "8 routes",
+      "new_value": "8 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ZBW VIA SYR ESCAPE",
+      "action": "changed",
+      "detail": "+1 routes, -1 routes",
+      "old_name": "ZBW VIA SYR ESCAPE",
+      "old_value": "7 routes",
+      "new_value": "7 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ZMA CARIBBEAN HARP NORTH",
+      "action": "changed",
+      "detail": "+87 routes",
+      "old_name": "ZMA CARIBBEAN HARP NORTH",
+      "old_value": "29 routes",
+      "new_value": "116 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ZSU CARIBBEAN HARP NORTH",
+      "action": "changed",
+      "detail": "+538 routes, -7 routes",
+      "old_name": "ZSU CARIBBEAN HARP NORTH",
+      "old_value": "94 routes",
+      "new_value": "625 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ZTL TO FLORIDA ESCAPE",
+      "action": "changed",
+      "detail": "+76 routes, -7 routes",
+      "old_name": "ZTL TO FLORIDA ESCAPE",
+      "old_value": "23 routes",
+      "new_value": "92 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ATL TO ZBW",
+      "action": "removed",
+      "detail": "21 routes removed",
+      "old_name": "ATL TO ZBW",
+      "old_value": "21 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "BAE 1",
+      "action": "removed",
+      "detail": "72 routes removed",
+      "old_name": "BAE 1",
+      "old_value": "72 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "BCT AREA NO GAWKS",
+      "action": "removed",
+      "detail": "24 routes removed",
+      "old_name": "BCT AREA NO GAWKS",
+      "old_value": "24 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "BUM",
+      "action": "removed",
+      "detail": "165 routes removed",
+      "old_name": "BUM",
+      "old_value": "165 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CANCUN ARRIVALS",
+      "action": "removed",
+      "detail": "61 routes removed",
+      "old_name": "CANCUN ARRIVALS",
+      "old_value": "61 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "CAPE LAUNCH 1",
+      "action": "removed",
+      "detail": "117 routes removed",
+      "old_name": "CAPE LAUNCH 1",
+      "old_value": "117 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "DC METROS TO ZBW",
+      "action": "removed",
+      "detail": "48 routes removed",
+      "old_name": "DC METROS TO ZBW",
+      "old_value": "48 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "GTK MBPV",
+      "action": "removed",
+      "detail": "1 routes removed",
+      "old_name": "GTK MBPV",
+      "old_value": "1 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "MACER 3",
+      "action": "removed",
+      "detail": "37 routes removed",
+      "old_name": "MACER 3",
+      "old_value": "37 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NEW YORK  DUCT WEST",
+      "action": "removed",
+      "detail": "25 routes removed",
+      "old_name": "NEW YORK  DUCT WEST",
+      "old_value": "25 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NO J6 2",
+      "action": "removed",
+      "detail": "32 routes removed",
+      "old_name": "NO J6 2",
+      "old_value": "32 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NO J80",
+      "action": "removed",
+      "detail": "36 routes removed",
+      "old_name": "NO J80",
+      "old_value": "36 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ORD NO BENKY CHPMN",
+      "action": "removed",
+      "detail": "33 routes removed",
+      "old_name": "ORD NO BENKY CHPMN",
+      "old_value": "33 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "TUL 1",
+      "action": "removed",
+      "detail": "180 routes removed",
+      "old_name": "TUL 1",
+      "old_value": "180 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "BNA NO SWFFT",
+      "action": "added",
+      "detail": "17 routes",
+      "new_value": "17 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "NEW YORK DUCT WEST",
+      "action": "added",
+      "detail": "25 routes",
+      "new_value": "25 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ORD NO BENKY CHMPN",
+      "action": "added",
+      "detail": "33 routes",
+      "new_value": "33 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "PLACID AVOIDANCE",
+      "action": "added",
+      "detail": "900 routes",
+      "new_value": "900 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SNOWBIRD",
+      "action": "added",
+      "detail": "21 routes",
+      "new_value": "21 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SPACE OPS",
+      "action": "added",
+      "detail": "117 routes",
+      "new_value": "117 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SPECIAL OPS",
+      "action": "added",
+      "detail": "72 routes",
+      "new_value": "72 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "SUA ACTIVITY",
+      "action": "added",
+      "detail": "96 routes",
+      "new_value": "96 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "TUL",
+      "action": "added",
+      "detail": "181 routes",
+      "new_value": "181 routes"
+    },
+    {
+      "type": "playbook",
+      "name": "ZBW TO ZDC VIA ATR",
+      "action": "added",
+      "detail": "36 routes",
+      "new_value": "36 routes"
     }
   ]
 }
