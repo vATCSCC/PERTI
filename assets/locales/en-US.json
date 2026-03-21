@@ -952,6 +952,65 @@
       "end": "End",
       "start": "Start",
       "update": "Update"
+    },
+    "facility": {
+      "type": {
+        "label": "Demand Type",
+        "airport": "Airport",
+        "tracon": "TRACON",
+        "artccFir": "ARTCC/FIR",
+        "group": "Group"
+      },
+      "mode": {
+        "label": "Measurement",
+        "airportCounts": "Airport Counts",
+        "boundaryCrossings": "Boundary Crossings"
+      },
+      "direction": {
+        "thru": "Thru"
+      },
+      "view": {
+        "airport": "Airport",
+        "airportTooltip": "Show breakdown by constituent airports"
+      },
+      "infoBar": {
+        "topAirports": "Top Airports",
+        "facilityName": "Facility",
+        "totalFlights": "Total Flights",
+        "modeFallback": "Showing airport counts (crossing mode not available for pattern groups)"
+      },
+      "filter": {
+        "selectTracon": "Select TRACON...",
+        "selectArtccFir": "Select ARTCC/FIR...",
+        "selectGroup": "Select Group...",
+        "allTracons": "All TRACONs",
+        "allGroups": "All Groups",
+        "parentArtcc": "Parent ARTCC",
+        "regionFilter": "Region"
+      },
+      "error": {
+        "timeRangeTooLarge": "Time range too large for this group. Maximum 4 hours.",
+        "noFacilitySelected": "No facility selected"
+      },
+      "empty": {
+        "noTrafficInFacility": "No traffic found for this facility in the selected time range.",
+        "noCrossingData": "No boundary crossing data available for this facility.",
+        "selectFacility": "Select a facility from the filter panel to view demand."
+      },
+      "summary": {
+        "topAirports": "Top Airports"
+      },
+      "optgroup": {
+        "usDcc": "US DCC Regions",
+        "canadaDcc": "Canada DCC Regions",
+        "firRegional": "FIR Regional Groups",
+        "firByCountry": "FIR by Country",
+        "firGlobal": "Global",
+        "us": "United States",
+        "canada": "Canada",
+        "caribbean": "Caribbean",
+        "global": "International"
+      }
     }
   },
   "dialog": {

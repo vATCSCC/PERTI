@@ -848,6 +848,65 @@
       "end": "Fin",
       "start": "Début",
       "update": "Mise à jour"
+    },
+    "facility": {
+      "type": {
+        "label": "Type de demande",
+        "airport": "Aéroport",
+        "tracon": "TRACON",
+        "artccFir": "ARTCC/FIR",
+        "group": "Groupe"
+      },
+      "mode": {
+        "label": "Mesure",
+        "airportCounts": "Comptes aéroport",
+        "boundaryCrossings": "Croisements de frontières"
+      },
+      "direction": {
+        "thru": "Transit"
+      },
+      "view": {
+        "airport": "Aéroport",
+        "airportTooltip": "Afficher la répartition par aéroports constituants"
+      },
+      "infoBar": {
+        "topAirports": "Aéroports principaux",
+        "facilityName": "Installation",
+        "totalFlights": "Total des vols",
+        "modeFallback": "Affichage des comptes aéroport (mode croisement non disponible pour les groupes à motifs)"
+      },
+      "filter": {
+        "selectTracon": "Sélectionner un TRACON...",
+        "selectArtccFir": "Sélectionner un ARTCC/FIR...",
+        "selectGroup": "Sélectionner un groupe...",
+        "allTracons": "Tous les TRACON",
+        "allGroups": "Tous les groupes",
+        "parentArtcc": "ARTCC parent",
+        "regionFilter": "Région"
+      },
+      "error": {
+        "timeRangeTooLarge": "Plage de temps trop grande pour ce groupe. Maximum 4 heures.",
+        "noFacilitySelected": "Aucune installation sélectionnée"
+      },
+      "empty": {
+        "noTrafficInFacility": "Aucun trafic trouvé pour cette installation dans la plage de temps sélectionnée.",
+        "noCrossingData": "Aucune donnée de croisement de frontières disponible pour cette installation.",
+        "selectFacility": "Sélectionnez une installation dans le panneau de filtre pour afficher la demande."
+      },
+      "summary": {
+        "topAirports": "Aéroports principaux"
+      },
+      "optgroup": {
+        "usDcc": "Régions DCC des É.-U.",
+        "canadaDcc": "Régions DCC du Canada",
+        "firRegional": "Groupes régionaux FIR",
+        "firByCountry": "FIR par pays",
+        "firGlobal": "Mondial",
+        "us": "États-Unis",
+        "canada": "Canada",
+        "caribbean": "Caraïbes",
+        "global": "International"
+      }
     }
   },
   "dialog": {
