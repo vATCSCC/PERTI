@@ -3019,6 +3019,13 @@
       "intl": "International",
       "nasrLabel": "NASR (\u00c9.-U.)",
       "intlLabel": "International"
+    },
+    "pagination": {
+      "prev": "Pr\u00e9c.",
+      "next": "Suiv.",
+      "all": "Tout",
+      "perPage": "par page",
+      "showing": "Affichage {from}\u2013{to} sur {total}"
     }
   },
   "natots": {

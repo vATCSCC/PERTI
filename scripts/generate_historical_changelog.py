@@ -59,9 +59,14 @@ def is_old(name):
     return '_old_' in low or low.endswith('_old')
 
 
+def _norm_source(src):
+    """Normalize source: NASR/nasr -> 'nasr', XP12/xp12/INTL/CIFP -> 'intl'."""
+    return 'intl' if src.strip().upper() in ('XP12', 'INTL', 'CIFP') else 'nasr'
+
+
 def parse_coords(text):
-    """Parse headerless CSV: name,lat,lon -> {name: (lat,lon)}, total_count."""
-    active = {}
+    """Parse headerless CSV: name,lat,lon[,source] -> {(name,source): [(lat,lon),...]}, total_count."""
+    groups = defaultdict(list)
     total = 0
     for row in csv.reader(io.StringIO(text)):
         if len(row) < 3:
@@ -71,15 +76,16 @@ def parse_coords(text):
         if is_old(name):
             continue
         try:
-            active[name] = (float(row[1]), float(row[2]))
+            source = _norm_source(row[3].strip()) if len(row) > 3 and row[3].strip() else 'nasr'
+            groups[(name, source)].append((float(row[1]), float(row[2])))
         except ValueError:
             continue
-    return active, total
+    return dict(groups), total
 
 
 def parse_routes(text):
-    """Parse headerless CSV: name,route -> {name: route}, total_count."""
-    active = {}
+    """Parse headerless CSV: name,route[,source] -> {(name,source): [route,...]}, total_count."""
+    groups = defaultdict(list)
     total = 0
     for line in text.strip().split('\n'):
         line = line.strip()
@@ -92,8 +98,17 @@ def parse_routes(text):
         name = line[:idx].strip()
         if is_old(name):
             continue
-        active[name] = line[idx + 1:].strip()
-    return active, total
+        rest = line[idx + 1:].strip()
+        # Check for trailing source field
+        source = 'nasr'
+        last_comma = rest.rfind(',')
+        if last_comma > 0:
+            candidate = rest[last_comma + 1:].strip().upper()
+            if candidate in ('NASR', 'XP12'):
+                source = _norm_source(candidate)
+                rest = rest[:last_comma].strip()
+        groups[(name, source)].append(rest)
+    return dict(groups), total
 
 
 def parse_procs(text):
@@ -546,68 +561,122 @@ def haversine_nm(lat1, lon1, lat2, lon2):
 
 
 def diff_coords(old, new, typ):
-    """Diff coordinate-based data (points/navaids)."""
+    """Diff coordinate-based data (points/navaids).
+
+    Keys are (name, source) tuples; values are lists of (lat, lon).
+    Uses greedy nearest-match within each key group.
+    """
     changes = []
-    common = sorted(set(old) & set(new))
-    removed_names = sorted(set(old) - set(new))
-    added_names = sorted(set(new) - set(old))
+    all_keys = sorted(set(old) | set(new))
 
-    for n in common:
-        olat, olon = old[n]
-        nlat, nlon = new[n]
-        if abs(olat - nlat) > 0.0001 or abs(olon - nlon) > 0.0001:
-            changes.append({
-                'type': typ, 'name': n, 'action': 'moved',
-                'detail': f"({olat:.6f},{olon:.6f}) -> ({nlat:.6f},{nlon:.6f})",
-                'old_name': n,
-                'lat': nlat, 'lon': nlon,
-                'old_lat': olat, 'old_lon': olon,
-                'delta_nm': haversine_nm(olat, olon, nlat, nlon)
-            })
+    for key in all_keys:
+        name, source = key
+        old_pts = old.get(key, [])
+        new_pts = new.get(key, [])
 
-    for n in removed_names:
-        olat, olon = old[n]
-        changes.append({
-            'type': typ, 'name': n, 'action': 'removed',
-            'detail': 'No longer in NASR source',
-            'old_name': n, 'old_lat': olat, 'old_lon': olon
-        })
+        # Match old↔new by nearest distance (greedy)
+        matched_old = set()
+        matched_new = set()
+        for i, (olat, olon) in enumerate(old_pts):
+            best_j, best_dist = -1, float('inf')
+            for j, (nlat, nlon) in enumerate(new_pts):
+                if j in matched_new:
+                    continue
+                d = haversine_nm(olat, olon, nlat, nlon)
+                if d < best_dist:
+                    best_dist, best_j = d, j
+            if best_j >= 0 and best_dist < 500:
+                matched_old.add(i)
+                matched_new.add(best_j)
+                nlat, nlon = new_pts[best_j]
+                if abs(olat - nlat) > 0.0001 or abs(olon - nlon) > 0.0001:
+                    changes.append({
+                        'type': typ, 'name': name, 'action': 'moved',
+                        'source': source,
+                        'detail': f"({olat:.6f},{olon:.6f}) -> ({nlat:.6f},{nlon:.6f})",
+                        'old_name': name,
+                        'lat': nlat, 'lon': nlon,
+                        'old_lat': olat, 'old_lon': olon,
+                        'delta_nm': haversine_nm(olat, olon, nlat, nlon)
+                    })
 
-    for n in added_names:
-        nlat, nlon = new[n]
-        changes.append({
-            'type': typ, 'name': n, 'action': 'added',
-            'detail': f"({nlat:.6f},{nlon:.6f})",
-            'lat': nlat, 'lon': nlon
-        })
+        # Unmatched old → removed
+        for i, (olat, olon) in enumerate(old_pts):
+            if i not in matched_old:
+                changes.append({
+                    'type': typ, 'name': name, 'action': 'removed',
+                    'source': source,
+                    'detail': 'No longer in source',
+                    'old_name': name, 'old_lat': olat, 'old_lon': olon
+                })
+
+        # Unmatched new → added
+        for j, (nlat, nlon) in enumerate(new_pts):
+            if j not in matched_new:
+                changes.append({
+                    'type': typ, 'name': name, 'action': 'added',
+                    'source': source,
+                    'detail': f"({nlat:.6f},{nlon:.6f})",
+                    'lat': nlat, 'lon': nlon
+                })
 
     return changes
 
 
 def diff_routes(old, new, typ):
-    """Diff route-based data (airways/cdrs)."""
+    """Diff route-based data (airways/cdrs).
+
+    Keys are (name, source) tuples; values are lists of route strings.
+    Uses greedy word-similarity matching within each key group.
+    """
     changes = []
+    all_keys = sorted(set(old) | set(new))
 
-    for n in sorted(set(old) & set(new)):
-        if old[n] != new[n]:
-            changes.append({
-                'type': typ, 'name': n, 'action': 'changed',
-                'detail': 'Content modified', 'old_name': n,
-                'new_value': new[n], 'old_value': old[n]
-            })
+    for key in all_keys:
+        name, source = key
+        old_routes = old.get(key, [])
+        new_routes = new.get(key, [])
 
-    for n in sorted(set(old) - set(new)):
-        changes.append({
-            'type': typ, 'name': n, 'action': 'removed',
-            'detail': 'No longer in source', 'old_name': n,
-            'old_value': old[n]
-        })
+        # Match old↔new by word similarity (greedy)
+        matched_old = set()
+        matched_new = set()
+        for i, old_r in enumerate(old_routes):
+            best_j, best_sim = -1, 0.0
+            for j, new_r in enumerate(new_routes):
+                if j in matched_new:
+                    continue
+                sim = _word_similarity(old_r, new_r)
+                if sim > best_sim:
+                    best_sim, best_j = sim, j
+            if best_j >= 0 and best_sim >= 0.3:
+                matched_old.add(i)
+                matched_new.add(best_j)
+                if old_r != new_routes[best_j]:
+                    changes.append({
+                        'type': typ, 'name': name, 'action': 'changed',
+                        'source': source,
+                        'detail': 'Content modified', 'old_name': name,
+                        'new_value': new_routes[best_j], 'old_value': old_r
+                    })
 
-    for n in sorted(set(new) - set(old)):
-        changes.append({
-            'type': typ, 'name': n, 'action': 'added',
-            'detail': 'New entry', 'new_value': new[n]
-        })
+        # Unmatched old → removed
+        for i, old_r in enumerate(old_routes):
+            if i not in matched_old:
+                changes.append({
+                    'type': typ, 'name': name, 'action': 'removed',
+                    'source': source,
+                    'detail': 'No longer in source', 'old_name': name,
+                    'old_value': old_r
+                })
+
+        # Unmatched new → added
+        for j, new_r in enumerate(new_routes):
+            if j not in matched_new:
+                changes.append({
+                    'type': typ, 'name': name, 'action': 'added',
+                    'source': source,
+                    'detail': 'New entry', 'new_value': new_r
+                })
 
     return changes
 
@@ -889,13 +958,17 @@ def main():
     old_pb, old_pb_t = parse_playbook(raw['playbook'][0])
     new_pb, new_pb_t = parse_playbook(raw['playbook'][1])
 
-    print(f"  Points:   {len(old_pts):,} -> {len(new_pts):,} active"
+    # Count active entries (groups may have multiple entries per key)
+    def _count_entries(groups):
+        return sum(len(v) for v in groups.values())
+
+    print(f"  Points:   {_count_entries(old_pts):,} -> {_count_entries(new_pts):,} active"
           f"  ({old_pts_t:,} / {new_pts_t:,} total)")
-    print(f"  Navaids:  {len(old_nav):,} -> {len(new_nav):,} active"
+    print(f"  Navaids:  {_count_entries(old_nav):,} -> {_count_entries(new_nav):,} active"
           f"  ({old_nav_t:,} / {new_nav_t:,} total)")
-    print(f"  Airways:  {len(old_awy):,} -> {len(new_awy):,} active"
+    print(f"  Airways:  {_count_entries(old_awy):,} -> {_count_entries(new_awy):,} active"
           f"  ({old_awy_t:,} / {new_awy_t:,} total)")
-    print(f"  CDRs:     {len(old_cdr):,} -> {len(new_cdr):,} active"
+    print(f"  CDRs:     {_count_entries(old_cdr):,} -> {_count_entries(new_cdr):,} active"
           f"  ({old_cdr_t:,} / {new_cdr_t:,} total)")
     print(f"  DPs:      {len(old_dp):,} -> {len(new_dp):,} active"
           f"  ({old_dp_t:,} / {new_dp_t:,} total)")
@@ -922,8 +995,8 @@ def main():
         'playbook': new_pb_t
     }
     active_counts = {
-        'points': len(new_pts), 'navaids': len(new_nav),
-        'airways': len(new_awy), 'cdrs': len(new_cdr),
+        'points': _count_entries(new_pts), 'navaids': _count_entries(new_nav),
+        'airways': _count_entries(new_awy), 'cdrs': _count_entries(new_cdr),
         'dps': len(new_dp), 'stars': len(new_st),
         'playbook': len(new_pb),
     }

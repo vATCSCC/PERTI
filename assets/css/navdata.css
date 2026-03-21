@@ -248,6 +248,17 @@ tr.detail-row > td {
     font-size: 0.85rem;
 }
 
+/* Pagination Controls */
+#pagination-controls {
+    padding: 0.5rem 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+#page-size {
+    background-color: #2d2d2d;
+    color: #ddd;
+    border-color: #555;
+}
+
 /* Empty/Loading States */
 #empty-state, #loading-state {
     min-height: 200px;

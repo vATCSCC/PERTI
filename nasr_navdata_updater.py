@@ -1005,39 +1005,39 @@ class NavDataTransformer:
         result = ' '.join(result.split())
         return result
     
-    def transform_points(self, fixes: Dict, navaids: Dict, airports: Dict) -> List[Tuple[str, float, float]]:
-        """Combine fixes, navaids, airports into points list."""
+    def transform_points(self, fixes: Dict, navaids: Dict, airports: Dict) -> List[Tuple]:
+        """Combine fixes, navaids, airports into points list with source tracking."""
         points = []
         seen = set()
-        
+
         # Add fixes
         for fix_id, (lat, lon) in fixes.items():
             if fix_id not in seen:
-                points.append((fix_id, lat, lon))
+                points.append((fix_id, lat, lon, 'NASR'))
                 seen.add(fix_id)
-        
+
         # Add navaids (may overlap with fixes)
         for nav_id, (lat, lon, _) in navaids.items():
             if nav_id not in seen:
-                points.append((nav_id, lat, lon))
+                points.append((nav_id, lat, lon, 'NASR'))
                 seen.add(nav_id)
-        
+
         # Add airports with K prefix for US airports
         for arpt_id, (lat, lon, _) in airports.items():
             k_id = f"K{arpt_id}" if not arpt_id.startswith('K') and len(arpt_id) == 3 else arpt_id
             if k_id not in seen:
-                points.append((k_id, lat, lon))
+                points.append((k_id, lat, lon, 'NASR'))
                 seen.add(k_id)
             # Also add without K prefix
             if arpt_id not in seen:
-                points.append((arpt_id, lat, lon))
+                points.append((arpt_id, lat, lon, 'NASR'))
                 seen.add(arpt_id)
-        
+
         return points
     
-    def transform_navaids(self, navaids: Dict) -> List[Tuple[str, float, float]]:
-        """Transform navaids to output format."""
-        return [(nav_id, lat, lon) for nav_id, (lat, lon, _) in navaids.items()]
+    def transform_navaids(self, navaids: Dict) -> List[Tuple]:
+        """Transform navaids to output format with source tracking."""
+        return [(nav_id, lat, lon, 'NASR') for nav_id, (lat, lon, _) in navaids.items()]
     
     def transform_airports(self, airports: Dict) -> List[Tuple[str, float, float]]:
         """Transform airports to output format (K-prefixed)."""
@@ -1304,6 +1304,7 @@ class NavDataMerger:
                     source_removed: set = None) -> List[Tuple]:
         """
         Merge point lists with _old_{cycle}_{reason} suffix.
+        Tuples are (name, lat, lon) or (name, lat, lon, source).
         - New points: add directly
         - Moved points (coords changed): rename old to _old_{cycle}_moved
         - Removed points (not in new data): rename to _old_{cycle}_removed
@@ -1312,20 +1313,25 @@ class NavDataMerger:
           entries NOT in this set and not in new data are preserved unchanged
           (they may come from non-NASR sources like XP12, oceanic, Canadian).
         """
-        existing_dict = {pt[0]: (pt[1], pt[2]) for pt in existing}
+        existing_dict = {}
+        for pt in existing:
+            src = pt[3] if len(pt) > 3 else 'NASR'
+            existing_dict[pt[0]] = (pt[1], pt[2], src)
         result = []
         processed_ids = set()
         source_removed = source_removed or set()
 
         # First pass: process new points
-        for pt_id, lat, lon in new:
+        for pt in new:
+            pt_id, lat, lon = pt[0], pt[1], pt[2]
+            source = pt[3] if len(pt) > 3 else 'NASR'
             if pt_id in existing_dict:
-                old_lat, old_lon = existing_dict[pt_id]
+                old_lat, old_lon, old_src = existing_dict[pt_id]
                 # Check for coordinate changes (threshold: 0.0001 degrees ~ 11m)
                 if abs(old_lat - lat) > 0.0001 or abs(old_lon - lon) > 0.0001:
                     old_name = self._get_old_name(pt_id, 'moved')
-                    result.append((old_name, old_lat, old_lon))
-                    result.append((pt_id, lat, lon))
+                    result.append((old_name, old_lat, old_lon, old_src))
+                    result.append((pt_id, lat, lon, source))
                     self.changes[data_type]['modified'] += 1
                     self.changes[data_type]['renamed'] += 1
                     self.detailed_changes[data_type].append({
@@ -1337,11 +1343,11 @@ class NavDataMerger:
                         'detail': f"({old_lat:.6f},{old_lon:.6f}) -> ({lat:.6f},{lon:.6f})"
                     })
                 else:
-                    result.append((pt_id, old_lat, old_lon))
+                    result.append((pt_id, old_lat, old_lon, source))
                     self.changes[data_type]['preserved'] += 1
                 processed_ids.add(pt_id)
             else:
-                result.append((pt_id, lat, lon))
+                result.append((pt_id, lat, lon, source))
                 self.changes[data_type]['added'] += 1
                 self.detailed_changes[data_type].append({
                     'action': 'added',
@@ -1352,16 +1358,16 @@ class NavDataMerger:
                 processed_ids.add(pt_id)
 
         # Second pass: tag removed points, preserve existing _old_ entries
-        for pt_id, (lat, lon) in existing_dict.items():
+        for pt_id, (lat, lon, source) in existing_dict.items():
             if pt_id not in processed_ids:
                 if self._is_old_entry(pt_id):
                     # Already an _old_ entry — preserve as-is
-                    result.append((pt_id, lat, lon))
+                    result.append((pt_id, lat, lon, source))
                     self.changes[data_type]['preserved'] += 1
                 elif pt_id in source_removed:
                     # Genuinely removed from NASR source — tag it
                     old_name = self._get_old_name(pt_id, 'removed')
-                    result.append((old_name, lat, lon))
+                    result.append((old_name, lat, lon, source))
                     self.changes[data_type]['removed'] += 1
                     self.changes[data_type]['renamed'] += 1
                     self.detailed_changes[data_type].append({
@@ -1373,7 +1379,7 @@ class NavDataMerger:
                     })
                 else:
                     # Non-NASR entry (XP12, oceanic, Canadian) — preserve unchanged
-                    result.append((pt_id, lat, lon))
+                    result.append((pt_id, lat, lon, source))
                     self.changes[data_type]['preserved'] += 1
 
         return result
@@ -1597,12 +1603,12 @@ class NavDataIO:
     def __init__(self, data_dir: Path):
         self.data_dir = Path(data_dir)
     
-    def read_points_csv(self, filename: str) -> List[Tuple[str, float, float]]:
-        """Read points/navaids CSV (ID,LAT,LON format)."""
+    def read_points_csv(self, filename: str) -> List[Tuple]:
+        """Read points/navaids CSV (ID,LAT,LON[,SOURCE] format)."""
         filepath = self.data_dir / filename
         if not filepath.exists():
             return []
-        
+
         points = []
         try:
             with open(filepath, 'r', encoding='utf-8-sig', errors='replace') as f:
@@ -1619,12 +1625,13 @@ class NavDataIO:
                             pt_id = parts[0].strip()
                             lat = float(parts[1])
                             lon = float(parts[2])
-                            points.append((pt_id, lat, lon))
+                            source = parts[3].strip() if len(parts) > 3 and parts[3].strip() else 'NASR'
+                            points.append((pt_id, lat, lon, source))
                         except ValueError:
                             continue
         except Exception as e:
             logger.error(f"Error reading {filename}: {e}")
-        
+
         return points
     
     def read_airports_csv(self, filename: str = 'apts.csv') -> List[Dict]:
@@ -1645,13 +1652,17 @@ class NavDataIO:
         
         return records
     
-    def read_airways_csv(self, filename: str = 'awys.csv') -> Dict[str, str]:
-        """Read airways CSV (AWY_ID,POINTS format)."""
+    def read_airways_csv(self, filename: str = 'awys.csv') -> tuple:
+        """Read airways CSV (AWY_ID,POINTS[,SOURCE] format).
+
+        Returns (airways_dict, sources_dict) where sources maps name -> 'NASR'|'XP12'.
+        """
         filepath = self.data_dir / filename
         if not filepath.exists():
-            return {}
-        
+            return {}, {}
+
         airways = {}
+        sources = {}
         try:
             with open(filepath, 'r', encoding='utf-8-sig', errors='replace') as f:
                 for line in f:
@@ -1660,11 +1671,22 @@ class NavDataIO:
                         continue
                     parts = line.split(',', 1)
                     if len(parts) == 2:
-                        airways[parts[0].strip()] = parts[1].strip()
+                        name = parts[0].strip()
+                        rest = parts[1].strip()
+                        # Check for trailing source field
+                        last_comma = rest.rfind(',')
+                        if last_comma > 0:
+                            candidate = rest[last_comma + 1:].strip()
+                            if candidate in ('NASR', 'XP12'):
+                                airways[name] = rest[:last_comma].strip()
+                                sources[name] = candidate
+                                continue
+                        airways[name] = rest
+                        sources[name] = 'NASR'
         except Exception as e:
             logger.error(f"Error reading {filename}: {e}")
-        
-        return airways
+
+        return airways, sources
     
     def read_cdrs_csv(self, filename: str = 'cdrs.csv') -> Dict[str, str]:
         """Read CDRs CSV (RCODE,ROUTE format)."""
@@ -1705,12 +1727,15 @@ class NavDataIO:
         
         return records
     
-    def write_points_csv(self, filename: str, points: List[Tuple[str, float, float]]):
-        """Write points CSV (no header)."""
+    def write_points_csv(self, filename: str, points: List[Tuple]):
+        """Write points CSV (no header). Supports 3-tuple and 4-tuple (with source)."""
         filepath = self.data_dir / filename
         with open(filepath, 'w', encoding='utf-8', newline='') as f:
-            for pt_id, lat, lon in points:
-                f.write(f"{pt_id},{lat},{lon}\n")
+            for pt in points:
+                if len(pt) >= 4:
+                    f.write(f"{pt[0]},{pt[1]},{pt[2]},{pt[3]}\n")
+                else:
+                    f.write(f"{pt[0]},{pt[1]},{pt[2]}\n")
         logger.info(f"Wrote {len(points)} points to {filename}")
     
     def write_airports_csv(self, filename: str, airports: List[Dict]):
@@ -1723,17 +1748,25 @@ class NavDataIO:
         logger.info(f"Wrote {len(airports)} airports to {filename}")
     
     def write_airways_csv(self, filename: str, airways: Dict[str, str],
-                          extra_variants: List[Tuple[str, str]] = None):
-        """Write airways CSV (no header). Extra variants are additional regional entries."""
+                          extra_variants: list = None,
+                          sources: Dict[str, str] = None):
+        """Write airways CSV (no header). Extra variants are additional regional entries.
+        Sources maps airway name -> 'NASR'|'XP12'. Extra variants are 2-tuple or 3-tuple
+        (name, route) or (name, route, source)."""
         filepath = self.data_dir / filename
         count = 0
         with open(filepath, 'w', encoding='utf-8', newline='') as f:
             for awy_id, points in sorted(airways.items()):
-                f.write(f"{awy_id},{points}\n")
+                src = sources.get(awy_id, 'NASR') if sources else ''
+                if src:
+                    f.write(f"{awy_id},{points},{src}\n")
+                else:
+                    f.write(f"{awy_id},{points}\n")
                 count += 1
             if extra_variants:
-                for awy_id, points in sorted(extra_variants, key=lambda x: x[0]):
-                    f.write(f"{awy_id},{points}\n")
+                for item in sorted(extra_variants, key=lambda x: x[0]):
+                    src = item[2] if len(item) > 2 else 'XP12'
+                    f.write(f"{item[0]},{item[1]},{src}\n")
                     count += 1
         variant_info = f" (+{len(extra_variants)} extra variants)" if extra_variants else ""
         logger.info(f"Wrote {count} airway entries to {filename}{variant_info}")
@@ -1833,9 +1866,9 @@ class JSFileUpdater:
 
         # Append extra regional variants (duplicate names allowed)
         if extra_variants:
-            for awy_id, points in sorted(extra_variants, key=lambda x: x[0]):
-                awy_id_escaped = awy_id.replace('"', '\\"')
-                points_escaped = points.replace('"', '\\"')
+            for item in sorted(extra_variants, key=lambda x: x[0]):
+                awy_id_escaped = item[0].replace('"', '\\"')
+                points_escaped = item[1].replace('"', '\\"')
                 entries.append(f'["{awy_id_escaped}","{points_escaped}"]')
 
         # Add null terminator entry
@@ -2373,6 +2406,7 @@ class NASRNavDataUpdater:
 
         # Merge XP12 Navigraph data (international coverage)
         xp12_extra_airway_variants = []  # additional regional variants for same-name airways
+        airway_sources = {name: 'NASR' for name in new_airways}  # source tracking for airways
         xp12_airways = self._parse_xp12_airways()
         if xp12_airways:
             nasr_count = len(new_airways)
@@ -2392,6 +2426,7 @@ class NASRNavDataUpdater:
                 if awy_name not in new_airways:
                     # New international airway not in NASR — use best variant as primary
                     new_airways[awy_name] = best_variant
+                    airway_sources[awy_name] = 'XP12'
                     new_from_xp12 += 1
                 else:
                     # Both have it — keep the one with more fixes as primary
@@ -2400,11 +2435,12 @@ class NASRNavDataUpdater:
                     if xp12_count_fixes > nasr_count_fixes:
                         new_airways[awy_name] = best_variant
                         upgraded_from_xp12 += 1
+                    # NASR wins for source — airway_sources already has 'NASR'
 
                 # Store additional variants (beyond the primary) for multi-variant output
                 for v in variants[1:]:
                     if len(v.split()) >= 2:
-                        xp12_extra_airway_variants.append((awy_name, v))
+                        xp12_extra_airway_variants.append((awy_name, v, 'XP12'))
                         extra_variants += 1
 
             logger.info(f"XP12 merge: +{new_from_xp12} new, "
@@ -2420,12 +2456,12 @@ class NASRNavDataUpdater:
             xp12_extra = 0
             for name, lat, lon in xp12_points:
                 if name not in existing_point_names:
-                    new_points.append((name, lat, lon))
+                    new_points.append((name, lat, lon, 'XP12'))
                     existing_point_names.add(name)
                     xp12_new += 1
                 else:
                     # Add as extra entry (getPointByName supports multiple per name)
-                    new_points.append((name, lat, lon))
+                    new_points.append((name, lat, lon, 'XP12'))
                     xp12_extra += 1
             logger.info(f"XP12 points merge: +{xp12_new} new unique, "
                        f"+{xp12_extra} additional regional entries")
@@ -2465,7 +2501,7 @@ class NASRNavDataUpdater:
         logger.info("\nReading existing data...")
         existing_points = self.io.read_points_csv('points.csv')
         existing_navaids = self.io.read_points_csv('navaids.csv')
-        existing_airways = self.io.read_airways_csv('awys.csv')
+        existing_airways, existing_airway_sources = self.io.read_airways_csv('awys.csv')
         existing_cdrs = self.io.read_cdrs_csv('cdrs.csv')
         existing_dps = self.io.read_structured_csv('dp_full_routes.csv')
         existing_stars = self.io.read_structured_csv('star_full_routes.csv')
@@ -2481,6 +2517,15 @@ class NASRNavDataUpdater:
         final_airways = self.merger.merge_dict_data(
             existing_airways, new_airways, 'airways',
             source_removed=nasr_removed_airways)
+        # Build final airway source map after merge
+        final_airway_sources = {}
+        for name in final_airways:
+            if name in airway_sources:
+                final_airway_sources[name] = airway_sources[name]
+            elif name in existing_airway_sources:
+                final_airway_sources[name] = existing_airway_sources[name]
+            else:
+                final_airway_sources[name] = 'NASR'
         final_cdrs = self.merger.merge_dict_data(
             existing_cdrs, new_cdrs, 'cdrs',
             source_removed=nasr_removed_cdrs)
@@ -2506,7 +2551,8 @@ class NASRNavDataUpdater:
         
         self.io.write_points_csv('points.csv', final_points)
         self.io.write_points_csv('navaids.csv', final_navaids)
-        self.io.write_airways_csv('awys.csv', final_airways, xp12_extra_airway_variants)
+        self.io.write_airways_csv('awys.csv', final_airways, xp12_extra_airway_variants,
+                                   sources=final_airway_sources)
         self.io.write_cdrs_csv('cdrs.csv', final_cdrs)
         
         dp_fields = ['EFF_DATE', 'DP_NAME', 'DP_COMPUTER_CODE', 'ARTCC', 'ORIG_GROUP',
