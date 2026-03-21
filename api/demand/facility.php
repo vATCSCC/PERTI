@@ -198,7 +198,12 @@ buildSummary($response);
 
 sqlsrv_close($conn);
 
-// Cache and return
+// Cache and return (skip caching on error)
+if (!$response['success']) {
+    header('X-Cache: ERROR');
+    echo json_encode($response);
+    exit;
+}
 $dataHash = md5(json_encode($response));
 $response['data_hash'] = $dataHash;
 apcu_cache_set($cacheKey, $response, $ttl);
@@ -213,7 +218,8 @@ exit;
 // HELPER FUNCTIONS
 // ===========================================================================
 
-function resolveFirGroup($code) {
+function resolveFirGroup($code, $depth = 0) {
+    if ($depth > 5) return null;
     static $firData = null;
     if ($firData === null) {
         $firFile = __DIR__ . '/../../assets/data/fir_tiers.json';
@@ -226,7 +232,7 @@ function resolveFirGroup($code) {
         foreach ($firData[$section] as $key => $grp) {
             if (isset($grp['code']) && $grp['code'] === $code) {
                 if (isset($grp['alias'])) {
-                    return resolveFirGroup($grp['alias']);
+                    return resolveFirGroup($grp['alias'], $depth + 1);
                 }
                 return $grp;
             }
@@ -425,7 +431,9 @@ function executeCrossingQuery($conn, $type, $code, $group, $direction, $granular
             $directionWhere = "AND fp.fp_dept_artcc NOT IN ($placeholders2) AND fp.fp_dest_artcc NOT IN ($placeholders2)";
             $directionParams = array_merge($group['members'], $group['members']);
         } else {
-            $directionWhere = "AND fp.fp_dept_artcc != ? AND fp.fp_dest_artcc != ?";
+            $deptCol = ($type === 'tracon') ? 'fp.fp_dept_tracon' : 'fp.fp_dept_artcc';
+            $destCol = ($type === 'tracon') ? 'fp.fp_dest_tracon' : 'fp.fp_dest_artcc';
+            $directionWhere = "AND $deptCol != ? AND $destCol != ?";
             $directionParams = [$code, $code];
         }
     } elseif ($direction === 'arr') {

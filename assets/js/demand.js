@@ -2217,13 +2217,13 @@ function populateFacilityDropdown() {
         select.append('<option value="">' + PERTII18n.t('demand.facility.filter.selectArtccFir') + '</option>');
         var artccGroup = $('<optgroup label="ARTCCs"></optgroup>');
         data.artccs.forEach(function(a) {
-            artccGroup.append('<option value="' + a.code + '">' + a.code + '</option>');
+            artccGroup.append('<option value="' + a + '">' + a + '</option>');
         });
         select.append(artccGroup);
         if (data.firs && data.firs.length > 0) {
             var firGroup = $('<optgroup label="FIRs"></optgroup>');
             data.firs.forEach(function(f) {
-                firGroup.append('<option value="' + f.code + '">' + f.code + ' - ' + f.name + '</option>');
+                firGroup.append('<option value="' + f + '">' + f + '</option>');
             });
             select.append(firGroup);
         }
@@ -2385,6 +2385,10 @@ function renderFacilityStatusChart(data) {
     var arrivals = data.data.arrivals || [];
     var departures = data.data.departures || [];
     var direction = data.direction || DEMAND_STATE.direction;
+    // Crossing mode uses a single query — treat 'both'/'thru' as 'arr' rendering
+    // since all crossings go into the arrivals bucket
+    var isCrossing = data.facility && data.facility.mode === 'crossing';
+    var renderDirection = (isCrossing && (direction === 'both' || direction === 'thru')) ? 'arr' : direction;
 
     // Build time labels and series from buckets
     var timeLabels = [];
@@ -2407,19 +2411,19 @@ function renderFacilityStatusChart(data) {
     // Phase order (bottom to top)
     var phases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
     var phaseLabels = {
-        'arrived': PERTII18n.t('demand.phase.arrived'),
-        'disconnected': PERTII18n.t('demand.phase.disconnected'),
-        'descending': PERTII18n.t('demand.phase.descending'),
-        'enroute': PERTII18n.t('demand.phase.enroute'),
-        'departed': PERTII18n.t('demand.phase.departed'),
-        'taxiing': PERTII18n.t('demand.phase.taxiing'),
-        'prefile': PERTII18n.t('demand.phase.prefile'),
-        'unknown': PERTII18n.t('demand.phase.unknown')
+        'arrived': PERTII18n.t('phase.arrived'),
+        'disconnected': PERTII18n.t('phase.disconnected'),
+        'descending': PERTII18n.t('phase.descending'),
+        'enroute': PERTII18n.t('phase.enroute'),
+        'departed': PERTII18n.t('phase.departed'),
+        'taxiing': PERTII18n.t('phase.taxiing'),
+        'prefile': PERTII18n.t('phase.prefile'),
+        'unknown': PERTII18n.t('phase.unknown')
     };
 
     var series = [];
 
-    if (direction === 'arr' || direction === 'both' || direction === 'thru') {
+    if (renderDirection === 'arr' || renderDirection === 'both' || renderDirection === 'thru') {
         phases.forEach(function(phase) {
             if (!DEMAND_STATE.phaseGroups[getPhaseGroup(phase)]) return;
             var seriesData = timeLabels.map(function(t) {
@@ -2427,7 +2431,7 @@ function renderFacilityStatusChart(data) {
                 return b ? (b.breakdown[phase] || 0) : 0;
             });
             series.push({
-                name: (direction === 'both' ? 'Arr ' : '') + phaseLabels[phase],
+                name: (renderDirection === 'both' ? 'Arr ' : '') + phaseLabels[phase],
                 type: 'bar',
                 stack: 'arrivals',
                 data: seriesData,
@@ -2436,7 +2440,7 @@ function renderFacilityStatusChart(data) {
         });
     }
 
-    if (direction === 'dep' || direction === 'both') {
+    if (renderDirection === 'dep' || renderDirection === 'both') {
         phases.forEach(function(phase) {
             if (!DEMAND_STATE.phaseGroups[getPhaseGroup(phase)]) return;
             var seriesData = timeLabels.map(function(t) {
@@ -2444,11 +2448,11 @@ function renderFacilityStatusChart(data) {
                 return b ? -(b.breakdown[phase] || 0) : 0;
             });
             series.push({
-                name: (direction === 'both' ? 'Dep ' : '') + phaseLabels[phase],
+                name: (renderDirection === 'both' ? 'Dep ' : '') + phaseLabels[phase],
                 type: 'bar',
                 stack: 'departures',
                 data: seriesData,
-                itemStyle: { color: FSM_PHASE_COLORS[phase] || '#888', opacity: direction === 'both' ? 0.7 : 1 },
+                itemStyle: { color: FSM_PHASE_COLORS[phase] || '#888', opacity: renderDirection === 'both' ? 0.7 : 1 },
             });
         });
     }
