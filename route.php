@@ -1319,10 +1319,331 @@ $is_canoc = (get_org_code() === 'canoc');
                 width: auto;
                 max-width: none;
             }
-            
+
             .pbcdr-filter-row {
                 flex-direction: column;
                 gap: 8px;
+            }
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════
+           NATOTs Advisory Panel
+           ═══════════════════════════════════════════════════════════════════ */
+
+        #natots_search_panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 460px;
+            background: rgba(255,255,255,0.98);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            z-index: 1002;
+            max-height: calc(100% - 20px);
+            overflow: hidden;
+            display: none;
+        }
+
+        #natots_search_panel.show {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #natots_search_panel.dragging {
+            opacity: 0.92;
+            cursor: grabbing;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+        }
+
+        #natots_search_panel.collapsed {
+            width: auto;
+            min-width: 200px;
+            max-height: none;
+        }
+
+        #natots_search_panel.collapsed .natots-search-body,
+        #natots_search_panel.collapsed .natots-results-header,
+        #natots_search_panel.collapsed .natots-results-list {
+            display: none;
+        }
+
+        #natots_search_panel.collapsed .natots-panel-header {
+            border-radius: 8px;
+        }
+
+        #natots_search_panel.collapsed .natots-collapse-btn i {
+            transform: rotate(180deg);
+        }
+
+        .natots-panel-header {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .natots-panel-header:active { cursor: grabbing; }
+
+        .natots-panel-header h6 {
+            margin: 0;
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .natots-collapse-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+            margin-right: 6px;
+        }
+
+        .natots-collapse-btn:hover { background: rgba(255,255,255,0.3); }
+
+        .natots-collapse-btn i {
+            font-size: 0.75rem;
+            transition: transform 0.2s;
+        }
+
+        .natots-search-body {
+            padding: 12px 14px;
+            flex-shrink: 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .natots-label {
+            display: block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: #6c757d;
+            margin-bottom: 3px;
+            letter-spacing: 0.5px;
+        }
+
+        .natots-divider {
+            text-align: center;
+            margin: 8px 0;
+            color: #adb5bd;
+            font-size: 0.75rem;
+        }
+
+        .natots-divider span {
+            background: white;
+            padding: 0 8px;
+            position: relative;
+        }
+
+        .natots-results-header {
+            display: flex;
+            justify-content: flex-end;
+            padding: 6px 14px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            flex-shrink: 0;
+        }
+
+        .natots-results-list {
+            overflow-y: auto;
+            flex: 1;
+            max-height: 400px;
+        }
+
+        .natots-advisory-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: #f0f8ff;
+            border-bottom: 1px solid #dee2e6;
+            flex-wrap: wrap;
+        }
+
+        .natots-advzy-badge {
+            background: #17a2b8;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            font-family: 'Inconsolata', monospace;
+        }
+
+        .natots-date {
+            font-size: 0.8rem;
+            color: #495057;
+            font-family: 'Inconsolata', monospace;
+        }
+
+        .natots-facility-badge {
+            background: #e2e6ea;
+            color: #495057;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .natots-event-time {
+            padding: 4px 14px 6px;
+            font-size: 0.75rem;
+            color: #6c757d;
+            background: #f0f8ff;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .natots-section {
+            border-bottom: 1px solid #eee;
+        }
+
+        .natots-section.collapsed .natots-section-body {
+            display: none;
+        }
+
+        .natots-section.collapsed .natots-section-chevron {
+            transform: rotate(-90deg);
+        }
+
+        .natots-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 14px;
+            background: #f8f9fa;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+        }
+
+        .natots-section-header:hover {
+            background: #e9ecef;
+        }
+
+        .natots-section-chevron {
+            font-size: 0.65rem;
+            color: #6c757d;
+            transition: transform 0.2s;
+        }
+
+        .natots-section-facility {
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: #17a2b8;
+            font-family: 'Inconsolata', monospace;
+        }
+
+        .natots-section-count {
+            font-size: 0.7rem;
+            color: #adb5bd;
+        }
+
+        .natots-section-addall {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+        }
+
+        .natots-section-body {
+            padding: 0;
+        }
+
+        .natots-track-row {
+            display: flex;
+            align-items: center;
+            padding: 5px 14px 5px 28px;
+            border-top: 1px solid #f0f0f0;
+            transition: background 0.1s;
+            gap: 8px;
+        }
+
+        .natots-track-row:hover {
+            background: #f8f9fa;
+        }
+
+        .natots-track-letter {
+            font-weight: 700;
+            font-size: 0.8rem;
+            color: #495057;
+            width: 20px;
+            flex-shrink: 0;
+            font-family: 'Inconsolata', monospace;
+        }
+
+        .natots-track-route {
+            flex: 1;
+            font-size: 0.72rem;
+            font-family: 'Inconsolata', monospace;
+            color: #495057;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .natots-track-actions {
+            display: flex;
+            gap: 3px;
+            flex-shrink: 0;
+            opacity: 0.5;
+            transition: opacity 0.15s;
+        }
+
+        .natots-track-row:hover .natots-track-actions {
+            opacity: 1;
+        }
+
+        .natots-track-actions .btn {
+            padding: 2px 6px;
+            font-size: 0.6rem;
+            border-radius: 3px;
+        }
+
+        .natots-loading, .natots-error, .natots-empty {
+            padding: 24px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.8rem;
+        }
+
+        .natots-error {
+            color: #dc3545;
+        }
+
+        .natots-summary {
+            padding: 6px 14px;
+            font-size: 0.7rem;
+            color: #adb5bd;
+            text-align: center;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+
+        @media (max-width: 991px) {
+            #natots_search_panel {
+                right: 10px;
+                width: calc(100% - 20px);
+                max-width: 460px;
+            }
+        }
+
+        @media (max-width: 575px) {
+            #natots_search_panel {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                width: auto;
+                max-width: none;
             }
         }
     </style>
@@ -1859,6 +2180,11 @@ PB.{PLAY_NAME}.{ARTCC}            PB.ATL NO HOBTT.ZDC
                     <button class="btn btn-sm btn-outline-secondary" id="pbcdr_search_toggle" title="Search Playbooks &amp; CDRs">
                         <i class="fas fa-search"></i> <span class="d-none d-md-inline"><?= __('route.page.routes') ?></span>
                     </button>
+
+                    <!-- NATOTs Advisory Button -->
+                    <button class="btn btn-sm btn-outline-info" id="natots_search_toggle" title="<?= __('route.page.natotsTitle') ?>">
+                        <i class="fas fa-globe-americas"></i> <span class="d-none d-md-inline"><?= __('route.page.natots') ?></span>
+                    </button>
                     
                     <!-- Separator -->
                     <div class="toolbar-separator d-none d-md-block" style="width: 1px; height: 24px; background: #dee2e6;"></div>
@@ -2193,6 +2519,72 @@ PB.{PLAY_NAME}.{ARTCC}            PB.ATL NO HOBTT.ZDC
                                     <button class="btn btn-outline-secondary btn-sm" id="pbcdr_copy_selected" title="Copy to clipboard" disabled>
                                         <i class="fas fa-copy"></i>
                                     </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- NATOTs Advisory Panel (floats over map) -->
+                        <div id="natots_search_panel">
+                            <div class="natots-panel-header">
+                                <h6><i class="fas fa-globe-americas mr-2"></i><?= __('route.page.natotsTitle') ?></h6>
+                                <div class="d-flex align-items-center">
+                                    <button type="button" class="natots-collapse-btn" id="natots_collapse_btn" title="Collapse/Expand">
+                                        <i class="fas fa-chevron-up"></i>
+                                    </button>
+                                    <button type="button" class="close text-white" id="natots_panel_close" style="font-size: 1rem;">
+                                        <span>&times;</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="natots-search-body">
+                                <div class="natots-input-group mb-2">
+                                    <label class="natots-label"><?= __('route.page.natotsUrl') ?></label>
+                                    <div class="d-flex" style="gap: 6px;">
+                                        <input type="text" class="form-control form-control-sm" id="natots_url_input"
+                                               placeholder="https://www.fly.faa.gov/adv/adv_otherdis?adv_date=...&advn=..." autocomplete="off">
+                                        <button class="btn btn-sm btn-primary" id="natots_fetch_url_btn">
+                                            <i class="fas fa-download"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="natots-divider">
+                                    <span><?= __('route.page.natotsOr') ?></span>
+                                </div>
+                                <div class="natots-input-group">
+                                    <div class="d-flex" style="gap: 6px;">
+                                        <div style="flex: 1;">
+                                            <label class="natots-label"><?= __('route.page.natotsDate') ?></label>
+                                            <input type="date" class="form-control form-control-sm" id="natots_date_input">
+                                        </div>
+                                        <div style="width: 80px;">
+                                            <label class="natots-label"><?= __('route.page.natotsAdvn') ?></label>
+                                            <input type="number" class="form-control form-control-sm" id="natots_advn_input" placeholder="#" min="1" max="999">
+                                        </div>
+                                        <div style="align-self: flex-end;">
+                                            <button class="btn btn-sm btn-primary" id="natots_fetch_date_btn">
+                                                <i class="fas fa-download"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="natots-results-header">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary btn-sm" id="natots_add_selected" disabled>
+                                        <i class="fas fa-plus mr-1"></i><?= __('route.page.add') ?>
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm" id="natots_plot_selected" disabled>
+                                        <i class="fas fa-pencil-alt mr-1"></i>Plot
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="natots-results-list" id="natots_results">
+                                <div class="natots-empty">
+                                    <i class="fas fa-globe-americas d-block mb-2" style="font-size: 1.5rem; opacity: 0.4;"></i>
+                                    <p class="mb-0"><?= __('route.page.natotsPlaceholder') ?></p>
                                 </div>
                             </div>
                         </div>
@@ -2701,6 +3093,7 @@ include('load/footer.php');
 <?php endif; ?>
 <script src="assets/js/public-routes.js<?= _v('assets/js/public-routes.js') ?>"></script>
 <script src="assets/js/playbook-cdr-search.js<?= _v('assets/js/playbook-cdr-search.js') ?>"></script>
+<script src="assets/js/natots-search.js<?= _v('assets/js/natots-search.js') ?>"></script>
 <script src="assets/js/lib/artcc-hierarchy.js<?= _v('assets/js/lib/artcc-hierarchy.js') ?>"></script>
 <script src="assets/js/lib/route-advisory-parser.js<?= _v('assets/js/lib/route-advisory-parser.js') ?>"></script>
 <script src="assets/js/route-maplibre.js<?= _v('assets/js/route-maplibre.js') ?>"></script>
@@ -3090,6 +3483,129 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // NATOTs ADVISORY PANEL
+    // ═══════════════════════════════════════════════════════════════════════
+
+    var natotsToggle = document.getElementById('natots_search_toggle');
+    var natotsPanel = document.getElementById('natots_search_panel');
+    var natotsClose = document.getElementById('natots_panel_close');
+    var natotsCollapseBtn = document.getElementById('natots_collapse_btn');
+
+    if (natotsToggle && natotsPanel) {
+        natotsToggle.addEventListener('click', function() {
+            natotsPanel.classList.toggle('show');
+            if (natotsPanel.classList.contains('show') && typeof NATOTsSearch !== 'undefined') {
+                NATOTsSearch.init();
+            }
+        });
+    }
+
+    if (natotsClose && natotsPanel) {
+        natotsClose.addEventListener('click', function() {
+            natotsPanel.classList.remove('show');
+        });
+    }
+
+    if (natotsCollapseBtn && natotsPanel) {
+        natotsCollapseBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            natotsPanel.classList.toggle('collapsed');
+        });
+    }
+
+    if (natotsPanel) {
+        var natotsHeader = natotsPanel.querySelector('.natots-panel-header');
+        if (natotsHeader) {
+            natotsHeader.addEventListener('dblclick', function() {
+                if (natotsPanel.classList.contains('collapsed')) {
+                    natotsPanel.classList.remove('collapsed');
+                }
+            });
+        }
+    }
+
+    // Make NATOTs panel draggable
+    (function() {
+        var panel = document.getElementById('natots_search_panel');
+        var header = panel ? panel.querySelector('.natots-panel-header') : null;
+        if (!panel || !header) return;
+
+        var isDragging = false;
+        var startX, startY, startLeft, startTop;
+
+        header.addEventListener('mousedown', function(e) {
+            if (e.target.closest('.close') || e.target.closest('.natots-collapse-btn')) return;
+            isDragging = true;
+            panel.classList.add('dragging');
+            var rect = panel.getBoundingClientRect();
+            var parentRect = panel.offsetParent.getBoundingClientRect();
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left - parentRect.left;
+            startTop = rect.top - parentRect.top;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            var dx = e.clientX - startX;
+            var dy = e.clientY - startY;
+            var newLeft = startLeft + dx;
+            var newTop = startTop + dy;
+            var parentRect = panel.offsetParent.getBoundingClientRect();
+            var panelRect = panel.getBoundingClientRect();
+            newLeft = Math.max(0, Math.min(newLeft, parentRect.width - panelRect.width));
+            newTop = Math.max(0, Math.min(newTop, parentRect.height - panelRect.height));
+            panel.style.left = newLeft + 'px';
+            panel.style.top = newTop + 'px';
+            panel.style.right = 'auto';
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                panel.classList.remove('dragging');
+            }
+        });
+
+        header.addEventListener('touchstart', function(e) {
+            if (e.target.closest('.close') || e.target.closest('.natots-collapse-btn')) return;
+            isDragging = true;
+            panel.classList.add('dragging');
+            var touch = e.touches[0];
+            var rect = panel.getBoundingClientRect();
+            var parentRect = panel.offsetParent.getBoundingClientRect();
+            startX = touch.clientX;
+            startY = touch.clientY;
+            startLeft = rect.left - parentRect.left;
+            startTop = rect.top - parentRect.top;
+        }, { passive: true });
+
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging) return;
+            var touch = e.touches[0];
+            var dx = touch.clientX - startX;
+            var dy = touch.clientY - startY;
+            var newLeft = startLeft + dx;
+            var newTop = startTop + dy;
+            var parentRect = panel.offsetParent.getBoundingClientRect();
+            var panelRect = panel.getBoundingClientRect();
+            newLeft = Math.max(0, Math.min(newLeft, parentRect.width - panelRect.width));
+            newTop = Math.max(0, Math.min(newTop, parentRect.height - panelRect.height));
+            panel.style.left = newLeft + 'px';
+            panel.style.top = newTop + 'px';
+            panel.style.right = 'auto';
+        }, { passive: true });
+
+        document.addEventListener('touchend', function() {
+            if (isDragging) {
+                isDragging = false;
+                panel.classList.remove('dragging');
+            }
+        });
+    })();
 
     // ═══════════════════════════════════════════════════════════════════════
     // ROUTE ANALYSIS — delegate to RouteAnalysisPanel module

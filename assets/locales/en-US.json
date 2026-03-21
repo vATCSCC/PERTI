@@ -2681,6 +2681,22 @@
       "stars": "STARs"
     }
   },
+  "natots": {
+    "fetching": "Fetching advisory...",
+    "fetchFailed": "Failed to fetch advisory from FAA.",
+    "noSections": "No departure sections found in this advisory.",
+    "sections": "sections",
+    "tracks": "tracks",
+    "addAll": "Add All",
+    "addToTextarea": "Add to textarea",
+    "plotRoute": "Plot route",
+    "plottingRoute": "Plotting route...",
+    "plottingRoutes": "Plotting {count} routes...",
+    "noneSelected": "No tracks selected.",
+    "addedRoutes": "Added {count} routes.",
+    "duplicatesSkipped": "({count} duplicates skipped)",
+    "allAlreadyAdded": "All selected routes are already in the textarea."
+  },
   "nod": {
     "advisories": {
       "areaLabel": "Area",
@@ -4697,6 +4713,13 @@
       "overrideAll": "Override All",
       "playName": "Play Name",
       "playbook": "Playbook:",
+      "natotsTitle": "NATOTs Advisory",
+      "natots": "NATOTs",
+      "natotsUrl": "Advisory URL",
+      "natotsOr": "or",
+      "natotsDate": "Date",
+      "natotsAdvn": "Advzy #",
+      "natotsPlaceholder": "Enter an advisory URL or date + number to load NATOTs departure routes.",
       "playbookCdrSearch": "Playbook / CDR Search",
       "playbookDesc": "Syntax: PB.{PLAY_NAME}.{ORIGS}.{DESTS} — origins and destinations are optional dot-separated filters.",
       "playbooks": "Playbooks",
