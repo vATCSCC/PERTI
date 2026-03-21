@@ -2833,6 +2833,247 @@
     };
 
     // ========================================================================
+    // Compute Export Utilities
+    // ========================================================================
+
+    var ComputeExport = {
+        _lastData: null,
+
+        storeData: function(data) {
+            this._lastData = data;
+        },
+
+        // ----------------------------------------------------------------
+        // Low-level download helpers
+        // ----------------------------------------------------------------
+
+        _download: function(blob, filename) {
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        },
+
+        _csvEscape: function(cell) {
+            var s = String(cell == null ? '' : cell);
+            if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) {
+                return '"' + s.replace(/"/g, '""') + '"';
+            }
+            return s;
+        },
+
+        _toCSV: function(headers, rows) {
+            var self = this;
+            var csv = headers.map(self._csvEscape).join(',') + '\n';
+            rows.forEach(function(row) {
+                csv += row.map(self._csvEscape).join(',') + '\n';
+            });
+            return csv;
+        },
+
+        _toTXT: function(headers, rows) {
+            // Fixed-width aligned plain text
+            var allRows = [headers].concat(rows);
+            var widths = headers.map(function(h, i) {
+                var max = String(h).length;
+                rows.forEach(function(r) { max = Math.max(max, String(r[i] == null ? '' : r[i]).length); });
+                return Math.min(max + 1, 40); // cap at 40
+            });
+            var line = function(row) {
+                return row.map(function(c, i) {
+                    var s = String(c == null ? '' : c);
+                    return s.length > widths[i] ? s.substring(0, widths[i]) : s + new Array(widths[i] - s.length + 1).join(' ');
+                }).join(' | ');
+            };
+            var txt = line(headers) + '\n';
+            txt += widths.map(function(w) { return new Array(w + 1).join('-'); }).join('-+-') + '\n';
+            rows.forEach(function(r) { txt += line(r) + '\n'; });
+            return txt;
+        },
+
+        _ensureSheetJS: function(callback) {
+            if (typeof XLSX !== 'undefined') { callback(); return; }
+            var script = document.createElement('script');
+            script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.mini.min.js';
+            script.onload = callback;
+            script.onerror = function() { Swal.fire({ icon: 'error', title: 'Failed to load XLSX library' }); };
+            document.head.appendChild(script);
+        },
+
+        _downloadXLSX: function(filename, sheetMap) {
+            // sheetMap: { SheetName: { headers: [], rows: [] }, ... }
+            this._ensureSheetJS(function() {
+                var wb = XLSX.utils.book_new();
+                Object.keys(sheetMap).forEach(function(name) {
+                    var s = sheetMap[name];
+                    var aoa = [s.headers].concat(s.rows);
+                    var ws = XLSX.utils.aoa_to_sheet(aoa);
+                    XLSX.utils.book_append_sheet(wb, ws, name.substring(0, 31)); // sheet name max 31 chars
+                });
+                XLSX.writeFile(wb, filename);
+            });
+        },
+
+        // ----------------------------------------------------------------
+        // Dataset builders — return { sheets: { name: { headers, rows } } }
+        // ----------------------------------------------------------------
+
+        _buildFlightList: function() {
+            var d = this._lastData;
+            if (!d || !d.flight_list) return null;
+            var headers = ['#', 'Origin', 'Dest', 'Track', 'Block', 'Route', 'DEP_UTC', 'Entry_UTC', 'Exit_UTC', 'ARR_UTC', 'Pre_Ocean_min', 'Ocean_min', 'Post_Ocean_min', 'Total_min'];
+            var rows = d.flight_list.map(function(f, i) {
+                return [i + 1, f.origin, f.dest, f.track, f.block_label, f.route, f.dep_utc, f.entry_utc, f.exit_utc, f.arr_utc, f.pre_oceanic_min, f.oceanic_min, f.post_oceanic_min, f.total_min];
+            });
+            return { Flights: { headers: headers, rows: rows } };
+        },
+
+        _buildDistributions: function() {
+            var d = this._lastData;
+            if (!d || !d.distributions) return null;
+            var dist = d.distributions;
+            var sheets = {};
+            if (dist.origins) sheets.Origins = { headers: ['Origin', 'Count', 'Pct'], rows: dist.origins.map(function(r) { return [r.origin, r.count, r.pct]; }) };
+            if (dist.destinations) sheets.Destinations = { headers: ['Dest', 'Count', 'Pct'], rows: dist.destinations.map(function(r) { return [r.dest, r.count, r.pct]; }) };
+            if (dist.od_pairs) sheets['OD Pairs'] = { headers: ['Origin', 'Dest', 'Count', 'Pct'], rows: dist.od_pairs.map(function(r) { return [r.origin, r.dest, r.count, r.pct]; }) };
+            if (dist.origin_track) sheets['Origin-Track'] = { headers: ['Origin', 'Track', 'Count'], rows: dist.origin_track.map(function(r) { return [r.origin, r.track, r.count]; }) };
+            if (dist.track_dest) sheets['Track-Dest'] = { headers: ['Track', 'Dest', 'Count'], rows: dist.track_dest.map(function(r) { return [r.track, r.dest, r.count]; }) };
+            return sheets;
+        },
+
+        _buildTimeBins: function() {
+            var d = this._lastData;
+            if (!d) return null;
+            var headers = ['Profile', 'Resolution', 'Start_UTC', 'End_UTC', 'Count'];
+            var rows = [];
+            var addBins = function(name, res, bins) {
+                if (!bins) return;
+                bins.forEach(function(b) { rows.push([name, res, b.start_utc, b.end_utc || '', b.count]); });
+            };
+            if (d.departure_profile) addBins('Departure', '15min', d.departure_profile.bins);
+            if (d.oceanic_entry_profile) addBins('Oceanic_Entry', '15min', d.oceanic_entry_profile.bins);
+            if (d.arrival_profile) addBins('Arrival', '15min', d.arrival_profile.bins);
+            if (d.multi_resolution) {
+                addBins('Departure', '30min', d.multi_resolution.departure_30min);
+                addBins('Departure', '60min', d.multi_resolution.departure_60min);
+                addBins('Oceanic_Entry', '30min', d.multi_resolution.oceanic_entry_30min);
+                addBins('Oceanic_Entry', '60min', d.multi_resolution.oceanic_entry_60min);
+            }
+            return { 'Time Bins': { headers: headers, rows: rows } };
+        },
+
+        _buildConstraints: function() {
+            var d = this._lastData;
+            if (!d || !d.constraint_checks || d.constraint_checks.length === 0) return null;
+            var headers = ['Config', 'Peak_Actual', 'Max_ACPH', 'Violated', 'Bins_Over', 'Type'];
+            var rows = d.constraint_checks.map(function(c) {
+                return [c.config_label, c.peak_actual || '', c.max_acph || '', c.violated ? 'YES' : 'NO', c.bins_over || 0, c.violation_type || 'ACPH'];
+            });
+            return { Constraints: { headers: headers, rows: rows } };
+        },
+
+        _buildSummary: function() {
+            var d = this._lastData;
+            if (!d) return null;
+            var sheets = {};
+            // Track summary
+            if (d.track_summary) {
+                sheets['Track Summary'] = {
+                    headers: ['Track', 'Flights', 'Avg_Transit_min', 'Peak_Rate_hr'],
+                    rows: d.track_summary.map(function(ts) { return [ts.track, ts.flight_count, ts.avg_transit_min, ts.peak_rate_hr]; })
+                };
+            }
+            // Volume profiles
+            if (d.volume_profiles) {
+                sheets['Volume Profiles'] = {
+                    headers: ['Track', 'Flights', 'Pre_Ocean_avg', 'Ocean_avg', 'Post_Ocean_avg', 'Total_avg'],
+                    rows: d.volume_profiles.map(function(v) { return [v.track, v.flight_count, v.avg_pre_oceanic_min, v.avg_oceanic_min, v.avg_post_oceanic_min, v.avg_total_min]; })
+                };
+            }
+            return sheets;
+        },
+
+        // ----------------------------------------------------------------
+        // Format dispatchers
+        // ----------------------------------------------------------------
+
+        exportAs: function(dataset, format) {
+            var sheets;
+            switch (dataset) {
+                case 'flights': sheets = this._buildFlightList(); break;
+                case 'distributions': sheets = this._buildDistributions(); break;
+                case 'bins': sheets = this._buildTimeBins(); break;
+                case 'constraints': sheets = this._buildConstraints(); break;
+                case 'summary': sheets = this._buildSummary(); break;
+                case 'all': sheets = this._buildAll(); break;
+                default: return;
+            }
+            if (!sheets) return;
+
+            var basename = 'ctp_' + dataset;
+            switch (format) {
+                case 'csv':
+                    var csv = '';
+                    var names = Object.keys(sheets);
+                    names.forEach(function(name, idx) {
+                        var s = sheets[name];
+                        if (names.length > 1) csv += '--- ' + name + ' ---\n';
+                        csv += this._toCSV(s.headers, s.rows);
+                        if (idx < names.length - 1) csv += '\n';
+                    }.bind(this));
+                    this._download(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), basename + '.csv');
+                    break;
+                case 'txt':
+                    var txt = '';
+                    var names2 = Object.keys(sheets);
+                    names2.forEach(function(name, idx) {
+                        var s = sheets[name];
+                        if (names2.length > 1) txt += '=== ' + name.toUpperCase() + ' ===\n\n';
+                        txt += this._toTXT(s.headers, s.rows);
+                        if (idx < names2.length - 1) txt += '\n\n';
+                    }.bind(this));
+                    this._download(new Blob([txt], { type: 'text/plain;charset=utf-8;' }), basename + '.txt');
+                    break;
+                case 'xlsx':
+                    this._downloadXLSX(basename + '.xlsx', sheets);
+                    break;
+                case 'json':
+                    var jsonData = {};
+                    Object.keys(sheets).forEach(function(name) {
+                        var s = sheets[name];
+                        jsonData[name] = s.rows.map(function(row) {
+                            var obj = {};
+                            s.headers.forEach(function(h, i) { obj[h] = row[i]; });
+                            return obj;
+                        });
+                    });
+                    this._download(new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' }), basename + '.json');
+                    break;
+            }
+        },
+
+        _buildAll: function() {
+            var all = {};
+            var merge = function(s) { if (s) { Object.keys(s).forEach(function(k) { all[k] = s[k]; }); } };
+            merge(this._buildFlightList());
+            merge(this._buildDistributions());
+            merge(this._buildTimeBins());
+            merge(this._buildConstraints());
+            merge(this._buildSummary());
+            return all;
+        },
+
+        exportFullJSON: function() {
+            if (!this._lastData) return;
+            this._download(
+                new Blob([JSON.stringify(this._lastData, null, 2)], { type: 'application/json' }),
+                'ctp_compute_results.json'
+            );
+        }
+    };
+
+    // ========================================================================
     // Planning Simulator
     // ========================================================================
     var PlanningSimulator = {
@@ -3437,6 +3678,35 @@
         renderResults: function(data, scenarioId) {
             var $results = $('#ctp_planning_results');
             $results.empty().show();
+            ComputeExport.storeData(data);
+
+            // Export toolbar with format dropdowns
+            var exportBtn = function(dataset, label, icon) {
+                return '<div class="btn-group btn-group-sm mr-1">' +
+                    '<button class="btn btn-outline-secondary dropdown-toggle" data-toggle="dropdown"><i class="fas fa-' + icon + ' mr-1"></i>' + label + '</button>' +
+                    '<div class="dropdown-menu dropdown-menu-right">' +
+                    '<a class="dropdown-item ctp-export-item" data-ds="' + dataset + '" data-fmt="csv"><i class="fas fa-file-csv mr-2 text-success"></i>CSV</a>' +
+                    '<a class="dropdown-item ctp-export-item" data-ds="' + dataset + '" data-fmt="xlsx"><i class="fas fa-file-excel mr-2 text-success"></i>Excel (XLSX)</a>' +
+                    '<a class="dropdown-item ctp-export-item" data-ds="' + dataset + '" data-fmt="txt"><i class="fas fa-file-alt mr-2 text-muted"></i>Plain Text</a>' +
+                    '<a class="dropdown-item ctp-export-item" data-ds="' + dataset + '" data-fmt="json"><i class="fas fa-file-code mr-2 text-info"></i>JSON</a>' +
+                    '</div></div>';
+            };
+            $results.append(
+                '<div class="mb-2 d-flex align-items-center flex-wrap">' +
+                '<span class="small font-weight-bold mr-2">' + t('ctp.planning.computeResults') + '</span>' +
+                exportBtn('flights', t('ctp.planning.flightList'), 'plane') +
+                exportBtn('distributions', t('ctp.planning.distributions'), 'chart-pie') +
+                exportBtn('bins', t('ctp.planning.timeBins'), 'clock') +
+                exportBtn('summary', t('ctp.planning.volumeProfiles'), 'tachometer-alt') +
+                exportBtn('all', t('ctp.planning.exportAll'), 'file-archive') +
+                '<button class="btn btn-sm btn-outline-info ml-1" id="ctp_export_raw_json" title="' + t('ctp.planning.exportJSON') + '"><i class="fas fa-file-download mr-1"></i>Raw JSON</button>' +
+                '</div>'
+            );
+            $results.find('.ctp-export-item').on('click', function(e) {
+                e.preventDefault();
+                ComputeExport.exportAs($(this).data('ds'), $(this).data('fmt'));
+            });
+            $('#ctp_export_raw_json').on('click', function() { ComputeExport.exportFullJSON(); });
 
             // Constraint checks table
             if (data.constraint_checks && data.constraint_checks.length > 0) {
