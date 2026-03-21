@@ -563,6 +563,7 @@ foreach ($blocks as $block) {
                 $oceanic_bins[$oc_bin_idx]['by_track'][$track_name] = 0;
             }
             $oceanic_bins[$oc_bin_idx]['by_track'][$track_name]++;
+            // Origin/dest tracking for oceanic entry is set below after origin/dest are picked
 
             // Track per-flight ocean entry times for window constraint checks
             if (!isset($track_entry_times[$track_name])) {
@@ -595,11 +596,25 @@ foreach ($blocks as $block) {
             }
             $dep_bins[$dep_bin_idx]['by_origin'][$origin]++;
 
+            // Oceanic entry by origin/dest (origin/dest now known)
+            if (!isset($oceanic_bins[$oc_bin_idx]['by_origin'][$origin])) {
+                $oceanic_bins[$oc_bin_idx]['by_origin'][$origin] = 0;
+            }
+            $oceanic_bins[$oc_bin_idx]['by_origin'][$origin]++;
+            if (!isset($oceanic_bins[$oc_bin_idx]['by_dest'][$dest])) {
+                $oceanic_bins[$oc_bin_idx]['by_dest'][$dest] = 0;
+            }
+            $oceanic_bins[$oc_bin_idx]['by_dest'][$dest]++;
+
             $arrival_bins[$ar_bin_idx]['count']++;
             if (!isset($arrival_bins[$ar_bin_idx]['by_dest'][$dest])) {
                 $arrival_bins[$ar_bin_idx]['by_dest'][$dest] = 0;
             }
             $arrival_bins[$ar_bin_idx]['by_dest'][$dest]++;
+            if (!isset($arrival_bins[$ar_bin_idx]['by_track'][$track_name])) {
+                $arrival_bins[$ar_bin_idx]['by_track'][$track_name] = 0;
+            }
+            $arrival_bins[$ar_bin_idx]['by_track'][$track_name]++;
 
             // Track stats
             if (!isset($track_stats[$track_name])) {
@@ -616,6 +631,23 @@ foreach ($blocks as $block) {
             if ($oceanic_hours < 0) $oceanic_hours = $total_flight_hours * 0.6;
             $post_oceanic_hours = $DEFAULT_POST_OCEANIC_NM / $block_cruise_ktas;
             $ocean_exit_ts = $entry_ts + (int)($oceanic_hours * 3600);
+
+            // Bin the ocean exit
+            $ex_bin_idx = (int)floor(($ocean_exit_ts - $dep_start->getTimestamp()) / ($BIN_SIZE_MINUTES * 60));
+            $ex_bin_idx = max(0, min($ex_bin_idx, count($ocean_exit_bins) - 1));
+            $ocean_exit_bins[$ex_bin_idx]['count']++;
+            if (!isset($ocean_exit_bins[$ex_bin_idx]['by_track'][$track_name])) {
+                $ocean_exit_bins[$ex_bin_idx]['by_track'][$track_name] = 0;
+            }
+            $ocean_exit_bins[$ex_bin_idx]['by_track'][$track_name]++;
+            if (!isset($ocean_exit_bins[$ex_bin_idx]['by_origin'][$origin])) {
+                $ocean_exit_bins[$ex_bin_idx]['by_origin'][$origin] = 0;
+            }
+            $ocean_exit_bins[$ex_bin_idx]['by_origin'][$origin]++;
+            if (!isset($ocean_exit_bins[$ex_bin_idx]['by_dest'][$dest])) {
+                $ocean_exit_bins[$ex_bin_idx]['by_dest'][$dest] = 0;
+            }
+            $ocean_exit_bins[$ex_bin_idx]['by_dest'][$dest]++;
 
             // Collect per-flight record
             $flight_list[] = [
@@ -823,6 +855,20 @@ foreach ($oceanic_bins as $bin) {
         'end_utc' => $bin['end_utc'],
         'count' => $bin['count'],
         'by_track' => $bin['by_track'],
+        'by_origin' => $bin['by_origin'],
+        'by_dest' => $bin['by_dest'],
+    ];
+}
+
+$format_exit_bins = [];
+foreach ($ocean_exit_bins as $bin) {
+    $format_exit_bins[] = [
+        'start_utc' => $bin['start_utc'],
+        'end_utc' => $bin['end_utc'],
+        'count' => $bin['count'],
+        'by_track' => $bin['by_track'],
+        'by_origin' => $bin['by_origin'],
+        'by_dest' => $bin['by_dest'],
     ];
 }
 
@@ -833,6 +879,7 @@ foreach ($arrival_bins as $bin) {
         'end_utc' => $bin['end_utc'],
         'count' => $bin['count'],
         'by_dest' => $bin['by_dest'],
+        'by_track' => $bin['by_track'],
     ];
 }
 
@@ -884,6 +931,18 @@ foreach ($track_dest_counts as $key => $c) {
 usort($track_dest_table, function($a, $b) { return $b['count'] - $a['count']; });
 
 // Multi-resolution time bins (30-min and 60-min aggregates from base 15-min bins)
+// Helper to aggregate breakdown keys
+$aggregate_breakdowns = function(&$target, $source, $keys) {
+    foreach ($keys as $key) {
+        if (!isset($source[$key])) continue;
+        if (!isset($target[$key])) $target[$key] = [];
+        foreach ($source[$key] as $k => $v) {
+            if (!isset($target[$key][$k])) $target[$key][$k] = 0;
+            $target[$key][$k] += $v;
+        }
+    }
+};
+
 // Departure bins at 30min and 60min resolution
 $dep_bins_30 = [];
 $dep_bins_60 = [];
@@ -891,23 +950,17 @@ for ($i = 0; $i < count($format_dep_bins); $i++) {
     $bin30_idx = (int)floor($i / 2);
     $bin60_idx = (int)floor($i / 4);
     if (!isset($dep_bins_30[$bin30_idx])) {
-        $dep_bins_30[$bin30_idx] = ['start_utc' => $format_dep_bins[$i]['start_utc'], 'count' => 0, 'by_track' => []];
+        $dep_bins_30[$bin30_idx] = ['start_utc' => $format_dep_bins[$i]['start_utc'], 'count' => 0, 'by_track' => [], 'by_origin' => []];
     }
     if (!isset($dep_bins_60[$bin60_idx])) {
-        $dep_bins_60[$bin60_idx] = ['start_utc' => $format_dep_bins[$i]['start_utc'], 'count' => 0, 'by_track' => []];
+        $dep_bins_60[$bin60_idx] = ['start_utc' => $format_dep_bins[$i]['start_utc'], 'count' => 0, 'by_track' => [], 'by_origin' => []];
     }
     $dep_bins_30[$bin30_idx]['count'] += $format_dep_bins[$i]['count'];
     $dep_bins_30[$bin30_idx]['end_utc'] = $format_dep_bins[$i]['end_utc'];
-    foreach ($format_dep_bins[$i]['by_track'] as $tk => $tv) {
-        if (!isset($dep_bins_30[$bin30_idx]['by_track'][$tk])) $dep_bins_30[$bin30_idx]['by_track'][$tk] = 0;
-        $dep_bins_30[$bin30_idx]['by_track'][$tk] += $tv;
-    }
+    $aggregate_breakdowns($dep_bins_30[$bin30_idx], $format_dep_bins[$i], ['by_track', 'by_origin']);
     $dep_bins_60[$bin60_idx]['count'] += $format_dep_bins[$i]['count'];
     $dep_bins_60[$bin60_idx]['end_utc'] = $format_dep_bins[$i]['end_utc'];
-    foreach ($format_dep_bins[$i]['by_track'] as $tk => $tv) {
-        if (!isset($dep_bins_60[$bin60_idx]['by_track'][$tk])) $dep_bins_60[$bin60_idx]['by_track'][$tk] = 0;
-        $dep_bins_60[$bin60_idx]['by_track'][$tk] += $tv;
-    }
+    $aggregate_breakdowns($dep_bins_60[$bin60_idx], $format_dep_bins[$i], ['by_track', 'by_origin']);
 }
 
 // Oceanic entry bins at 30min and 60min
@@ -917,23 +970,57 @@ for ($i = 0; $i < count($format_oceanic_bins); $i++) {
     $bin30_idx = (int)floor($i / 2);
     $bin60_idx = (int)floor($i / 4);
     if (!isset($oceanic_bins_30[$bin30_idx])) {
-        $oceanic_bins_30[$bin30_idx] = ['start_utc' => $format_oceanic_bins[$i]['start_utc'], 'count' => 0, 'by_track' => []];
+        $oceanic_bins_30[$bin30_idx] = ['start_utc' => $format_oceanic_bins[$i]['start_utc'], 'count' => 0, 'by_track' => [], 'by_origin' => [], 'by_dest' => []];
     }
     if (!isset($oceanic_bins_60[$bin60_idx])) {
-        $oceanic_bins_60[$bin60_idx] = ['start_utc' => $format_oceanic_bins[$i]['start_utc'], 'count' => 0, 'by_track' => []];
+        $oceanic_bins_60[$bin60_idx] = ['start_utc' => $format_oceanic_bins[$i]['start_utc'], 'count' => 0, 'by_track' => [], 'by_origin' => [], 'by_dest' => []];
     }
     $oceanic_bins_30[$bin30_idx]['count'] += $format_oceanic_bins[$i]['count'];
     $oceanic_bins_30[$bin30_idx]['end_utc'] = $format_oceanic_bins[$i]['end_utc'];
-    foreach ($format_oceanic_bins[$i]['by_track'] as $tk => $tv) {
-        if (!isset($oceanic_bins_30[$bin30_idx]['by_track'][$tk])) $oceanic_bins_30[$bin30_idx]['by_track'][$tk] = 0;
-        $oceanic_bins_30[$bin30_idx]['by_track'][$tk] += $tv;
-    }
+    $aggregate_breakdowns($oceanic_bins_30[$bin30_idx], $format_oceanic_bins[$i], ['by_track', 'by_origin', 'by_dest']);
     $oceanic_bins_60[$bin60_idx]['count'] += $format_oceanic_bins[$i]['count'];
     $oceanic_bins_60[$bin60_idx]['end_utc'] = $format_oceanic_bins[$i]['end_utc'];
-    foreach ($format_oceanic_bins[$i]['by_track'] as $tk => $tv) {
-        if (!isset($oceanic_bins_60[$bin60_idx]['by_track'][$tk])) $oceanic_bins_60[$bin60_idx]['by_track'][$tk] = 0;
-        $oceanic_bins_60[$bin60_idx]['by_track'][$tk] += $tv;
+    $aggregate_breakdowns($oceanic_bins_60[$bin60_idx], $format_oceanic_bins[$i], ['by_track', 'by_origin', 'by_dest']);
+}
+
+// Ocean exit bins at 30min and 60min
+$exit_bins_30 = [];
+$exit_bins_60 = [];
+for ($i = 0; $i < count($format_exit_bins); $i++) {
+    $bin30_idx = (int)floor($i / 2);
+    $bin60_idx = (int)floor($i / 4);
+    if (!isset($exit_bins_30[$bin30_idx])) {
+        $exit_bins_30[$bin30_idx] = ['start_utc' => $format_exit_bins[$i]['start_utc'], 'count' => 0, 'by_track' => [], 'by_origin' => [], 'by_dest' => []];
     }
+    if (!isset($exit_bins_60[$bin60_idx])) {
+        $exit_bins_60[$bin60_idx] = ['start_utc' => $format_exit_bins[$i]['start_utc'], 'count' => 0, 'by_track' => [], 'by_origin' => [], 'by_dest' => []];
+    }
+    $exit_bins_30[$bin30_idx]['count'] += $format_exit_bins[$i]['count'];
+    $exit_bins_30[$bin30_idx]['end_utc'] = $format_exit_bins[$i]['end_utc'];
+    $aggregate_breakdowns($exit_bins_30[$bin30_idx], $format_exit_bins[$i], ['by_track', 'by_origin', 'by_dest']);
+    $exit_bins_60[$bin60_idx]['count'] += $format_exit_bins[$i]['count'];
+    $exit_bins_60[$bin60_idx]['end_utc'] = $format_exit_bins[$i]['end_utc'];
+    $aggregate_breakdowns($exit_bins_60[$bin60_idx], $format_exit_bins[$i], ['by_track', 'by_origin', 'by_dest']);
+}
+
+// Arrival bins at 30min and 60min
+$arrival_bins_30 = [];
+$arrival_bins_60 = [];
+for ($i = 0; $i < count($format_arrival_bins); $i++) {
+    $bin30_idx = (int)floor($i / 2);
+    $bin60_idx = (int)floor($i / 4);
+    if (!isset($arrival_bins_30[$bin30_idx])) {
+        $arrival_bins_30[$bin30_idx] = ['start_utc' => $format_arrival_bins[$i]['start_utc'], 'count' => 0, 'by_dest' => [], 'by_track' => []];
+    }
+    if (!isset($arrival_bins_60[$bin60_idx])) {
+        $arrival_bins_60[$bin60_idx] = ['start_utc' => $format_arrival_bins[$i]['start_utc'], 'count' => 0, 'by_dest' => [], 'by_track' => []];
+    }
+    $arrival_bins_30[$bin30_idx]['count'] += $format_arrival_bins[$i]['count'];
+    $arrival_bins_30[$bin30_idx]['end_utc'] = $format_arrival_bins[$i]['end_utc'];
+    $aggregate_breakdowns($arrival_bins_30[$bin30_idx], $format_arrival_bins[$i], ['by_dest', 'by_track']);
+    $arrival_bins_60[$bin60_idx]['count'] += $format_arrival_bins[$i]['count'];
+    $arrival_bins_60[$bin60_idx]['end_utc'] = $format_arrival_bins[$i]['end_utc'];
+    $aggregate_breakdowns($arrival_bins_60[$bin60_idx], $format_arrival_bins[$i], ['by_dest', 'by_track']);
 }
 
 // Volume profile per track — segment timing averages
@@ -1008,7 +1095,25 @@ respond_json(200, [
         'arrival_profile' => [
             'bins' => $format_arrival_bins,
         ],
+        'oceanic_exit_profile' => [
+            'bins' => $format_exit_bins,
+        ],
         'constraint_checks' => $constraint_checks,
+        'track_constraints' => array_values(array_map(function($tc) {
+            return [
+                'track_name' => $tc['track_name'],
+                'max_acph' => isset($tc['max_acph']) ? (int)$tc['max_acph'] : null,
+                'ocean_entry_start' => isset($tc['ocean_entry_start']) ? (is_object($tc['ocean_entry_start']) ? $tc['ocean_entry_start']->format('Y-m-d\TH:i:s') . 'Z' : $tc['ocean_entry_start']) : null,
+                'ocean_entry_end' => isset($tc['ocean_entry_end']) ? (is_object($tc['ocean_entry_end']) ? $tc['ocean_entry_end']->format('Y-m-d\TH:i:s') . 'Z' : $tc['ocean_entry_end']) : null,
+            ];
+        }, $track_constraints)),
+        'throughput_configs' => (isset($configs_result) && !empty($configs_result['data'])) ? array_map(function($cfg) {
+            return [
+                'config_label' => $cfg['config_label'],
+                'tracks_json' => $cfg['tracks_json'],
+                'max_acph' => (int)$cfg['max_acph'],
+            ];
+        }, $configs_result['data']) : [],
         'track_summary' => $track_summary,
         'flight_list' => $flight_list,
         'distributions' => [
@@ -1024,6 +1129,10 @@ respond_json(200, [
             'departure_60min' => array_values($dep_bins_60),
             'oceanic_entry_30min' => array_values($oceanic_bins_30),
             'oceanic_entry_60min' => array_values($oceanic_bins_60),
+            'oceanic_exit_30min' => array_values($exit_bins_30),
+            'oceanic_exit_60min' => array_values($exit_bins_60),
+            'arrival_30min' => array_values($arrival_bins_30),
+            'arrival_60min' => array_values($arrival_bins_60),
         ],
     ],
 ]);
