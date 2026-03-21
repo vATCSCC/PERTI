@@ -684,8 +684,13 @@ function resolvePlayIdByName(string $name): ?int {
  * Normalize ARTCC alias codes (FAA 3-letter to ICAO 4-letter for Canadian FIRs).
  */
 function normalizeArtccAlias(string $code): string {
-    // SWIM-specific international aliases not in the shared normalizer
+    // SWIM-specific aliases not in the shared normalizer:
+    // - Reverse Canadian FIR suffixes (ZEG→CZEG etc.) for API consumers
+    // - Mexican/Caribbean FIR codes
     static $swim_extras = [
+        'ZEG' => 'CZEG', 'ZUL' => 'CZUL', 'ZVR' => 'CZVR',
+        'ZWG' => 'CZWG', 'ZYZ' => 'CZYZ', 'ZQM' => 'CZQM',
+        'ZQX' => 'CZQX', 'ZQO' => 'CZQO',
         'ZMX' => 'MMMX', 'ZMT' => 'MMTY', 'ZMZ' => 'MMZT',
         'ZMR' => 'MMMD', 'ZMC' => 'MMUN', 'ZSU' => 'TJZS',
     ];
