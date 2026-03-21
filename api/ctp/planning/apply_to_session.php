@@ -248,6 +248,69 @@ if (empty($configs_created)) {
 }
 
 // ============================================================================
+// Create aggregate per-track configs (priority 10)
+// ============================================================================
+
+// Load track constraints if defined (planner-set caps override computed)
+$track_constraint_caps = [];
+$tc_result = ctp_fetch_all($conn,
+    "SELECT track_name, max_acph FROM dbo.ctp_planning_track_constraints
+     WHERE session_id = ? AND max_acph IS NOT NULL",
+    [$session_id]);
+if ($tc_result['success'] && !empty($tc_result['data'])) {
+    foreach ($tc_result['data'] as $tc) {
+        $track_constraint_caps[$tc['track_name']] = (int)$tc['max_acph'];
+    }
+}
+
+// Aggregate flight counts per track across all blocks
+$track_totals = [];
+foreach ($configs_created as $cfg) {
+    $tn = $cfg['track_name'];
+    if (!$tn) continue;
+    if (!isset($track_totals[$tn])) $track_totals[$tn] = 0;
+    $track_totals[$tn] += $cfg['flight_count'];
+}
+
+foreach ($track_totals as $agg_track => $total_flights) {
+    // Use planner-defined cap if available, otherwise compute from flight counts
+    if (isset($track_constraint_caps[$agg_track])) {
+        $agg_acph = $track_constraint_caps[$agg_track];
+    } else {
+        $agg_acph = (int)ceil($total_flights / $window_hours);
+        if ($agg_acph <= 0) $agg_acph = 1;
+    }
+
+    $agg_label = $agg_track . ' - Aggregate';
+    $agg_tracks_json = json_encode([$agg_track]);
+    $agg_notes = "Aggregate cap for track $agg_track from scenario \"" . $scenario['scenario_name'] . "\" (ID: $scenario_id)";
+
+    $agg_stmt = sqlsrv_query($conn,
+        "INSERT INTO dbo.ctp_track_throughput_config
+            (session_id, config_label, tracks_json, origins_json, destinations_json,
+             max_acph, priority, is_active, notes, created_by)
+            VALUES (?, ?, ?, NULL, NULL, ?, ?, 1, ?, ?);
+            SELECT SCOPE_IDENTITY() AS config_id",
+        [$session_id, $agg_label, $agg_tracks_json, $agg_acph, 10, $agg_notes, $cid]);
+
+    if ($agg_stmt !== false) {
+        sqlsrv_next_result($agg_stmt);
+        $agg_row = sqlsrv_fetch_array($agg_stmt, SQLSRV_FETCH_ASSOC);
+        $agg_config_id = $agg_row ? (int)$agg_row['config_id'] : null;
+        sqlsrv_free_stmt($agg_stmt);
+
+        $configs_created[] = [
+            'config_id' => $agg_config_id,
+            'config_label' => $agg_label,
+            'track_name' => $agg_track,
+            'max_acph' => $agg_acph,
+            'flight_count' => $total_flights,
+            'priority' => 10,
+        ];
+    }
+}
+
+// ============================================================================
 // Update scenario status to ACTIVE
 // ============================================================================
 
@@ -264,6 +327,15 @@ if (!$update_result['success']) {
         'error' => $update_result['error']
     ]);
 }
+
+// ============================================================================
+// Update session status DRAFT → ACTIVE
+// ============================================================================
+
+ctp_execute($conn,
+    "UPDATE dbo.ctp_sessions SET status = 'ACTIVE', updated_at = SYSUTCDATETIME()
+     WHERE session_id = ? AND status = 'DRAFT'",
+    [$session_id]);
 
 // ============================================================================
 // Audit log
