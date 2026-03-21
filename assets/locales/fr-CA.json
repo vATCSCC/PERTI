@@ -2811,6 +2811,22 @@
       "stars": "STAR"
     }
   },
+  "natots": {
+    "fetching": "R\u00e9cup\u00e9ration de l'avis...",
+    "fetchFailed": "\u00c9chec de la r\u00e9cup\u00e9ration de l'avis de la FAA.",
+    "noSections": "Aucune section de d\u00e9part trouv\u00e9e dans cet avis.",
+    "sections": "sections",
+    "tracks": "pistes",
+    "addAll": "Tout ajouter",
+    "addToTextarea": "Ajouter au champ",
+    "plotRoute": "Tracer la route",
+    "plottingRoute": "Tra\u00e7age de la route...",
+    "plottingRoutes": "Tra\u00e7age de {count} routes...",
+    "noneSelected": "Aucune piste s\u00e9lectionn\u00e9e.",
+    "addedRoutes": "{count} routes ajout\u00e9es.",
+    "duplicatesSkipped": "({count} doublons ignor\u00e9s)",
+    "allAlreadyAdded": "Toutes les routes s\u00e9lectionn\u00e9es sont d\u00e9j\u00e0 dans le champ."
+  },
   "nod": {
     "advisories": {
       "areaLabel": "Zone",
@@ -4696,7 +4712,7 @@
       "domesticArrivals": "Arrivées intérieures",
       "dotted": "Points (···)",
       "dpStars": "DP/STAR :",
-      "dpStarsDesc": "Utiliser la syntaxe <code>FIX.PROC#</code> (ex. : <code>KJFK SKORR5.YARDL</code>)",
+      "dpStarsDesc": "Syntaxe : SID.TRANSITION ou TRANSITION.STAR. Les procédures sont développées en séquences de waypoints publiées.",
       "draftTmiReroute": "Ébauche de réacheminement TMI",
       "endpointIcons": "Icônes de points terminaux",
       "enterRoutes": "Entrer les routes ici...",
@@ -4765,8 +4781,15 @@
       "overrideAll": "Tout remplacer",
       "playName": "Nom du plan",
       "playbook": "Playbook :",
+      "natotsTitle": "Avis NATOTs",
+      "natots": "NATOTs",
+      "natotsUrl": "URL de l'avis",
+      "natotsOr": "ou",
+      "natotsDate": "Date",
+      "natotsAdvn": "Avis #",
+      "natotsPlaceholder": "Entrez une URL d'avis ou une date + num\u00e9ro pour charger les routes de d\u00e9part NATOTs.",
       "playbookCdrSearch": "Recherche Playbook et CDR",
-      "playbookDesc": "<code>PB.nom_plan.origines.destinations</code> (ex. : <code>PB.PLAY1.ZNY.ZTL</code>)",
+      "playbookDesc": "Syntaxe : PB.{NOM_DU_JEU}.{ORIGS}.{DESTS} — les origines et destinations sont des filtres optionnels séparés par des points.",
       "playbooks": "Cahiers de routes",
       "plot": "Tracer",
       "plotDesc": "Afficher les routes sur la carte",

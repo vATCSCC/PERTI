@@ -390,7 +390,7 @@ BEGIN
             trajectory_points, changelog_entries
         )
         SELECT 
-            c.flight_uid, c.flight_key, c.cid, c.callsign, c.phase, c.flight_status,
+            c.flight_uid, c.flight_key, c.cid, c.callsign, c.phase, c.phase,
             c.first_seen_utc, c.last_seen_utc, c.logon_time_utc,
             fp.fp_dept_icao, fp.fp_dest_icao, fp.fp_alt_icao, fp.fp_route, fp.fp_altitude_ft,
             fp.dp_name, fp.star_name, fp.dfix, fp.afix, fp.fp_dept_artcc, fp.fp_dest_artcc,
@@ -411,16 +411,35 @@ BEGIN
         LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid;
         
         SET @rows_archived = @@ROWCOUNT;
-        
+
+        -- Disable changelog triggers before cascade delete to prevent FK_changelog_core violation
+        DISABLE TRIGGER dbo.tr_adl_flight_core_Changelog ON dbo.adl_flight_core;
+        DISABLE TRIGGER dbo.tr_adl_flight_plan_Changelog ON dbo.adl_flight_plan;
+        DISABLE TRIGGER dbo.tr_adl_flight_aircraft_Changelog ON dbo.adl_flight_aircraft;
+        DISABLE TRIGGER dbo.tr_adl_flight_times_Changelog ON dbo.adl_flight_times;
+        DISABLE TRIGGER dbo.tr_adl_flight_tmi_Changelog ON dbo.adl_flight_tmi;
+
+        -- Delete changelog entries for these flights (already counted in archive)
+        DELETE cl
+        FROM dbo.adl_flight_changelog cl
+        INNER JOIN #flights_to_archive fta ON fta.flight_uid = cl.flight_uid;
+
         -- Delete archived flights from live tables (CASCADE handles related tables)
         DELETE c
         FROM dbo.adl_flight_core c
         INNER JOIN #flights_to_archive fta ON fta.flight_uid = c.flight_uid;
-        
+
         SET @rows_deleted = @@ROWCOUNT;
-        
+
+        -- Re-enable changelog triggers
+        ENABLE TRIGGER dbo.tr_adl_flight_core_Changelog ON dbo.adl_flight_core;
+        ENABLE TRIGGER dbo.tr_adl_flight_plan_Changelog ON dbo.adl_flight_plan;
+        ENABLE TRIGGER dbo.tr_adl_flight_aircraft_Changelog ON dbo.adl_flight_aircraft;
+        ENABLE TRIGGER dbo.tr_adl_flight_times_Changelog ON dbo.adl_flight_times;
+        ENABLE TRIGGER dbo.tr_adl_flight_tmi_Changelog ON dbo.adl_flight_tmi;
+
         DROP TABLE #flights_to_archive;
-        
+
         COMMIT TRANSACTION;
         
         -- Log success
@@ -436,14 +455,25 @@ BEGIN
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        
+
+        -- Re-enable triggers even on failure
+        BEGIN TRY
+            ENABLE TRIGGER dbo.tr_adl_flight_core_Changelog ON dbo.adl_flight_core;
+            ENABLE TRIGGER dbo.tr_adl_flight_plan_Changelog ON dbo.adl_flight_plan;
+            ENABLE TRIGGER dbo.tr_adl_flight_aircraft_Changelog ON dbo.adl_flight_aircraft;
+            ENABLE TRIGGER dbo.tr_adl_flight_times_Changelog ON dbo.adl_flight_times;
+            ENABLE TRIGGER dbo.tr_adl_flight_tmi_Changelog ON dbo.adl_flight_tmi;
+        END TRY
+        BEGIN CATCH
+        END CATCH
+
         UPDATE dbo.adl_archive_log
         SET ended_utc = SYSUTCDATETIME(),
             duration_ms = DATEDIFF(MILLISECOND, @start_utc, SYSUTCDATETIME()),
             status = 'FAILED',
             error_message = ERROR_MESSAGE()
         WHERE log_id = @log_id;
-        
+
         IF @debug = 1
             THROW;
     END CATCH

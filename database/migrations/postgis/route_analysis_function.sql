@@ -77,6 +77,7 @@ BEGIN
         WHERE ('ARTCC' = ANY(p_facility_types) OR 'FIR' = ANY(p_facility_types))
           AND ST_Intersects(v_route, ST_MakeValid(ab.geom))
           AND ab.geom IS NOT NULL
+          AND NOT ab.is_subsector
 
         UNION ALL
 

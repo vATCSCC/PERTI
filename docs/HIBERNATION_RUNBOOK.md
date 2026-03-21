@@ -4,8 +4,8 @@
 
 Hibernation mode is an open-ended operational pause that reduces PERTI to core data collection plus VATSWIM. Most downstream flight processing and several UI pages are suspended, but **SWIM API, SWIM pages, and SWIM daemons remain fully operational**. Azure resources are downscaled to match the reduced workload.
 
-**Status**: Active (re-entered 2026-03-13, SWIM exempt)
-**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption
+**Status**: Inactive (exited 2026-03-20)
+**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption; Exited March 20, 2026
 
 ---
 
