@@ -38,7 +38,7 @@ if ($bin_min < 15) $bin_min = 15;
 if ($bin_min > 120) $bin_min = 120;
 
 $group_by = isset($_GET['group_by']) ? strtolower(trim($_GET['group_by'])) : 'status';
-if (!in_array($group_by, ['fir', 'status', 'fix'])) $group_by = 'status';
+if (!in_array($group_by, ['fir', 'status', 'fix', 'nat_track'])) $group_by = 'status';
 
 // Get session for rate cap
 $session = ctp_get_session($conn_tmi, $session_id);
@@ -50,10 +50,11 @@ if (!$session) {
 $group_col = 'edct_status';
 if ($group_by === 'fir') $group_col = 'oceanic_entry_fir';
 elseif ($group_by === 'fix') $group_col = 'oceanic_entry_fix';
+elseif ($group_by === 'nat_track') $group_col = 'resolved_nat_track';
 
 // Query flights with entry times
 $sql = "
-    SELECT oceanic_entry_utc, edct_utc, edct_status, oceanic_entry_fir, oceanic_entry_fix
+    SELECT oceanic_entry_utc, edct_utc, edct_status, oceanic_entry_fir, oceanic_entry_fix, resolved_nat_track
     FROM dbo.ctp_flight_control
     WHERE session_id = ? AND is_excluded = 0 AND oceanic_entry_utc IS NOT NULL
     ORDER BY oceanic_entry_utc ASC
@@ -113,6 +114,8 @@ foreach ($flights as $f) {
         $group_val = $f['oceanic_entry_fir'] ?? 'Unknown';
     } elseif ($group_by === 'fix') {
         $group_val = $f['oceanic_entry_fix'] ?? 'Unknown';
+    } elseif ($group_by === 'nat_track') {
+        $group_val = $f['resolved_nat_track'] ?? 'Random Route';
     }
 
     if (!isset($bins[$bin_key][$group_val])) $bins[$bin_key][$group_val] = 0;
@@ -135,6 +138,18 @@ $fir_palette = [
     'rgba(156,39,176,0.7)', 'rgba(33,150,243,0.7)', 'rgba(255,87,34,0.7)'
 ];
 
+// NAT track colors
+$nat_palette = [
+    'rgba(229,57,53,0.7)',    // Red
+    'rgba(0,150,136,0.7)',    // Teal
+    'rgba(156,39,176,0.7)',   // Purple
+    'rgba(255,152,0,0.7)',    // Orange
+    'rgba(33,150,243,0.7)',   // Blue
+    'rgba(76,175,80,0.7)',    // Green
+    'rgba(233,30,99,0.7)',    // Pink
+    'rgba(121,85,72,0.7)',    // Brown
+];
+
 // Build Chart.js datasets
 $datasets = [];
 $group_keys = array_keys($groups);
@@ -149,6 +164,12 @@ foreach ($group_keys as $idx => $gk) {
     $color = 'rgba(100,100,100,0.7)';
     if ($group_by === 'status' && isset($status_colors[$gk])) {
         $color = $status_colors[$gk];
+    } elseif ($group_by === 'nat_track') {
+        if ($gk === 'Random Route') {
+            $color = 'rgba(173,181,189,0.7)'; // Grey for random route
+        } else {
+            $color = $nat_palette[$idx % count($nat_palette)];
+        }
     } else {
         $color = $fir_palette[$idx % count($fir_palette)];
     }
