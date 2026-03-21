@@ -186,8 +186,8 @@ include("load/connect.php");
                 <tbody id="ctp_flight_tbody">
                     <tr class="ctp-empty-row">
                         <td colspan="12" class="text-center text-muted py-4">
-                            <i class="fas fa-plane-slash fa-2x mb-2 d-block"></i>
-                            <?= __('ctp.flights.noData') ?>
+                            <i class="fas fa-globe-americas fa-2x mb-2 d-block"></i>
+                            <?= __('ctp.flights.selectSession') ?>
                         </td>
                     </tr>
                 </tbody>

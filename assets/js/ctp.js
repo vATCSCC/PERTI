@@ -511,10 +511,12 @@
             $tbody.empty();
 
             if (state.flights.length === 0) {
+                var icon = state.currentSession ? 'fa-plane-slash' : 'fa-globe-americas';
+                var msg = state.currentSession ? t('ctp.flights.noData') : t('ctp.flights.selectSession');
                 $tbody.append(
                     '<tr class="ctp-empty-row"><td colspan="12" class="text-center text-muted py-4">' +
-                    '<i class="fas fa-plane-slash fa-2x mb-2 d-block"></i>' +
-                    t('ctp.flights.noData') +
+                    '<i class="fas ' + icon + ' fa-2x mb-2 d-block"></i>' +
+                    msg +
                     '</td></tr>'
                 );
                 return;

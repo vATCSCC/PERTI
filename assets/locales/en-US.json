@@ -242,6 +242,7 @@
       "edct": "EDCT",
       "overall": "Overall",
       "noData": "No flights detected. Use the Detect button to find oceanic flights.",
+      "selectSession": "Select or create a CTP session to get started.",
       "selectAll": "Select all flights",
       "detect": "Detect",
       "detectTooltip": "Scan for non-event flights crossing constrained oceanic FIRs",

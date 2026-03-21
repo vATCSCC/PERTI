@@ -12,6 +12,11 @@
     overflow: hidden;
 }
 
+/* Hide footer on full-screen app layout */
+.ctp-container ~ footer.cs-footer {
+    display: none !important;
+}
+
 /* -- Top Bar -------------------------------------------------------------- */
 .ctp-top-bar {
     display: flex;
