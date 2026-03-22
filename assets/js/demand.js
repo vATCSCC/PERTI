@@ -868,7 +868,7 @@ const DEMAND_STATE = {
     rateData: null, // Store rate suggestion data from API
     tmiConfig: null, // Store active TMI CONFIG entry if any
     scheduledConfigs: null, // Store all scheduled TMI CONFIG entries for time-bounded rate lines
-    tmiPrograms: null, // Store GS/GDP programs for vertical markers
+    tmiPrograms: null, // Store GS/GDP programs for timeline bar
     showRateLines: true, // Master toggle for rate line visibility
     // Individual rate line visibility toggles
     showVatsimAar: true,
@@ -2285,6 +2285,7 @@ function showEmptyState(type) {
         $('#demand_chart').hide();
     }
     $('#demand_legend_toggle_area').hide();
+    $('#demand_tmi_timeline').hide();
 }
 
 /**
@@ -2750,6 +2751,7 @@ function showSelectAirportPrompt() {
     $('#demand_empty_state').show();
     $('#demand_chart').hide();
     $('#demand_legend_toggle_area').hide();
+    $('#demand_tmi_timeline').hide();
 
     // Hide header rate display
     $('#demand_header_aar_row').hide();
@@ -2931,7 +2933,7 @@ function loadDemandData() {
                 }
             }
 
-            // Handle TMI programs (GS/GDP) - optional, for vertical markers
+            // Handle TMI programs (GS/GDP) - optional, for timeline bar
             if (tmiProgramsResult.status === 'fulfilled' && tmiProgramsResult.value &&
                 tmiProgramsResult.value.success && tmiProgramsResult.value.programs) {
                 DEMAND_STATE.tmiPrograms = tmiProgramsResult.value.programs;
@@ -3422,20 +3424,14 @@ function renderChart(data) {
         });
     }
 
-    // Add current time marker, rate lines, and TMI program markers to first series
+    // Add current time marker and rate lines to first series
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
     const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
         ? buildTimeBoundedRateMarkLines()
         : buildRateMarkLinesForChart();
-    const tmiProgramMarkLines = buildTmiProgramMarkLines();
 
     if (series.length > 0) {
         const markLineData = [];
-
-        // Add TMI program markers first (GS/GDP vertical lines - behind other markers)
-        if (tmiProgramMarkLines && tmiProgramMarkLines.length > 0) {
-            markLineData.push(...tmiProgramMarkLines);
-        }
 
         // Add time marker (now returns a single data item with embedded label)
         if (timeMarkLineData) {
@@ -3455,6 +3451,9 @@ function renderChart(data) {
             };
         }
     }
+
+    // Render TMI timeline bar above chart
+    renderTmiTimeline();
 
     // Calculate interval for x-axis bounds
     const intervalMs = getGranularityMinutes() * 60 * 1000;
@@ -3978,17 +3977,14 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         };
     });
 
-    // Add time marker, rate lines, and TMI program markers
+    // Add time marker and rate lines
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
     const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
         ? buildTimeBoundedRateMarkLines()
         : buildRateMarkLinesForChart();
-    const tmiProgramMarkLines = buildTmiProgramMarkLines();
 
     if (series.length > 0) {
         const markLineData = [];
-        // Add TMI program markers first (GS/GDP vertical lines - behind other markers)
-        if (tmiProgramMarkLines && tmiProgramMarkLines.length > 0) {markLineData.push(...tmiProgramMarkLines);}
         if (timeMarkLineData) {markLineData.push(timeMarkLineData);}
         if (rateMarkLines && rateMarkLines.length > 0) {markLineData.push(...rateMarkLines);}
 
@@ -4000,6 +3996,9 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
             };
         }
     }
+
+    // Render TMI timeline bar above chart
+    renderTmiTimeline();
 
     // Build chart title
     const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
@@ -4825,7 +4824,6 @@ function formatTimeLabelFromTimestamp(timestamp) {
 /**
  * Get current time markLine data item for TRUE TIME AXIS - FAA AADC style
  * Returns a data item with embedded label config (for merging with rate lines)
- * Includes overlap detection with TMI program markers
  */
 function getCurrentTimeMarkLineForTimeAxis() {
     const now = new Date();
@@ -4835,33 +4833,6 @@ function getCurrentTimeMarkLineForTimeAxis() {
 
     // FSM/TBFM style: yellow/orange current time marker
     const markerColor = '#f59e0b';  // Amber/yellow like FSM reference
-
-    // Check for overlap with TMI program markers
-    const LABEL_PROXIMITY_THRESHOLD = 30 * 60 * 1000;  // 30 minutes in ms
-    const LABEL_HEIGHT = 22;
-    let labelOffset = 0;
-
-    if (DEMAND_STATE.tmiPrograms && DEMAND_STATE.tmiPrograms.length > 0) {
-        // Collect all TMI marker timestamps
-        const tmiMarkerTimes = [];
-        DEMAND_STATE.tmiPrograms.forEach(program => {
-            if (program.start_utc) {tmiMarkerTimes.push(new Date(program.start_utc).getTime());}
-            if (program.was_updated && program.updated_at) {tmiMarkerTimes.push(new Date(program.updated_at).getTime());}
-            if (program.status === 'PURGED' && program.purged_at) {tmiMarkerTimes.push(new Date(program.purged_at).getTime());}
-            else if (program.end_utc) {tmiMarkerTimes.push(new Date(program.end_utc).getTime());}
-        });
-
-        // Count how many TMI markers are within proximity of current time
-        let markersInProximity = 0;
-        tmiMarkerTimes.forEach(markerTime => {
-            if (Math.abs(markerTime - nowMs) < LABEL_PROXIMITY_THRESHOLD) {
-                markersInProximity++;
-            }
-        });
-
-        // Offset time marker label based on number of nearby TMI markers
-        labelOffset = markersInProximity * LABEL_HEIGHT;
-    }
 
     // Return data item with label embedded (not at markLine level)
     // This allows proper merging with rate lines
@@ -4876,7 +4847,7 @@ function getCurrentTimeMarkLineForTimeAxis() {
             show: true,
             formatter: `${hours}${minutes}Z`,
             position: 'end',
-            offset: [0, labelOffset],
+            offset: [0, 0],
             color: markerColor,
             fontWeight: 'bold',
             fontSize: 10,
@@ -5488,143 +5459,211 @@ function buildTimeBoundedRateMarkLines() {
 }
 
 /**
- * Build vertical marker lines for GS (Ground Stop) and GDP programs
- * GS = Yellow vertical lines, GDP = Brown vertical lines
- * Markers: Start (solid), Update (dashed), CNX/End (solid)
- * Includes label overlap detection to stack labels when markers are close together
- *
- * @returns {Array} Array of markLine data items for ECharts
+ * Render a horizontal TMI timeline bar above the demand chart.
+ * Shows GS/GDP programs as colored time-range bars with appropriate
+ * visual treatment for active, completed, cancelled, and updated states.
+ * Replaces the old vertical mark lines on the ECharts chart.
  */
-function buildTmiProgramMarkLines() {
-    if (!DEMAND_STATE.tmiPrograms || DEMAND_STATE.tmiPrograms.length === 0) {
-        return [];
+function renderTmiTimeline() {
+    const container = document.getElementById('demand_tmi_timeline');
+    const track = document.getElementById('tmi_timeline_track');
+    if (!container || !track) return;
+
+    const programs = DEMAND_STATE.tmiPrograms;
+    if (!programs || programs.length === 0) {
+        container.style.display = 'none';
+        return;
     }
 
-    const lines = [];
+    // Filter to only GS and GDP types
+    const filtered = programs.filter(p => {
+        const t = (p.program_type || '').toUpperCase();
+        return t === 'GS' || t.startsWith('GDP');
+    });
 
-    // Color definitions
-    const GS_COLOR = '#fbbf24';   // Yellow/Amber for Ground Stops
-    const GDP_COLOR = '#92400e';  // Brown for Ground Delay Programs
+    if (filtered.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
 
-    // Label overlap detection - track marker positions
-    const markerPositions = [];  // Array of {xAxis, labelOffset}
-    const LABEL_PROXIMITY_THRESHOLD = 30 * 60 * 1000;  // 30 minutes in ms - labels closer than this get stacked
-    const LABEL_HEIGHT = 22;  // Approximate height of label in pixels
+    const chartStartMs = new Date(DEMAND_STATE.currentStart).getTime();
+    const chartEndMs = new Date(DEMAND_STATE.currentEnd).getTime();
+    const chartRange = chartEndMs - chartStartMs;
+    if (chartRange <= 0) { container.style.display = 'none'; return; }
 
-    // Helper to format time as HHMMZ
-    const formatTimeZ = (isoString) => {
-        if (!isoString) {return '';}
-        const d = new Date(isoString);
+    // Color map
+    const COLORS = {
+        'GS':       { bg: '#dc3545', border: '#b02a37' },
+        'GDP':      { bg: '#ffc107', border: '#d4a106' },
+        'GDP-DAS':  { bg: '#ffc107', border: '#d4a106' },
+        'GDP-GAAP': { bg: '#ff9800', border: '#e68900' },
+        'GDP-UDP':  { bg: '#ff5722', border: '#e64a19' },
+    };
+    const DEFAULT_COLOR = { bg: '#6c757d', border: '#555' };
+
+    const formatTimeZ = (iso) => {
+        if (!iso) return '';
+        const d = new Date(iso);
         return d.getUTCHours().toString().padStart(2, '0') +
                d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
     };
 
-    // Calculate label offset based on proximity to other markers
-    const calculateLabelOffset = (xAxis) => {
-        // Find markers within proximity threshold
-        let maxOffsetInProximity = -1;
-        markerPositions.forEach(pos => {
-            if (Math.abs(pos.xAxis - xAxis) < LABEL_PROXIMITY_THRESHOLD) {
-                maxOffsetInProximity = Math.max(maxOffsetInProximity, pos.labelOffset);
+    // Percentage helpers
+    const toPct = (ms) => Math.max(0, Math.min(100, (ms - chartStartMs) / chartRange * 100));
+
+    // Sort by start time
+    const sorted = filtered.slice().sort((a, b) => new Date(a.start_utc) - new Date(b.start_utc));
+
+    // Overlap detection: assign rows
+    const rows = []; // Array of arrays, each row tracks end-times of placed bars
+    const barRows = []; // parallel to sorted — which row index each bar goes in
+    sorted.forEach(p => {
+        const startMs = new Date(p.start_utc).getTime();
+        let placed = false;
+        for (let r = 0; r < rows.length; r++) {
+            if (rows[r] <= startMs) {
+                rows[r] = new Date(p.end_utc || p.purged_at || new Date()).getTime();
+                barRows.push(r);
+                placed = true;
+                break;
             }
-        });
-        // Next offset is one level higher than the highest in proximity
-        return maxOffsetInProximity + 1;
-    };
-
-    // Collect all markers first with their timestamps
-    const markersToAdd = [];
-
-    // Process each program
-    DEMAND_STATE.tmiPrograms.forEach(program => {
-        const isGS = program.program_type === 'GS';
-        const color = isGS ? GS_COLOR : GDP_COLOR;
-        const prefix = isGS ? 'GS' : 'GDP';
-
-        // Start marker (solid line)
-        if (program.start_utc) {
-            markersToAdd.push({
-                timestamp: program.start_utc,
-                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.start')}: ${formatTimeZ(program.start_utc)}`,
-                color: color,
-                isDashed: false,
-            });
         }
-
-        // Update marker (dashed line) - only if was_updated is true
-        if (program.was_updated && program.updated_at) {
-            markersToAdd.push({
-                timestamp: program.updated_at,
-                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.update')}: ${formatTimeZ(program.updated_at)}`,
-                color: color,
-                isDashed: true,
-            });
-        }
-
-        // End marker - check status
-        if (program.status === 'PURGED' && program.purged_at) {
-            markersToAdd.push({
-                timestamp: program.purged_at,
-                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.cnx')}: ${formatTimeZ(program.purged_at)}`,
-                color: color,
-                isDashed: false,
-            });
-        } else if (program.end_utc) {
-            markersToAdd.push({
-                timestamp: program.end_utc,
-                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.end')}: ${formatTimeZ(program.end_utc)}`,
-                color: color,
-                isDashed: false,
-            });
+        if (!placed) {
+            rows.push(new Date(p.end_utc || p.purged_at || new Date()).getTime());
+            barRows.push(rows.length - 1);
         }
     });
 
-    // Sort markers by timestamp for consistent offset calculation
-    markersToAdd.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const numRows = Math.min(rows.length, 3);
+    const BAR_HEIGHT = 20;
+    const BAR_GAP = 2;
+    const PADDING = 4;
+    const trackHeight = PADDING * 2 + numRows * BAR_HEIGHT + Math.max(0, numRows - 1) * BAR_GAP;
+    track.style.height = trackHeight + 'px';
 
-    const chartStart = new Date(DEMAND_STATE.currentStart).getTime();
-    const chartEnd = new Date(DEMAND_STATE.currentEnd).getTime();
+    // Clear track
+    track.innerHTML = '';
 
-    // Add markers with overlap detection
-    markersToAdd.forEach(marker => {
-        const timeMs = new Date(marker.timestamp).getTime();
+    // Add time tick marks
+    const ticksDiv = document.createElement('div');
+    ticksDiv.className = 'tmi-timeline-ticks';
+    const tickInterval = chartRange <= 6 * 3600000 ? 3600000 : 2 * 3600000; // 1h or 2h
+    let tickTime = Math.ceil(chartStartMs / tickInterval) * tickInterval;
+    while (tickTime < chartEndMs) {
+        const tickEl = document.createElement('div');
+        tickEl.className = 'tmi-timeline-tick';
+        tickEl.style.left = toPct(tickTime) + '%';
+        const label = document.createElement('span');
+        label.className = 'tmi-timeline-tick-label';
+        const td = new Date(tickTime);
+        label.textContent = td.getUTCHours().toString().padStart(2, '0') +
+                            ':' + td.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+        tickEl.appendChild(label);
+        ticksDiv.appendChild(tickEl);
+        tickTime += tickInterval;
+    }
+    track.appendChild(ticksDiv);
 
-        // Skip if outside visible range
-        if (timeMs < chartStart || timeMs > chartEnd) {return;}
+    // Render bars
+    const nowMs = Date.now();
+    sorted.forEach((p, i) => {
+        const row = barRows[i];
+        if (row >= 3) return; // max 3 rows
 
-        // Calculate offset for this marker
-        const labelOffset = calculateLabelOffset(timeMs);
-        const verticalOffset = labelOffset * LABEL_HEIGHT;
+        const pType = (p.program_type || 'GS').toUpperCase();
+        const colors = COLORS[pType] || COLORS[pType.replace(/-.*/, '')] || DEFAULT_COLOR;
+        const isCompleted = p.status === 'COMPLETED';
+        const isCancelled = p.status === 'PURGED' || p.status === 'CANCELLED';
+        const isActive = p.status === 'ACTIVE';
 
-        // Record this marker's position for future overlap detection
-        markerPositions.push({ xAxis: timeMs, labelOffset: labelOffset });
+        // Determine bar time extent
+        const startMs = new Date(p.start_utc).getTime();
+        let endMs;
+        if (isCancelled && p.purged_at) {
+            endMs = new Date(p.purged_at).getTime();
+        } else if (p.end_utc) {
+            endMs = new Date(p.end_utc).getTime();
+        } else if (isActive) {
+            endMs = Math.min(nowMs, chartEndMs);
+        } else {
+            endMs = startMs + 3600000; // fallback 1h
+        }
 
-        lines.push({
-            xAxis: timeMs,
-            lineStyle: {
-                color: marker.color,
-                width: 2,
-                type: marker.isDashed ? 'dashed' : 'solid',
-            },
-            label: {
-                show: true,
-                formatter: marker.label,
-                position: 'end',
-                offset: [0, verticalOffset],
-                color: '#000000',  // Black text for readability
-                fontWeight: 'bold',
-                fontSize: 10,
-                fontFamily: '"Inconsolata", monospace',
-                backgroundColor: marker.color,
-                padding: [2, 6],
-                borderRadius: 2,
-                borderColor: 'rgba(0,0,0,0.3)',
-                borderWidth: 1,
-            },
-        });
+        // Skip if entirely outside window
+        if (endMs < chartStartMs || startMs > chartEndMs) return;
+
+        const leftPct = toPct(startMs);
+        const rightPct = toPct(endMs);
+        const widthPct = rightPct - leftPct;
+
+        const bar = document.createElement('div');
+        bar.className = 'tmi-timeline-bar';
+        if (isCompleted) bar.classList.add('tmi-status-completed');
+        if (isCancelled) bar.classList.add('tmi-status-cancelled');
+
+        bar.style.left = leftPct + '%';
+        bar.style.width = widthPct + '%';
+        bar.style.top = (PADDING + row * (BAR_HEIGHT + BAR_GAP)) + 'px';
+        bar.style.height = BAR_HEIGHT + 'px';
+        bar.style.backgroundColor = colors.bg;
+        bar.style.borderColor = colors.border;
+
+        // Tooltip
+        const typeLabel = p.program_type || 'GS';
+        const statusLabel = isCancelled
+            ? PERTII18n.t('demand.tmiTimeline.cancelled')
+            : isCompleted
+                ? PERTII18n.t('demand.tmiTimeline.completed')
+                : PERTII18n.t('demand.tmiTimeline.active');
+        let tooltip = `${typeLabel} #${p.program_id} ${p.ctl_element || ''}\n`;
+        tooltip += `${formatTimeZ(p.start_utc)} - ${isCancelled && p.purged_at ? formatTimeZ(p.purged_at) + ' (CNX)' : formatTimeZ(p.end_utc)}\n`;
+        tooltip += statusLabel;
+        if (p.avg_delay_min) tooltip += ` | ${parseFloat(p.avg_delay_min).toFixed(0)} min avg`;
+        bar.title = tooltip;
+
+        // Inline label when bar is likely wide enough
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'tmi-timeline-bar-label';
+        labelSpan.textContent = `${typeLabel} #${p.program_id} ${p.ctl_element || ''}`;
+        bar.appendChild(labelSpan);
+
+        // CNX label for cancelled programs
+        if (isCancelled) {
+            const cnxSpan = document.createElement('span');
+            cnxSpan.className = 'tmi-cnx-label';
+            cnxSpan.textContent = PERTII18n.t('demand.tmiTimeline.cnx');
+            bar.appendChild(cnxSpan);
+        }
+
+        // Update marker (diamond) if program was updated
+        if (p.was_updated && p.updated_at) {
+            const updMs = new Date(p.updated_at).getTime();
+            if (updMs >= startMs && updMs <= endMs) {
+                const barStartMs = Math.max(startMs, chartStartMs);
+                const barEndMs = Math.min(endMs, chartEndMs);
+                const barRange = barEndMs - barStartMs;
+                if (barRange > 0) {
+                    const updPct = (updMs - barStartMs) / barRange * 100;
+                    const marker = document.createElement('span');
+                    marker.className = 'tmi-update-marker';
+                    marker.style.left = updPct + '%';
+                    bar.appendChild(marker);
+                }
+            }
+        }
+
+        track.appendChild(bar);
     });
 
-    return lines;
+    // NOW line
+    if (nowMs >= chartStartMs && nowMs <= chartEndMs) {
+        const nowLine = document.createElement('div');
+        nowLine.className = 'tmi-timeline-now';
+        nowLine.style.left = toPct(nowMs) + '%';
+        track.appendChild(nowLine);
+    }
+
+    container.style.display = 'block';
 }
 
 /**

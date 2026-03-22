@@ -314,6 +314,114 @@ include("load/i18n.php");
             font-weight: 600;
         }
 
+        /* TMI Timeline Bar */
+        .demand-tmi-timeline {
+            position: relative;
+            background: #f8f9fa;
+            border: 1px solid #d0d0d0;
+            border-bottom: none;
+            border-radius: 3px 3px 0 0;
+            overflow: hidden;
+            font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+            font-size: 10px;
+        }
+
+        .tmi-timeline-track {
+            position: relative;
+            min-height: 28px;
+            padding: 4px 0;
+        }
+
+        .tmi-timeline-bar {
+            position: absolute;
+            height: 20px;
+            border-radius: 2px;
+            border: 1px solid;
+            overflow: hidden;
+            white-space: nowrap;
+            line-height: 20px;
+            padding: 0 4px;
+            box-sizing: border-box;
+            z-index: 2;
+        }
+
+        .tmi-timeline-bar-label {
+            color: #000;
+            font-weight: 700;
+            font-size: 10px;
+            text-shadow: 0 0 2px rgba(255,255,255,0.6);
+            pointer-events: none;
+        }
+
+        .tmi-timeline-bar.tmi-status-completed,
+        .tmi-timeline-bar.tmi-status-cancelled {
+            opacity: 0.45;
+        }
+
+        .tmi-timeline-bar.tmi-status-cancelled {
+            background-image: repeating-linear-gradient(
+                -45deg, transparent, transparent 3px,
+                rgba(0,0,0,0.15) 3px, rgba(0,0,0,0.15) 6px
+            ) !important;
+        }
+
+        .tmi-timeline-bar .tmi-cnx-label {
+            position: absolute;
+            right: 2px;
+            top: 0;
+            font-size: 9px;
+            font-weight: 700;
+            color: #721c24;
+            line-height: 20px;
+        }
+
+        .tmi-timeline-bar .tmi-update-marker {
+            position: absolute;
+            top: 50%;
+            width: 6px;
+            height: 6px;
+            background: #000;
+            transform: translate(-50%, -50%) rotate(45deg);
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        .tmi-timeline-now {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 0;
+            border-left: 2px dashed #dc3545;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .tmi-timeline-ticks {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .tmi-timeline-tick {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            border-left: 1px solid rgba(0,0,0,0.08);
+        }
+
+        .tmi-timeline-tick-label {
+            position: absolute;
+            top: 1px;
+            left: 2px;
+            font-size: 8px;
+            color: #999;
+            white-space: nowrap;
+        }
+
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .demand-chart-container {
@@ -1101,6 +1209,10 @@ include("load/i18n.php");
 
                     <!-- Chart Container (hidden initially) -->
                     <div class="demand-chart-wrapper">
+                        <!-- TMI Timeline Bar (GS/GDP programs) -->
+                        <div id="demand_tmi_timeline" class="demand-tmi-timeline" style="display: none;">
+                            <div class="tmi-timeline-track" id="tmi_timeline_track"></div>
+                        </div>
                         <div id="demand_chart" class="demand-chart-container" style="display: none;"></div>
                         <div class="chart-loading-overlay" id="chart_loading_overlay">
                             <div class="chart-loading-content">
