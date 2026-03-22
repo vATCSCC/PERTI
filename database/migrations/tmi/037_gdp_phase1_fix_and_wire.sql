@@ -43,7 +43,7 @@ GO
 --
 -- Fixes:
 --   - Complete slot reset (clear ALL assignment metadata)
---   - Use correct column name assigned_utc (not assigned_at)
+--   - Use correct column name assigned_at (not assigned_utc)
 --   - Create flight_control record for flights with no available slot
 -- ============================================================================
 PRINT 'Part 2: Fixing sp_TMI_AssignFlightsRBS...';
@@ -84,14 +84,14 @@ BEGIN
         assigned_callsign = NULL,
         assigned_carrier = NULL,
         assigned_origin = NULL,
-        assigned_utc = NULL,
+        assigned_at = NULL,
         original_eta_utc = NULL,
         slot_delay_min = NULL,
         ctd_utc = NULL,
         cta_utc = NULL,
         is_popup_slot = 0,
         popup_lead_time_min = NULL,
-        modified_utc = SYSUTCDATETIME()
+        updated_at = SYSUTCDATETIME()
     WHERE program_id = @program_id;
 
     -- Process flights in ETA order
@@ -165,19 +165,19 @@ BEGIN
                 SET @ete_min = DATEDIFF(MINUTE, @etd_utc, @eta_utc);
                 SET @ctd_utc = DATEADD(MINUTE, -@ete_min, @slot_time);
 
-                -- FIX: Use correct column names (assigned_utc not assigned_at)
+                -- FIX: Use correct column names (assigned_at not assigned_at)
                 UPDATE dbo.tmi_slots
                 SET slot_status = 'ASSIGNED',
                     assigned_flight_uid = @flight_uid,
                     assigned_callsign = @callsign,
                     assigned_carrier = @carrier,
                     assigned_origin = @dep_airport,
-                    assigned_utc = SYSUTCDATETIME(),
+                    assigned_at = SYSUTCDATETIME(),
                     original_eta_utc = @eta_utc,
                     slot_delay_min = @delay_min,
                     ctd_utc = @ctd_utc,
                     cta_utc = @slot_time,
-                    modified_utc = SYSUTCDATETIME()
+                    updated_at = SYSUTCDATETIME()
                 WHERE slot_id = @slot_id;
 
                 INSERT INTO dbo.tmi_flight_control (
@@ -431,14 +431,14 @@ BEGIN
                 assigned_callsign = NULL,
                 assigned_carrier = NULL,
                 assigned_origin = NULL,
-                assigned_utc = NULL,
+                assigned_at = NULL,
                 original_eta_utc = NULL,
                 slot_delay_min = NULL,
                 ctd_utc = NULL,
                 cta_utc = NULL,
                 is_popup_slot = 0,
                 popup_lead_time_min = NULL,
-                modified_utc = SYSUTCDATETIME()
+                updated_at = SYSUTCDATETIME()
             WHERE slot_id = @move_current_slot;
 
             -- FIX: Assign flight to earlier slot with full metadata
@@ -448,12 +448,12 @@ BEGIN
                 assigned_carrier = @move_carrier,
                 assigned_origin = @move_dep_airport,
                 slot_status = 'ASSIGNED',
-                assigned_utc = SYSUTCDATETIME(),
+                assigned_at = SYSUTCDATETIME(),
                 original_eta_utc = @move_orig_eta,
                 slot_delay_min = @new_delay,
                 ctd_utc = @new_ctd,
                 cta_utc = @free_slot_time,
-                modified_utc = SYSUTCDATETIME()
+                updated_at = SYSUTCDATETIME()
             WHERE slot_id = @free_slot_id;
 
             -- Update flight control record
@@ -505,14 +505,14 @@ BEGIN
         s.assigned_callsign = NULL,
         s.assigned_carrier = NULL,
         s.assigned_origin = NULL,
-        s.assigned_utc = NULL,
+        s.assigned_at = NULL,
         s.original_eta_utc = NULL,
         s.slot_delay_min = NULL,
         s.ctd_utc = NULL,
         s.cta_utc = NULL,
         s.is_popup_slot = 0,
         s.popup_lead_time_min = NULL,
-        s.modified_utc = SYSUTCDATETIME()
+        s.updated_at = SYSUTCDATETIME()
     FROM dbo.tmi_slots s
     INNER JOIN @free_slots fs ON s.slot_id = fs.slot_id
     WHERE s.slot_status = 'ASSIGNED';  -- Only clear ones that weren't just reassigned
@@ -712,20 +712,20 @@ BEGIN
             SET @raw_delay = DATEDIFF(MINUTE, @eta_utc, @slot_time);
             SET @delay_min = IIF(@raw_delay < @delay_limit_min, @raw_delay, @delay_limit_min);
 
-            -- FIX: Use correct column names (assigned_utc not assigned_at)
+            -- FIX: Use correct column names (assigned_at not assigned_at)
             UPDATE dbo.tmi_slots
             SET slot_status = 'ASSIGNED',
                 assigned_flight_uid = @flight_uid,
                 assigned_callsign = @callsign,
                 assigned_carrier = @carrier,
                 assigned_origin = @dep_airport,
-                assigned_utc = SYSUTCDATETIME(),
+                assigned_at = SYSUTCDATETIME(),
                 original_eta_utc = @eta_utc,
                 slot_delay_min = @delay_min,
                 cta_utc = @slot_time,
                 is_popup_slot = 1,
                 popup_lead_time_min = @lead_time,
-                modified_utc = SYSUTCDATETIME()
+                updated_at = SYSUTCDATETIME()
             WHERE slot_id = @slot_id;
 
             -- Determine ctl_type based on program type
@@ -756,7 +756,7 @@ BEGIN
             UPDATE dbo.tmi_popup_queue
             SET queue_status = 'ASSIGNED',
                 assigned_slot_id = @slot_id,
-                assigned_utc = SYSUTCDATETIME(),
+                assigned_at = SYSUTCDATETIME(),
                 assignment_type = CASE WHEN @has_reserved = 1 THEN 'RESERVED' ELSE 'REGULAR' END,
                 processed_at = SYSUTCDATETIME()
             WHERE queue_id = @queue_id;

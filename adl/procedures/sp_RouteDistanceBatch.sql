@@ -143,7 +143,7 @@ PRINT 'Created procedure dbo.sp_BackfillRouteDistances';
 GO
 
 -- ============================================================================
--- sp_UpdateRouteDistancesBatch  (V2.2 - Set-based rewrite)
+-- sp_UpdateRouteDistancesBatch  (V2.3 - Duplicate waypoint dedup)
 --
 -- Updates route_dist_to_dest_nm for active flights using the parsed route
 -- and current position. Called during refresh cycle.
@@ -306,6 +306,8 @@ BEGIN
 
     -- D2 (Pass 2): Compute projection on closest segment only
     -- endpoint distances computed here (not for all 19000 segments)
+    -- V2.3: ROW_NUMBER dedup guards against duplicate waypoint sequence_num rows
+    --        which produce duplicate (flight_uid, seg_start_seq) in #rd_segments
     ;WITH projected AS (
         SELECT
             c.flight_uid,
@@ -319,7 +321,8 @@ BEGIN
                     - POWER(f.current_pos.STDistance(s.seg_end_geo) / 1852.0, 2))
                     / (2.0 * c.segment_length_nm)
                 ELSE 0
-            END AS raw_projection
+            END AS raw_projection,
+            ROW_NUMBER() OVER (PARTITION BY c.flight_uid ORDER BY c.seg_start_seq) AS rn
         FROM #rd_closest_seg c
         INNER JOIN #rd_flights f ON f.flight_uid = c.flight_uid
         INNER JOIN #rd_segments s ON s.flight_uid = c.flight_uid AND s.seg_start_seq = c.seg_start_seq
@@ -332,7 +335,8 @@ BEGIN
                 WHEN raw_projection > segment_length_nm THEN segment_length_nm
                 ELSE raw_projection END AS dist_flown_nm
     INTO #rd_closest
-    FROM projected;
+    FROM projected
+    WHERE rn = 1;
 
     DROP TABLE #rd_closest_seg;
 
@@ -463,7 +467,7 @@ BEGIN
 END;
 GO
 
-PRINT 'Created procedure dbo.sp_UpdateRouteDistancesBatch V2.2 (two-pass geodesic)';
+PRINT 'Created procedure dbo.sp_UpdateRouteDistancesBatch V2.3 (two-pass geodesic + dedup)';
 GO
 
 -- ============================================================================

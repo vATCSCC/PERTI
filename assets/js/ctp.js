@@ -3289,45 +3289,48 @@
 
         _getConstraintLines: function(view) {
             var d = this._data;
-            var self = this;
             if (!d) return [];
             var lines = [];
-            // Only show ACPH constraints on entry_* views (oceanic entry is where throughput is measured)
+            // Only show ACPH constraints on entry_* views when a specific track is filtered
             if (view.indexOf('entry_') !== 0) return lines;
+            var filter = this._trackFilter;
+            if (!filter) return lines; // No constraints on stacked "All" view
 
-            var filter = self._trackFilter; // null = all, string = specific track
-
-            // From throughput configs — only show when a specific track is filtered
-            // (aggregate configs on stacked "All" view are meaningless)
-            if (d.throughput_configs && filter) {
-                d.throughput_configs.forEach(function(cfg) {
-                    if (!cfg.max_acph) return;
-                    // Match configs whose tracks include the filtered track
-                    var tracks = cfg.tracks_json || [];
-                    if (typeof tracks === 'string') { try { tracks = JSON.parse(tracks); } catch(e) { tracks = []; } }
-                    var matches = tracks.length === 0 || tracks.indexOf(filter) >= 0;
-                    if (matches) {
-                        lines.push({
-                            label: cfg.config_label,
-                            value: cfg.max_acph,
-                            color: '#ff4444',
-                            type: 'acph'
-                        });
-                    }
-                });
-            }
-            // From track constraints — only show when matching filter
+            // 1. Track constraint (planner-defined cap) — solid red line
+            var tcValue = null;
             if (d.track_constraints) {
                 d.track_constraints.forEach(function(tc) {
-                    if (!tc.max_acph) return;
-                    if (filter && tc.track_name !== filter) return;
-                    // Skip on "All" view — per-track lines are meaningless on stacked total
-                    if (!filter) return;
+                    if (!tc.max_acph || tc.track_name !== filter) return;
+                    tcValue = tc.max_acph;
                     lines.push({
-                        label: tc.track_name + ' cap',
+                        label: filter + ' Constraint',
                         value: tc.max_acph,
+                        color: '#ff4444',
+                        lineType: 'solid'
+                    });
+                });
+            }
+
+            // 2. Aggregate throughput config — dashed orange, deduped, skip per-block
+            if (d.throughput_configs) {
+                var seen = {};
+                d.throughput_configs.forEach(function(cfg) {
+                    if (!cfg.max_acph) return;
+                    // Only aggregate configs (skip per-block origin-specific configs)
+                    if (cfg.config_label.indexOf('Aggregate') < 0) return;
+                    var tracks = cfg.tracks_json || [];
+                    if (typeof tracks === 'string') { try { tracks = JSON.parse(tracks); } catch(e) { tracks = []; } }
+                    if (tracks.length > 0 && tracks.indexOf(filter) < 0) return;
+                    // Deduplicate by ACPH value
+                    if (seen[cfg.max_acph]) return;
+                    seen[cfg.max_acph] = true;
+                    // Skip if same value as track constraint (avoid duplicate line)
+                    if (cfg.max_acph === tcValue) return;
+                    lines.push({
+                        label: cfg.config_label,
+                        value: cfg.max_acph,
                         color: '#ff8800',
-                        type: 'acph'
+                        lineType: 'dashed'
                     });
                 });
             }
@@ -3340,9 +3343,12 @@
             // Show ocean entry windows on entry_* views
             if (view.indexOf('entry_') !== 0) return [];
             var self = this;
+            var filter = self._trackFilter;
             var windows = [];
             d.track_constraints.forEach(function(tc) {
                 if (tc.ocean_entry_start && tc.ocean_entry_end) {
+                    // If filtering to a specific track, only show that track's window
+                    if (filter && tc.track_name !== filter) return;
                     windows.push({
                         label: tc.track_name,
                         start: self._parseUtc(tc.ocean_entry_start),
@@ -3440,24 +3446,18 @@
             // Add constraint markLines at actual ACPH values (Y-axis is now in AC/hr)
             var markLineData = [];
             constraints.forEach(function(c) {
-                if (c.type === 'acph' && c.value) {
+                if (c.value) {
                     markLineData.push({
-                        name: c.label,
                         yAxis: c.value,
-                        lineStyle: { color: c.color, width: 2, type: 'dashed' },
-                        label: {
-                            formatter: c.label + ': ' + c.value + ' AC/hr',
-                            fontSize: 9,
-                            color: c.color,
-                            position: 'insideEndTop'
-                        }
+                        lineStyle: { color: c.color, width: 2, type: c.lineType || 'dashed' },
+                        label: { show: false }
                     });
                 }
             });
             if (markLineData.length > 0 && series.length > 0) {
                 series[series.length - 1].markLine = {
                     silent: true,
-                    symbol: 'none',
+                    symbol: ['none', 'none'],
                     data: markLineData
                 };
             }
@@ -3477,17 +3477,42 @@
                 };
             }
 
-            return {
-                title: { text: title, left: 'center', top: 0, textStyle: { fontSize: 12, color: '#ccc' } },
+            // Build constraint legend text for title area
+            var constraintInfo = '';
+            if (constraints.length > 0) {
+                var parts = constraints.map(function(c) { return c.label + ': ' + c.value + ' AC/hr'; });
+                constraintInfo = '  |  ' + parts.join('  |  ');
+            }
+
+            // Compute time bounds from bin data
+            var intervalMs = binMinutes * 60 * 1000;
+            var xMin = bins.length > 0 ? self._parseUtc(bins[0].start_utc) : null;
+            var xMax = bins.length > 0 ? self._parseUtc(bins[bins.length - 1].start_utc) + intervalMs : null;
+
+            var config = {
+                title: {
+                    text: title,
+                    subtext: constraintInfo || undefined,
+                    left: 'center',
+                    top: 0,
+                    textStyle: { fontSize: 12, color: '#ccc', fontFamily: '"Inconsolata", "SF Mono", monospace' },
+                    subtextStyle: { fontSize: 10, color: '#aaa' }
+                },
                 tooltip: {
                     trigger: 'axis',
                     axisPointer: { type: 'shadow' },
+                    backgroundColor: 'rgba(30, 30, 50, 0.95)',
+                    borderColor: 'rgba(255,255,255,0.15)',
+                    textStyle: { fontSize: 11, color: '#eee' },
                     formatter: function(params) {
                         if (!params || params.length === 0) return '';
-                        var d = new Date(params[0].value[0]);
-                        var hh = ('0' + d.getUTCHours()).slice(-2);
-                        var mm = ('0' + d.getUTCMinutes()).slice(-2);
-                        var tip = '<b>' + hh + ':' + mm + 'Z</b><br>';
+                        var ts = params[0].value[0];
+                        var d1 = new Date(ts);
+                        var d2 = new Date(ts + intervalMs);
+                        var fmt = function(dt) {
+                            return ('0' + dt.getUTCHours()).slice(-2) + ('0' + dt.getUTCMinutes()).slice(-2);
+                        };
+                        var tip = '<b>' + fmt(d1) + ' - ' + fmt(d2) + 'Z</b><hr style="margin:3px 0;border-color:rgba(255,255,255,0.15)">';
                         var total = 0;
                         params.forEach(function(p) {
                             if (p.seriesName !== 'Total' && p.value[1] > 0) {
@@ -3496,35 +3521,56 @@
                                 total += p.value[1];
                             }
                         });
-                        tip += 'Total: <b>' + total + ' AC/hr</b>';
+                        if (params.length > 1) {
+                            tip += '<hr style="margin:3px 0;border-color:rgba(255,255,255,0.15)">Total: <b>' + total + ' AC/hr</b>';
+                        }
+                        // Show constraint info in tooltip
+                        constraints.forEach(function(c) {
+                            var status = total > c.value ? ' <span style="color:#ff4444">OVER</span>' : ' <span style="color:#50fa7b">OK</span>';
+                            tip += '<br><span style="color:' + c.color + '">' + c.label + ': ' + c.value + ' AC/hr</span>' + status;
+                        });
                         return tip;
                     }
                 },
-                legend: { top: 18, textStyle: { fontSize: 10, color: '#aaa' }, itemWidth: 12, type: 'scroll' },
-                grid: { left: 45, right: 15, top: 55, bottom: 25 },
+                legend: { top: constraintInfo ? 30 : 18, textStyle: { fontSize: 10, color: '#aaa' }, itemWidth: 12, type: 'scroll' },
+                grid: { left: 50, right: 20, top: constraintInfo ? 65 : 55, bottom: 35 },
                 xAxis: {
                     type: 'time',
+                    maxInterval: 3600 * 1000,
+                    axisTick: { alignWithLabel: true, lineStyle: { color: '#555' } },
+                    axisLine: { lineStyle: { color: '#555', width: 1 } },
                     axisLabel: {
                         fontSize: 10,
                         color: '#aaa',
+                        fontFamily: '"Inconsolata", monospace',
                         formatter: function(v) {
                             var d = new Date(v);
-                            return ('0' + d.getUTCHours()).slice(-2) + ':' + ('0' + d.getUTCMinutes()).slice(-2);
+                            return ('0' + d.getUTCHours()).slice(-2) + ('0' + d.getUTCMinutes()).slice(-2) + 'Z';
                         }
                     },
-                    splitLine: { show: false }
+                    splitLine: { show: true, lineStyle: { color: 'rgba(255,255,255,0.06)', type: 'solid' } }
                 },
                 yAxis: {
                     type: 'value',
                     name: 'AC/hr',
                     nameTextStyle: { fontSize: 10, color: '#888' },
                     minInterval: 1,
-                    axisLabel: { fontSize: 10, color: '#aaa' },
-                    splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } }
+                    axisLine: { show: true, lineStyle: { color: '#555', width: 1 } },
+                    axisTick: { show: true, lineStyle: { color: '#555' } },
+                    axisLabel: { fontSize: 10, color: '#aaa', fontFamily: '"Inconsolata", monospace' },
+                    splitLine: { show: true, lineStyle: { color: 'rgba(255,255,255,0.08)', type: 'dashed' } }
                 },
                 backgroundColor: 'rgba(26, 26, 46, 0.85)',
                 series: series
             };
+
+            // Set explicit time bounds if we have bin data
+            if (xMin !== null) {
+                config.xAxis.min = xMin;
+                config.xAxis.max = xMax;
+            }
+
+            return config;
         },
 
         _parseUtc: function(utcStr) {
