@@ -953,6 +953,13 @@
       "start": "Start",
       "update": "Update"
     },
+    "tmiTimeline": {
+      "cnx": "CNX",
+      "active": "ACTIVE",
+      "completed": "COMPLETED",
+      "cancelled": "CANCELLED",
+      "updated": "UPD"
+    },
     "facility": {
       "type": {
         "label": "Demand Type",

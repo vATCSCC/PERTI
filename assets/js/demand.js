@@ -778,8 +778,10 @@ window.DemandChartCore = (function() {
                 state.direction = snapshot.direction || state.direction;
                 state.granularity = snapshot.granularity || state.granularity;
                 state.timeBasis = snapshot.timeBasis || state.timeBasis;
-                if (snapshot.timeRangeStart !== undefined) state.timeRangeStart = snapshot.timeRangeStart;
-                if (snapshot.timeRangeEnd !== undefined) state.timeRangeEnd = snapshot.timeRangeEnd;
+                // Note: timeRangeStart/End are NOT restored from snapshot because they
+                // are relative "hours from now" values that become invalid when loaded
+                // at a different time. The caller (tmr_report.js) sets the correct
+                // event-based time range when creating the chart.
                 state.lastData = snapshot.demandData;
                 state.rateData = snapshot.rateData || null;
                 this.render();
@@ -868,7 +870,7 @@ const DEMAND_STATE = {
     rateData: null, // Store rate suggestion data from API
     tmiConfig: null, // Store active TMI CONFIG entry if any
     scheduledConfigs: null, // Store all scheduled TMI CONFIG entries for time-bounded rate lines
-    tmiPrograms: null, // Store GS/GDP programs for vertical markers
+    tmiPrograms: null, // Store GS/GDP programs for timeline bar
     showRateLines: true, // Master toggle for rate line visibility
     // Individual rate line visibility toggles
     showVatsimAar: true,
@@ -2285,6 +2287,7 @@ function showEmptyState(type) {
         $('#demand_chart').hide();
     }
     $('#demand_legend_toggle_area').hide();
+    $('#demand_tmi_timeline').hide();
 }
 
 /**
@@ -2348,6 +2351,9 @@ function loadFacilityDemand() {
             DEMAND_STATE.lastFacilityData = data;
             DEMAND_STATE.facilityModeFallback = data.facility && data.facility.mode_fallback;
             DEMAND_STATE.demandDataHash = data.data_hash || null;
+            // Invalidate summary cache so breakdown views refresh with new data
+            DEMAND_STATE.summaryLoaded = false;
+            DEMAND_STATE.summaryDataHash = null;
             renderFacilityChart(data);
             updateFacilityInfoBar(data);
         } else {
@@ -2372,145 +2378,229 @@ function renderFacilityChart(data) {
 
     if (DEMAND_STATE.chartView === 'airport') {
         renderAirportBreakdownChart(data);
-    } else {
-        // Status view — render stacked bar chart like airport mode
+    } else if (DEMAND_STATE.chartView === 'status') {
         renderFacilityStatusChart(data);
+    } else {
+        // Breakdown views — need summary data from facility_summary.php
+        if (!DEMAND_STATE.summaryLoaded || !isCacheValid()) {
+            loadFacilitySummary(true);
+        } else {
+            switch (DEMAND_STATE.chartView) {
+                case 'origin': renderOriginChart(); break;
+                case 'dest': renderDestChart(); break;
+                case 'carrier': renderCarrierChart(); break;
+                case 'weight': renderWeightChart(); break;
+                case 'equipment': renderEquipmentChart(); break;
+                case 'rule': renderRuleChart(); break;
+                case 'dep_fix': renderDepFixChart(); break;
+                case 'arr_fix': renderArrFixChart(); break;
+                case 'dp': renderDPChart(); break;
+                case 'star': renderSTARChart(); break;
+            }
+        }
     }
 }
 
 /**
- * Render facility status chart (stacked bar by phase, like airport mode)
+ * Render facility status chart with TRUE TIME AXIS (AADC/FSM style)
+ * Mirrors renderChart() patterns: time axis, phase series, dataZoom, drill-down
  */
 function renderFacilityStatusChart(data) {
-    var arrivals = data.data.arrivals || [];
-    var departures = data.data.departures || [];
-    var direction = data.direction || DEMAND_STATE.direction;
-    // Crossing mode uses a single query — treat 'both'/'thru' as 'arr' rendering
-    // since all crossings go into the arrivals bucket
-    var isCrossing = data.facility && data.facility.mode === 'crossing';
-    var renderDirection = (isCrossing && (direction === 'both' || direction === 'thru')) ? 'arr' : direction;
+    // Capture legend and dataZoom state before replacing chart options
+    DEMAND_STATE.legendSelected = captureLegendSelected();
+    DEMAND_STATE.dataZoomState = captureDataZoomState();
 
-    // Build time labels and series from buckets
-    var timeLabels = [];
-    var timeLabelSet = {};
+    DEMAND_STATE.chart.hideLoading();
 
-    // Collect all unique time bins
-    function addBins(bins) {
-        bins.forEach(function(b) { if (!timeLabelSet[b.time_bin]) { timeLabelSet[b.time_bin] = true; timeLabels.push(b.time_bin); } });
-    }
-    addBins(arrivals);
-    addBins(departures);
-    timeLabels.sort();
+    const arrivals = data.data.arrivals || [];
+    const departures = data.data.departures || [];
+    const direction = data.direction || DEMAND_STATE.direction;
+    const isCrossing = data.facility && data.facility.mode === 'crossing';
+    const renderDirection = (isCrossing && (direction === 'both' || direction === 'thru')) ? 'arr' : direction;
 
-    // Map time_bin -> bucket for fast lookup
-    var arrMap = {};
-    arrivals.forEach(function(b) { arrMap[b.time_bin] = b; });
-    var depMap = {};
-    departures.forEach(function(b) { depMap[b.time_bin] = b; });
+    // Generate complete time bins for gap-free coverage
+    const timeBins = generateAllTimeBins();
+    DEMAND_STATE.timeBins = timeBins;
 
-    // Phase order (bottom to top)
-    var phases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
-    var phaseLabels = {
-        'arrived': PERTII18n.t('phase.arrived'),
-        'disconnected': PERTII18n.t('phase.disconnected'),
-        'descending': PERTII18n.t('phase.descending'),
-        'enroute': PERTII18n.t('phase.enroute'),
-        'departed': PERTII18n.t('phase.departed'),
-        'taxiing': PERTII18n.t('phase.taxiing'),
-        'prefile': PERTII18n.t('phase.prefile'),
-        'unknown': PERTII18n.t('phase.unknown')
+    // Normalize time bin for lookup matching
+    const normalizeTimeBin = (bin) => {
+        const d = new Date(bin);
+        d.setUTCSeconds(0, 0);
+        return d.toISOString().replace('.000Z', 'Z');
     };
 
-    var series = [];
+    // Build lookup maps from API data
+    const arrivalsByBin = {};
+    arrivals.forEach(d => { arrivalsByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
+    const departuresByBin = {};
+    departures.forEach(d => { departuresByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
+
+    // Build series based on direction, filtering by enabled phase groups
+    const series = [];
+    const allPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+    const phaseOrder = allPhases.filter(phase => isPhaseEnabled(phase));
 
     if (renderDirection === 'arr' || renderDirection === 'both' || renderDirection === 'thru') {
-        phases.forEach(function(phase) {
-            if (!DEMAND_STATE.phaseGroups[getPhaseGroup(phase)]) return;
-            var seriesData = timeLabels.map(function(t) {
-                var b = arrMap[t];
-                return b ? (b.breakdown[phase] || 0) : 0;
-            });
-            series.push({
-                name: (renderDirection === 'both' ? 'Arr ' : '') + phaseLabels[phase],
-                type: 'bar',
-                stack: 'arrivals',
-                data: seriesData,
-                itemStyle: { color: FSM_PHASE_COLORS[phase] || '#888' },
-            });
+        phaseOrder.forEach(phase => {
+            const suffix = renderDirection === 'both' ? ' (' + PERTII18n.t('demand.direction.arrShort') + ')' : '';
+            series.push(
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', renderDirection),
+            );
         });
     }
 
     if (renderDirection === 'dep' || renderDirection === 'both') {
-        phases.forEach(function(phase) {
-            if (!DEMAND_STATE.phaseGroups[getPhaseGroup(phase)]) return;
-            var seriesData = timeLabels.map(function(t) {
-                var b = depMap[t];
-                return b ? -(b.breakdown[phase] || 0) : 0;
-            });
-            series.push({
-                name: (renderDirection === 'both' ? 'Dep ' : '') + phaseLabels[phase],
-                type: 'bar',
-                stack: 'departures',
-                data: seriesData,
-                itemStyle: { color: FSM_PHASE_COLORS[phase] || '#888', opacity: renderDirection === 'both' ? 0.7 : 1 },
-            });
+        phaseOrder.forEach(phase => {
+            const suffix = renderDirection === 'both' ? ' (' + PERTII18n.t('demand.direction.depShort') + ')' : '';
+            series.push(
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', renderDirection),
+            );
         });
     }
 
-    var option = {
+    // Add current time marker to first series (no rate lines for facility mode)
+    const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
+    if (series.length > 0 && timeMarkLineData) {
+        series[0].markLine = {
+            silent: true,
+            symbol: ['none', 'none'],
+            data: [timeMarkLineData],
+        };
+    }
+
+    // Calculate interval for x-axis bounds
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
+
+    // Build chart title
+    const facilityLabel = DEMAND_STATE.facilityCode || data.facility?.code || '';
+    const chartTitle = buildChartTitle(facilityLabel, data.last_adl_update);
+
+    // Calculate y-axis max from data
+    let maxDemand = 0;
+    const countDemandInBin = (breakdown) => {
+        if (!breakdown) return 0;
+        return Object.values(breakdown).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
+    };
+    arrivals.forEach(d => {
+        const binTotal = countDemandInBin(d.breakdown);
+        if (binTotal > maxDemand) maxDemand = binTotal;
+    });
+    departures.forEach(d => {
+        const binTotal = countDemandInBin(d.breakdown);
+        if (binTotal > maxDemand) maxDemand = binTotal;
+    });
+
+    let yAxisMax = null;
+    if (maxDemand > 0) {
+        const padded = maxDemand * 1.15;
+        if (padded <= 10) yAxisMax = Math.ceil(padded);
+        else if (padded <= 50) yAxisMax = Math.ceil(padded / 5) * 5;
+        else yAxisMax = Math.ceil(padded / 10) * 10;
+    }
+
+    const option = {
+        backgroundColor: '#ffffff',
+        title: {
+            text: chartTitle,
+            left: 'center',
+            top: 10,
+            textStyle: {
+                fontSize: 14,
+                fontWeight: 'bold',
+                color: '#333',
+                fontFamily: '"Inconsolata", "SF Mono", monospace',
+            },
+        },
         tooltip: {
             trigger: 'axis',
-            axisPointer: { type: 'shadow' },
+            confine: true,
+            axisPointer: { type: 'shadow', z: 10 },
+            z: 50,
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            borderColor: '#ccc',
+            borderWidth: 1,
+            padding: [8, 12],
+            textStyle: { color: '#333', fontSize: 12 },
             formatter: function(params) {
                 if (!params || params.length === 0) return '';
-                var tip = '<strong>' + params[0].axisValue + '</strong><br/>';
-                var total = 0;
-                params.forEach(function(p) {
-                    var val = Math.abs(p.value || 0);
+                const timestamp = params[0].value[0];
+                const timeStr = formatTimeLabelFromTimestamp(timestamp);
+                let tooltip = `<strong style="font-size:13px;">${timeStr}</strong><br/>`;
+                let total = 0;
+                params.forEach(p => {
+                    const val = p.value[1] || 0;
                     if (val > 0) {
-                        tip += '<span style="color:' + p.color + '">&#9679;</span> ' + p.seriesName + ': ' + val + '<br/>';
+                        tooltip += `${p.marker} ${p.seriesName}: <strong>${val}</strong><br/>`;
                         total += val;
                     }
                 });
-                tip += '<strong>Total: ' + total + '</strong>';
-                return tip;
-            }
+                tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>${PERTII18n.t('demand.chart.total')}: ${total}</strong>`;
+                return tooltip;
+            },
         },
-        legend: {
-            bottom: 5,
-            left: 'center',
-            width: '85%',
-            type: 'scroll',
-            itemWidth: 12,
-            itemHeight: 8,
-            textStyle: { fontSize: 10 },
-            selected: DEMAND_STATE.legendSelected
-        },
+        legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
+            selected: DEMAND_STATE.legendSelected,
+        }),
+        dataZoom: getDataZoomConfig(),
         grid: getStandardGridConfig(),
         xAxis: {
-            type: 'category',
-            data: timeLabels.map(function(t) {
-                // Format as HH:MM
-                return t.substr(11, 5);
-            }),
-            axisLabel: { rotate: 45, fontSize: 10 },
+            type: 'time',
+            name: getXAxisLabel(),
+            nameLocation: 'middle',
+            nameGap: renderDirection === 'both' ? 45 : 30,
+            nameTextStyle: { fontSize: 11, color: '#333', fontWeight: 500 },
+            maxInterval: 3600 * 1000,
+            axisLine: { lineStyle: { color: '#333', width: 1 } },
+            axisTick: { alignWithLabel: true, lineStyle: { color: '#666' } },
+            axisLabel: {
+                fontSize: 11,
+                color: '#333',
+                fontFamily: '"Inconsolata", "SF Mono", monospace',
+                fontWeight: function(value) {
+                    const d = new Date(value);
+                    const h = d.getUTCHours();
+                    return (h === 0 || h === 12) ? 'bold' : 500;
+                },
+                formatter: function(value) {
+                    const d = new Date(value);
+                    const h = d.getUTCHours().toString().padStart(2, '0');
+                    const m = d.getUTCMinutes().toString().padStart(2, '0');
+                    return h + m + 'Z';
+                },
+            },
+            splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'solid' } },
+            min: new Date(timeBins[0]).getTime(),
+            max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs,
         },
         yAxis: {
             type: 'value',
-            name: PERTII18n.t('demand.page.flights'),
+            name: PERTII18n.t('demand.chart.yAxisLabel'),
+            nameLocation: 'middle',
+            nameGap: 40,
+            nameTextStyle: { fontSize: 12, color: '#333', fontWeight: 500 },
+            minInterval: 1,
+            min: 0,
+            max: yAxisMax,
+            axisLine: { show: true, lineStyle: { color: '#333', width: 1 } },
+            axisTick: { show: true, lineStyle: { color: '#666' } },
+            axisLabel: { fontSize: 11, color: '#333', fontFamily: '"Inconsolata", monospace' },
+            splitLine: { show: true, lineStyle: { color: '#e8e8e8', type: 'dashed' } },
         },
         series: series,
-        dataZoom: [
-            { type: 'slider', show: true, start: 0, end: 100, bottom: 35, height: 20 }
-        ]
     };
 
     DEMAND_STATE.chart.setOption(option, true);
 
-    // Capture legend state changes
-    DEMAND_STATE.chart.off('legendselectchanged');
-    DEMAND_STATE.chart.on('legendselectchanged', function(params) {
-        DEMAND_STATE.legendSelected = params.selected;
+    // Add click handler for drill-down
+    DEMAND_STATE.chart.off('click');
+    DEMAND_STATE.chart.on('click', function(params) {
+        if (params.componentType === 'series' && params.value) {
+            const timestamp = params.value[0];
+            const timeBin = new Date(timestamp).toISOString();
+            if (timeBin) {
+                showFacilityFlightDetails(timeBin, params.seriesName);
+            }
+        }
     });
 }
 
@@ -2626,6 +2716,28 @@ function updateFacilityInfoBar(data) {
             });
         }
     }
+
+    // Compute phase breakdown client-side from per-bin breakdown data
+    var arrActive = 0, arrScheduled = 0, arrProposed = 0;
+    var depActive = 0, depScheduled = 0, depProposed = 0;
+    (data.data.arrivals || []).forEach(function(d) {
+        var b = d.breakdown || {};
+        arrActive += (b.departed || 0) + (b.enroute || 0) + (b.descending || 0);
+        arrScheduled += b.taxiing || 0;
+        arrProposed += b.prefile || 0;
+    });
+    (data.data.departures || []).forEach(function(d) {
+        var b = d.breakdown || {};
+        depActive += (b.departed || 0) + (b.enroute || 0) + (b.descending || 0);
+        depScheduled += b.taxiing || 0;
+        depProposed += b.prefile || 0;
+    });
+    $('#demand_arr_active').text(arrActive);
+    $('#demand_arr_scheduled').text(arrScheduled);
+    $('#demand_arr_proposed').text(arrProposed);
+    $('#demand_dep_active').text(depActive);
+    $('#demand_dep_scheduled').text(depScheduled);
+    $('#demand_dep_proposed').text(depProposed);
 
     // Show mode fallback notice
     if (data.facility.mode_fallback) {
@@ -2750,6 +2862,7 @@ function showSelectAirportPrompt() {
     $('#demand_empty_state').show();
     $('#demand_chart').hide();
     $('#demand_legend_toggle_area').hide();
+    $('#demand_tmi_timeline').hide();
 
     // Hide header rate display
     $('#demand_header_aar_row').hide();
@@ -2931,7 +3044,7 @@ function loadDemandData() {
                 }
             }
 
-            // Handle TMI programs (GS/GDP) - optional, for vertical markers
+            // Handle TMI programs (GS/GDP) - optional, for timeline bar
             if (tmiProgramsResult.status === 'fulfilled' && tmiProgramsResult.value &&
                 tmiProgramsResult.value.success && tmiProgramsResult.value.programs) {
                 DEMAND_STATE.tmiPrograms = tmiProgramsResult.value.programs;
@@ -3422,20 +3535,14 @@ function renderChart(data) {
         });
     }
 
-    // Add current time marker, rate lines, and TMI program markers to first series
+    // Add current time marker and rate lines to first series
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
     const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
         ? buildTimeBoundedRateMarkLines()
         : buildRateMarkLinesForChart();
-    const tmiProgramMarkLines = buildTmiProgramMarkLines();
 
     if (series.length > 0) {
         const markLineData = [];
-
-        // Add TMI program markers first (GS/GDP vertical lines - behind other markers)
-        if (tmiProgramMarkLines && tmiProgramMarkLines.length > 0) {
-            markLineData.push(...tmiProgramMarkLines);
-        }
 
         // Add time marker (now returns a single data item with embedded label)
         if (timeMarkLineData) {
@@ -3455,6 +3562,9 @@ function renderChart(data) {
             };
         }
     }
+
+    // Render TMI timeline bar above chart
+    renderTmiTimeline();
 
     // Calculate interval for x-axis bounds
     const intervalMs = getGranularityMinutes() * 60 * 1000;
@@ -3795,7 +3905,8 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     DEMAND_STATE.chart.hideLoading();
 
     const breakdown = breakdownData || {};
-    const data = DEMAND_STATE.lastDemandData;
+    const isFacilityMode = DEMAND_STATE.demandType !== 'airport';
+    const data = DEMAND_STATE.lastDemandData || DEMAND_STATE.lastFacilityData;
 
     // Debug: Log breakdown chart rendering info
     console.log('[Demand] renderBreakdownChart:', stackName, 'categoryKey:', categoryKey,
@@ -3978,17 +4089,14 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         };
     });
 
-    // Add time marker, rate lines, and TMI program markers
+    // Add time marker and rate lines
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
     const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
         ? buildTimeBoundedRateMarkLines()
         : buildRateMarkLinesForChart();
-    const tmiProgramMarkLines = buildTmiProgramMarkLines();
 
     if (series.length > 0) {
         const markLineData = [];
-        // Add TMI program markers first (GS/GDP vertical lines - behind other markers)
-        if (tmiProgramMarkLines && tmiProgramMarkLines.length > 0) {markLineData.push(...tmiProgramMarkLines);}
         if (timeMarkLineData) {markLineData.push(timeMarkLineData);}
         if (rateMarkLines && rateMarkLines.length > 0) {markLineData.push(...rateMarkLines);}
 
@@ -4001,8 +4109,12 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
         }
     }
 
+    // Render TMI timeline bar above chart
+    renderTmiTimeline();
+
     // Build chart title
-    const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
+    const titleLabel = isFacilityMode ? (DEMAND_STATE.facilityCode || data.facility?.code || '') : (data.airport || '');
+    const chartTitle = buildChartTitle(titleLabel, data.last_adl_update);
 
     // Calculate y-axis max from actual data and rates
     // Sum stacked values per bin to get total per time bin
@@ -4157,14 +4269,18 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
 
     DEMAND_STATE.chart.setOption(option, true);
 
-    // Add click handler
+    // Add click handler — dispatch to facility or airport drill-down
     DEMAND_STATE.chart.off('click');
     DEMAND_STATE.chart.on('click', function(params) {
         if (params.componentType === 'series' && params.value) {
             const timestamp = params.value[0];
             const timeBin = new Date(timestamp).toISOString();
             if (timeBin) {
-                showFlightDetails(timeBin, params.seriesName);
+                if (isFacilityMode) {
+                    showFacilityFlightDetails(timeBin, params.seriesName);
+                } else {
+                    showFlightDetails(timeBin, params.seriesName);
+                }
             }
         }
     });
@@ -4181,8 +4297,9 @@ function renderDestChart() {
     // For arrivals-only, show empty state
     if (direction === 'arr') {
         if (!DEMAND_STATE.chart) {return;}
-        const data = DEMAND_STATE.lastDemandData;
-        const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
+        const data = DEMAND_STATE.lastDemandData || DEMAND_STATE.lastFacilityData;
+        const titleLabel = (DEMAND_STATE.demandType !== 'airport') ? (DEMAND_STATE.facilityCode || '') : (data?.airport || '');
+        const chartTitle = buildChartTitle(titleLabel, data?.last_adl_update);
         DEMAND_STATE.chart.setOption({
             backgroundColor: '#ffffff',
             title: {
@@ -4448,8 +4565,9 @@ function renderRuleChart() {
  */
 function showDirectionRestrictedEmptyState(viewName, requiredDirection, requiredLabel) {
     if (!DEMAND_STATE.chart) {return;}
-    const data = DEMAND_STATE.lastDemandData;
-    const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
+    const data = DEMAND_STATE.lastDemandData || DEMAND_STATE.lastFacilityData;
+    const titleLabel = (DEMAND_STATE.demandType !== 'airport') ? (DEMAND_STATE.facilityCode || '') : (data?.airport || '');
+    const chartTitle = buildChartTitle(titleLabel, data?.last_adl_update);
     const dirText = requiredDirection === 'arr' ? PERTII18n.t('demand.emptyState.arrOrBoth') : PERTII18n.t('demand.emptyState.depOrBoth');
     DEMAND_STATE.chart.setOption({
         backgroundColor: '#ffffff',
@@ -4825,7 +4943,6 @@ function formatTimeLabelFromTimestamp(timestamp) {
 /**
  * Get current time markLine data item for TRUE TIME AXIS - FAA AADC style
  * Returns a data item with embedded label config (for merging with rate lines)
- * Includes overlap detection with TMI program markers
  */
 function getCurrentTimeMarkLineForTimeAxis() {
     const now = new Date();
@@ -4835,33 +4952,6 @@ function getCurrentTimeMarkLineForTimeAxis() {
 
     // FSM/TBFM style: yellow/orange current time marker
     const markerColor = '#f59e0b';  // Amber/yellow like FSM reference
-
-    // Check for overlap with TMI program markers
-    const LABEL_PROXIMITY_THRESHOLD = 30 * 60 * 1000;  // 30 minutes in ms
-    const LABEL_HEIGHT = 22;
-    let labelOffset = 0;
-
-    if (DEMAND_STATE.tmiPrograms && DEMAND_STATE.tmiPrograms.length > 0) {
-        // Collect all TMI marker timestamps
-        const tmiMarkerTimes = [];
-        DEMAND_STATE.tmiPrograms.forEach(program => {
-            if (program.start_utc) {tmiMarkerTimes.push(new Date(program.start_utc).getTime());}
-            if (program.was_updated && program.updated_at) {tmiMarkerTimes.push(new Date(program.updated_at).getTime());}
-            if (program.status === 'PURGED' && program.purged_at) {tmiMarkerTimes.push(new Date(program.purged_at).getTime());}
-            else if (program.end_utc) {tmiMarkerTimes.push(new Date(program.end_utc).getTime());}
-        });
-
-        // Count how many TMI markers are within proximity of current time
-        let markersInProximity = 0;
-        tmiMarkerTimes.forEach(markerTime => {
-            if (Math.abs(markerTime - nowMs) < LABEL_PROXIMITY_THRESHOLD) {
-                markersInProximity++;
-            }
-        });
-
-        // Offset time marker label based on number of nearby TMI markers
-        labelOffset = markersInProximity * LABEL_HEIGHT;
-    }
 
     // Return data item with label embedded (not at markLine level)
     // This allows proper merging with rate lines
@@ -4876,7 +4966,7 @@ function getCurrentTimeMarkLineForTimeAxis() {
             show: true,
             formatter: `${hours}${minutes}Z`,
             position: 'end',
-            offset: [0, labelOffset],
+            offset: [0, 0],
             color: markerColor,
             fontWeight: 'bold',
             fontSize: 10,
@@ -5488,143 +5578,211 @@ function buildTimeBoundedRateMarkLines() {
 }
 
 /**
- * Build vertical marker lines for GS (Ground Stop) and GDP programs
- * GS = Yellow vertical lines, GDP = Brown vertical lines
- * Markers: Start (solid), Update (dashed), CNX/End (solid)
- * Includes label overlap detection to stack labels when markers are close together
- *
- * @returns {Array} Array of markLine data items for ECharts
+ * Render a horizontal TMI timeline bar above the demand chart.
+ * Shows GS/GDP programs as colored time-range bars with appropriate
+ * visual treatment for active, completed, cancelled, and updated states.
+ * Replaces the old vertical mark lines on the ECharts chart.
  */
-function buildTmiProgramMarkLines() {
-    if (!DEMAND_STATE.tmiPrograms || DEMAND_STATE.tmiPrograms.length === 0) {
-        return [];
+function renderTmiTimeline() {
+    const container = document.getElementById('demand_tmi_timeline');
+    const track = document.getElementById('tmi_timeline_track');
+    if (!container || !track) return;
+
+    const programs = DEMAND_STATE.tmiPrograms;
+    if (!programs || programs.length === 0) {
+        container.style.display = 'none';
+        return;
     }
 
-    const lines = [];
+    // Filter to only GS and GDP types
+    const filtered = programs.filter(p => {
+        const t = (p.program_type || '').toUpperCase();
+        return t === 'GS' || t.startsWith('GDP');
+    });
 
-    // Color definitions
-    const GS_COLOR = '#fbbf24';   // Yellow/Amber for Ground Stops
-    const GDP_COLOR = '#92400e';  // Brown for Ground Delay Programs
+    if (filtered.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
 
-    // Label overlap detection - track marker positions
-    const markerPositions = [];  // Array of {xAxis, labelOffset}
-    const LABEL_PROXIMITY_THRESHOLD = 30 * 60 * 1000;  // 30 minutes in ms - labels closer than this get stacked
-    const LABEL_HEIGHT = 22;  // Approximate height of label in pixels
+    const chartStartMs = new Date(DEMAND_STATE.currentStart).getTime();
+    const chartEndMs = new Date(DEMAND_STATE.currentEnd).getTime();
+    const chartRange = chartEndMs - chartStartMs;
+    if (chartRange <= 0) { container.style.display = 'none'; return; }
 
-    // Helper to format time as HHMMZ
-    const formatTimeZ = (isoString) => {
-        if (!isoString) {return '';}
-        const d = new Date(isoString);
+    // Color map
+    const COLORS = {
+        'GS':       { bg: '#dc3545', border: '#b02a37' },
+        'GDP':      { bg: '#ffc107', border: '#d4a106' },
+        'GDP-DAS':  { bg: '#ffc107', border: '#d4a106' },
+        'GDP-GAAP': { bg: '#ff9800', border: '#e68900' },
+        'GDP-UDP':  { bg: '#ff5722', border: '#e64a19' },
+    };
+    const DEFAULT_COLOR = { bg: '#6c757d', border: '#555' };
+
+    const formatTimeZ = (iso) => {
+        if (!iso) return '';
+        const d = new Date(iso);
         return d.getUTCHours().toString().padStart(2, '0') +
                d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
     };
 
-    // Calculate label offset based on proximity to other markers
-    const calculateLabelOffset = (xAxis) => {
-        // Find markers within proximity threshold
-        let maxOffsetInProximity = -1;
-        markerPositions.forEach(pos => {
-            if (Math.abs(pos.xAxis - xAxis) < LABEL_PROXIMITY_THRESHOLD) {
-                maxOffsetInProximity = Math.max(maxOffsetInProximity, pos.labelOffset);
+    // Percentage helpers
+    const toPct = (ms) => Math.max(0, Math.min(100, (ms - chartStartMs) / chartRange * 100));
+
+    // Sort by start time
+    const sorted = filtered.slice().sort((a, b) => new Date(a.start_utc) - new Date(b.start_utc));
+
+    // Overlap detection: assign rows
+    const rows = []; // Array of arrays, each row tracks end-times of placed bars
+    const barRows = []; // parallel to sorted — which row index each bar goes in
+    sorted.forEach(p => {
+        const startMs = new Date(p.start_utc).getTime();
+        let placed = false;
+        for (let r = 0; r < rows.length; r++) {
+            if (rows[r] <= startMs) {
+                rows[r] = new Date(p.end_utc || p.purged_at || new Date()).getTime();
+                barRows.push(r);
+                placed = true;
+                break;
             }
-        });
-        // Next offset is one level higher than the highest in proximity
-        return maxOffsetInProximity + 1;
-    };
-
-    // Collect all markers first with their timestamps
-    const markersToAdd = [];
-
-    // Process each program
-    DEMAND_STATE.tmiPrograms.forEach(program => {
-        const isGS = program.program_type === 'GS';
-        const color = isGS ? GS_COLOR : GDP_COLOR;
-        const prefix = isGS ? 'GS' : 'GDP';
-
-        // Start marker (solid line)
-        if (program.start_utc) {
-            markersToAdd.push({
-                timestamp: program.start_utc,
-                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.start')}: ${formatTimeZ(program.start_utc)}`,
-                color: color,
-                isDashed: false,
-            });
         }
-
-        // Update marker (dashed line) - only if was_updated is true
-        if (program.was_updated && program.updated_at) {
-            markersToAdd.push({
-                timestamp: program.updated_at,
-                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.update')}: ${formatTimeZ(program.updated_at)}`,
-                color: color,
-                isDashed: true,
-            });
-        }
-
-        // End marker - check status
-        if (program.status === 'PURGED' && program.purged_at) {
-            markersToAdd.push({
-                timestamp: program.purged_at,
-                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.cnx')}: ${formatTimeZ(program.purged_at)}`,
-                color: color,
-                isDashed: false,
-            });
-        } else if (program.end_utc) {
-            markersToAdd.push({
-                timestamp: program.end_utc,
-                label: `${prefix} ${PERTII18n.t('demand.tmiMarker.end')}: ${formatTimeZ(program.end_utc)}`,
-                color: color,
-                isDashed: false,
-            });
+        if (!placed) {
+            rows.push(new Date(p.end_utc || p.purged_at || new Date()).getTime());
+            barRows.push(rows.length - 1);
         }
     });
 
-    // Sort markers by timestamp for consistent offset calculation
-    markersToAdd.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const numRows = Math.min(rows.length, 3);
+    const BAR_HEIGHT = 20;
+    const BAR_GAP = 2;
+    const PADDING = 4;
+    const trackHeight = PADDING * 2 + numRows * BAR_HEIGHT + Math.max(0, numRows - 1) * BAR_GAP;
+    track.style.height = trackHeight + 'px';
 
-    const chartStart = new Date(DEMAND_STATE.currentStart).getTime();
-    const chartEnd = new Date(DEMAND_STATE.currentEnd).getTime();
+    // Clear track
+    track.innerHTML = '';
 
-    // Add markers with overlap detection
-    markersToAdd.forEach(marker => {
-        const timeMs = new Date(marker.timestamp).getTime();
+    // Add time tick marks
+    const ticksDiv = document.createElement('div');
+    ticksDiv.className = 'tmi-timeline-ticks';
+    const tickInterval = chartRange <= 6 * 3600000 ? 3600000 : 2 * 3600000; // 1h or 2h
+    let tickTime = Math.ceil(chartStartMs / tickInterval) * tickInterval;
+    while (tickTime < chartEndMs) {
+        const tickEl = document.createElement('div');
+        tickEl.className = 'tmi-timeline-tick';
+        tickEl.style.left = toPct(tickTime) + '%';
+        const label = document.createElement('span');
+        label.className = 'tmi-timeline-tick-label';
+        const td = new Date(tickTime);
+        label.textContent = td.getUTCHours().toString().padStart(2, '0') +
+                            ':' + td.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+        tickEl.appendChild(label);
+        ticksDiv.appendChild(tickEl);
+        tickTime += tickInterval;
+    }
+    track.appendChild(ticksDiv);
 
-        // Skip if outside visible range
-        if (timeMs < chartStart || timeMs > chartEnd) {return;}
+    // Render bars
+    const nowMs = Date.now();
+    sorted.forEach((p, i) => {
+        const row = barRows[i];
+        if (row >= 3) return; // max 3 rows
 
-        // Calculate offset for this marker
-        const labelOffset = calculateLabelOffset(timeMs);
-        const verticalOffset = labelOffset * LABEL_HEIGHT;
+        const pType = (p.program_type || 'GS').toUpperCase();
+        const colors = COLORS[pType] || COLORS[pType.replace(/-.*/, '')] || DEFAULT_COLOR;
+        const isCompleted = p.status === 'COMPLETED';
+        const isCancelled = p.status === 'PURGED' || p.status === 'CANCELLED';
+        const isActive = p.status === 'ACTIVE';
 
-        // Record this marker's position for future overlap detection
-        markerPositions.push({ xAxis: timeMs, labelOffset: labelOffset });
+        // Determine bar time extent
+        const startMs = new Date(p.start_utc).getTime();
+        let endMs;
+        if (isCancelled && p.purged_at) {
+            endMs = new Date(p.purged_at).getTime();
+        } else if (p.end_utc) {
+            endMs = new Date(p.end_utc).getTime();
+        } else if (isActive) {
+            endMs = Math.min(nowMs, chartEndMs);
+        } else {
+            endMs = startMs + 3600000; // fallback 1h
+        }
 
-        lines.push({
-            xAxis: timeMs,
-            lineStyle: {
-                color: marker.color,
-                width: 2,
-                type: marker.isDashed ? 'dashed' : 'solid',
-            },
-            label: {
-                show: true,
-                formatter: marker.label,
-                position: 'end',
-                offset: [0, verticalOffset],
-                color: '#000000',  // Black text for readability
-                fontWeight: 'bold',
-                fontSize: 10,
-                fontFamily: '"Inconsolata", monospace',
-                backgroundColor: marker.color,
-                padding: [2, 6],
-                borderRadius: 2,
-                borderColor: 'rgba(0,0,0,0.3)',
-                borderWidth: 1,
-            },
-        });
+        // Skip if entirely outside window
+        if (endMs < chartStartMs || startMs > chartEndMs) return;
+
+        const leftPct = toPct(startMs);
+        const rightPct = toPct(endMs);
+        const widthPct = rightPct - leftPct;
+
+        const bar = document.createElement('div');
+        bar.className = 'tmi-timeline-bar';
+        if (isCompleted) bar.classList.add('tmi-status-completed');
+        if (isCancelled) bar.classList.add('tmi-status-cancelled');
+
+        bar.style.left = leftPct + '%';
+        bar.style.width = widthPct + '%';
+        bar.style.top = (PADDING + row * (BAR_HEIGHT + BAR_GAP)) + 'px';
+        bar.style.height = BAR_HEIGHT + 'px';
+        bar.style.backgroundColor = colors.bg;
+        bar.style.borderColor = colors.border;
+
+        // Tooltip
+        const typeLabel = p.program_type || 'GS';
+        const statusLabel = isCancelled
+            ? PERTII18n.t('demand.tmiTimeline.cancelled')
+            : isCompleted
+                ? PERTII18n.t('demand.tmiTimeline.completed')
+                : PERTII18n.t('demand.tmiTimeline.active');
+        let tooltip = `${typeLabel} #${p.program_id} ${p.ctl_element || ''}\n`;
+        tooltip += `${formatTimeZ(p.start_utc)} - ${isCancelled && p.purged_at ? formatTimeZ(p.purged_at) + ' (CNX)' : formatTimeZ(p.end_utc)}\n`;
+        tooltip += statusLabel;
+        if (p.avg_delay_min) tooltip += ` | ${parseFloat(p.avg_delay_min).toFixed(0)} min avg`;
+        bar.title = tooltip;
+
+        // Inline label when bar is likely wide enough
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'tmi-timeline-bar-label';
+        labelSpan.textContent = `${typeLabel} #${p.program_id} ${p.ctl_element || ''}`;
+        bar.appendChild(labelSpan);
+
+        // CNX label for cancelled programs
+        if (isCancelled) {
+            const cnxSpan = document.createElement('span');
+            cnxSpan.className = 'tmi-cnx-label';
+            cnxSpan.textContent = PERTII18n.t('demand.tmiTimeline.cnx');
+            bar.appendChild(cnxSpan);
+        }
+
+        // Update marker (diamond) if program was updated
+        if (p.was_updated && p.updated_at) {
+            const updMs = new Date(p.updated_at).getTime();
+            if (updMs >= startMs && updMs <= endMs) {
+                const barStartMs = Math.max(startMs, chartStartMs);
+                const barEndMs = Math.min(endMs, chartEndMs);
+                const barRange = barEndMs - barStartMs;
+                if (barRange > 0) {
+                    const updPct = (updMs - barStartMs) / barRange * 100;
+                    const marker = document.createElement('span');
+                    marker.className = 'tmi-update-marker';
+                    marker.style.left = updPct + '%';
+                    bar.appendChild(marker);
+                }
+            }
+        }
+
+        track.appendChild(bar);
     });
 
-    return lines;
+    // NOW line
+    if (nowMs >= chartStartMs && nowMs <= chartEndMs) {
+        const nowLine = document.createElement('div');
+        nowLine.className = 'tmi-timeline-now';
+        nowLine.style.left = toPct(nowMs) + '%';
+        track.appendChild(nowLine);
+    }
+
+    container.style.display = 'block';
 }
 
 /**
@@ -6422,6 +6580,127 @@ function updateTopCarriers(carriers) {
                 <td class="text-right">${item.count}</td>
             </tr>
         `);
+    });
+}
+
+/**
+ * Load facility-scoped breakdown summary data from facility_summary.php
+ * Populates DEMAND_STATE breakdown properties for rendering breakdown charts
+ * @param {boolean} renderAfter - If true, render current breakdown view after loading
+ */
+function loadFacilitySummary(renderAfter) {
+    if (!DEMAND_STATE.facilityCode) return;
+
+    const params = new URLSearchParams({
+        type: DEMAND_STATE.demandType,
+        code: DEMAND_STATE.facilityCode,
+        mode: DEMAND_STATE.facilityMode,
+        direction: DEMAND_STATE.direction,
+        granularity: getGranularityMinutes(),
+        start: DEMAND_STATE.currentStart,
+        end: DEMAND_STATE.currentEnd,
+    });
+
+    const headers = {};
+    if (DEMAND_STATE.summaryDataHash) {
+        headers['X-If-Data-Hash'] = DEMAND_STATE.summaryDataHash;
+    }
+
+    $.ajax({
+        url: `api/demand/facility_summary.php?${params}`,
+        dataType: 'json',
+        headers: headers,
+    }).done(function(response) {
+        if (response.unchanged) {
+            DEMAND_STATE.summaryLoaded = true;
+            DEMAND_STATE.cacheTimestamp = Date.now();
+            if (renderAfter && DEMAND_STATE.chartView !== 'status' && DEMAND_STATE.chartView !== 'airport') {
+                renderFacilityChart(DEMAND_STATE.lastFacilityData);
+            }
+            return;
+        }
+        if (response.success) {
+            // Update sidebar panels
+            updateTopOrigins(response.top_origins || []);
+            updateTopCarriers(response.top_carriers || []);
+
+            // Store all breakdown data — same DEMAND_STATE properties as airport mode
+            DEMAND_STATE.originBreakdown = response.origin_artcc_breakdown || {};
+            DEMAND_STATE.destBreakdown = response.dest_artcc_breakdown || {};
+            DEMAND_STATE.carrierBreakdown = response.carrier_breakdown || {};
+            DEMAND_STATE.weightBreakdown = response.weight_breakdown || {};
+            DEMAND_STATE.equipmentBreakdown = response.equipment_breakdown || {};
+            DEMAND_STATE.ruleBreakdown = response.rule_breakdown || {};
+            DEMAND_STATE.depFixBreakdown = response.dep_fix_breakdown || {};
+            DEMAND_STATE.arrFixBreakdown = response.arr_fix_breakdown || {};
+            DEMAND_STATE.dpBreakdown = normalizeBreakdownByProcedure(response.dp_breakdown || {}, 'dp');
+            DEMAND_STATE.starBreakdown = normalizeBreakdownByProcedure(response.star_breakdown || {}, 'star');
+
+            DEMAND_STATE.summaryLoaded = true;
+            DEMAND_STATE.summaryDataHash = response.data_hash;
+            DEMAND_STATE.cacheTimestamp = Date.now();
+
+            if (renderAfter && DEMAND_STATE.chartView !== 'status' && DEMAND_STATE.chartView !== 'airport') {
+                renderFacilityChart(DEMAND_STATE.lastFacilityData);
+            }
+        }
+    }).fail(function(err) {
+        console.error('Failed to load facility summary:', err);
+    });
+}
+
+/**
+ * Show flight details for a facility-scoped time bin (drill-down)
+ * Calls facility_summary.php with time_bin parameter for individual flights
+ * @param {string} timeBin - ISO timestamp of the clicked time bin
+ * @param {string} clickedSeries - Optional: the series name that was clicked
+ */
+function showFacilityFlightDetails(timeBin, clickedSeries) {
+    if (!DEMAND_STATE.facilityCode) return;
+
+    // Adjust timestamp back to bin start (subtract half interval)
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
+    const halfInterval = intervalMs / 2;
+    const binStartMs = new Date(timeBin).getTime() - halfInterval;
+    const actualTimeBin = new Date(binStartMs).toISOString();
+
+    const params = new URLSearchParams({
+        type: DEMAND_STATE.demandType,
+        code: DEMAND_STATE.facilityCode,
+        mode: DEMAND_STATE.facilityMode,
+        time_bin: actualTimeBin,
+        direction: DEMAND_STATE.direction,
+        granularity: getGranularityMinutes(),
+    });
+
+    const timeLabel = formatTimeLabelZ(actualTimeBin);
+    const endTime = new Date(binStartMs + intervalMs);
+    const endLabel = formatTimeLabelZ(endTime.toISOString());
+
+    Swal.fire({
+        title: PERTII18n.t('demand.flightDetail.title', { start: timeLabel, end: endLabel }),
+        html: '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><br>' + PERTII18n.t('demand.flightDetail.loading') + '</div>',
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: '900px',
+        didOpen: function() {
+            $.getJSON(`api/demand/facility_summary.php?${params.toString()}`)
+                .done(function(response) {
+                    if (response.success && response.flights) {
+                        const html = buildFlightListHtml(response.flights, clickedSeries);
+                        Swal.update({ html: html });
+                    } else {
+                        Swal.update({
+                            html: '<p class="text-muted">' + PERTII18n.t('demand.flightDetail.noFlights') + '</p>',
+                        });
+                    }
+                })
+                .fail(function() {
+                    Swal.update({
+                        html: '<p class="text-danger">' + PERTII18n.t('demand.flightDetail.loadFailed') + '</p>',
+                    });
+                });
+        },
     });
 }
 
