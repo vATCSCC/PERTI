@@ -778,8 +778,10 @@ window.DemandChartCore = (function() {
                 state.direction = snapshot.direction || state.direction;
                 state.granularity = snapshot.granularity || state.granularity;
                 state.timeBasis = snapshot.timeBasis || state.timeBasis;
-                if (snapshot.timeRangeStart !== undefined) state.timeRangeStart = snapshot.timeRangeStart;
-                if (snapshot.timeRangeEnd !== undefined) state.timeRangeEnd = snapshot.timeRangeEnd;
+                // Note: timeRangeStart/End are NOT restored from snapshot because they
+                // are relative "hours from now" values that become invalid when loaded
+                // at a different time. The caller (tmr_report.js) sets the correct
+                // event-based time range when creating the chart.
                 state.lastData = snapshot.demandData;
                 state.rateData = snapshot.rateData || null;
                 this.render();
