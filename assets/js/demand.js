@@ -2349,6 +2349,9 @@ function loadFacilityDemand() {
             DEMAND_STATE.lastFacilityData = data;
             DEMAND_STATE.facilityModeFallback = data.facility && data.facility.mode_fallback;
             DEMAND_STATE.demandDataHash = data.data_hash || null;
+            // Invalidate summary cache so breakdown views refresh with new data
+            DEMAND_STATE.summaryLoaded = false;
+            DEMAND_STATE.summaryDataHash = null;
             renderFacilityChart(data);
             updateFacilityInfoBar(data);
         } else {
@@ -2373,145 +2376,229 @@ function renderFacilityChart(data) {
 
     if (DEMAND_STATE.chartView === 'airport') {
         renderAirportBreakdownChart(data);
-    } else {
-        // Status view — render stacked bar chart like airport mode
+    } else if (DEMAND_STATE.chartView === 'status') {
         renderFacilityStatusChart(data);
+    } else {
+        // Breakdown views — need summary data from facility_summary.php
+        if (!DEMAND_STATE.summaryLoaded || !isCacheValid()) {
+            loadFacilitySummary(true);
+        } else {
+            switch (DEMAND_STATE.chartView) {
+                case 'origin': renderOriginChart(); break;
+                case 'dest': renderDestChart(); break;
+                case 'carrier': renderCarrierChart(); break;
+                case 'weight': renderWeightChart(); break;
+                case 'equipment': renderEquipmentChart(); break;
+                case 'rule': renderRuleChart(); break;
+                case 'dep_fix': renderDepFixChart(); break;
+                case 'arr_fix': renderArrFixChart(); break;
+                case 'dp': renderDPChart(); break;
+                case 'star': renderSTARChart(); break;
+            }
+        }
     }
 }
 
 /**
- * Render facility status chart (stacked bar by phase, like airport mode)
+ * Render facility status chart with TRUE TIME AXIS (AADC/FSM style)
+ * Mirrors renderChart() patterns: time axis, phase series, dataZoom, drill-down
  */
 function renderFacilityStatusChart(data) {
-    var arrivals = data.data.arrivals || [];
-    var departures = data.data.departures || [];
-    var direction = data.direction || DEMAND_STATE.direction;
-    // Crossing mode uses a single query — treat 'both'/'thru' as 'arr' rendering
-    // since all crossings go into the arrivals bucket
-    var isCrossing = data.facility && data.facility.mode === 'crossing';
-    var renderDirection = (isCrossing && (direction === 'both' || direction === 'thru')) ? 'arr' : direction;
+    // Capture legend and dataZoom state before replacing chart options
+    DEMAND_STATE.legendSelected = captureLegendSelected();
+    DEMAND_STATE.dataZoomState = captureDataZoomState();
 
-    // Build time labels and series from buckets
-    var timeLabels = [];
-    var timeLabelSet = {};
+    DEMAND_STATE.chart.hideLoading();
 
-    // Collect all unique time bins
-    function addBins(bins) {
-        bins.forEach(function(b) { if (!timeLabelSet[b.time_bin]) { timeLabelSet[b.time_bin] = true; timeLabels.push(b.time_bin); } });
-    }
-    addBins(arrivals);
-    addBins(departures);
-    timeLabels.sort();
+    const arrivals = data.data.arrivals || [];
+    const departures = data.data.departures || [];
+    const direction = data.direction || DEMAND_STATE.direction;
+    const isCrossing = data.facility && data.facility.mode === 'crossing';
+    const renderDirection = (isCrossing && (direction === 'both' || direction === 'thru')) ? 'arr' : direction;
 
-    // Map time_bin -> bucket for fast lookup
-    var arrMap = {};
-    arrivals.forEach(function(b) { arrMap[b.time_bin] = b; });
-    var depMap = {};
-    departures.forEach(function(b) { depMap[b.time_bin] = b; });
+    // Generate complete time bins for gap-free coverage
+    const timeBins = generateAllTimeBins();
+    DEMAND_STATE.timeBins = timeBins;
 
-    // Phase order (bottom to top)
-    var phases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
-    var phaseLabels = {
-        'arrived': PERTII18n.t('phase.arrived'),
-        'disconnected': PERTII18n.t('phase.disconnected'),
-        'descending': PERTII18n.t('phase.descending'),
-        'enroute': PERTII18n.t('phase.enroute'),
-        'departed': PERTII18n.t('phase.departed'),
-        'taxiing': PERTII18n.t('phase.taxiing'),
-        'prefile': PERTII18n.t('phase.prefile'),
-        'unknown': PERTII18n.t('phase.unknown')
+    // Normalize time bin for lookup matching
+    const normalizeTimeBin = (bin) => {
+        const d = new Date(bin);
+        d.setUTCSeconds(0, 0);
+        return d.toISOString().replace('.000Z', 'Z');
     };
 
-    var series = [];
+    // Build lookup maps from API data
+    const arrivalsByBin = {};
+    arrivals.forEach(d => { arrivalsByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
+    const departuresByBin = {};
+    departures.forEach(d => { departuresByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
+
+    // Build series based on direction, filtering by enabled phase groups
+    const series = [];
+    const allPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+    const phaseOrder = allPhases.filter(phase => isPhaseEnabled(phase));
 
     if (renderDirection === 'arr' || renderDirection === 'both' || renderDirection === 'thru') {
-        phases.forEach(function(phase) {
-            if (!DEMAND_STATE.phaseGroups[getPhaseGroup(phase)]) return;
-            var seriesData = timeLabels.map(function(t) {
-                var b = arrMap[t];
-                return b ? (b.breakdown[phase] || 0) : 0;
-            });
-            series.push({
-                name: (renderDirection === 'both' ? 'Arr ' : '') + phaseLabels[phase],
-                type: 'bar',
-                stack: 'arrivals',
-                data: seriesData,
-                itemStyle: { color: FSM_PHASE_COLORS[phase] || '#888' },
-            });
+        phaseOrder.forEach(phase => {
+            const suffix = renderDirection === 'both' ? ' (' + PERTII18n.t('demand.direction.arrShort') + ')' : '';
+            series.push(
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, arrivalsByBin, phase, 'arrivals', renderDirection),
+            );
         });
     }
 
     if (renderDirection === 'dep' || renderDirection === 'both') {
-        phases.forEach(function(phase) {
-            if (!DEMAND_STATE.phaseGroups[getPhaseGroup(phase)]) return;
-            var seriesData = timeLabels.map(function(t) {
-                var b = depMap[t];
-                return b ? -(b.breakdown[phase] || 0) : 0;
-            });
-            series.push({
-                name: (renderDirection === 'both' ? 'Dep ' : '') + phaseLabels[phase],
-                type: 'bar',
-                stack: 'departures',
-                data: seriesData,
-                itemStyle: { color: FSM_PHASE_COLORS[phase] || '#888', opacity: renderDirection === 'both' ? 0.7 : 1 },
-            });
+        phaseOrder.forEach(phase => {
+            const suffix = renderDirection === 'both' ? ' (' + PERTII18n.t('demand.direction.depShort') + ')' : '';
+            series.push(
+                buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, departuresByBin, phase, 'departures', renderDirection),
+            );
         });
     }
 
-    var option = {
+    // Add current time marker to first series (no rate lines for facility mode)
+    const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
+    if (series.length > 0 && timeMarkLineData) {
+        series[0].markLine = {
+            silent: true,
+            symbol: ['none', 'none'],
+            data: [timeMarkLineData],
+        };
+    }
+
+    // Calculate interval for x-axis bounds
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
+
+    // Build chart title
+    const facilityLabel = DEMAND_STATE.facilityCode || data.facility?.code || '';
+    const chartTitle = buildChartTitle(facilityLabel, data.last_adl_update);
+
+    // Calculate y-axis max from data
+    let maxDemand = 0;
+    const countDemandInBin = (breakdown) => {
+        if (!breakdown) return 0;
+        return Object.values(breakdown).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
+    };
+    arrivals.forEach(d => {
+        const binTotal = countDemandInBin(d.breakdown);
+        if (binTotal > maxDemand) maxDemand = binTotal;
+    });
+    departures.forEach(d => {
+        const binTotal = countDemandInBin(d.breakdown);
+        if (binTotal > maxDemand) maxDemand = binTotal;
+    });
+
+    let yAxisMax = null;
+    if (maxDemand > 0) {
+        const padded = maxDemand * 1.15;
+        if (padded <= 10) yAxisMax = Math.ceil(padded);
+        else if (padded <= 50) yAxisMax = Math.ceil(padded / 5) * 5;
+        else yAxisMax = Math.ceil(padded / 10) * 10;
+    }
+
+    const option = {
+        backgroundColor: '#ffffff',
+        title: {
+            text: chartTitle,
+            left: 'center',
+            top: 10,
+            textStyle: {
+                fontSize: 14,
+                fontWeight: 'bold',
+                color: '#333',
+                fontFamily: '"Inconsolata", "SF Mono", monospace',
+            },
+        },
         tooltip: {
             trigger: 'axis',
-            axisPointer: { type: 'shadow' },
+            confine: true,
+            axisPointer: { type: 'shadow', z: 10 },
+            z: 50,
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            borderColor: '#ccc',
+            borderWidth: 1,
+            padding: [8, 12],
+            textStyle: { color: '#333', fontSize: 12 },
             formatter: function(params) {
                 if (!params || params.length === 0) return '';
-                var tip = '<strong>' + params[0].axisValue + '</strong><br/>';
-                var total = 0;
-                params.forEach(function(p) {
-                    var val = Math.abs(p.value || 0);
+                const timestamp = params[0].value[0];
+                const timeStr = formatTimeLabelFromTimestamp(timestamp);
+                let tooltip = `<strong style="font-size:13px;">${timeStr}</strong><br/>`;
+                let total = 0;
+                params.forEach(p => {
+                    const val = p.value[1] || 0;
                     if (val > 0) {
-                        tip += '<span style="color:' + p.color + '">&#9679;</span> ' + p.seriesName + ': ' + val + '<br/>';
+                        tooltip += `${p.marker} ${p.seriesName}: <strong>${val}</strong><br/>`;
                         total += val;
                     }
                 });
-                tip += '<strong>Total: ' + total + '</strong>';
-                return tip;
-            }
+                tooltip += `<hr style="margin:4px 0;border-color:#ddd;"/><strong>${PERTII18n.t('demand.chart.total')}: ${total}</strong>`;
+                return tooltip;
+            },
         },
-        legend: {
-            bottom: 5,
-            left: 'center',
-            width: '85%',
-            type: 'scroll',
-            itemWidth: 12,
-            itemHeight: 8,
-            textStyle: { fontSize: 10 },
-            selected: DEMAND_STATE.legendSelected
-        },
+        legend: Object.assign({}, getStandardLegendConfig(DEMAND_STATE.legendVisible), {
+            selected: DEMAND_STATE.legendSelected,
+        }),
+        dataZoom: getDataZoomConfig(),
         grid: getStandardGridConfig(),
         xAxis: {
-            type: 'category',
-            data: timeLabels.map(function(t) {
-                // Format as HH:MM
-                return t.substr(11, 5);
-            }),
-            axisLabel: { rotate: 45, fontSize: 10 },
+            type: 'time',
+            name: getXAxisLabel(),
+            nameLocation: 'middle',
+            nameGap: renderDirection === 'both' ? 45 : 30,
+            nameTextStyle: { fontSize: 11, color: '#333', fontWeight: 500 },
+            maxInterval: 3600 * 1000,
+            axisLine: { lineStyle: { color: '#333', width: 1 } },
+            axisTick: { alignWithLabel: true, lineStyle: { color: '#666' } },
+            axisLabel: {
+                fontSize: 11,
+                color: '#333',
+                fontFamily: '"Inconsolata", "SF Mono", monospace',
+                fontWeight: function(value) {
+                    const d = new Date(value);
+                    const h = d.getUTCHours();
+                    return (h === 0 || h === 12) ? 'bold' : 500;
+                },
+                formatter: function(value) {
+                    const d = new Date(value);
+                    const h = d.getUTCHours().toString().padStart(2, '0');
+                    const m = d.getUTCMinutes().toString().padStart(2, '0');
+                    return h + m + 'Z';
+                },
+            },
+            splitLine: { show: true, lineStyle: { color: '#f0f0f0', type: 'solid' } },
+            min: new Date(timeBins[0]).getTime(),
+            max: new Date(timeBins[timeBins.length - 1]).getTime() + intervalMs,
         },
         yAxis: {
             type: 'value',
-            name: PERTII18n.t('demand.page.flights'),
+            name: PERTII18n.t('demand.chart.yAxisLabel'),
+            nameLocation: 'middle',
+            nameGap: 40,
+            nameTextStyle: { fontSize: 12, color: '#333', fontWeight: 500 },
+            minInterval: 1,
+            min: 0,
+            max: yAxisMax,
+            axisLine: { show: true, lineStyle: { color: '#333', width: 1 } },
+            axisTick: { show: true, lineStyle: { color: '#666' } },
+            axisLabel: { fontSize: 11, color: '#333', fontFamily: '"Inconsolata", monospace' },
+            splitLine: { show: true, lineStyle: { color: '#e8e8e8', type: 'dashed' } },
         },
         series: series,
-        dataZoom: [
-            { type: 'slider', show: true, start: 0, end: 100, bottom: 35, height: 20 }
-        ]
     };
 
     DEMAND_STATE.chart.setOption(option, true);
 
-    // Capture legend state changes
-    DEMAND_STATE.chart.off('legendselectchanged');
-    DEMAND_STATE.chart.on('legendselectchanged', function(params) {
-        DEMAND_STATE.legendSelected = params.selected;
+    // Add click handler for drill-down
+    DEMAND_STATE.chart.off('click');
+    DEMAND_STATE.chart.on('click', function(params) {
+        if (params.componentType === 'series' && params.value) {
+            const timestamp = params.value[0];
+            const timeBin = new Date(timestamp).toISOString();
+            if (timeBin) {
+                showFacilityFlightDetails(timeBin, params.seriesName);
+            }
+        }
     });
 }
 
@@ -2627,6 +2714,28 @@ function updateFacilityInfoBar(data) {
             });
         }
     }
+
+    // Compute phase breakdown client-side from per-bin breakdown data
+    var arrActive = 0, arrScheduled = 0, arrProposed = 0;
+    var depActive = 0, depScheduled = 0, depProposed = 0;
+    (data.data.arrivals || []).forEach(function(d) {
+        var b = d.breakdown || {};
+        arrActive += (b.departed || 0) + (b.enroute || 0) + (b.descending || 0);
+        arrScheduled += b.taxiing || 0;
+        arrProposed += b.prefile || 0;
+    });
+    (data.data.departures || []).forEach(function(d) {
+        var b = d.breakdown || {};
+        depActive += (b.departed || 0) + (b.enroute || 0) + (b.descending || 0);
+        depScheduled += b.taxiing || 0;
+        depProposed += b.prefile || 0;
+    });
+    $('#demand_arr_active').text(arrActive);
+    $('#demand_arr_scheduled').text(arrScheduled);
+    $('#demand_arr_proposed').text(arrProposed);
+    $('#demand_dep_active').text(depActive);
+    $('#demand_dep_scheduled').text(depScheduled);
+    $('#demand_dep_proposed').text(depProposed);
 
     // Show mode fallback notice
     if (data.facility.mode_fallback) {
@@ -3794,7 +3903,8 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     DEMAND_STATE.chart.hideLoading();
 
     const breakdown = breakdownData || {};
-    const data = DEMAND_STATE.lastDemandData;
+    const isFacilityMode = DEMAND_STATE.demandType !== 'airport';
+    const data = DEMAND_STATE.lastDemandData || DEMAND_STATE.lastFacilityData;
 
     // Debug: Log breakdown chart rendering info
     console.log('[Demand] renderBreakdownChart:', stackName, 'categoryKey:', categoryKey,
@@ -4001,7 +4111,8 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
     renderTmiTimeline();
 
     // Build chart title
-    const chartTitle = buildChartTitle(data.airport, data.last_adl_update);
+    const titleLabel = isFacilityMode ? (DEMAND_STATE.facilityCode || data.facility?.code || '') : (data.airport || '');
+    const chartTitle = buildChartTitle(titleLabel, data.last_adl_update);
 
     // Calculate y-axis max from actual data and rates
     // Sum stacked values per bin to get total per time bin
@@ -4156,14 +4267,18 @@ function renderBreakdownChart(breakdownData, subtitle, stackName, categoryKey, c
 
     DEMAND_STATE.chart.setOption(option, true);
 
-    // Add click handler
+    // Add click handler — dispatch to facility or airport drill-down
     DEMAND_STATE.chart.off('click');
     DEMAND_STATE.chart.on('click', function(params) {
         if (params.componentType === 'series' && params.value) {
             const timestamp = params.value[0];
             const timeBin = new Date(timestamp).toISOString();
             if (timeBin) {
-                showFlightDetails(timeBin, params.seriesName);
+                if (isFacilityMode) {
+                    showFacilityFlightDetails(timeBin, params.seriesName);
+                } else {
+                    showFlightDetails(timeBin, params.seriesName);
+                }
             }
         }
     });
@@ -4180,8 +4295,9 @@ function renderDestChart() {
     // For arrivals-only, show empty state
     if (direction === 'arr') {
         if (!DEMAND_STATE.chart) {return;}
-        const data = DEMAND_STATE.lastDemandData;
-        const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
+        const data = DEMAND_STATE.lastDemandData || DEMAND_STATE.lastFacilityData;
+        const titleLabel = (DEMAND_STATE.demandType !== 'airport') ? (DEMAND_STATE.facilityCode || '') : (data?.airport || '');
+        const chartTitle = buildChartTitle(titleLabel, data?.last_adl_update);
         DEMAND_STATE.chart.setOption({
             backgroundColor: '#ffffff',
             title: {
@@ -4447,8 +4563,9 @@ function renderRuleChart() {
  */
 function showDirectionRestrictedEmptyState(viewName, requiredDirection, requiredLabel) {
     if (!DEMAND_STATE.chart) {return;}
-    const data = DEMAND_STATE.lastDemandData;
-    const chartTitle = buildChartTitle(data?.airport || '', data?.last_adl_update);
+    const data = DEMAND_STATE.lastDemandData || DEMAND_STATE.lastFacilityData;
+    const titleLabel = (DEMAND_STATE.demandType !== 'airport') ? (DEMAND_STATE.facilityCode || '') : (data?.airport || '');
+    const chartTitle = buildChartTitle(titleLabel, data?.last_adl_update);
     const dirText = requiredDirection === 'arr' ? PERTII18n.t('demand.emptyState.arrOrBoth') : PERTII18n.t('demand.emptyState.depOrBoth');
     DEMAND_STATE.chart.setOption({
         backgroundColor: '#ffffff',
@@ -6461,6 +6578,127 @@ function updateTopCarriers(carriers) {
                 <td class="text-right">${item.count}</td>
             </tr>
         `);
+    });
+}
+
+/**
+ * Load facility-scoped breakdown summary data from facility_summary.php
+ * Populates DEMAND_STATE breakdown properties for rendering breakdown charts
+ * @param {boolean} renderAfter - If true, render current breakdown view after loading
+ */
+function loadFacilitySummary(renderAfter) {
+    if (!DEMAND_STATE.facilityCode) return;
+
+    const params = new URLSearchParams({
+        type: DEMAND_STATE.demandType,
+        code: DEMAND_STATE.facilityCode,
+        mode: DEMAND_STATE.facilityMode,
+        direction: DEMAND_STATE.direction,
+        granularity: getGranularityMinutes(),
+        start: DEMAND_STATE.currentStart,
+        end: DEMAND_STATE.currentEnd,
+    });
+
+    const headers = {};
+    if (DEMAND_STATE.summaryDataHash) {
+        headers['X-If-Data-Hash'] = DEMAND_STATE.summaryDataHash;
+    }
+
+    $.ajax({
+        url: `api/demand/facility_summary.php?${params}`,
+        dataType: 'json',
+        headers: headers,
+    }).done(function(response) {
+        if (response.unchanged) {
+            DEMAND_STATE.summaryLoaded = true;
+            DEMAND_STATE.cacheTimestamp = Date.now();
+            if (renderAfter && DEMAND_STATE.chartView !== 'status' && DEMAND_STATE.chartView !== 'airport') {
+                renderFacilityChart(DEMAND_STATE.lastFacilityData);
+            }
+            return;
+        }
+        if (response.success) {
+            // Update sidebar panels
+            updateTopOrigins(response.top_origins || []);
+            updateTopCarriers(response.top_carriers || []);
+
+            // Store all breakdown data — same DEMAND_STATE properties as airport mode
+            DEMAND_STATE.originBreakdown = response.origin_artcc_breakdown || {};
+            DEMAND_STATE.destBreakdown = response.dest_artcc_breakdown || {};
+            DEMAND_STATE.carrierBreakdown = response.carrier_breakdown || {};
+            DEMAND_STATE.weightBreakdown = response.weight_breakdown || {};
+            DEMAND_STATE.equipmentBreakdown = response.equipment_breakdown || {};
+            DEMAND_STATE.ruleBreakdown = response.rule_breakdown || {};
+            DEMAND_STATE.depFixBreakdown = response.dep_fix_breakdown || {};
+            DEMAND_STATE.arrFixBreakdown = response.arr_fix_breakdown || {};
+            DEMAND_STATE.dpBreakdown = normalizeBreakdownByProcedure(response.dp_breakdown || {}, 'dp');
+            DEMAND_STATE.starBreakdown = normalizeBreakdownByProcedure(response.star_breakdown || {}, 'star');
+
+            DEMAND_STATE.summaryLoaded = true;
+            DEMAND_STATE.summaryDataHash = response.data_hash;
+            DEMAND_STATE.cacheTimestamp = Date.now();
+
+            if (renderAfter && DEMAND_STATE.chartView !== 'status' && DEMAND_STATE.chartView !== 'airport') {
+                renderFacilityChart(DEMAND_STATE.lastFacilityData);
+            }
+        }
+    }).fail(function(err) {
+        console.error('Failed to load facility summary:', err);
+    });
+}
+
+/**
+ * Show flight details for a facility-scoped time bin (drill-down)
+ * Calls facility_summary.php with time_bin parameter for individual flights
+ * @param {string} timeBin - ISO timestamp of the clicked time bin
+ * @param {string} clickedSeries - Optional: the series name that was clicked
+ */
+function showFacilityFlightDetails(timeBin, clickedSeries) {
+    if (!DEMAND_STATE.facilityCode) return;
+
+    // Adjust timestamp back to bin start (subtract half interval)
+    const intervalMs = getGranularityMinutes() * 60 * 1000;
+    const halfInterval = intervalMs / 2;
+    const binStartMs = new Date(timeBin).getTime() - halfInterval;
+    const actualTimeBin = new Date(binStartMs).toISOString();
+
+    const params = new URLSearchParams({
+        type: DEMAND_STATE.demandType,
+        code: DEMAND_STATE.facilityCode,
+        mode: DEMAND_STATE.facilityMode,
+        time_bin: actualTimeBin,
+        direction: DEMAND_STATE.direction,
+        granularity: getGranularityMinutes(),
+    });
+
+    const timeLabel = formatTimeLabelZ(actualTimeBin);
+    const endTime = new Date(binStartMs + intervalMs);
+    const endLabel = formatTimeLabelZ(endTime.toISOString());
+
+    Swal.fire({
+        title: PERTII18n.t('demand.flightDetail.title', { start: timeLabel, end: endLabel }),
+        html: '<div class="text-center"><i class="fas fa-spinner fa-spin fa-2x"></i><br>' + PERTII18n.t('demand.flightDetail.loading') + '</div>',
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: '900px',
+        didOpen: function() {
+            $.getJSON(`api/demand/facility_summary.php?${params.toString()}`)
+                .done(function(response) {
+                    if (response.success && response.flights) {
+                        const html = buildFlightListHtml(response.flights, clickedSeries);
+                        Swal.update({ html: html });
+                    } else {
+                        Swal.update({
+                            html: '<p class="text-muted">' + PERTII18n.t('demand.flightDetail.noFlights') + '</p>',
+                        });
+                    }
+                })
+                .fail(function() {
+                    Swal.update({
+                        html: '<p class="text-danger">' + PERTII18n.t('demand.flightDetail.loadFailed') + '</p>',
+                    });
+                });
+        },
     });
 }
 
