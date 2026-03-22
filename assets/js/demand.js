@@ -661,7 +661,7 @@ window.DemandChartCore = (function() {
                         itemGap: 10,   // Space between items
                         textStyle: { fontSize: 10, fontFamily: '"Segoe UI", sans-serif' },
                     },
-                    grid: { left: 50, right: 100, bottom: 135, top: 45, containLabel: false },  // Room for x-axis title + legend + dataZoom
+                    grid: { left: 10, right: 100, bottom: 100, top: 40, containLabel: true },  // Room for x-axis title + legend + dataZoom
                     xAxis: {
                         type: 'time',
                         name: getXAxisLabel(state.granularity),
@@ -897,6 +897,14 @@ const DEMAND_STATE = {
     legendSelected: {},
     // DataZoom slider positions (preserved across auto-refresh)
     dataZoomState: null,
+    // Facility demand state
+    demandType: 'airport',       // 'airport', 'tracon', 'artcc', 'group'
+    facilityCode: null,          // Selected facility code
+    facilityName: null,          // Display name
+    facilityMode: 'airport',     // 'airport' or 'crossing'
+    facilityModeFallback: false, // True if crossing mode fell back to airport mode
+    facilityListData: null,      // Cached facility_list.php response
+    lastFacilityData: null,      // Last facility API response
 };
 
 // Phase colors - use shared config from phase-colors.js
@@ -1483,6 +1491,7 @@ function initDemand() {
 
     // Load tier data
     loadTierData();
+    loadFacilityList();
 
     // Populate filter dropdowns
     populateTimeRanges();
@@ -1494,8 +1503,25 @@ function initDemand() {
     // Set up event handlers
     setupEventHandlers();
 
-    // Start with no airport selected - show prompt
-    showSelectAirportPrompt();
+    // Check for URL hash state
+    readUrlState();
+
+    // Start with appropriate prompt based on demand type
+    if (DEMAND_STATE.demandType !== 'airport') {
+        updateFilterVisibility();
+        populateFacilityDropdown();
+        if (DEMAND_STATE.facilityCode) {
+            // Facility selected via URL — wait for facility list then load
+            waitForFacilityListThenLoad();
+        } else {
+            showEmptyState('facility');
+        }
+    } else if (DEMAND_STATE.selectedAirport) {
+        loadDemandData();
+        startAutoRefresh();
+    } else {
+        showSelectAirportPrompt();
+    }
 
     console.log('Demand Visualization initialized.');
 }
@@ -1513,6 +1539,43 @@ function loadTierData() {
         .fail(function(err) {
             console.error('Failed to load ARTCC tier data:', err);
         });
+}
+
+/**
+ * Load facility list for TRACON/ARTCC/Group dropdowns
+ */
+function loadFacilityList() {
+    $.getJSON('api/demand/facility_list.php')
+        .done(function(data) {
+            if (data.success) {
+                DEMAND_STATE.facilityListData = data;
+                console.log('Facility list loaded');
+                // If we're in facility mode, populate dropdown now
+                if (DEMAND_STATE.demandType !== 'airport') {
+                    populateFacilityDropdown();
+                }
+            }
+        })
+        .fail(function(err) {
+            console.error('Failed to load facility list:', err);
+        });
+}
+
+/**
+ * Wait for facility list data to load, then trigger facility demand load.
+ * Used when restoring state from URL hash.
+ */
+function waitForFacilityListThenLoad() {
+    if (DEMAND_STATE.facilityListData) {
+        populateFacilityDropdown();
+        if (DEMAND_STATE.facilityCode) {
+            $('#demand_facility').val(DEMAND_STATE.facilityCode);
+            loadFacilityDemand();
+        }
+        return;
+    }
+    // Retry after short delay
+    setTimeout(waitForFacilityListThenLoad, 200);
 }
 
 /**
@@ -1638,6 +1701,7 @@ function setupEventHandlers() {
             showSelectAirportPrompt();
             stopAutoRefresh();
         }
+        writeUrlState();
     });
 
     // Granularity toggle - invalidates cache as data structure changes
@@ -1712,14 +1776,79 @@ function setupEventHandlers() {
         }
     });
 
-    // Direction toggle - can use cached data, just re-render
+    // === Facility demand handlers ===
+
+    // Demand type change handler
+    $('#demand_type').on('change', function() {
+        DEMAND_STATE.demandType = $(this).val();
+        DEMAND_STATE.facilityCode = null;
+        DEMAND_STATE.facilityName = null;
+        updateFilterVisibility();
+        populateFacilityDropdown();
+        updateInfoBarForType();
+        invalidateCache();
+        stopAutoRefresh();
+
+        if (DEMAND_STATE.demandType === 'airport') {
+            $('#facility_selector_container').hide();
+            $('#demand_airport').closest('.form-group').show();
+            if (DEMAND_STATE.selectedAirport) {
+                loadDemandData();
+                startAutoRefresh();
+            } else {
+                showEmptyState('airport');
+            }
+        } else {
+            $('#demand_airport').closest('.form-group').hide();
+            $('#facility_selector_container').show();
+            showEmptyState('facility');
+        }
+        writeUrlState();
+    });
+
+    // Facility selection handler
+    $('#demand_facility').on('change', function() {
+        DEMAND_STATE.facilityCode = $(this).val() || null;
+        DEMAND_STATE.facilityName = $(this).find('option:selected').text();
+        invalidateCache();
+        if (DEMAND_STATE.facilityCode) {
+            loadFacilityDemand();
+            startAutoRefresh();
+        } else {
+            showEmptyState('facility');
+            stopAutoRefresh();
+        }
+        writeUrlState();
+    });
+
+    // Mode toggle handler (airport counts vs boundary crossings)
+    $('input[name="demand_mode"]').on('change', function() {
+        DEMAND_STATE.facilityMode = $(this).val();
+        // Show/hide Thru direction option
+        $('#direction_thru_label').toggle(DEMAND_STATE.facilityMode === 'crossing');
+        // If thru was selected and we switch back to airport mode, reset to both
+        if (DEMAND_STATE.facilityMode === 'airport' && DEMAND_STATE.direction === 'thru') {
+            DEMAND_STATE.direction = 'both';
+            $('#direction_both').prop('checked', true).closest('label').addClass('active');
+            $('#direction_thru').closest('label').removeClass('active');
+        }
+        invalidateCache();
+        if (DEMAND_STATE.facilityCode) {
+            loadFacilityDemand();
+        }
+        writeUrlState();
+    });
+
+    // Direction toggle - requires fresh data from API
     $('input[name="demand_direction"]').on('change', function() {
         DEMAND_STATE.direction = $(this).val();
-        if (DEMAND_STATE.selectedAirport) {
-            // Direction change still requires fresh data from API (data is directional)
-            invalidateCache();
-            loadDemandData();
+        invalidateCache();
+        if (DEMAND_STATE.demandType !== 'airport') {
+            if (DEMAND_STATE.facilityCode) loadFacilityDemand();
+        } else {
+            if (DEMAND_STATE.selectedAirport) loadDemandData();
         }
+        writeUrlState();
     });
 
     // Category filter
@@ -1744,7 +1873,10 @@ function setupEventHandlers() {
     // Auto-refresh toggle
     $('#demand_auto_refresh').on('change', function() {
         DEMAND_STATE.autoRefresh = $(this).is(':checked');
-        if (DEMAND_STATE.autoRefresh && DEMAND_STATE.selectedAirport) {
+        var hasSelection = DEMAND_STATE.demandType === 'airport'
+            ? DEMAND_STATE.selectedAirport
+            : DEMAND_STATE.facilityCode;
+        if (DEMAND_STATE.autoRefresh && hasSelection) {
             startAutoRefresh();
         } else {
             stopAutoRefresh();
@@ -1753,8 +1885,10 @@ function setupEventHandlers() {
 
     // Manual refresh button
     $('#demand_refresh_btn').on('click', function() {
-        if (DEMAND_STATE.selectedAirport) {
-            loadDemandData();
+        if (DEMAND_STATE.demandType !== 'airport') {
+            if (DEMAND_STATE.facilityCode) loadFacilityDemand();
+        } else {
+            if (DEMAND_STATE.selectedAirport) loadDemandData();
         }
     });
 
@@ -1763,16 +1897,20 @@ function setupEventHandlers() {
     $('input[name="demand_chart_view"]').on('change', function() {
         DEMAND_STATE.chartView = $(this).val();
         DEMAND_STATE.legendSelected = {}; // Reset legend state when series names change
-        if (DEMAND_STATE.selectedAirport && DEMAND_STATE.lastDemandData) {
-            // Check if we need to load breakdown data (only if not cached or cache expired)
+
+        if (DEMAND_STATE.demandType !== 'airport') {
+            // Facility mode - use facility data
+            if (DEMAND_STATE.facilityCode && DEMAND_STATE.lastFacilityData) {
+                renderFacilityChart(DEMAND_STATE.lastFacilityData);
+            }
+        } else if (DEMAND_STATE.selectedAirport && DEMAND_STATE.lastDemandData) {
+            // Airport mode - existing logic
             const needsSummaryData = DEMAND_STATE.chartView !== 'status';
             const hasCachedSummary = DEMAND_STATE.summaryLoaded && isCacheValid();
 
             if (needsSummaryData && !hasCachedSummary) {
-                // Load summary data and then render
                 loadFlightSummary(true);
             } else {
-                // Use cached data - show loading indicator during render
                 renderWithLoading();
             }
         }
@@ -2011,6 +2149,598 @@ function updateTierOptions() {
         if (has2ndTier) {select.append(`<option value="${tier2Code}">${PERTII18n.t('demand.filter.secondTier')}</option>`);}
     }
 }
+
+// ===========================================================================
+// FACILITY DEMAND FUNCTIONS
+// ===========================================================================
+
+/**
+ * Update filter panel visibility based on demand type
+ */
+function updateFilterVisibility() {
+    var type = DEMAND_STATE.demandType;
+    var isAirport = type === 'airport';
+
+    // Airport dropdown: shown for airport type only
+    $('#demand_airport').closest('.form-group').toggle(isAirport);
+    // Facility dropdown: shown for non-airport types
+    $('#facility_selector_container').toggle(!isAirport);
+    // Category: shown for airport and artcc
+    $('#demand_category').closest('.form-group').toggle(isAirport || type === 'artcc');
+    // ARTCC filter: shown for airport and tracon
+    $('#demand_artcc').closest('.form-group').toggle(isAirport || type === 'tracon');
+    // Tier: shown for airport only
+    $('#demand_tier').closest('.form-group').toggle(isAirport);
+    // Mode toggle: shown for non-airport
+    $('#mode_toggle_container').toggle(!isAirport);
+    // Thru direction: shown only in crossing mode for non-airport
+    $('#direction_thru_label').toggle(!isAirport && DEMAND_STATE.facilityMode === 'crossing');
+    // Airport view button: shown for non-airport
+    $('#view_airport_label').toggle(!isAirport);
+    // Set demand_type dropdown value
+    $('#demand_type').val(type);
+}
+
+/**
+ * Populate the facility dropdown based on selected demand type
+ */
+function populateFacilityDropdown() {
+    var type = DEMAND_STATE.demandType;
+    var select = $('#demand_facility');
+    select.empty();
+
+    if (!DEMAND_STATE.facilityListData) {
+        select.append('<option value="">Loading...</option>');
+        return;
+    }
+
+    var data = DEMAND_STATE.facilityListData;
+
+    if (type === 'tracon') {
+        select.append('<option value="">' + PERTII18n.t('demand.facility.filter.selectTracon') + '</option>');
+        var regions = [
+            { key: 'us', label: PERTII18n.t('demand.facility.optgroup.us') },
+            { key: 'canada', label: PERTII18n.t('demand.facility.optgroup.canada') },
+            { key: 'caribbean', label: PERTII18n.t('demand.facility.optgroup.caribbean') },
+            { key: 'global', label: PERTII18n.t('demand.facility.optgroup.global') }
+        ];
+        regions.forEach(function(region) {
+            var tracons = data.tracons[region.key] || [];
+            if (tracons.length === 0) return;
+            var optgroup = $('<optgroup label="' + region.label + '"></optgroup>');
+            tracons.forEach(function(t) {
+                optgroup.append('<option value="' + t.code + '">' + t.code + ' - ' + t.name + '</option>');
+            });
+            select.append(optgroup);
+        });
+    } else if (type === 'artcc') {
+        select.append('<option value="">' + PERTII18n.t('demand.facility.filter.selectArtccFir') + '</option>');
+        var artccGroup = $('<optgroup label="ARTCCs"></optgroup>');
+        data.artccs.forEach(function(a) {
+            artccGroup.append('<option value="' + a + '">' + a + '</option>');
+        });
+        select.append(artccGroup);
+        if (data.firs && data.firs.length > 0) {
+            var firGroup = $('<optgroup label="FIRs"></optgroup>');
+            data.firs.forEach(function(f) {
+                firGroup.append('<option value="' + f + '">' + f + '</option>');
+            });
+            select.append(firGroup);
+        }
+    } else if (type === 'group') {
+        select.append('<option value="">' + PERTII18n.t('demand.facility.filter.selectGroup') + '</option>');
+
+        // US DCC Regions
+        var usGroup = $('<optgroup label="' + PERTII18n.t('demand.facility.optgroup.usDcc') + '"></optgroup>');
+        ['USA', 'USAEC', 'USAWC', 'USA4W', 'USA6W', 'GULF'].forEach(function(code) {
+            var g = data.groups.regional.find(function(r) { return r.code === code; });
+            if (g) usGroup.append('<option value="' + g.code + '">' + g.label + '</option>');
+        });
+        select.append(usGroup);
+
+        // Canada DCC
+        var caGroup = $('<optgroup label="' + PERTII18n.t('demand.facility.optgroup.canadaDcc') + '"></optgroup>');
+        ['CANE', 'CANW', 'CAN'].forEach(function(code) {
+            var g = data.groups.regional.find(function(r) { return r.code === code; });
+            if (g) caGroup.append('<option value="' + g.code + '">' + g.label + '</option>');
+        });
+        select.append(caGroup);
+
+        // FIR Regional (exclude US/CA groups already shown)
+        var usCAcodes = ['USA','USALL','USAEC','USAWC','USA4W','USA6W','USA8W','USA10W','USA12W','GULF','CAN','CANE','CANW','CONUS'];
+        var firRegional = $('<optgroup label="' + PERTII18n.t('demand.facility.optgroup.firRegional') + '"></optgroup>');
+        data.groups.regional.forEach(function(g) {
+            if (usCAcodes.indexOf(g.code) >= 0) return;
+            firRegional.append('<option value="' + g.code + '">' + g.label + '</option>');
+        });
+        select.append(firRegional);
+
+        // By Country
+        var firCountry = $('<optgroup label="' + PERTII18n.t('demand.facility.optgroup.firByCountry') + '"></optgroup>');
+        data.groups.byIcaoPrefix.forEach(function(g) {
+            firCountry.append('<option value="' + g.code + '">' + g.label + (g.country ? ' (' + g.code + ')' : '') + '</option>');
+        });
+        select.append(firCountry);
+
+        // Global
+        var globalGroup = $('<optgroup label="' + PERTII18n.t('demand.facility.optgroup.firGlobal') + '"></optgroup>');
+        data.groups.global.forEach(function(g) {
+            globalGroup.append('<option value="' + g.code + '">' + g.label + '</option>');
+        });
+        select.append(globalGroup);
+    }
+}
+
+/**
+ * Show appropriate empty state
+ */
+function showEmptyState(type) {
+    if (type === 'facility') {
+        $('#demand_empty_state').hide();
+        $('#facility_empty_state').show();
+        $('#demand_chart').hide();
+    } else {
+        $('#facility_empty_state').hide();
+        $('#demand_empty_state').show();
+        $('#demand_chart').hide();
+    }
+    $('#demand_legend_toggle_area').hide();
+}
+
+/**
+ * Show the chart area (hide empty states)
+ */
+function showChart() {
+    $('#demand_empty_state').hide();
+    $('#facility_empty_state').hide();
+    $('#demand_chart').css('display', 'block');
+    $('#demand_legend_toggle_area').css('display', 'flex');
+}
+
+/**
+ * Load facility demand data from API
+ */
+function loadFacilityDemand() {
+    if (!DEMAND_STATE.facilityCode) return;
+
+    var start, end;
+    if (DEMAND_STATE.timeRangeMode === 'custom' && DEMAND_STATE.customStart && DEMAND_STATE.customEnd) {
+        start = new Date(DEMAND_STATE.customStart);
+        end = new Date(DEMAND_STATE.customEnd);
+    } else {
+        var now = new Date();
+        start = new Date(now.getTime() + DEMAND_STATE.timeRangeStart * 3600000);
+        end = new Date(now.getTime() + DEMAND_STATE.timeRangeEnd * 3600000);
+    }
+
+    DEMAND_STATE.currentStart = start.toISOString();
+    DEMAND_STATE.currentEnd = end.toISOString();
+
+    var params = new URLSearchParams({
+        type: DEMAND_STATE.demandType,
+        code: DEMAND_STATE.facilityCode,
+        mode: DEMAND_STATE.facilityMode,
+        direction: DEMAND_STATE.direction,
+        granularity: DEMAND_STATE.granularity,
+        start: start.toISOString(),
+        end: end.toISOString()
+    });
+
+    // Update info bar header
+    $('#demand_selected_airport').text(DEMAND_STATE.facilityCode);
+    $('#demand_airport_name').text(DEMAND_STATE.facilityName || '');
+
+    // Show chart area
+    showChart();
+    showLoading();
+
+    $.ajax({
+        url: 'api/demand/facility.php?' + params.toString(),
+        dataType: 'json',
+        timeout: 30000,
+    })
+    .done(function(data) {
+        if (data.unchanged) {
+            // Data hasn't changed — skip re-render
+            return;
+        }
+        if (data.success) {
+            DEMAND_STATE.lastFacilityData = data;
+            DEMAND_STATE.facilityModeFallback = data.facility && data.facility.mode_fallback;
+            DEMAND_STATE.demandDataHash = data.data_hash || null;
+            renderFacilityChart(data);
+            updateFacilityInfoBar(data);
+        } else {
+            console.error('Facility demand error:', data.error);
+        }
+    })
+    .fail(function(xhr) {
+        console.error('Facility demand request failed:', xhr.status);
+    })
+    .always(function() {
+        if (DEMAND_STATE.chart) DEMAND_STATE.chart.hideLoading();
+        // Update last-update timestamp
+        $('#demand_last_update').text(new Date().toISOString().substr(11, 8) + 'Z');
+    });
+}
+
+/**
+ * Render facility chart based on current view
+ */
+function renderFacilityChart(data) {
+    if (!DEMAND_STATE.chart) return;
+
+    if (DEMAND_STATE.chartView === 'airport') {
+        renderAirportBreakdownChart(data);
+    } else {
+        // Status view — render stacked bar chart like airport mode
+        renderFacilityStatusChart(data);
+    }
+}
+
+/**
+ * Render facility status chart (stacked bar by phase, like airport mode)
+ */
+function renderFacilityStatusChart(data) {
+    var arrivals = data.data.arrivals || [];
+    var departures = data.data.departures || [];
+    var direction = data.direction || DEMAND_STATE.direction;
+    // Crossing mode uses a single query — treat 'both'/'thru' as 'arr' rendering
+    // since all crossings go into the arrivals bucket
+    var isCrossing = data.facility && data.facility.mode === 'crossing';
+    var renderDirection = (isCrossing && (direction === 'both' || direction === 'thru')) ? 'arr' : direction;
+
+    // Build time labels and series from buckets
+    var timeLabels = [];
+    var timeLabelSet = {};
+
+    // Collect all unique time bins
+    function addBins(bins) {
+        bins.forEach(function(b) { if (!timeLabelSet[b.time_bin]) { timeLabelSet[b.time_bin] = true; timeLabels.push(b.time_bin); } });
+    }
+    addBins(arrivals);
+    addBins(departures);
+    timeLabels.sort();
+
+    // Map time_bin -> bucket for fast lookup
+    var arrMap = {};
+    arrivals.forEach(function(b) { arrMap[b.time_bin] = b; });
+    var depMap = {};
+    departures.forEach(function(b) { depMap[b.time_bin] = b; });
+
+    // Phase order (bottom to top)
+    var phases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+    var phaseLabels = {
+        'arrived': PERTII18n.t('phase.arrived'),
+        'disconnected': PERTII18n.t('phase.disconnected'),
+        'descending': PERTII18n.t('phase.descending'),
+        'enroute': PERTII18n.t('phase.enroute'),
+        'departed': PERTII18n.t('phase.departed'),
+        'taxiing': PERTII18n.t('phase.taxiing'),
+        'prefile': PERTII18n.t('phase.prefile'),
+        'unknown': PERTII18n.t('phase.unknown')
+    };
+
+    var series = [];
+
+    if (renderDirection === 'arr' || renderDirection === 'both' || renderDirection === 'thru') {
+        phases.forEach(function(phase) {
+            if (!DEMAND_STATE.phaseGroups[getPhaseGroup(phase)]) return;
+            var seriesData = timeLabels.map(function(t) {
+                var b = arrMap[t];
+                return b ? (b.breakdown[phase] || 0) : 0;
+            });
+            series.push({
+                name: (renderDirection === 'both' ? 'Arr ' : '') + phaseLabels[phase],
+                type: 'bar',
+                stack: 'arrivals',
+                data: seriesData,
+                itemStyle: { color: FSM_PHASE_COLORS[phase] || '#888' },
+            });
+        });
+    }
+
+    if (renderDirection === 'dep' || renderDirection === 'both') {
+        phases.forEach(function(phase) {
+            if (!DEMAND_STATE.phaseGroups[getPhaseGroup(phase)]) return;
+            var seriesData = timeLabels.map(function(t) {
+                var b = depMap[t];
+                return b ? -(b.breakdown[phase] || 0) : 0;
+            });
+            series.push({
+                name: (renderDirection === 'both' ? 'Dep ' : '') + phaseLabels[phase],
+                type: 'bar',
+                stack: 'departures',
+                data: seriesData,
+                itemStyle: { color: FSM_PHASE_COLORS[phase] || '#888', opacity: renderDirection === 'both' ? 0.7 : 1 },
+            });
+        });
+    }
+
+    var option = {
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: function(params) {
+                if (!params || params.length === 0) return '';
+                var tip = '<strong>' + params[0].axisValue + '</strong><br/>';
+                var total = 0;
+                params.forEach(function(p) {
+                    var val = Math.abs(p.value || 0);
+                    if (val > 0) {
+                        tip += '<span style="color:' + p.color + '">&#9679;</span> ' + p.seriesName + ': ' + val + '<br/>';
+                        total += val;
+                    }
+                });
+                tip += '<strong>Total: ' + total + '</strong>';
+                return tip;
+            }
+        },
+        legend: {
+            bottom: 5,
+            left: 'center',
+            width: '85%',
+            type: 'scroll',
+            itemWidth: 12,
+            itemHeight: 8,
+            textStyle: { fontSize: 10 },
+            selected: DEMAND_STATE.legendSelected
+        },
+        grid: getStandardGridConfig(),
+        xAxis: {
+            type: 'category',
+            data: timeLabels.map(function(t) {
+                // Format as HH:MM
+                return t.substr(11, 5);
+            }),
+            axisLabel: { rotate: 45, fontSize: 10 },
+        },
+        yAxis: {
+            type: 'value',
+            name: PERTII18n.t('demand.page.flights'),
+        },
+        series: series,
+        dataZoom: [
+            { type: 'slider', show: true, start: 0, end: 100, bottom: 35, height: 20 }
+        ]
+    };
+
+    DEMAND_STATE.chart.setOption(option, true);
+
+    // Capture legend state changes
+    DEMAND_STATE.chart.off('legendselectchanged');
+    DEMAND_STATE.chart.on('legendselectchanged', function(params) {
+        DEMAND_STATE.legendSelected = params.selected;
+    });
+}
+
+/**
+ * Map phase name to phase group for visibility filtering
+ */
+function getPhaseGroup(phase) {
+    switch (phase) {
+        case 'prefile': return 'prefile';
+        case 'taxiing': return 'departing';
+        case 'departed': case 'enroute': case 'descending': return 'active';
+        case 'arrived': return 'arrived';
+        case 'disconnected': return 'disconnected';
+        default: return 'unknown';
+    }
+}
+
+/**
+ * Render airport breakdown chart (horizontal bar showing per-airport demand)
+ */
+function renderAirportBreakdownChart(data) {
+    var airports = {};
+    var arrivals = data.data.arrivals || [];
+    var departures = data.data.departures || [];
+
+    arrivals.forEach(function(bucket) {
+        if (bucket.by_airport) {
+            for (var apt in bucket.by_airport) {
+                if (!airports[apt]) airports[apt] = {arr: 0, dep: 0};
+                airports[apt].arr += bucket.by_airport[apt];
+            }
+        }
+    });
+    departures.forEach(function(bucket) {
+        if (bucket.by_airport) {
+            for (var apt in bucket.by_airport) {
+                if (!airports[apt]) airports[apt] = {arr: 0, dep: 0};
+                airports[apt].dep += bucket.by_airport[apt];
+            }
+        }
+    });
+
+    // Sort by total count, take top 20
+    var sorted = Object.keys(airports).sort(function(a, b) {
+        return (airports[b].arr + airports[b].dep) - (airports[a].arr + airports[a].dep);
+    }).slice(0, 20);
+
+    if (sorted.length === 0) {
+        DEMAND_STATE.chart.setOption({
+            title: { text: PERTII18n.t('demand.facility.empty.noTrafficInFacility'), left: 'center', top: 'center', textStyle: { color: '#999', fontSize: 14 } },
+            xAxis: { show: false }, yAxis: { show: false }, series: []
+        }, true);
+        return;
+    }
+
+    var option = {
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        legend: { data: [PERTII18n.t('demand.page.arrivals'), PERTII18n.t('demand.page.departures')] },
+        grid: { left: 10, right: 30, bottom: 10, top: 40, containLabel: true },
+        xAxis: { type: 'value' },
+        yAxis: { type: 'category', data: sorted, inverse: true, axisLabel: { fontSize: 11 } },
+        series: [
+            {
+                name: PERTII18n.t('demand.page.arrivals'),
+                type: 'bar',
+                stack: 'total',
+                data: sorted.map(function(apt) { return airports[apt].arr; }),
+                itemStyle: { color: '#4CAF50' }
+            },
+            {
+                name: PERTII18n.t('demand.page.departures'),
+                type: 'bar',
+                stack: 'total',
+                data: sorted.map(function(apt) { return airports[apt].dep; }),
+                itemStyle: { color: '#2196F3' }
+            }
+        ]
+    };
+
+    DEMAND_STATE.chart.setOption(option, true);
+}
+
+/**
+ * Update info bar for facility types
+ */
+function updateFacilityInfoBar(data) {
+    $('#demand_selected_airport').text(data.facility.code);
+    $('#demand_airport_name').text(data.facility.name || '');
+
+    // Hide airport-specific cards
+    $('.perti-card-config').hide();
+    $('#atis_card_container').hide();
+
+    // Update arrival/departure totals
+    if (data.summary) {
+        var totalArr = data.summary.total_arrivals || 0;
+        var totalDep = data.summary.total_departures || 0;
+        $('#demand_arr_total').text(totalArr);
+        $('#demand_dep_total').text(totalDep);
+        $('#demand_flight_count').text((totalArr + totalDep) + ' ' + PERTII18n.t('demand.page.flights'));
+
+        // Update top airports/origins display
+        var $topOrigins = $('#demand_top_origins');
+        if ($topOrigins.length && data.summary.top_airports) {
+            $topOrigins.empty();
+            data.summary.top_airports.forEach(function(apt) {
+                $topOrigins.append(
+                    '<tr><td><strong>' + apt.code + '</strong></td>' +
+                    '<td>' + apt.arrivals + ' arr</td>' +
+                    '<td>' + apt.departures + ' dep</td>' +
+                    '<td><strong>' + apt.total + '</strong></td></tr>'
+                );
+            });
+        }
+    }
+
+    // Show mode fallback notice
+    if (data.facility.mode_fallback) {
+        console.log('Mode fallback: boundary crossing not available for this group, using airport counts');
+    }
+
+    // Hide rate rows for facility mode
+    $('#demand_header_aar_row').hide();
+    $('#demand_header_adr_row').hide();
+}
+
+/**
+ * Update info bar based on demand type (when switching types)
+ */
+function updateInfoBarForType() {
+    var isAirport = DEMAND_STATE.demandType === 'airport';
+
+    if (isAirport) {
+        // Restore airport-specific cards
+        $('.perti-card-config').show();
+        if (DEMAND_STATE.atisData) {
+            $('#atis_card_container').show();
+        }
+        $('#demand_selected_airport').text(DEMAND_STATE.selectedAirport || '----');
+    } else {
+        // Hide airport-specific cards
+        $('.perti-card-config').hide();
+        $('#atis_card_container').hide();
+        $('#demand_selected_airport').text(DEMAND_STATE.facilityCode || '----');
+        $('#demand_airport_name').text(DEMAND_STATE.facilityName || PERTII18n.t('demand.facility.empty.selectFacility'));
+        $('#demand_header_aar_row').hide();
+        $('#demand_header_adr_row').hide();
+    }
+}
+
+// ===========================================================================
+// URL STATE MANAGEMENT
+// ===========================================================================
+
+/**
+ * Read demand state from URL hash
+ */
+function readUrlState() {
+    var hash = window.location.hash.substring(1);
+    if (!hash) return;
+    var params;
+    try { params = new URLSearchParams(hash); } catch (e) { return; }
+
+    if (params.has('type')) {
+        DEMAND_STATE.demandType = params.get('type');
+        $('#demand_type').val(DEMAND_STATE.demandType);
+    }
+    if (params.has('code')) {
+        DEMAND_STATE.facilityCode = params.get('code');
+    }
+    if (params.has('mode')) {
+        DEMAND_STATE.facilityMode = params.get('mode');
+        if (DEMAND_STATE.facilityMode === 'crossing') {
+            $('#mode_crossing').prop('checked', true).closest('label').addClass('active');
+            $('#mode_airport').closest('label').removeClass('active');
+        }
+    }
+    if (params.has('airport')) {
+        DEMAND_STATE.selectedAirport = params.get('airport');
+        // Will be applied when airport list loads
+    }
+    if (params.has('direction')) {
+        DEMAND_STATE.direction = params.get('direction');
+        var dirRadio = $('input[name="demand_direction"][value="' + DEMAND_STATE.direction + '"]');
+        if (dirRadio.length) {
+            dirRadio.prop('checked', true).closest('label').addClass('active').siblings('label').removeClass('active');
+        }
+    }
+    if (params.has('granularity')) {
+        DEMAND_STATE.granularity = params.get('granularity');
+        var granRadio = $('input[name="demand_granularity"][value="' + DEMAND_STATE.granularity + '"]');
+        if (granRadio.length) {
+            granRadio.prop('checked', true).closest('label').addClass('active').siblings('label').removeClass('active');
+        }
+    }
+    if (params.has('view')) {
+        DEMAND_STATE.chartView = params.get('view');
+        var viewRadio = $('input[name="demand_chart_view"][value="' + DEMAND_STATE.chartView + '"]');
+        if (viewRadio.length) {
+            viewRadio.prop('checked', true).closest('label').addClass('active').siblings('label').removeClass('active');
+        }
+    }
+}
+
+/**
+ * Write current demand state to URL hash
+ */
+function writeUrlState() {
+    var params = new URLSearchParams();
+    params.set('type', DEMAND_STATE.demandType);
+
+    if (DEMAND_STATE.demandType === 'airport') {
+        if (DEMAND_STATE.selectedAirport) params.set('airport', DEMAND_STATE.selectedAirport);
+    } else {
+        if (DEMAND_STATE.facilityCode) params.set('code', DEMAND_STATE.facilityCode);
+        params.set('mode', DEMAND_STATE.facilityMode);
+    }
+
+    params.set('direction', DEMAND_STATE.direction);
+    params.set('granularity', DEMAND_STATE.granularity);
+    if (DEMAND_STATE.chartView !== 'status') {
+        params.set('view', DEMAND_STATE.chartView);
+    }
+
+    history.replaceState(null, '', '#' + params.toString());
+}
+
+// ===========================================================================
+// EXISTING FUNCTIONS
+// ===========================================================================
 
 /**
  * Show prompt to select an airport
@@ -5269,11 +5999,11 @@ function captureDataZoomState() {
  */
 function getStandardGridConfig() {
     return {
-        left: 55,
+        left: 10,
         right: 100,  // Room for vertical dataZoom slider (30px) + rate labels (70px)
-        bottom: 135, // Room for x-axis title + legend + dataZoom slider
-        top: 55,
-        containLabel: false,
+        bottom: 100, // Room for x-axis title + legend + dataZoom slider
+        top: 40,
+        containLabel: true,
     };
 }
 
@@ -5468,6 +6198,7 @@ function updateLastUpdateDisplay(adlUpdate) {
 function showLoading() {
     // Make sure chart and legend toggle are visible
     $('#demand_empty_state').hide();
+    $('#facility_empty_state').hide();
     $('#demand_chart').show();
     $('#demand_legend_toggle_area').show();
 
@@ -5522,9 +6253,16 @@ function showError(message) {
  */
 function startAutoRefresh() {
     stopAutoRefresh(); // Clear any existing timer
-    if (DEMAND_STATE.autoRefresh && DEMAND_STATE.selectedAirport) {
+    var hasSelection = DEMAND_STATE.demandType === 'airport'
+        ? DEMAND_STATE.selectedAirport
+        : DEMAND_STATE.facilityCode;
+    if (DEMAND_STATE.autoRefresh && hasSelection) {
         DEMAND_STATE.refreshTimer = setInterval(function() {
-            loadDemandData();
+            if (DEMAND_STATE.demandType === 'airport') {
+                loadDemandData();
+            } else {
+                loadFacilityDemand();
+            }
         }, DEMAND_STATE.refreshInterval);
         console.log('Auto-refresh started (every ' + (DEMAND_STATE.refreshInterval / 1000) + 's)');
     }

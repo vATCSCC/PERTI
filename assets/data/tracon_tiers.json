@@ -1,0 +1,4768 @@
+{
+  "_comment": "TRACON/TMA facility list for demand chart selector. Sourced from PostGIS tracon_boundaries.",
+  "_version": "1.0.0",
+  "_updated": "2026-03-21",
+  "us": [
+    {
+      "code": "A11",
+      "name": "Anchorage Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "A90",
+      "name": "Boston Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "ABE",
+      "name": "Allentown Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "ABI",
+      "name": "Abilene Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "ABQ",
+      "name": "Albuquerque Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "ACK",
+      "name": "Boston Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "ACT",
+      "name": "Waco Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "ACY",
+      "name": "Atlantic City Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "AGS",
+      "name": "Augusta Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "AHN",
+      "name": "Atlanta Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "ALB",
+      "name": "Albany Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "ALO",
+      "name": "Waterloo Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "AMA",
+      "name": "Amarillo Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "ANE",
+      "name": "Milano Radar",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "ANW",
+      "name": "Milano Radar",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "APN",
+      "name": "Alpena Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "ASE",
+      "name": "Aspen Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "ASW",
+      "name": "Milano Radar",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "ATL",
+      "name": "Atlanta Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "AUS",
+      "name": "Austin Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "AVL",
+      "name": "Asheville Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "AVP",
+      "name": "Wilkes-Barre Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "AZO",
+      "name": "Great Lakes Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "BFL",
+      "name": "Bakersfield Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "BGM",
+      "name": "Binghamton Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "BGR",
+      "name": "Bangor Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "BHM",
+      "name": "Birmingham Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "BIL",
+      "name": "Billings Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "BIS",
+      "name": "Bismarck Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "BNA",
+      "name": "Nashville Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "BOI",
+      "name": "Big Sky Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "BOS",
+      "name": "Boston Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "BTR",
+      "name": "Baton Rouge Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "BTV",
+      "name": "Burlington Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "BUF",
+      "name": "Buffalo Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "BUR",
+      "name": "SoCal Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "BWI",
+      "name": "Potomac Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "BZN",
+      "name": "Big Sky Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "C90",
+      "name": "Chicago Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "CAE",
+      "name": "Columbia Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "CBM",
+      "name": "Columbus Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "CHA",
+      "name": "Chattanooga Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "CHO",
+      "name": "Potomac Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "CHS",
+      "name": "Charleston Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "CID",
+      "name": "Cedar Rapids Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "CKB",
+      "name": "Clarksburg Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "CLE",
+      "name": "Cleveland Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "CLT",
+      "name": "Charlotte Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "CMH",
+      "name": "Columbus Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "CMH",
+      "name": "Columbus Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "CMI",
+      "name": "Champaign Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "COS",
+      "name": "Colorado Springs Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "CPR",
+      "name": "Casper Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "CPTL",
+      "name": "Ottawa & Quebec Terminals",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "CRP",
+      "name": "Corpus Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "CRW",
+      "name": "Charleston Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "CSG",
+      "name": "Atlanta Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "CVG",
+      "name": "Cincinnati Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "CVS",
+      "name": "Clovis Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "CYOD",
+      "name": "Cold Lake Terminal",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "CYOW",
+      "name": "Ottawa Arrival/Departure",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "CYS",
+      "name": "Cheyenne Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "CYSJ",
+      "name": "Moncton Centre",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "CYWG",
+      "name": "Winnipeg Arrival/Departure",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "D01",
+      "name": "Denver Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "D10",
+      "name": "Lone Star Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "D21",
+      "name": "Detroit Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "DAAG",
+      "name": "Algiers Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "DAB",
+      "name": "Daytona Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "DAY",
+      "name": "Columbus Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "DCA",
+      "name": "Potomac Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "DEN",
+      "name": "Denver Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "DLF",
+      "name": "Del Rio Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "DLH",
+      "name": "Duluth Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "DNA",
+      "name": "Da Nang Control",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "DOV",
+      "name": "Dover Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "DSM",
+      "name": "Des Moines Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "DTNH",
+      "name": "Enfidha Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "EDFH",
+      "name": "Langen Radar",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "EDFM",
+      "name": "Langen Radar",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "EDGG",
+      "name": "Langen Radar",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "EDJA",
+      "name": "Memmingen Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "EDW",
+      "name": "Joshua Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "EETN",
+      "name": "Tallinn Radar",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "EETT_H",
+      "name": "Tallinn Control",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "EFKU",
+      "name": "Kuopio Radar",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "EFTP",
+      "name": "Pirkkala Radar",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "EFTU",
+      "name": "Turku Radar",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "EHA",
+      "name": "Schiphol Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "EHA",
+      "name": "Schiphol Arrival",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "EHA",
+      "name": "Schiphol Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "EHA",
+      "name": "Schiphol Arrival",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "EHA",
+      "name": "Schiphol Arrival",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "EHRD",
+      "name": "Rotterdam Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "EKAH",
+      "name": "Aarhus Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "EKSP",
+      "name": "Skrydstrup Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "EKYT",
+      "name": "Aalborg Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "ELM",
+      "name": "Elmira Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "ELP",
+      "name": "El Paso Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "ENAN",
+      "name": "Andøya Tower",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "ENAT",
+      "name": "Alta Tower",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "END",
+      "name": "Vance Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "ENDU",
+      "name": "Bardufoss Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "ENNA",
+      "name": "Banak Tower",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "ENVA",
+      "name": "Værnes Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "ESTA",
+      "name": "Angelholm Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "ESTL",
+      "name": "Ljungbyhed Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "ETHF",
+      "name": "Fritzlar Radar",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "ETHN",
+      "name": "Stetten Radar",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "ETNG",
+      "name": "Frisbee Radar",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "ETNN",
+      "name": "Noervenich Radar",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "EUG",
+      "name": "Cascade Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "EVV",
+      "name": "Evansville Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "EWR",
+      "name": "New York Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "F11",
+      "name": "Orlando Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "FAI",
+      "name": "Fairbanks Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "FAR",
+      "name": "Fargo Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "FAT",
+      "name": "Fresno Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "FAY",
+      "name": "Fayetteville Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "FHU",
+      "name": "Libby Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "FLO",
+      "name": "Florence Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "FRI",
+      "name": "Fort Riley Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "FSD",
+      "name": "Sioux Falls Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "FSI",
+      "name": "Fort Stockton Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "FSM",
+      "name": "Razorback Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "FWA",
+      "name": "Fort Wayne Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "GCC",
+      "name": "Canarias Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "GCC",
+      "name": "Canarias Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "GCC",
+      "name": "Canarias Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "GCTS",
+      "name": "Tenerife Sur Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "GEG",
+      "name": "Spokane Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "GGG",
+      "name": "Longview Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "GJT",
+      "name": "Denver Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "GOOY",
+      "name": "Diass Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "GPT",
+      "name": "Gulfport Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "GRB",
+      "name": "Green Bay Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "GRK",
+      "name": "Gray Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "GSB",
+      "name": "Seymour Johnson Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "GSO",
+      "name": "Greensboro Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "GSP",
+      "name": "Greer Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "GTB",
+      "name": "Wheeler-Sack Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "GTF",
+      "name": "Great Falls Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "GUM",
+      "name": "Guam Approach",
+      "parent_artcc": "ZUA"
+    },
+    {
+      "code": "GUS",
+      "name": "Grissom Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "HLN",
+      "name": "Helena Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "HMN",
+      "name": "Holloman Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "HNL",
+      "name": "HCF Approach",
+      "parent_artcc": "ZHN"
+    },
+    {
+      "code": "HOP",
+      "name": "Campbell Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "HST",
+      "name": "Homestead Approach",
+      "parent_artcc": "ZMA"
+    },
+    {
+      "code": "HSV",
+      "name": "Huntsville Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "HTZ",
+      "name": "Huntington Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "HUF",
+      "name": "Hulman Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "I90",
+      "name": "Houston Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "IAD",
+      "name": "Potomac Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "ICT",
+      "name": "Wichita Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "ILM",
+      "name": "Wilmington Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "IND",
+      "name": "Indianapolis Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "ISP",
+      "name": "New York Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "ITO",
+      "name": "Hilo Approach",
+      "parent_artcc": "ZHN"
+    },
+    {
+      "code": "JAN",
+      "name": "Jackson Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "JAX",
+      "name": "Jacksonville Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "JCF",
+      "name": "Joshua Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "JFK",
+      "name": "New York Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "JST",
+      "name": "Johnstown Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "L30",
+      "name": "Las Vegas Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "LAN",
+      "name": "Great Lakes Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "LAR",
+      "name": "Milano Radar",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "LAX",
+      "name": "SoCal Departure",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "LAX",
+      "name": "SoCal Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "LBB",
+      "name": "Lubbock Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "LBBG",
+      "name": "Burgas Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "LCH",
+      "name": "Lake Charles Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "LEBB",
+      "name": "Bilbao Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "LEBL",
+      "name": "Barcelona Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "LEBL-23",
+      "name": "Barcelona Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "LEBL-34",
+      "name": "Barcelona Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "LEBL-4",
+      "name": "Barcelona Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "LEBZ",
+      "name": "Talavera Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "LECP-MXX",
+      "name": "Palma Control",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LEM",
+      "name": "Madrid Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LEM",
+      "name": "Madrid Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LEMD-ES",
+      "name": "Madrid Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LEMD-WI",
+      "name": "Madrid Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LEMD-WS",
+      "name": "Madrid Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LEMG",
+      "name": "Málaga Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LEMG-W",
+      "name": "Málaga Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LEMH",
+      "name": "Menorca Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LEX",
+      "name": "Lexington Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "LEXJ",
+      "name": "Santander Tower",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "LFKB",
+      "name": "Bastia Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "LFKJ",
+      "name": "Ajaccio Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "LFT",
+      "name": "Lafayette Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "LFTH",
+      "name": "Toulon Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "LGA",
+      "name": "New York Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "LGAD",
+      "name": "Andravida Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "LGAL",
+      "name": "Alexandroupolis Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "LGAV",
+      "name": "Athinai Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "LGBL",
+      "name": "Almiros Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "LHBP",
+      "name": "Budapest Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "LIC",
+      "name": "Roma Radar",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "LICC",
+      "name": "Catania Radar",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "LICJ",
+      "name": "Palermo Radar",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "LIP",
+      "name": "Milano Radar",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "LIT",
+      "name": "Little Rock Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "LMT",
+      "name": "Klamath Falls Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "LNK",
+      "name": "Omaha Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "LROP",
+      "name": "Bucharest Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "LSV",
+      "name": "Nellis Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "LTS",
+      "name": "Altus Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "LUF",
+      "name": "Luke Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "LUKK",
+      "name": "Chisinau Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "LWSK",
+      "name": "Skopje Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "M03",
+      "name": "Memphis Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "M98",
+      "name": "Minneapolis Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "MAF",
+      "name": "Midland Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "MCN",
+      "name": "Atlanta Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "MDSD",
+      "name": "Las Americas Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "MDT",
+      "name": "Harrisburg Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "MFR",
+      "name": "Cascade Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "MGM",
+      "name": "Montgomery Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "MHT",
+      "name": "Boston Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "MIA",
+      "name": "Miami Approach",
+      "parent_artcc": "ZMA"
+    },
+    {
+      "code": "MIB",
+      "name": "Minot Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "MKE",
+      "name": "Milwaukee Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "MKJP",
+      "name": "Manley Radar",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "MKJS",
+      "name": "Sangster Radar",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "MLI",
+      "name": "Quad Cities Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "MLU",
+      "name": "Monroe Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "MMHO",
+      "name": "Hermosillo TMA",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "MMIO",
+      "name": "Saltillo TMA",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "MMLM",
+      "name": "LosMochis TMA",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "MMLO",
+      "name": "Leon TMA",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "MMLP",
+      "name": "La Paz TMA",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "MMSD",
+      "name": "Cabos TMA",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "MMSP",
+      "name": "Potosi TMA",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "MMTC",
+      "name": "Torreon TMA",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "MMTG",
+      "name": "Tuxtla Gutierrez TMA",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "MMTJ",
+      "name": "Tijuana TMA",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "MMTM",
+      "name": "Tampico TMA",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "MMUN",
+      "name": "Cancun TMA",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "MMVA",
+      "name": "Villahermosa TMA",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "MMVR",
+      "name": "Veracruz TMA",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "MOB",
+      "name": "Mobile Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "MOD",
+      "name": "NorCal Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "MORE",
+      "name": "Møre Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "MRY",
+      "name": "NorCal Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "MSN",
+      "name": "Madison Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "MSO",
+      "name": "Spokane Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "MSY",
+      "name": "New Orleans Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "MTC",
+      "name": "Selfridge Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "MUO",
+      "name": "Mountain Home Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "MWCR",
+      "name": "Cayman Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "MWH",
+      "name": "Grant County Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "MYR",
+      "name": "Myrtle Beach Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "N90",
+      "name": "New York Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "NBC",
+      "name": "Beaufort Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "NCA",
+      "name": "Cherry Point Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "NCT",
+      "name": "NorCal Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "NCT",
+      "name": "NorCal Departure",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "NFL",
+      "name": "Fallon Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "NHK",
+      "name": "Patuxent Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "NKT",
+      "name": "Cherry Point Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "NLC",
+      "name": "Lemoore Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "NMM",
+      "name": "Meridian Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "NQI",
+      "name": "Kingsville Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "NQX",
+      "name": "Navy Key West Approach",
+      "parent_artcc": "ZMA"
+    },
+    {
+      "code": "NTD",
+      "name": "Point Mugu Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "NTU",
+      "name": "Oceana Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "NUW",
+      "name": "Whidbey Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "NYL",
+      "name": "Yuma Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "OAK",
+      "name": "NorCal Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "OGG",
+      "name": "HCF Approach",
+      "parent_artcc": "ZHN"
+    },
+    {
+      "code": "OKC",
+      "name": "Oklahoma City Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "OKKK",
+      "name": "Kuwait Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "OMA",
+      "name": "Omaha Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "OMAA",
+      "name": "Abu Dhabi Arrival/Departure",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "OMAL",
+      "name": "Al Ain Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "ONT",
+      "name": "SoCal Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "ORBI",
+      "name": "Baghdad Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "ORF",
+      "name": "Norfolk Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "ORKK",
+      "name": "Baghdad Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "OZR",
+      "name": "Cairns Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "P50",
+      "name": "Phoenix Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "P80",
+      "name": "Portland Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "PAM",
+      "name": "Tyndall Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "PBI",
+      "name": "Palm Beach Approach",
+      "parent_artcc": "ZMA"
+    },
+    {
+      "code": "PCT",
+      "name": "Potomac Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "PHL",
+      "name": "Philadelphia Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "PIA",
+      "name": "St. Louis Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "PIT",
+      "name": "Pittsburgh Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "PKWA",
+      "name": "Kwaj Approach",
+      "parent_artcc": "ZAK"
+    },
+    {
+      "code": "PMD",
+      "name": "Joshua Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "PNS",
+      "name": "Pensacola Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "POE",
+      "name": "Polk Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "PSC",
+      "name": "Spokane Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "PSP",
+      "name": "SoCal Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "PUB",
+      "name": "Denver Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "PVD",
+      "name": "Providence Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "PWM",
+      "name": "Portland Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "RCA",
+      "name": "Ellsworth Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "RDG",
+      "name": "Reading Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "RDR",
+      "name": "Grand Forks Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "RDU",
+      "name": "Raleigh Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "RFD",
+      "name": "Rockford Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "RIC",
+      "name": "Potomac Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "RKPC",
+      "name": "Jeju Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "RKPK",
+      "name": "Gimhae Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "RKSS",
+      "name": "Seoul Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "RNO",
+      "name": "NorCal Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "ROA",
+      "name": "Roanoke Approach",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "ROC",
+      "name": "Rochester Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "ROW",
+      "name": "Roswell Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "RST",
+      "name": "Rochester Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "RSW",
+      "name": "Fort Myers Approach",
+      "parent_artcc": "ZMA"
+    },
+    {
+      "code": "S46",
+      "name": "Seattle Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "S56",
+      "name": "Salt Lake Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SAN",
+      "name": "SoCal Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "SAT",
+      "name": "San Antonio Approach",
+      "parent_artcc": "ZHU"
+    },
+    {
+      "code": "SAV",
+      "name": "Savannah Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "SBA",
+      "name": "Santa Barbara Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "SBN",
+      "name": "South Bend Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "SBXA",
+      "name": "Aracaju Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXB",
+      "name": "Rio Branco Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXD",
+      "name": "Palmas Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXE",
+      "name": "Teresina Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXF",
+      "name": "Florianopolis Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXG",
+      "name": "Prudente Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXJ",
+      "name": "Maraba Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXK",
+      "name": "Macapa Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXM",
+      "name": "Maceio Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXN",
+      "name": "Anapolis Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXO",
+      "name": "Londrina Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXP",
+      "name": "Sao Paulo Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXQ",
+      "name": "Academia Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXR",
+      "name": "Vitoria Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXS",
+      "name": "Salvador Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXT",
+      "name": "Natal Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXU",
+      "name": "Uberaba Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SBXW",
+      "name": "Uberlandia Control",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "SCT",
+      "name": "SoCal Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "SDF",
+      "name": "Louisville Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "SFO",
+      "name": "NorCal Departure",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "SFO",
+      "name": "NorCal Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "SGF",
+      "name": "Springfield & Mizzou Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "SGF",
+      "name": "Springfield Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "SHV",
+      "name": "Shreveport Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "SJC",
+      "name": "NorCal Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "SJC",
+      "name": "NorCal Departure",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "SJT",
+      "name": "San Angelo Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "SKIP",
+      "name": "Andes Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "SMF",
+      "name": "NorCal Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "SNA",
+      "name": "SoCal Approach",
+      "parent_artcc": "ZLA"
+    },
+    {
+      "code": "SPHI",
+      "name": "Chiclayo Tower",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "SPI",
+      "name": "St. Louis Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "SPN",
+      "name": "Saipan Approach",
+      "parent_artcc": "ZUA"
+    },
+    {
+      "code": "SPS",
+      "name": "Sheppard Approach",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "SPSO",
+      "name": "Pisco Tower",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "SPST",
+      "name": "Tarapoto Tower",
+      "parent_artcc": "ZFW"
+    },
+    {
+      "code": "SPZO",
+      "name": "Cusco Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "SSC",
+      "name": "Shaw Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "STJ",
+      "name": "St. Joseph Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "STL",
+      "name": "St. Louis Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "SUU",
+      "name": "Travis Approach",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "SUX",
+      "name": "Sioux City Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "SWF",
+      "name": "New York Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "SYR",
+      "name": "Syracuse Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "SZL",
+      "name": "Whiteman Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "T75",
+      "name": "St. Louis Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "THAMES",
+      "name": "Thames Director",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "TLH",
+      "name": "Tallahassee Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "TNCA",
+      "name": "Beatrix Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "TNCC",
+      "name": "Curaçao Terminal",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "TNCM",
+      "name": "Juliana Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "TOL",
+      "name": "Toledo Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "TOR",
+      "name": "Toronto Terminal",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "TOR",
+      "name": "Toronto Arrival/Departure",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "TOR",
+      "name": "Toronto Terminal",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "TOR",
+      "name": "Toronto Centre",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "TPA",
+      "name": "Tampa Approach",
+      "parent_artcc": "ZMA"
+    },
+    {
+      "code": "TRI",
+      "name": "Tri City Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "TUL",
+      "name": "Tulsa Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "TWF",
+      "name": "Twin Falls Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "TYS",
+      "name": "Knoxville Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "U90",
+      "name": "Tucson Approach",
+      "parent_artcc": "ZAB"
+    },
+    {
+      "code": "UKLL",
+      "name": "Lviv Radar",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "ULMK",
+      "name": "Talovka Tower",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "ULMM",
+      "name": "Murmansk Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "UMM",
+      "name": "Minsk Radar",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "UMM",
+      "name": "Minsk Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "UNK",
+      "name": "Krasnoyarsk Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "UNK",
+      "name": "Krasnoyarsk Radar",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "UNO",
+      "name": "Omsk Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "UNO",
+      "name": "Omsk Radar",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "UTAA",
+      "name": "Ashgabat Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "UTAK",
+      "name": "Turkmenbashi Radar",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "UTAM",
+      "name": "Mary Radar",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "UTAT",
+      "name": "Dashoguz Approach",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "UTAV",
+      "name": "Turkmenabat Radar",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "UUOB",
+      "name": "Belgorod Tower",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "UUOK",
+      "name": "Kursk Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "UUOL",
+      "name": "Lipetsk Tower",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "UUOO",
+      "name": "Voronezh Tower",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "UWL",
+      "name": "Ulyanovsk Approach",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "UWL",
+      "name": "Ulyanovsk Radar",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "VAD",
+      "name": "Valdosta Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "VCBI",
+      "name": "Colombo Director",
+      "parent_artcc": "ZOA"
+    },
+    {
+      "code": "VLLB",
+      "name": "Luang Phabang Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "VOK",
+      "name": "Volk Approach",
+      "parent_artcc": "ZAU"
+    },
+    {
+      "code": "VPS",
+      "name": "Eglin Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "WALL",
+      "name": "Balikpapan Radar",
+      "parent_artcc": "ZDC"
+    },
+    {
+      "code": "WAYY",
+      "name": "Timika Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "WRI",
+      "name": "McGuire Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "XLLJ",
+      "name": "Gromovo Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "Y90",
+      "name": "Bradley Approach",
+      "parent_artcc": "ZBW"
+    },
+    {
+      "code": "YCFS",
+      "name": "Coffs Tower",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "YCIN",
+      "name": "Curtin Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "YKM",
+      "name": "Spokane Approach",
+      "parent_artcc": "ZSE"
+    },
+    {
+      "code": "YNG",
+      "name": "Youngstown Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "YPKA",
+      "name": "Karratha Tower",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "YPTN",
+      "name": "Tindal Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "YSNW",
+      "name": "Nowra Approach",
+      "parent_artcc": "ZAN"
+    }
+  ],
+  "canada": [
+    {
+      "code": "CYBG",
+      "name": "Bagotville Terminal",
+      "parent_artcc": null
+    },
+    {
+      "code": "CYEG",
+      "name": "Edmonton Arrival/Departure",
+      "parent_artcc": "ZEG"
+    },
+    {
+      "code": "CYHZ",
+      "name": "Halifax Terminal",
+      "parent_artcc": "ZQM"
+    },
+    {
+      "code": "CYMJ",
+      "name": "Moose Jaw Terminal",
+      "parent_artcc": null
+    },
+    {
+      "code": "CYOD",
+      "name": "Cold Lake Terminal",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "CYOW",
+      "name": "Ottawa Arrival/Departure",
+      "parent_artcc": "ZID"
+    },
+    {
+      "code": "CYQB",
+      "name": "Quebec Terminal",
+      "parent_artcc": "ZUL"
+    },
+    {
+      "code": "CYQM",
+      "name": "Moncton Centre",
+      "parent_artcc": "ZQM"
+    },
+    {
+      "code": "CYQT",
+      "name": "Thunder Bay Terminal",
+      "parent_artcc": "ZWG"
+    },
+    {
+      "code": "CYQX",
+      "name": "Gander Terminal",
+      "parent_artcc": null
+    },
+    {
+      "code": "CYS",
+      "name": "Cheyenne Approach",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "CYSJ",
+      "name": "Moncton Centre",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "CYTR",
+      "name": "Trenton Terminal",
+      "parent_artcc": "ZYZ"
+    },
+    {
+      "code": "CYUL",
+      "name": "Montreal Arrival/Departure",
+      "parent_artcc": "ZUL"
+    },
+    {
+      "code": "CYWG",
+      "name": "Winnipeg Arrival/Departure",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "CYXE",
+      "name": "Saskatoon Terminal",
+      "parent_artcc": "ZWG"
+    },
+    {
+      "code": "CYYC",
+      "name": "Calgary Arrival/Departure",
+      "parent_artcc": "ZEG"
+    },
+    {
+      "code": "CYYR",
+      "name": "Goose Bay Terminal",
+      "parent_artcc": null
+    },
+    {
+      "code": "CYYT",
+      "name": "Gander Centre",
+      "parent_artcc": "ZQX"
+    },
+    {
+      "code": "CYZX",
+      "name": "Greenwood Terminal",
+      "parent_artcc": null
+    },
+    {
+      "code": "CZEG",
+      "name": "Calgary-Edmonton Arrival",
+      "parent_artcc": null
+    },
+    {
+      "code": "CZQM",
+      "name": "Moncton Centre",
+      "parent_artcc": null
+    },
+    {
+      "code": "YVR",
+      "name": "Vancouver Arrival",
+      "parent_artcc": "ZVR"
+    },
+    {
+      "code": "YYJ",
+      "name": "Victoria Terminal",
+      "parent_artcc": "ZVR"
+    }
+  ],
+  "caribbean": [
+    {
+      "code": "MBPV",
+      "name": "Providenciales Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "MDPC",
+      "name": "Punta Cana Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "MDPP",
+      "name": "Cibao Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "MDSD",
+      "name": "Las Americas Approach",
+      "parent_artcc": "ZMP"
+    },
+    {
+      "code": "MDT",
+      "name": "Harrisburg Approach",
+      "parent_artcc": "ZNY"
+    },
+    {
+      "code": "MYGF",
+      "name": "Freeport Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "MYNN",
+      "name": "Nassau Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "MYR",
+      "name": "Myrtle Beach Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "T75",
+      "name": "St. Louis Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "TAPA",
+      "name": "VC Bird Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "TBPB",
+      "name": "Adams Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "TFFF",
+      "name": "Martinique Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "TFFR",
+      "name": "Raizet Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "TGPY",
+      "name": "Maurice Bishop Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "THAMES",
+      "name": "Thames Director",
+      "parent_artcc": "ZME"
+    },
+    {
+      "code": "TKPK",
+      "name": "Bradshaw Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "TLH",
+      "name": "Tallahassee Approach",
+      "parent_artcc": "ZJX"
+    },
+    {
+      "code": "TLPL",
+      "name": "St Lucia Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "TNCA",
+      "name": "Beatrix Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "TNCC",
+      "name": "Curaçao Terminal",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "TNCM",
+      "name": "Juliana Approach",
+      "parent_artcc": "ZAN"
+    },
+    {
+      "code": "TOL",
+      "name": "Toledo Approach",
+      "parent_artcc": "ZOB"
+    },
+    {
+      "code": "TOR",
+      "name": "Toronto Terminal",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "TOR",
+      "name": "Toronto Arrival/Departure",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "TOR",
+      "name": "Toronto Terminal",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "TOR",
+      "name": "Toronto Centre",
+      "parent_artcc": "ZDV"
+    },
+    {
+      "code": "TPA",
+      "name": "Tampa Approach",
+      "parent_artcc": "ZMA"
+    },
+    {
+      "code": "TRI",
+      "name": "Tri City Approach",
+      "parent_artcc": "ZTL"
+    },
+    {
+      "code": "TSA",
+      "name": "Tan Son Nhat Arrival",
+      "parent_artcc": null
+    },
+    {
+      "code": "TSTE",
+      "name": "Tan Son Nhat Terminal",
+      "parent_artcc": null
+    },
+    {
+      "code": "TTPP",
+      "name": "Piarco Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "TUL",
+      "name": "Tulsa Approach",
+      "parent_artcc": "ZKC"
+    },
+    {
+      "code": "TVSA",
+      "name": "Argyle Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "TW1",
+      "name": "Roma Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "TWF",
+      "name": "Twin Falls Approach",
+      "parent_artcc": "ZLC"
+    },
+    {
+      "code": "TYO",
+      "name": "Tokyo Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "TYS",
+      "name": "Knoxville Approach",
+      "parent_artcc": "ZTL"
+    }
+  ],
+  "global": [
+    {
+      "code": "EBBR",
+      "name": "Brussels Arrival",
+      "parent_artcc": null
+    },
+    {
+      "code": "EBCI",
+      "name": "Charleroi Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EBLG",
+      "name": "Liege Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EBOS",
+      "name": "Ostend Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDB",
+      "name": "Berlin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDC",
+      "name": "Dresden Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDF",
+      "name": "Langen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDG",
+      "name": "Langen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDH",
+      "name": "Bremen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDK",
+      "name": "Langen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDL",
+      "name": "Langen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDM",
+      "name": "Muenchen Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDN",
+      "name": "Nuernberg Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDP",
+      "name": "Leipzig Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDR",
+      "name": "Langen Radar",
+      "parent_artcc": "EBBU"
+    },
+    {
+      "code": "EDDS",
+      "name": "Langen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDV",
+      "name": "Bremen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDDW",
+      "name": "Bremen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EDLP",
+      "name": "Langen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EFHA",
+      "name": "Halli Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EFHK",
+      "name": "Helsinki Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EFJY",
+      "name": "Jyvaskyla Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EFOU",
+      "name": "Oulu Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EFPO",
+      "name": "Pori Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EFRO",
+      "name": "Rovaniemi Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EFVA",
+      "name": "Vaasa Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGAA",
+      "name": "Aldergrove Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGBB",
+      "name": "Birmingham Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGCC",
+      "name": "Manchester Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGFF",
+      "name": "Cardiff Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGGD",
+      "name": "Bristol Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGGW",
+      "name": "Luton Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGHH",
+      "name": "Bournemouth Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGHI",
+      "name": "Southampton Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGJJ",
+      "name": "Jersey Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGKK",
+      "name": "Gatwick Director",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGLF",
+      "name": "Farnborough Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGLL",
+      "name": "Heathrow Director",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGMC",
+      "name": "Southend Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGNM",
+      "name": "Leeds Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGNS",
+      "name": "Ronaldsway Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGNT",
+      "name": "Newcastle Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGNX",
+      "name": "East Midlands Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGPD",
+      "name": "Aberdeen Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGPF",
+      "name": "Glasgow Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGPH",
+      "name": "Edinburgh Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGPK",
+      "name": "Prestwick Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EGSS",
+      "name": "Stansted Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "EHBK",
+      "name": "Beek Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EHEH",
+      "name": "Eindhoven Arrival",
+      "parent_artcc": null
+    },
+    {
+      "code": "EHGG",
+      "name": "Eelde Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EHLE",
+      "name": "Lelystad Arrival",
+      "parent_artcc": null
+    },
+    {
+      "code": "EICK",
+      "name": "Cork Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EIDW",
+      "name": "Dublin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EINN",
+      "name": "Shannon Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EKBI",
+      "name": "Billund Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EKCH",
+      "name": "Copenhagen Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EKKA",
+      "name": "Karup Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ELLX",
+      "name": "Luxembourg Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ENBO",
+      "name": "Bodø Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ENBR",
+      "name": "Flesland Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ENCN",
+      "name": "Kjevik Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ENEV",
+      "name": "Evenes Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ENGM",
+      "name": "Oslo Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ENKR",
+      "name": "Kirkenes Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "ENOL",
+      "name": "Ørland Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ENTC",
+      "name": "Tromsø Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ENZV",
+      "name": "Sola Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EPDE",
+      "name": "Deblin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EPGD",
+      "name": "Gdansk Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EPKK",
+      "name": "Krakow Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EPPO_N",
+      "name": "Poznan Approach North",
+      "parent_artcc": null
+    },
+    {
+      "code": "EPPO_S",
+      "name": "Poznan Approach South",
+      "parent_artcc": null
+    },
+    {
+      "code": "EPWA",
+      "name": "Warszawa Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESDF",
+      "name": "Ronneby Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESGG",
+      "name": "Goteborg Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESIA",
+      "name": "Karlsborg Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESMS",
+      "name": "Sweden Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESPA",
+      "name": "Kallax Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESPE",
+      "name": "Vidsel Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESSA",
+      "name": "Stockholm Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESSB",
+      "name": "Stockholm Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESSEX",
+      "name": "Stansted Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESSP",
+      "name": "Ostgota Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ESSV",
+      "name": "Visby Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EVRA",
+      "name": "Riga Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "EYKA",
+      "name": "Kaunas Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "EYPA",
+      "name": "Palanga Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "EYSA",
+      "name": "Siauliai Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "EYVI",
+      "name": "Vilnius Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "FAOR",
+      "name": "Johannesburg Radar",
+      "parent_artcc": "FAJA"
+    },
+    {
+      "code": "FARRIS",
+      "name": "Farris Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LBGO",
+      "name": "Gorna Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "LBPD",
+      "name": "Plovdiv Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "LBSF",
+      "name": "Sofia Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LBWN",
+      "name": "Varna Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LCLK",
+      "name": "Larnaka Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LCPH",
+      "name": "Pafos Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LDDU",
+      "name": "Dubrovnik Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LDPL",
+      "name": "Pula Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LDSP",
+      "name": "Split Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LDZA",
+      "name": "Zagreb Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LDZD",
+      "name": "Zadar Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEAB",
+      "name": "Albacete Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEAM",
+      "name": "Almería Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEAS",
+      "name": "Asturias Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LECG",
+      "name": "Santiago Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LECL-AAP",
+      "name": "Valencia Control (Alicante)",
+      "parent_artcc": null
+    },
+    {
+      "code": "LECL-DE",
+      "name": "Valencia Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "LECL-VAP",
+      "name": "Valencia Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "LECS-APT",
+      "name": "Sevilla Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LECS-ASV",
+      "name": "Sevilla Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEGE",
+      "name": "Girona Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEGR",
+      "name": "Granada Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEIB",
+      "name": "Palma Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "LELC",
+      "name": "San Javier Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LELN",
+      "name": "Leon Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEPA",
+      "name": "Palma Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEPA-L2",
+      "name": "Palma Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEPP",
+      "name": "Pamplona Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "LERJ",
+      "name": "Rioja Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "LERS",
+      "name": "Reus Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "LESO",
+      "name": "San Sebastián Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "LETO",
+      "name": "Torrejon Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEVD",
+      "name": "Valladolid Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEVT",
+      "name": "Vitoria Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEZG",
+      "name": "Zaragoza Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LEZL",
+      "name": "Sevilla Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFBD",
+      "name": "Aquitaine Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFBO",
+      "name": "Blagnac Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFBP",
+      "name": "Pyrennees Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFBZ",
+      "name": "Biarritz Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFLB",
+      "name": "Chambery Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFLC",
+      "name": "Clermont Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFLL",
+      "name": "Lyon Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFML",
+      "name": "Provence Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFMN",
+      "name": "Nice Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFMT",
+      "name": "Montpellier Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFOB",
+      "name": "Beauvais Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFPG",
+      "name": "Charles de Gaulle Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFPO",
+      "name": "Orly Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFQQ",
+      "name": "Lille Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFRB",
+      "name": "Iroise Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFRN",
+      "name": "Cotentin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFRS",
+      "name": "Nantes Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFSB",
+      "name": "Bale Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFST",
+      "name": "Strasbourg Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LFVP",
+      "name": "Saint Pierre Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LIEE",
+      "name": "Cagliari Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LIMJ",
+      "name": "Genova Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LIPE",
+      "name": "Bologna Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LIPH",
+      "name": "Treviso Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LIRP",
+      "name": "Pisa Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LJLJ",
+      "name": "Ljubljana Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LOWG",
+      "name": "Graz Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LOWI",
+      "name": "Innsbruck Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LOWK",
+      "name": "Klagenfurt Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LOWL",
+      "name": "Linz Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LOWS",
+      "name": "Salzburg Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LOWW",
+      "name": "Wien Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LPFR",
+      "name": "Faro Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LPMA",
+      "name": "Madeira Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LPPR",
+      "name": "Porto Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LPPT",
+      "name": "Lisboa Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LYBE",
+      "name": "Beograd Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LYPG",
+      "name": "Podgorica Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LZIB",
+      "name": "Stefanik Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LZKZ",
+      "name": "Kosice Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "LZMC",
+      "name": "Malacky Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "LZSL",
+      "name": "Sliac Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMAA",
+      "name": "Acapulco TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMCE",
+      "name": "Ciudad Del Carmen TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMCL",
+      "name": "Culiacan TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMCN",
+      "name": "Ciudad Obregon TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMCS",
+      "name": "Ciudad Juarez TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMCU",
+      "name": "Chihuahua TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMCV",
+      "name": "Ciudad Victoria TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMDO",
+      "name": "Durango TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMGL",
+      "name": "Guadalajara TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMMA",
+      "name": "Matamoros TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMMD",
+      "name": "Merida TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMML",
+      "name": "Mexicali TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMMM",
+      "name": "Morelia TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMMX",
+      "name": "Mexico TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMMY",
+      "name": "Monterrey TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMMZ",
+      "name": "Mazatlan TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMNL",
+      "name": "Nuevo Laredo TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMOX",
+      "name": "Oaxaca TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMPR",
+      "name": "Vallarta TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMQT",
+      "name": "Queretaro TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMRX",
+      "name": "Reynosa TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMZH",
+      "name": "Zihuatanejo TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "MMZO",
+      "name": "Manzanillo TMA",
+      "parent_artcc": null
+    },
+    {
+      "code": "NZAA",
+      "name": "Auckland Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "NZCH",
+      "name": "Christchurch Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "NZHN",
+      "name": "Bay Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "NZOH",
+      "name": "Ohakea Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "NZQN",
+      "name": "Queenstown Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "NZWD",
+      "name": "Williams Field Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "NZWN",
+      "name": "Wellington Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OBBI",
+      "name": "Bahrain Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OEAB",
+      "name": "Abha Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OEDF",
+      "name": "Dammam Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OEGN",
+      "name": "Jazan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OEGS",
+      "name": "Gassim Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OEHL",
+      "name": "Hail Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OEJN",
+      "name": "Jeddah Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OEMA",
+      "name": "Madinah Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OEPS",
+      "name": "Sultan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OERK",
+      "name": "Riyadh Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OETB",
+      "name": "Tabuk Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OETF",
+      "name": "Taif Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OLBA",
+      "name": "Beirut Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OMDB",
+      "name": "Dubai Arrival/Departure",
+      "parent_artcc": null
+    },
+    {
+      "code": "OMFJ",
+      "name": "Fujairah Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "OMRK",
+      "name": "Ras AL Khaimah Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJA",
+      "name": "Tokyo Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJAH",
+      "name": "Hyakuri Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJAW",
+      "name": "Iwo Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJBB",
+      "name": "Kansai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJCC",
+      "name": "Chitose Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJCO",
+      "name": "Sapporo Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJEC",
+      "name": "Hidaka Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJF",
+      "name": "Fukuoka Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJF",
+      "name": "Kumamoto Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJF",
+      "name": "Fukuoka Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJFK",
+      "name": "Kagoshima Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJFO",
+      "name": "Oita Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJFY",
+      "name": "Kanoya Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJFZ",
+      "name": "Tsuiki Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJGG",
+      "name": "Centrair Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJK",
+      "name": "Naha Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJNH",
+      "name": "Hamamatsu Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJNK",
+      "name": "Komatsu Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJOA",
+      "name": "Hiroshima Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJOE",
+      "name": "Akeno Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJOH",
+      "name": "Miho Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJOI",
+      "name": "Iwakuni Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJOS",
+      "name": "Tokushima Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJSK",
+      "name": "Shirakami Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJSM",
+      "name": "Misawa Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJSN",
+      "name": "Nigata Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJSS",
+      "name": "Sendai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJST",
+      "name": "Matsushima Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJT",
+      "name": "Tokyo Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJTU",
+      "name": "Utsunomiya Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RJTY",
+      "name": "Yokota Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPL",
+      "name": "Manila Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPL",
+      "name": "Manila Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPL",
+      "name": "Manila Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPL",
+      "name": "Manila Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPLC",
+      "name": "Clark Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPLI",
+      "name": "Laoag Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPLK",
+      "name": "Bicol Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPMD",
+      "name": "Davao Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPME",
+      "name": "Butuan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPMR",
+      "name": "Tambler Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPMY",
+      "name": "Laguindingan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPV",
+      "name": "Mactan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPV",
+      "name": "Mactan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPVA",
+      "name": "Tacloban Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPVB",
+      "name": "Bacolod Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPVK",
+      "name": "Kalibo Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "RPVP",
+      "name": "Puerto Princesa Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBES",
+      "name": "Aldeia Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBGW",
+      "name": "Guara Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWB",
+      "name": "Belem Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWE",
+      "name": "Macae Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWF",
+      "name": "Recife Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWG",
+      "name": "Campo Grande Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWH",
+      "name": "Belo Horizonte Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWI",
+      "name": "Foz Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWJ",
+      "name": "Rio Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWJ_E",
+      "name": "Rio Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWJ_GL",
+      "name": "Rio Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWJ_N",
+      "name": "Rio Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWJ_NE",
+      "name": "Rio Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWJ_RJ",
+      "name": "Rio Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWJ_S",
+      "name": "Rio Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWK",
+      "name": "Porto Seguro Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWL",
+      "name": "Ilheus Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWM",
+      "name": "Santa Maria Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWN",
+      "name": "Manaus Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWP",
+      "name": "Porto Alegre Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWQ",
+      "name": "Boa Vista Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWR",
+      "name": "Brasilia Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWS",
+      "name": "Sao Luiz Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWT",
+      "name": "Curitiba Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWU",
+      "name": "Bauru Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWV",
+      "name": "Porto Velho Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWX",
+      "name": "Santarem Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWY",
+      "name": "Cuiaba Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SBWZ",
+      "name": "Fortaleza Control",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKBG",
+      "name": "Bucaramanga Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKBO",
+      "name": "Bogota Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKBQ",
+      "name": "Baranquilla Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKCC",
+      "name": "Cucuta Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKCL",
+      "name": "Cali Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKLT",
+      "name": "Amazonas Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKMD",
+      "name": "Medellin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKNV",
+      "name": "Neiva Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKPE",
+      "name": "Pereira Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKSP",
+      "name": "San Andres Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKVV",
+      "name": "Villavicencio Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SKYP",
+      "name": "El Yopal Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPCL",
+      "name": "Pucallpa Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPJC",
+      "name": "Lima Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPJL",
+      "name": "Juliaca Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPME",
+      "name": "Tumbes Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPQT",
+      "name": "Iquitos Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPQU",
+      "name": "Arequipa Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPRU",
+      "name": "Trujillo Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPTN",
+      "name": "Tacna Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPTU",
+      "name": "Puerto Maldonado Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "SPUR",
+      "name": "Piura Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "SUMU",
+      "name": "Carrasco Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VDTI",
+      "name": "Phnom Penh Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VHHH",
+      "name": "Hong Kong Approach/Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTBO",
+      "name": "Trat Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTBS",
+      "name": "Bangkok Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTBU",
+      "name": "U-Tapao Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTCC",
+      "name": "Chiang Mai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTCH",
+      "name": "Mae Hong Son Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTCL",
+      "name": "Lampang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTCN",
+      "name": "Nan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTCP",
+      "name": "Phrae Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTPH",
+      "name": "Hua Hin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTPI",
+      "name": "Takhli Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTPM",
+      "name": "Mae Sot Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTPO",
+      "name": "Sukhothai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTPP",
+      "name": "Phitsanulok Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTPT",
+      "name": "Tak Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTPY",
+      "name": "Phetchabun Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSB",
+      "name": "Surat Thani Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSC",
+      "name": "Narathiwat Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSE",
+      "name": "Chumphon Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSF",
+      "name": "Nakhon Si Thammarat Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSG",
+      "name": "Krabi Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSK",
+      "name": "Pattani Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSM",
+      "name": "Samui Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSP",
+      "name": "Phuket Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSR",
+      "name": "Ranong Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTSS",
+      "name": "Hat Yai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTST",
+      "name": "Trang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTUD",
+      "name": "Udon Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTUI",
+      "name": "Sakon Nakhon Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTUK",
+      "name": "Khon Kaen Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTUL",
+      "name": "Loei Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTUN",
+      "name": "Khorat Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTUO",
+      "name": "Buri Ram Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTUU",
+      "name": "Ubon Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VTUV",
+      "name": "Roi Et Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VVCR",
+      "name": "Cam Ranh Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VVDN",
+      "name": "Da Nang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "VVNB",
+      "name": "Noi Bai Terminal",
+      "parent_artcc": null
+    },
+    {
+      "code": "VVNB_F",
+      "name": "Noi Bai Terminal",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAAA",
+      "name": "Makassar Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WABB",
+      "name": "Frans Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "WADD",
+      "name": "Bali Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAEE",
+      "name": "Babullah Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAFF",
+      "name": "Mutiara Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAGI",
+      "name": "Iskandar Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAHH",
+      "name": "Yogyakarta Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAHQ",
+      "name": "Marmo Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAJJ",
+      "name": "Jayapura Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAKK",
+      "name": "Mopah Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAMG",
+      "name": "Djalaludin Tower",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAMM",
+      "name": "Manado Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAOO",
+      "name": "Banjarmasin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAPP",
+      "name": "Ambon Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAQQ",
+      "name": "Tarakan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "WARR",
+      "name": "Surabaya Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WASS",
+      "name": "Sorong Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "WATT",
+      "name": "Kupang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "WAWW",
+      "name": "Kendari Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "WIBB",
+      "name": "Pekanbaru Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WIEE",
+      "name": "Pekanbaru Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WIII",
+      "name": "Jakarta Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WIII_F",
+      "name": "Jakarta Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WIKK",
+      "name": "Pangkalpinang Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WIMM",
+      "name": "Medan Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WIOO",
+      "name": "Pontianak Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "WIPP",
+      "name": "Palembang Radar",
+      "parent_artcc": null
+    },
+    {
+      "code": "YBAS",
+      "name": "Alice Tower",
+      "parent_artcc": "YASP"
+    },
+    {
+      "code": "YBBN",
+      "name": "Brisbane Approach",
+      "parent_artcc": "YNSA"
+    },
+    {
+      "code": "YBCG",
+      "name": "Brisbane Approach (Gold Coast)",
+      "parent_artcc": "YINL"
+    },
+    {
+      "code": "YBCS",
+      "name": "Cairns Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YBHM",
+      "name": "Hamilton Tower",
+      "parent_artcc": "YSWY"
+    },
+    {
+      "code": "YBMK",
+      "name": "Coral Approach (Mackay)",
+      "parent_artcc": null
+    },
+    {
+      "code": "YBOK",
+      "name": "Oakey Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YBRK",
+      "name": "Coral Approach (Rocky)",
+      "parent_artcc": null
+    },
+    {
+      "code": "YBRM",
+      "name": "Broome Tower",
+      "parent_artcc": "YASH"
+    },
+    {
+      "code": "YBSG",
+      "name": "Scherger Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YBSU",
+      "name": "Sunshine Coast Tower",
+      "parent_artcc": "YNSA"
+    },
+    {
+      "code": "YBTL",
+      "name": "Townsville Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YMAV",
+      "name": "Avalon Approach",
+      "parent_artcc": "YELW"
+    },
+    {
+      "code": "YMAY",
+      "name": "Albury Tower",
+      "parent_artcc": "YBLA"
+    },
+    {
+      "code": "YMES",
+      "name": "East Sale Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YMHB",
+      "name": "Hobart Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YMLT",
+      "name": "Launceston Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YMML",
+      "name": "Melbourne Approach",
+      "parent_artcc": "YELW"
+    },
+    {
+      "code": "YPAD",
+      "name": "Adelaide Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YPDN",
+      "name": "Darwin Approach (East)",
+      "parent_artcc": null
+    },
+    {
+      "code": "YPEA",
+      "name": "Pearce Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YPLM",
+      "name": "Learmonth Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YPPH",
+      "name": "Perth Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "YPWR",
+      "name": "Woomera Tower",
+      "parent_artcc": "YWRA"
+    },
+    {
+      "code": "YSCB",
+      "name": "Canberra Approach",
+      "parent_artcc": "YGUN"
+    },
+    {
+      "code": "YSSY",
+      "name": "Sydney Approach (North)",
+      "parent_artcc": null
+    },
+    {
+      "code": "YSTW",
+      "name": "Tamworth Tower",
+      "parent_artcc": "YARL"
+    },
+    {
+      "code": "ZBAA",
+      "name": "Beijing Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZBAA_AA",
+      "name": "Capital Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZBAA_AD",
+      "name": "Daxing Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZBAA_S",
+      "name": "Beijing Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZBAA_W",
+      "name": "Beijing Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZBHH",
+      "name": "Hohhot Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZBLA",
+      "name": "Hulunbuir Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZBSJ",
+      "name": "Shijiazhuang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZBTJ",
+      "name": "Tianjin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZBYN",
+      "name": "Taiyuan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZGGG",
+      "name": "Guangzhou Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZGHA",
+      "name": "Changsha Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZGJD",
+      "name": "Zhuhai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZGKL",
+      "name": "Guilin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZGNN",
+      "name": "Nanning Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZGOW",
+      "name": "Shantou Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZGZJ",
+      "name": "Zhanjiang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZHCC",
+      "name": "Zhengzhou Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZHHH",
+      "name": "Wuhan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZJHK",
+      "name": "Haikou Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZJSY",
+      "name": "Sanya Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZLIC",
+      "name": "Yinchuan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZLLL",
+      "name": "Lanzhou Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZLXN",
+      "name": "Xining Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZLXY",
+      "name": "Xi'an Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZPJH",
+      "name": "Banna Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZPLJ",
+      "name": "Lijiang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZPPP",
+      "name": "Kunming Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSAM",
+      "name": "Xiamen Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSCG",
+      "name": "Changzhou Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSCN",
+      "name": "Nanchang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSFZ",
+      "name": "Fuzhou Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSHC",
+      "name": "Hangzhou Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSJN",
+      "name": "Jinan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSNB",
+      "name": "Ningbo Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSNJ",
+      "name": "Nanjing Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSOF",
+      "name": "Hefei Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSQD",
+      "name": "Qingdao Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSQZ",
+      "name": "Jinjiang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSSS",
+      "name": "Shanghai Approach",
+      "parent_artcc": "ZSSS"
+    },
+    {
+      "code": "ZSSS_E",
+      "name": "Shanghai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSSS_F",
+      "name": "Shanghai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSSS_PF",
+      "name": "Shanghai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSSS_S",
+      "name": "Shanghai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSSS_W",
+      "name": "Shanghai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSWX",
+      "name": "Wuxi Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSWZ",
+      "name": "Wenzhou Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZSYT",
+      "name": "Yantai Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZUCK",
+      "name": "Chongqing Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZUGY",
+      "name": "Guiyang Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZULS",
+      "name": "Lhasa Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZULZ",
+      "name": "Chuannan Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZUUU",
+      "name": "Chengdu Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZWAK",
+      "name": "Aksu Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZWWW",
+      "name": "Urumqi Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZYCC",
+      "name": "Changchun Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZYHB",
+      "name": "Harbin Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZYTL",
+      "name": "Dalian Approach",
+      "parent_artcc": null
+    },
+    {
+      "code": "ZYTX",
+      "name": "Shenyang Approach",
+      "parent_artcc": null
+    }
+  ]
+}

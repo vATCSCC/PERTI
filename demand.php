@@ -753,11 +753,30 @@ include("load/i18n.php");
                 </div>
 
                 <div class="card-body">
+                    <!-- Demand Type Selection -->
+                    <div class="form-group">
+                        <label class="demand-label mb-1" for="demand_type"><?= __('demand.facility.type.label') ?></label>
+                        <select class="form-control form-control-sm" id="demand_type">
+                            <option value="airport"><?= __('demand.facility.type.airport') ?></option>
+                            <option value="tracon"><?= __('demand.facility.type.tracon') ?></option>
+                            <option value="artcc"><?= __('demand.facility.type.artccFir') ?></option>
+                            <option value="group"><?= __('demand.facility.type.group') ?></option>
+                        </select>
+                    </div>
+
                     <!-- Airport Selection -->
                     <div class="form-group">
                         <label class="demand-label mb-1" for="demand_airport"><?= __('demand.page.airport') ?></label>
                         <select class="form-control form-control-sm" id="demand_airport">
                             <option value=""><?= __('demand.page.selectAirportOption') ?></option>
+                        </select>
+                    </div>
+
+                    <!-- Facility Selection (hidden by default, shown for non-airport types) -->
+                    <div class="form-group" id="facility_selector_container" style="display: none;">
+                        <label class="demand-label mb-1" for="demand_facility"><?= __('demand.facility.infoBar.facilityName') ?></label>
+                        <select class="form-control form-control-sm" id="demand_facility">
+                            <option value="">--</option>
                         </select>
                     </div>
 
@@ -786,6 +805,19 @@ include("load/i18n.php");
                         <select class="form-control form-control-sm" id="demand_tier">
                             <option value="all"><?= __('demand.page.allTiers') ?></option>
                         </select>
+                    </div>
+
+                    <!-- Mode Toggle (hidden by default, shown for non-airport types) -->
+                    <div class="form-group" id="mode_toggle_container" style="display: none;">
+                        <label class="demand-label mb-1"><?= __('demand.facility.mode.label') ?></label>
+                        <div class="btn-group btn-group-toggle btn-group-sm demand-toggle-group w-100" data-toggle="buttons" role="group">
+                            <label class="btn btn-outline-secondary active">
+                                <input type="radio" name="demand_mode" id="mode_airport" value="airport" autocomplete="off" checked> <?= __('demand.facility.mode.airportCounts') ?>
+                            </label>
+                            <label class="btn btn-outline-secondary">
+                                <input type="radio" name="demand_mode" id="mode_crossing" value="crossing" autocomplete="off"> <?= __('demand.facility.mode.boundaryCrossings') ?>
+                            </label>
+                        </div>
                     </div>
 
                     <hr>
@@ -835,6 +867,9 @@ include("load/i18n.php");
                             </label>
                             <label class="btn btn-outline-secondary">
                                 <input type="radio" name="demand_direction" id="direction_dep" value="dep" autocomplete="off"> <?= __('demand.page.dep') ?>
+                            </label>
+                            <label class="btn btn-outline-secondary" id="direction_thru_label" style="display: none;">
+                                <input type="radio" name="demand_direction" id="direction_thru" value="thru" autocomplete="off"> <?= __('demand.facility.direction.thru') ?>
                             </label>
                         </div>
                     </div>
@@ -1045,6 +1080,9 @@ include("load/i18n.php");
                         <label class="btn btn-outline-light btn-sm demand-view-btn" title="<?= __('demand.page.showArrivalsByStar') ?>">
                             <input type="radio" name="demand_chart_view" id="view_star" value="star" autocomplete="off"> STAR
                         </label>
+                        <label class="btn btn-outline-light btn-sm demand-view-btn" id="view_airport_label" style="display: none;" title="<?= __('demand.facility.view.airportTooltip') ?>">
+                            <input type="radio" name="demand_chart_view" id="view_airport" value="airport" autocomplete="off"> <?= __('demand.facility.view.airport') ?>
+                        </label>
                     </div>
                 </div>
                 <div class="card-body p-2">
@@ -1053,6 +1091,12 @@ include("load/i18n.php");
                         <i class="fas fa-chart-bar"></i>
                         <h5><?= __('demand.page.noAirportSelected') ?></h5>
                         <p class="text-muted"><?= __('demand.page.selectAirportPrompt') ?></p>
+                    </div>
+
+                    <!-- Facility Empty State (shown when demand type is facility but no facility selected) -->
+                    <div id="facility_empty_state" class="demand-empty-state" style="display: none;">
+                        <i class="fas fa-building"></i>
+                        <h5><?= __('demand.facility.empty.selectFacility') ?></h5>
                     </div>
 
                     <!-- Chart Container (hidden initially) -->
