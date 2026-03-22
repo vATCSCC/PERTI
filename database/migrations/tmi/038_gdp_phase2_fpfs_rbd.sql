@@ -161,14 +161,14 @@ BEGIN
         assigned_callsign = NULL,
         assigned_carrier = NULL,
         assigned_origin = NULL,
-        assigned_utc = NULL,
+        assigned_at = NULL,
         original_eta_utc = NULL,
         slot_delay_min = NULL,
         ctd_utc = NULL,
         cta_utc = NULL,
         is_popup_slot = 0,
         popup_lead_time_min = NULL,
-        modified_utc = SYSUTCDATETIME()
+        updated_at = SYSUTCDATETIME()
     WHERE program_id = @program_id;
 
     -- Cursor variables
@@ -267,12 +267,12 @@ BEGIN
                     assigned_callsign = @callsign,
                     assigned_carrier = @carrier,
                     assigned_origin = @dep_airport,
-                    assigned_utc = SYSUTCDATETIME(),
+                    assigned_at = SYSUTCDATETIME(),
                     original_eta_utc = @eta_utc,
                     slot_delay_min = @delay_min,
                     ctd_utc = @ctd_utc,
                     cta_utc = @slot_time,
-                    modified_utc = SYSUTCDATETIME()
+                    updated_at = SYSUTCDATETIME()
                 WHERE slot_id = @slot_id;
 
                 INSERT INTO dbo.tmi_flight_control (
@@ -724,7 +724,7 @@ BEGIN
         )
         UPDATE dbo.tmi_slots
         SET slot_type = 'REGULAR',
-            modified_utc = SYSUTCDATETIME()
+            updated_at = SYSUTCDATETIME()
         WHERE slot_id IN (SELECT slot_id FROM to_convert);
 
         SET @converted_count = @to_release;
