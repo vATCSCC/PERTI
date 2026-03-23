@@ -2146,7 +2146,7 @@ $(document).ready(function() {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] }
         });
-        // Black outline layer (rendered first, underneath)
+        // Track color outline layer (rendered first, underneath)
         graphic_map.addLayer({
             id: 'nat-track-label-outline',
             type: 'symbol',
@@ -2160,12 +2160,12 @@ $(document).ready(function() {
                 'text-ignore-placement': true,
             },
             paint: {
-                'text-color': '#000000',
-                'text-halo-color': '#000000',
+                'text-color': ['get', 'color'],
+                'text-halo-color': ['get', 'color'],
                 'text-halo-width': 4,
             },
         });
-        // Colored halo layer (rendered on top)
+        // White text + black halo layer (rendered on top)
         graphic_map.addLayer({
             id: 'nat-track-label-text',
             type: 'symbol',
@@ -2180,8 +2180,8 @@ $(document).ready(function() {
             },
             paint: {
                 'text-color': '#ffffff',
-                'text-halo-color': ['get', 'color'],
-                'text-halo-width': 3,
+                'text-halo-color': '#000000',
+                'text-halo-width': 2,
             },
         });
 
@@ -2552,7 +2552,8 @@ $(document).ready(function() {
             try {
                 var d = new Date(natTrackUpdatedAt.replace(' ', 'T') + (natTrackUpdatedAt.includes('Z') ? '' : 'Z'));
                 if (!isNaN(d.getTime())) {
-                    timeStr = d.getUTCHours().toString().padStart(2, '0') + ':' +
+                    timeStr = d.getUTCDate().toString().padStart(2, '0') + '/' +
+                              d.getUTCHours().toString().padStart(2, '0') +
                               d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
                 }
             } catch (e) {}
