@@ -65,6 +65,11 @@ $current_tracon = swim_get_param('current_tracon');
 $current_sector = swim_get_param('current_sector');
 $strata = swim_get_param('strata');  // Sector strata: low, high, superhigh (based on sector classification)
 
+// Departure time window filters (ISO 8601 UTC timestamps)
+// Used by CTP API for filtering flights within event time windows
+$dep_window_start = swim_get_param('dep_window_start');
+$dep_window_end = swim_get_param('dep_window_end');
+
 $page = swim_get_int_param('page', 1, 1, 1000);
 $per_page = swim_get_int_param('per_page', SWIM_DEFAULT_PAGE_SIZE, 1, SWIM_MAX_PAGE_SIZE);
 $offset = ($page - 1) * $per_page;
@@ -86,6 +91,8 @@ $cache_params = array_filter([
     'callsign' => $callsign,
     'tmi_controlled' => $tmi_controlled,
     'phase' => $phase,
+    'dep_window_start' => $dep_window_start,
+    'dep_window_end' => $dep_window_end,
     'page' => $page,
     'per_page' => $per_page
 ], fn($v) => $v !== null && $v !== '');
@@ -205,6 +212,23 @@ if ($strata) {
     if (in_array($strata_val, ['low', 'high', 'superhigh'])) {
         $where_clauses[] = "f.current_sector_strata = ?";
         $params[] = $strata_val;
+    }
+}
+
+// Departure time window filters
+// Prioritizes actual departure time for departed flights, falls back to estimated for prefiled
+if ($dep_window_start) {
+    $start_ts = strtotime($dep_window_start);
+    if ($start_ts !== false) {
+        $where_clauses[] = "COALESCE(f.actual_off_block_time, f.estimated_off_block_time) >= ?";
+        $params[] = gmdate('Y-m-d H:i:s', $start_ts);
+    }
+}
+if ($dep_window_end) {
+    $end_ts = strtotime($dep_window_end);
+    if ($end_ts !== false) {
+        $where_clauses[] = "COALESCE(f.actual_off_block_time, f.estimated_off_block_time) <= ?";
+        $params[] = gmdate('Y-m-d H:i:s', $end_ts);
     }
 }
 

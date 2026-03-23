@@ -228,22 +228,79 @@ class SubscriptionManager
             }
         }
         
+        // FIR filter (matches current FIR or traversed FIRs)
+        if (isset($filters['firs']) && !empty($filters['firs'])) {
+            $currentFir = strtoupper($eventData['current_fir'] ?? '');
+            $traversedFirs = $eventData['traversed_firs'] ?? [];
+            if (is_string($traversedFirs)) {
+                $traversedFirs = array_map('trim', explode(',', $traversedFirs));
+            }
+            $traversedFirs = array_map('strtoupper', $traversedFirs);
+
+            // Also check current_artcc as FIR proxy (US ARTCCs are domestic FIRs)
+            $currentArtcc = strtoupper($eventData['current_artcc'] ?? $eventData['artcc'] ?? '');
+
+            $matched = false;
+            foreach ($filters['firs'] as $fir) {
+                if ($currentFir === $fir || in_array($fir, $traversedFirs) || $currentArtcc === $fir) {
+                    $matched = true;
+                    break;
+                }
+            }
+
+            if (!$matched) {
+                return false;
+            }
+        }
+
+        // Departure time window filter
+        if (isset($filters['dep_window_start']) || isset($filters['dep_window_end'])) {
+            $depTime = $eventData['estimated_off_block_time'] ?? $eventData['etd'] ?? null;
+            if ($depTime === null) {
+                // No departure time available — don't filter out (might be en route)
+            } else {
+                $depTs = is_int($depTime) ? $depTime : strtotime($depTime);
+                if ($depTs) {
+                    if (isset($filters['dep_window_start'])) {
+                        $startTs = strtotime($filters['dep_window_start']);
+                        if ($startTs && $depTs < $startTs) {
+                            return false;
+                        }
+                    }
+                    if (isset($filters['dep_window_end'])) {
+                        $endTs = strtotime($filters['dep_window_end']);
+                        if ($endTs && $depTs > $endTs) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Phase filter
+        if (isset($filters['phase']) && !empty($filters['phase'])) {
+            $phase = strtoupper($eventData['phase'] ?? '');
+            if ($phase !== '' && !in_array($phase, $filters['phase'])) {
+                return false;
+            }
+        }
+
         // Bounding box filter
         if (isset($filters['bbox'])) {
             $lat = $eventData['lat'] ?? $eventData['latitude'] ?? null;
             $lon = $eventData['lon'] ?? $eventData['longitude'] ?? null;
-            
+
             if ($lat === null || $lon === null) {
                 return false;
             }
-            
+
             $bbox = $filters['bbox'];
             if ($lat < $bbox['south'] || $lat > $bbox['north'] ||
                 $lon < $bbox['west'] || $lon > $bbox['east']) {
                 return false;
             }
         }
-        
+
         // All filters passed
         return true;
     }

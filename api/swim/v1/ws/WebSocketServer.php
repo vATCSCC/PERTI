@@ -306,12 +306,13 @@ class WebSocketServer implements MessageComponentInterface
             'flight.departed', 'flight.arrived',
             'flight.created', 'flight.updated', 'flight.deleted',
             'tmi.issued', 'tmi.modified', 'tmi.released',
-            'tmi.*', 'flight.*', 'system.*',
+            'ctp.slots.optimized', 'ctp.session.updated', 'ctp.edct.assigned',
+            'tmi.*', 'flight.*', 'system.*', 'ctp.*',
             'system.heartbeat',
         ];
         
         foreach ($channels as $channel) {
-            if (!in_array($channel, $validChannels) && !preg_match('/^(flight|tmi|system)\.\*$/', $channel)) {
+            if (!in_array($channel, $validChannels) && !preg_match('/^(flight|tmi|system|ctp)\.\*$/', $channel)) {
                 $this->sendError($conn, 'INVALID_CHANNEL', "Unknown channel: {$channel}");
                 return;
             }
@@ -412,6 +413,50 @@ class WebSocketServer implements MessageComponentInterface
             $validated['callsign_prefix'] = array_map('strtoupper', $filters['callsign_prefix']);
         }
         
+        // FIR filter (e.g., ["CZQX", "BIRD", "EGGX", "LPPO"])
+        if (isset($filters['firs'])) {
+            if (!is_array($filters['firs'])) {
+                return false;
+            }
+            $validated['firs'] = array_map('strtoupper', $filters['firs']);
+        }
+
+        // Constrained FIRs (alias for firs, used by CTP API)
+        if (isset($filters['constrained_firs'])) {
+            if (!is_array($filters['constrained_firs'])) {
+                return false;
+            }
+            $validated['firs'] = array_merge(
+                $validated['firs'] ?? [],
+                array_map('strtoupper', $filters['constrained_firs'])
+            );
+            $validated['firs'] = array_unique($validated['firs']);
+        }
+
+        // Departure time window filter
+        if (isset($filters['dep_window_start'])) {
+            $ts = strtotime($filters['dep_window_start']);
+            if ($ts === false) {
+                return false;
+            }
+            $validated['dep_window_start'] = $filters['dep_window_start'];
+        }
+        if (isset($filters['dep_window_end'])) {
+            $ts = strtotime($filters['dep_window_end']);
+            if ($ts === false) {
+                return false;
+            }
+            $validated['dep_window_end'] = $filters['dep_window_end'];
+        }
+
+        // Phase filter (e.g., ["PREFILED", "DEPARTING", "EN_ROUTE"])
+        if (isset($filters['phase'])) {
+            if (!is_array($filters['phase'])) {
+                return false;
+            }
+            $validated['phase'] = array_map('strtoupper', $filters['phase']);
+        }
+
         // Bounding box filter
         if (isset($filters['bbox'])) {
             $bbox = $filters['bbox'];
@@ -428,7 +473,7 @@ class WebSocketServer implements MessageComponentInterface
                 'west' => (float)$bbox['west'],
             ];
         }
-        
+
         return $validated;
     }
 
