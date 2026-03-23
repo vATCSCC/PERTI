@@ -393,8 +393,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             <div class="col-md-4 mb-3 mb-md-0">
                                 <label for="keyTier"><?= __('swim.keys.accessTier') ?></label>
                                 <select class="form-control" id="keyTier" name="tier">
-                                    <option value="public">Public (30 req/min)</option>
-                                    <option value="developer">Developer (100 req/min)</option>
+                                    <option value="public">Public (100 req/min)</option>
+                                    <option value="developer">Developer (300 req/min)</option>
                                 </select>
                                 <small class="form-text text-muted"><?= __('swim.keys.tierApproval') ?></small>
                             </div>
@@ -477,22 +477,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         <tbody>
                             <tr>
                                 <td><span class="tier-badge tier-public">Public</span></td>
-                                <td>30/min</td>
+                                <td>100/min</td>
                                 <td>5 conn</td>
                             </tr>
                             <tr>
                                 <td><span class="tier-badge tier-developer">Developer</span></td>
-                                <td>100/min</td>
+                                <td>300/min</td>
                                 <td>50 conn</td>
                             </tr>
                             <tr>
                                 <td><span class="tier-badge tier-partner">Partner</span></td>
-                                <td>1,000/min</td>
+                                <td>3,000/min</td>
                                 <td>500 conn</td>
                             </tr>
                             <tr>
                                 <td><span class="tier-badge tier-system">System</span></td>
-                                <td>10,000/min</td>
+                                <td>30,000/min</td>
                                 <td>10,000 conn</td>
                             </tr>
                         </tbody>

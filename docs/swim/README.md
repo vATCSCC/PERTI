@@ -7,9 +7,9 @@
 [![Cost](https://img.shields.io/badge/cost-$5/mo-brightgreen)]()
 [![FIXM](https://img.shields.io/badge/FIXM-complete-brightgreen)]()
 
-> **FIXM Migration (2026-01-27):** Transitioning to FIXM-aligned column names (`actual_off_block_time`
-> instead of `out_utc`, etc.). Both column sets populated during 30-day transition. Use `?format=fixm`
-> for FIXM output. See [VATSWIM_FIXM_Field_Mapping.md](VATSWIM_FIXM_Field_Mapping.md).
+> **FIXM Field Naming:** Both legacy (`out_utc`) and FIXM-aligned (`actual_off_block_time`) field
+> names are supported permanently. Default responses use legacy names; append `?format=fixm` for
+> FIXM-aligned output. See [VATSWIM_FIXM_Field_Mapping.md](VATSWIM_FIXM_Field_Mapping.md).
 
 ## ✅ Status: Production Ready
 

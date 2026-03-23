@@ -2,7 +2,7 @@
 
 > Last updated: 2026-03-12
 >
-> **SYSTEM STATUS: HIBERNATED** (since March 9, 2026). Core ADL ingest daemon only. i18n system is fully deployed and functional; no active development during hibernation.
+> **SYSTEM STATUS: HIBERNATED** (since March 22, 2026, SWIM exempt). i18n system is fully deployed and functional; no active development during hibernation.
 
 ## Overview
 

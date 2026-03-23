@@ -1,19 +1,19 @@
 # VATSWIM API Documentation
 
 **Version:** 1.1.0
-**Last Updated:** January 27, 2026
+**Last Updated:** March 23, 2026
 **Status:** Production Ready
 **API Base URL:** `https://perti.vatcscc.org/api/swim/v1`
 **WebSocket URL:** `wss://perti.vatcscc.org/api/swim/v1/ws`
 
 ---
 
-> **FIXM Migration Complete (2026-01-27)**
+> **FIXM Field Naming**
 >
-> The VATSWIM API now uses FIXM-aligned field naming exclusively. Legacy OOOI column names have been replaced:
+> The VATSWIM API supports both legacy and FIXM-aligned field names. The default response format uses legacy names for backward compatibility. Use `?format=fixm` to receive FIXM-aligned names.
 >
-> | Legacy Name (Removed) | FIXM-Aligned Name (Current) |
-> | --------------------- | --------------------------- |
+> | Legacy Name (Default) | FIXM-Aligned Name (`?format=fixm`) |
+> | --------------------- | ----------------------------------- |
 > | `out_utc` | `actual_off_block_time` |
 > | `off_utc` | `actual_time_of_departure` |
 > | `on_utc` | `actual_landing_time` |
@@ -21,12 +21,13 @@
 > | `eta_utc` | `estimated_time_of_arrival` |
 > | `etd_utc` | `estimated_off_block_time` |
 >
-> **After FIXM cutover:**
+> **Implementation details:**
 >
-> - SWIM database uses FIXM column names only
-> - API responses use FIXM field names exclusively
+> - SWIM database stores both legacy and FIXM column names (dual-write)
+> - Default API responses use legacy field names
+> - `?format=fixm` returns FIXM-aligned field names
 > - ADL database retains legacy column names (source of truth)
-> - Ingest endpoints accept both legacy and FIXM input names for compatibility
+> - Ingest endpoints accept both legacy and FIXM input names
 >
 > See [VATSWIM_FIXM_Field_Mapping.md](VATSWIM_FIXM_Field_Mapping.md) for complete mapping.
 
@@ -120,7 +121,7 @@ wss://perti.vatcscc.org/api/swim/v1/ws?api_key=swim_dev_your_key_here
 
 ### 2.3 Creating API Keys
 
-API keys are stored in the `dbo.swim_api_keys` table in VATSIM_ADL database.
+API keys are stored in the `dbo.swim_api_keys` table in the SWIM_API database.
 
 ```sql
 INSERT INTO dbo.swim_api_keys (api_key, tier, owner_name, owner_email, description)

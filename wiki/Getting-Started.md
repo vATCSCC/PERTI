@@ -1,6 +1,6 @@
 # Getting Started
 
-> **Hibernation Mode Active (since March 9, 2026):** PERTI is currently in hibernation mode. Most web pages redirect to `/hibernation`, the SWIM API returns 503, and only the core ADL ingest daemon is running. Azure resources are downscaled to reduce costs. Some features described in this guide may be unavailable until hibernation is exited. See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
+> **Hibernation Mode Active (since March 22, 2026):** PERTI is currently in hibernation mode. Most web pages redirect to `/hibernation` and Azure resources are downscaled to reduce costs. The SWIM API and its sync daemons remain operational (SWIM exempt). Some features described in this guide may be unavailable until hibernation is exited. See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
 
 *Last updated: March 12, 2026*
 

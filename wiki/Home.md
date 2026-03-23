@@ -87,7 +87,7 @@ These in-depth documents cover everything needed to deploy and understand PERTI:
 | Translation keys | 7,276 (en-US) |
 | Supported locales | 4 (en-US, fr-CA, en-CA, en-EU) |
 
-*Data reflects cumulative totals. System hibernated since March 9, 2026.*
+*Data reflects cumulative totals. System in hibernation mode since March 22, 2026 (SWIM exempt).*
 
 ---
 
@@ -110,7 +110,7 @@ These in-depth documents cover everything needed to deploy and understand PERTI:
 
 **v18** (with ongoing enhancements through March 2026) - Includes:
 
-> **System Status: HIBERNATED** (since March 9, 2026) - Core daemons only, pages redirect to `/hibernation`, Azure resources downscaled. See `docs/HIBERNATION_RUNBOOK.md` for exit procedure.
+> **System Status: HIBERNATED** (since March 22, 2026) — Core + SWIM daemons only (SWIM API remains operational), non-exempt pages redirect to `/hibernation`, Azure resources downscaled. See `docs/HIBERNATION_RUNBOOK.md` for exit procedure.
 
 - **GDP Algorithm Redesign** (Phases 1-4 complete) - CASA-FPFS + RBD hybrid slot assignment, compression, reoptimization, reversal metrics, anti-gaming flags
 - **vATCSCC Playbook** - Pre-coordinated route play catalog with CRUD, route grouping/coloring, consolidation, compaction, auto-filters, FIR pattern expansion, and shareable links

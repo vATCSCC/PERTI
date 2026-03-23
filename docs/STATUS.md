@@ -2,13 +2,11 @@
 
 > **Last Updated:** 2026-03-12
 > **System Version:** v18 - Main Branch
-> **System Mode:** HIBERNATED (since March 9, 2026)
+> **System Mode:** HIBERNATED (since March 22, 2026, SWIM exempt)
 
 ---
 
-> **HIBERNATION MODE ACTIVE**: Core ADL ingest daemon only. Web pages redirect to `/hibernation`. SWIM API returns 503. Azure resources downscaled. See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
->
-> **Backfill Pipeline**: Phase 3 of 6 in progress (crossing calculations for 705K flights, ~108 flights/min on B1ms tier).
+> **HIBERNATION MODE ACTIVE**: ADL ingest + all SWIM daemons run (SWIM exempt). Non-SWIM daemons suspended. Web pages redirect to `/hibernation` (except review.php, SWIM pages). Azure resources downscaled (PostGIS kept at B2s). See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
 
 ## Quick Health Overview
 
@@ -26,7 +24,7 @@
 | Airport Config | [HIB] Suspended | Runway configuration & rate management |
 | Rate Suggestions | [HIB] Suspended | Weather-aware AAR/ADR recommendations |
 | ATFM Simulator | [DEV] Phase 0 | TMU training simulator with Node.js flight engine |
-| SWIM API | [HIB] 503 | System Wide Information Management API |
+| SWIM API | [OK] Active | System Wide Information Management API (SWIM exempt) |
 | TMI Database | [OK] Deployed | Unified TMI database (VATSIM_TMI) |
 | TMI Publisher | [HIB] Suspended | Unified NTML/Advisory publishing with multi-Discord |
 | TMR Reports | [OK] Available | NTMO Guide-style post-event review reports |
@@ -34,7 +32,7 @@
 | NOD Facility Flows | [HIB] Suspended | Facility flow configs, elements, gates, FEA |
 | i18n System | [OK] Deployed | 7,276 keys, 45 JS modules, locale auto-detection |
 | PERTI_MYSQL_ONLY | [OK] Active | ~98 endpoints skip Azure SQL (~500-1000ms faster) |
-| PostgreSQL GIS | [HIB] Downscaled | PostGIS spatial queries (B1ms tier) |
+| PostgreSQL GIS | [OK] Active | PostGIS spatial queries (B2s tier, kept for TMI Compliance) |
 | Playbook | [HIB] Suspended | Route play catalog with FIR expansion, grouping, analysis tools |
 | Canadian FIRs | [OK] Deployed | 7 FIRs, 1,379 sector boundaries |
 | Scheduled Splits | [HIB] Suspended | Auto-activate/deactivate with strata filtering |
@@ -282,7 +280,7 @@ PostgreSQL Server: vatcscc-gis.postgres.database.azure.com
 | `sp_SyncRunwayInUse` | [OK] Deployed | [090_runway_sync_proc.sql](../adl/migrations/090_runway_sync_proc.sql) | Runway-in-use synchronization |
 | `fn_GetWeatherCategory` | [OK] Deployed | [084_weather_category_fn.sql](../adl/migrations/084_weather_category_fn.sql) | Weather category classification |
 
-### Airspace Element Demand Functions (NEW v17)
+### ADL Demand Functions (NEW v17)
 
 | Function | Status | Location | Description |
 |----------|--------|----------|-------------|
@@ -460,7 +458,7 @@ python atis_daemon.py
 | **performance/** | 3 files | [OK] Deployed | Aircraft performance |
 | **stats/** | 5 files | [OK] Deployed | Flight statistics |
 | **changelog/** | 7 files | [OK] Deployed | Change tracking triggers |
-| **demand/** | 4 files | [OK] Deployed | Airspace element demand functions (NEW v17) |
+| **demand/** | 4 files | [OK] Deployed | ADL demand functions (NEW v17) |
 
 ### Airport Configuration & ATIS (NEW v16)
 
