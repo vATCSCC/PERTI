@@ -102,10 +102,10 @@ On first sync for a `session_id`, 4 plays are auto-created. The `ctp_session_id`
 
 | Play Name | `ctp_scope` | `visibility` | `org_code` | `source` | Routes Included |
 |-----------|-------------|-------------|------------|----------|-----------------|
-| `CTP-{session_id}-FULL` | (null) | `private_org` | `CTP` | `CTP` | All routes |
-| `CTP-{session_id}-NA` | `NA` | `private_org` | `CTP` | `CTP` | Routes with group mapped to `na` |
-| `CTP-{session_id}-EMEA` | `EU` | `private_org` | `CTP` | `CTP` | Routes with group mapped to `emea` |
-| `CTP-{session_id}-OCEANIC` | `OCEANIC` | `private_org` | `CTP` | `CTP` | Routes with group mapped to `ocean` |
+| `CTPE26-{session_id}-FULL` | (null) | `private_org` | `CTP` | `CTP` | All routes |
+| `CTPE26-{session_id}-NA` | `NA` | `private_org` | `CTP` | `CTP` | Routes with group mapped to `na` |
+| `CTPE26-{session_id}-EMEA` | `EU` | `private_org` | `CTP` | `CTP` | Routes with group mapped to `emea` |
+| `CTPE26-{session_id}-OCEANIC` | `OCEANIC` | `private_org` | `CTP` | `CTP` | Routes with group mapped to `ocean` |
 
 **Note**: The EMEA play uses `ctp_scope = 'EU'` (matching the existing ENUM values `NA`, `OCEANIC`, `EU` from migration 012) despite being named `EMEA` in the play name. This is intentional — `ctp_scope` aligns with the existing three-perspective model (`seg_na_route`, `seg_oceanic_route`, `seg_eu_route` in `ctp_flight_control`), while the play name uses the CTP team's preferred terminology.
 
@@ -115,9 +115,9 @@ On first sync for a `session_id`, 4 plays are auto-created. The `ctp_session_id`
 - `status` = `active`
 - `source` = `CTP` (requires ENUM extension — see migration below)
 - `created_by` = `changed_by_cid` or `0` (system)
-- `description` = auto-generated (e.g., "CTP Session 1 — Full Route Set")
+- `description` = auto-generated (e.g., "CTPE26 Session 1 — Full Route Set")
 
-**Play name uniqueness**: Play names include `session_id`, so `CTP-1-FULL` and `CTP-2-FULL` are distinct. The unique index `idx_name_source` on `(play_name_norm, source)` ensures no collisions within the `CTP` source.
+**Play name uniqueness**: Play names include `session_id`, so `CTPE26-1-FULL` and `CTPE26-2-FULL` are distinct. The unique index `idx_name_source` on `(play_name_norm, source)` ensures no collisions within the `CTP` source.
 
 If plays already exist for the session_id, they are reused (matched by `play_name`).
 
