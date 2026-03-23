@@ -56,8 +56,21 @@ if ($name !== null) {
     $merged = array_values($merged);
 }
 
+$fetched_at = null;
+try {
+    $stmt = $conn_pdo->prepare(
+        "SELECT fetched_at FROM nat_track_cache WHERE cache_key = 'nattrak' ORDER BY fetched_at DESC LIMIT 1"
+    );
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row && $row['fetched_at']) {
+        $fetched_at = $row['fetched_at'];
+    }
+} catch (Exception $e) {}
+
 echo json_encode([
-    'status' => 'success',
-    'count'  => count($merged),
-    'tracks' => $merged,
+    'status'     => 'success',
+    'count'      => count($merged),
+    'tracks'     => $merged,
+    'fetched_at' => $fetched_at,
 ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
