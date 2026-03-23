@@ -14,6 +14,13 @@ $(document).ready(function() {
     let lastExpandedRoutes = []; // Store expanded route strings for public routes feature
     const overlays = [];
 
+    // NAT track colors for PB.NATS rendering (one per track letter)
+    const NAT_TRACK_COLORS = [
+        '#FF6B6B', '#4ECDC4', '#FFE66D', '#7B68EE', '#FF8C42',
+        '#A8E6CF', '#DDA0DD', '#87CEEB', '#F4A460', '#98FB98',
+        '#FF69B4', '#00CED1', '#FFD700', '#9370DB', '#FF7F50'
+    ];
+
     const points = {};
     const navaidMagVar = {}; // FIX_NAME -> [{lat, lon, magVar}] for FBD magnetic correction
     const facilityCodes = new Set();
@@ -226,6 +233,49 @@ $(document).ready(function() {
         return { tokens: result, expanded: anyExpanded };
     }
 
+    /**
+     * Expand PB.NATS — fetch all live NAT tracks and return route strings with per-track colors + metadata.
+     * @param {boolean} isMandatory - Whether to wrap with >< mandatory markers
+     * @param {string|null} color - Override color (null = use per-track palette)
+     * @returns {{ routes: string[], tracks: object[], fetchedAt: string|null }}
+     */
+    function expandNATPlaybook(isMandatory, color) {
+        var result = { routes: [], tracks: [], fetchedAt: null };
+        $.ajax({
+            url: 'api/data/playbook/nat_tracks.php',
+            dataType: 'json',
+            async: false,
+            success: function(resp) {
+                if (resp && resp.tracks) {
+                    result.fetchedAt = resp.fetched_at || null;
+                    resp.tracks.forEach(function(trk, i) {
+                        var routeStr = trk.route_string || '';
+                        if (!routeStr) return;
+                        if (isMandatory) {
+                            var tokens = routeStr.split(/\s+/).filter(Boolean);
+                            if (tokens.length > 0) {
+                                tokens[0] = '>' + tokens[0];
+                                tokens[tokens.length - 1] += '<';
+                                routeStr = tokens.join(' ');
+                            }
+                        }
+                        var trackColor = color || NAT_TRACK_COLORS[i % NAT_TRACK_COLORS.length];
+                        result.routes.push(routeStr + ';' + trackColor);
+                        result.tracks.push({
+                            name: trk.name,
+                            direction: trk.direction || '',
+                            flightLevels: trk.flight_levels || '',
+                        });
+                    });
+                }
+            },
+            error: function() {
+                console.warn('[MAPLIBRE] Failed to fetch NAT tracks for PB.NATS');
+            }
+        });
+        return result;
+    }
+
     // Departure procedure datasets (DPs)
     const dpByComputerCode = {};
     const dpPatternIndex = {};
@@ -263,6 +313,12 @@ $(document).ready(function() {
     let draggingLabel = null;            // Currently dragged label info
     let dragStartPos = null;             // Starting position for drag
     let cachedUnmovedFeatures = [];      // Cached unmoved label features for fast drag removal
+
+    // NAT track (PB.NATS) state
+    let natTrackRouteMap = {};           // routeId -> { name, direction, flightLevels }
+    let natTrackUpdatedAt = null;        // datetime string from API
+    let natRouteStringNames = null;      // Map<routeStringsIdx, {name, direction, flightLevels}> — active during processing only
+    let _lastNatPlaybookResult = null;   // side-effect from expandPlaybookDirective when NATS detected
 
     // Export data storage
     let lastExportData = {
@@ -929,6 +985,15 @@ $(document).ready(function() {
             originPart: originPart,
             destPart: destPart,
         });
+
+        // Special handling for PB.NATS — fetch live NAT tracks
+        if (playNorm === 'NATS') {
+            var natResult = expandNATPlaybook(isMandatory, color);
+            _lastNatPlaybookResult = natResult;
+            console.log('[MAPLIBRE] PB.NATS expanded:', natResult.routes.length, 'tracks');
+            return natResult.routes;
+        }
+        _lastNatPlaybookResult = null;
 
         const originTokens = originPart ? originPart.toUpperCase().split(/\s+/).filter(Boolean) : [];
         const destTokens = destPart ? destPart.toUpperCase().split(/\s+/).filter(Boolean) : [];
@@ -2076,6 +2141,30 @@ $(document).ready(function() {
 
         graphic_map.addSource('route-endpoints', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
+        // NAT track name labels (e.g., NATA, NATB — rendered at route midpoints)
+        graphic_map.addSource('nat-track-labels', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+        });
+        graphic_map.addLayer({
+            id: 'nat-track-label-text',
+            type: 'symbol',
+            source: 'nat-track-labels',
+            layout: {
+                'text-field': ['get', 'label'],
+                'text-font': ['Noto Sans Bold'],
+                'text-size': 14,
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+            },
+            paint: {
+                'text-color': '#ffffff',
+                'text-halo-color': ['get', 'color'],
+                'text-halo-width': 3,
+            },
+        });
+
         // Create endpoint icons (9 total: 6 base + 3 filter variants)
         const ENDPOINT_ICONS = {
             // Airport - Airplane silhouette (TSD jet style, upward=origin, downward=dest)
@@ -2427,6 +2516,33 @@ $(document).ready(function() {
         console.log('[MAPLIBRE] Dynamic sources added with TSD symbology');
     }
 
+    function updateNatInfoOverlay(show) {
+        var overlay = document.getElementById('nat-track-info');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'nat-track-info';
+            overlay.style.cssText = 'display:none;position:absolute;bottom:30px;left:10px;' +
+                'background:rgba(0,0,0,0.8);color:#fff;padding:6px 12px;border-radius:6px;' +
+                'font-size:11px;z-index:10;font-family:monospace;pointer-events:none;';
+            var mapEl = document.getElementById('graphic');
+            if (mapEl) mapEl.appendChild(overlay);
+        }
+        if (show && natTrackUpdatedAt) {
+            var timeStr = natTrackUpdatedAt;
+            try {
+                var d = new Date(natTrackUpdatedAt.replace(' ', 'T') + (natTrackUpdatedAt.includes('Z') ? '' : 'Z'));
+                if (!isNaN(d.getTime())) {
+                    timeStr = d.getUTCHours().toString().padStart(2, '0') + ':' +
+                              d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+                }
+            } catch (e) {}
+            overlay.textContent = 'NAT Tracks \u00b7 Updated ' + timeStr;
+            overlay.style.display = 'block';
+        } else {
+            overlay.style.display = 'none';
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER CONTROL
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2573,6 +2689,15 @@ $(document).ready(function() {
         currentRouteId = 0;
         labelOffsets = {};  // Clear any dragged label positions
 
+        // Reset NAT track state
+        natTrackRouteMap = {};
+        natTrackUpdatedAt = null;
+        natRouteStringNames = new Map();
+        if (graphic_map && graphic_map.getSource('nat-track-labels')) {
+            graphic_map.getSource('nat-track-labels').setData({ type: 'FeatureCollection', features: [] });
+        }
+        updateNatInfoOverlay(false);
+
         let routeStrings = [];
 
         if (/VATCSCC ADVZY/i.test(rawInput)) {
@@ -2610,7 +2735,21 @@ $(document).ready(function() {
                     console.log('[MAPLIBRE] Expanding playbook directive:', pbDirective);
                     const pbRoutes = expandPlaybookDirective(pbDirective, isMandatory, color);
                     console.log('[MAPLIBRE] Playbook returned', pbRoutes ? pbRoutes.length : 0, 'routes');
-                    if (pbRoutes) {routeStrings = routeStrings.concat(pbRoutes);}
+                    if (pbRoutes && pbRoutes.length) {
+                        if (_lastNatPlaybookResult && _lastNatPlaybookResult.tracks.length) {
+                            // NAT tracks: use push (not concat) for index tracking
+                            const startIdx = routeStrings.length;
+                            pbRoutes.forEach(function(r, i) {
+                                routeStrings.push(r);
+                                if (_lastNatPlaybookResult.tracks[i]) {
+                                    natRouteStringNames.set(startIdx + i, _lastNatPlaybookResult.tracks[i]);
+                                }
+                            });
+                            natTrackUpdatedAt = _lastNatPlaybookResult.fetchedAt;
+                        } else {
+                            routeStrings = routeStrings.concat(pbRoutes);
+                        }
+                    }
                 } else {
                     let rteBody = spec.toUpperCase();
                     if (isMandatory && !(rteBody.startsWith('>') && rteBody.endsWith('<'))) {
@@ -2635,6 +2774,11 @@ $(document).ready(function() {
             // Phase 5: Assign unique route ID
             const thisRouteId = ++currentRouteId;
             routeFixesByRouteId[thisRouteId] = [];
+
+            // Check if this route is a NAT track
+            if (natRouteStringNames && natRouteStringNames.has(idx)) {
+                natTrackRouteMap[thisRouteId] = natRouteStringNames.get(idx);
+            }
 
             let routeColor = '#C70039', routeText = rte;
             if (rte.includes(';')) {
@@ -3205,6 +3349,48 @@ $(document).ready(function() {
                 features: pointFeatures,
             });
         }
+
+        // NAT track labels — compute midpoints and update label source
+        var natLabelFeatures = [];
+        Object.keys(natTrackRouteMap).forEach(function(routeId) {
+            var meta = natTrackRouteMap[routeId];
+            var pts = routePointsByRouteId[routeId];
+            if (!pts || pts.length < 2) return;
+
+            // pts = [[lat,lon], [lat,lon], ...] — convert to [lon,lat] for turf
+            var coords = pts.map(function(p) { return [p[1], p[0]]; });
+            var labelCoord = null;
+
+            if (typeof turf !== 'undefined') {
+                try {
+                    var line = turf.lineString(coords);
+                    var totalLen = turf.length(line, { units: 'nauticalmiles' });
+                    var midPt = turf.along(line, totalLen / 2, { units: 'nauticalmiles' });
+                    labelCoord = midPt.geometry.coordinates;
+                } catch (e) {}
+            }
+            if (!labelCoord) {
+                var mid = pts[Math.floor(pts.length / 2)];
+                labelCoord = [mid[1], mid[0]];
+            }
+
+            natLabelFeatures.push({
+                type: 'Feature',
+                properties: {
+                    label: meta.name,
+                    color: (routeStringByRouteId[routeId] || {}).color || '#4ECDC4',
+                    direction: meta.direction,
+                },
+                geometry: { type: 'Point', coordinates: labelCoord },
+            });
+        });
+
+        if (graphic_map.getSource('nat-track-labels')) {
+            graphic_map.getSource('nat-track-labels').setData({
+                type: 'FeatureCollection', features: natLabelFeatures
+            });
+        }
+        updateNatInfoOverlay(natLabelFeatures.length > 0);
 
         console.log('[MAPLIBRE] Rendered', routeFeatures.length, 'segments,', fixFeatures.length, 'fixes,', airportFeatures.length, 'airports,', endpointFeatures.length, 'endpoints,', uniqueFixes.size, 'unique route labels');
         if (routeFeatures.length > 0) {
