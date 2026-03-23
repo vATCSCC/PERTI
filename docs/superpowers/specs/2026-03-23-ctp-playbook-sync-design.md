@@ -63,12 +63,17 @@ POST /api/swim/v1/ingest/ctp-routes.php
       "identifier": "T220",
       "group": "OCA",
       "routestring": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+      "origin": "VESMI",
+      "dest": "BALIX",
       "facilities": "CZQO EGGX"
     },
     {
       "identifier": "KBOS_DOVEY_1",
       "group": "AMAS",
       "routestring": "BRUWN7 BRUWN DOVEY",
+      "origin": "KBOS",
+      "dest": "DOVEY",
+      "origin_filter": "B738 B739 A320 A321",
       "facilities": "ZBW ZNY ZWY",
       "tags": "BOS_BRUWN"
     }
@@ -93,6 +98,10 @@ POST /api/swim/v1/ingest/ctp-routes.php
 | `identifier` | Yes | Unique route name within the CTP planner (e.g., `NATA`). |
 | `group` | Yes | Segment group (e.g., `OCA`, `AMAS`, `EMEA`). Freeform — unknown values are accepted and routed to FULL playbook only. |
 | `routestring` | Yes | The route string — shared with PERTI's `route_string` column. |
+| `origin` | No | Origin airport/waypoint label (e.g., `KBOS`). Stored in `playbook_routes.origin`. If omitted, extracted from first token of route string via `_extractRouteEndpoint()`. |
+| `dest` | No | Destination airport/waypoint label (e.g., `EGLL`). Stored in `playbook_routes.dest`. If omitted, extracted from last token of route string. |
+| `origin_filter` | No | Origin filter expression (e.g., aircraft type, airline). Stored in `playbook_routes.origin_filter`. |
+| `dest_filter` | No | Destination filter expression. Stored in `playbook_routes.dest_filter`. |
 | `facilities` | No | CTP-provided facility list (stored as-is in `external_facilities`). |
 | `tags` | No | CTP-provided tags (stored as-is in `external_tags`). |
 
@@ -184,19 +193,20 @@ For each of the 4 plays (full, na, emea, ocean):
 
 5. **Sub-classify updates**:
    - `route_string` changed → **ROUTE_CHANGED** (needs PostGIS recomputation)
-   - Only `external_facilities`, `external_tags`, or `external_group` changed → **METADATA_ONLY** (skip PostGIS, update external fields only)
+   - `origin` or `dest` changed (but `route_string` unchanged) → **ROUTE_CHANGED** (affects PostGIS LINESTRING bookending via `_extractRouteEndpoint()`)
+   - Only `external_facilities`, `external_tags`, `external_group`, `origin_filter`, or `dest_filter` changed → **METADATA_ONLY** (skip PostGIS, update fields only)
 
-Collect all unique `route_string` values from ADDs and ROUTE_CHANGED updates across all 4 plays into a deduplication set.
+Collect all unique `(route_string, origin, dest)` tuples from ADDs and ROUTE_CHANGED updates across all 4 plays into a deduplication set.
 
 #### Phase 2: Traversal (deduplicated PostGIS)
 
-For each unique `route_string` in the deduplication set (N calls, not 2N+):
+For each unique `(route_string, origin, dest)` tuple in the deduplication set (N calls, not 2N+):
 
-1. Extract `origin`/`dest` via `_extractRouteEndpoint()` on the first/last tokens. For airport-starting routes (e.g., `KJFK ...`), this extracts correctly. For oceanic waypoint-only routes (e.g., `VESMI ... BALIX`), origin/dest are set to the waypoint name — acceptable as meaningful endpoint labels.
+1. Determine `origin`/`dest` endpoints: If CTP-provided `origin`/`dest` are present in the route object, use those directly. Otherwise, extract via `_extractRouteEndpoint()` on the first/last tokens. For airport-starting routes (e.g., `KJFK ...`), auto-extraction works correctly. For oceanic waypoint-only routes (e.g., `VESMI ... BALIX`), origin/dest are set to the waypoint name — acceptable as meaningful endpoint labels.
 
-2. Call `computeTraversedFacilities($route_string, ...)` — same function used by `api/mgt/playbook/route.php`. This runs PostGIS `expand_route_with_artccs()` to compute: `origin_artccs`, `dest_artccs`, `origin_tracons`, `dest_tracons`, route geometry, distance, waypoint list.
+2. Call `computeTraversedFacilities($route_string, ..., origin, dest, ...)` — same function used by `api/mgt/playbook/route.php`. The explicit `origin`/`dest` are passed as endpoint parameters to ensure the LINESTRING is properly bookended. This runs PostGIS `expand_route_with_artccs()` to compute: `artccs`, `tracons`, `sectors`, route geometry, distance, waypoint list.
 
-3. Cache the result keyed by `route_string`.
+3. Cache the result keyed by `(route_string, origin, dest)` tuple.
 
 **PostGIS context note**: For oceanic routes, there are no bookend airports to prepend/append. The LINESTRING starts/ends at the first/last waypoint. This is acceptable — the route geometry accurately represents the segment.
 
@@ -208,11 +218,11 @@ For each play that has changes:
 
 1. **Begin transaction.**
 
-2. **Batch-insert new routes**: Multi-row `INSERT INTO playbook_routes (play_id, route_string, external_id, external_source, external_group, external_facilities, external_tags, origin, dest, origin_artccs, dest_artccs, ...) VALUES (...), (...), (...)` using cached traversal results.
+2. **Batch-insert new routes**: Multi-row `INSERT INTO playbook_routes (play_id, route_string, external_id, external_source, external_group, external_facilities, external_tags, origin, dest, origin_filter, dest_filter, origin_artccs, dest_artccs, ...) VALUES (...), (...), (...)` using cached traversal results. CTP-provided `origin`/`dest` are stored as-is; if omitted, auto-extracted values from Phase 2 are used.
 
 3. **Update changed routes**:
-   - ROUTE_CHANGED: Update `route_string`, `external_*` fields, and all PERTI-computed fields from cached traversal. Prepared statement executed in a loop.
-   - METADATA_ONLY: Update only `external_facilities`, `external_tags`, `external_group`. No traversal fields touched.
+   - ROUTE_CHANGED: Update `route_string`, `origin`, `dest`, `external_*` fields, and all PERTI-computed fields from cached traversal. Prepared statement executed in a loop.
+   - METADATA_ONLY: Update only `external_facilities`, `external_tags`, `external_group`, `origin_filter`, `dest_filter`. No traversal fields touched.
 
 4. **Delete removed routes**: `DELETE FROM playbook_routes WHERE route_id IN (...)`.
 
@@ -242,7 +252,7 @@ session_context = '{"source": "ctp-route-planner", "revision": 42, "ctp_session_
 ```
 action = 'route_updated'
 route_id = (existing route_id)
-field_name = 'route_string' | 'external_facilities' | 'external_tags' | 'external_group'
+field_name = 'route_string' | 'origin' | 'dest' | 'origin_filter' | 'dest_filter' | 'external_facilities' | 'external_tags' | 'external_group'
 old_value = (previous value)
 new_value = (new value)
 changed_by = changed_by_cid (or NULL)
@@ -376,7 +386,7 @@ POST /api/swim/v1/playbook/traversal.php
   "results": [
     {
       "route_string": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
-      "artccs": ["CZQO", "EGGX"]
+      "artccs": ["CZQM", "CZQO", "CZQX", "BGGL", "EGGX"]
     },
     {
       "route_string": "BRUWN7 BRUWN DOVEY",
@@ -393,12 +403,24 @@ POST /api/swim/v1/playbook/traversal.php
   "results": [
     {
       "route_string": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
-      "artccs": ["CZQO", "EGGX"],
+      "artccs": ["CZQM", "CZQO", "CZQX", "BGGL", "EGGX"],
       "tracons": [],
-      "sectors": {"low": [], "high": [], "superhigh": []},
-      "distance_nm": 1245.3,
-      "waypoints": [{"name": "VESMI", "lat": 53.5, "lon": -50.0}, ...],
-      "geometry": { "type": "LineString", "coordinates": [...] }
+      "sectors": {
+        "low": ["CZQO_GANDER OCA FIR", "CZQO_GOTA_N_E_LOW", "CZQO_GANDER-OCA-LOW", "CZQO_GANDER-OCA-SONDRESTROM"],
+        "high": ["CZQXVESMI-SECTOR", "CZQX_GANDER-HI5", "CZQO_GANDER-OCA", "CZQO_GANDER-OCA-SONDRESTROM"],
+        "superhigh": []
+      },
+      "distance_nm": 1494.5,
+      "waypoints": [
+        {"name": "VESMI", "lat": 53.5, "lon": -50.0},
+        {"name": "6050N", "lat": 50.0, "lon": -50.0},
+        {"name": "6040N", "lat": 50.0, "lon": -40.0},
+        {"name": "6030N", "lat": 50.0, "lon": -30.0},
+        {"name": "6020N", "lat": 50.0, "lon": -20.0},
+        {"name": "6015N", "lat": 50.0, "lon": -15.0},
+        {"name": "BALIX", "lat": 51.0, "lon": -8.0}
+      ],
+      "geometry": { "type": "LineString", "coordinates": [[-50.0, 53.5], [-50.0, 50.0], "..."] }
     }
   ]
 }
