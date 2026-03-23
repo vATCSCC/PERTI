@@ -300,11 +300,146 @@ CTP routes go through the **exact same processing** as user-created playbook rou
 
 The only difference is that CTP routes store additional `external_*` metadata alongside the PERTI-computed fields.
 
+### Throughput Data in Route Sync
+
+Each route object in the sync payload may optionally include throughput data. This is stored in the existing `playbook_route_throughput` table (migration 012) and synced to the SWIM API `swim_playbook_route_throughput` table for external retrieval.
+
+**Extended route object**:
+```json
+{
+  "identifier": "T220",
+  "group": "OCA",
+  "routestring": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+  "facilities": "CZQO EGGX",
+  "throughput": {
+    "planned_count": 45,
+    "slot_count": 40,
+    "peak_rate_hr": 18,
+    "avg_rate_hr": 12.5,
+    "period_start": "2026-10-19T11:00:00Z",
+    "period_end": "2026-10-19T17:00:00Z",
+    "metadata": {"track_direction": "westbound", "priority": "primary"}
+  }
+}
+```
+
+**Throughput fields** (all optional):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `planned_count` | int | Total flights planned for this route |
+| `slot_count` | int | Number of optimizer slots allocated |
+| `peak_rate_hr` | int | Peak aircraft per hour |
+| `avg_rate_hr` | float | Average aircraft per hour |
+| `period_start` | ISO 8601 | Start of the throughput measurement window |
+| `period_end` | ISO 8601 | End of the throughput measurement window |
+| `metadata` | object | Arbitrary JSON metadata (track direction, priority, etc.) |
+
+**Processing**: If `throughput` is present on a route, it is upserted into `playbook_route_throughput` (MySQL, keyed on `route_id + source='CTP'`) during the write phase. Throughput changes are changelogged as `throughput_updated`. If `throughput` is omitted on a route that previously had throughput data, the existing data is preserved (not deleted) — explicit `"throughput": null` deletes it.
+
+**SWIM sync**: Throughput data is also written to `swim_playbook_route_throughput` in SWIM_API (Azure SQL) so it's available via the existing `GET /api/swim/v1/playbook/throughput?play_id=X` endpoint.
+
+---
+
+### Traversal Lookup Endpoint
+
+A standalone read-only endpoint for the CTP Route Planner to query L1 ARTCC/FIR traversal for route strings in batch, so they can auto-populate their `facilities` field before saving.
+
+```
+POST /api/swim/v1/playbook/traversal.php
+```
+
+**Auth**: SWIM API key (any tier — this is read-only, no `ctp` authority required).
+
+**Connection bootstrap**: Same as `ctp-routes.php` — needs PostGIS via `get_conn_gis()`. Does NOT need MySQL (no playbook reads/writes). Uses `PERTI_SWIM_ONLY` from SWIM auth, then lazy-loads PostGIS.
+
+**Request**:
+```json
+{
+  "routes": [
+    "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+    "BRUWN7 BRUWN DOVEY"
+  ],
+  "fields": ["artccs"]
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `routes` | Yes | Array of route strings to analyze. Max 100 per request. |
+| `fields` | No | Filter which data to return. Valid values: `artccs`, `tracons`, `sectors`, `geometry`, `distance`, `waypoints`. Defaults to all fields if omitted. |
+
+**Response** (with `"fields": ["artccs"]`):
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "route_string": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+      "artccs": ["CZQO", "EGGX"]
+    },
+    {
+      "route_string": "BRUWN7 BRUWN DOVEY",
+      "artccs": ["KZBW", "KZNY", "KZWY"]
+    }
+  ]
+}
+```
+
+**Response** (with all fields / `fields` omitted):
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "route_string": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+      "artccs": ["CZQO", "EGGX"],
+      "tracons": [],
+      "sectors": {"low": [], "high": [], "superhigh": []},
+      "distance_nm": 1245.3,
+      "waypoints": [{"name": "VESMI", "lat": 53.5, "lon": -50.0}, ...],
+      "geometry": { "type": "LineString", "coordinates": [...] }
+    }
+  ]
+}
+```
+
+**Implementation**: Calls `computeTraversedFacilities()` per route string, then filters the response to only include requested fields. The `fields` parameter controls which data is extracted from the PostGIS result — when only `artccs` is requested, the full PostGIS query still runs (the query is a single CTE), but TRACON/sector spatial joins and geometry serialization are skipped by passing a filter flag, and only the `artccs_traversed` array from `expand_route_with_artccs()` is returned.
+
+**Performance optimization for `artccs`-only**: When `fields` contains only `artccs` (the expected CTP use case), use a simplified PostGIS query that calls `expand_route_with_artccs()` but skips the LATERAL JOIN against `tracon_boundaries` and `sector_boundaries`. This avoids the most expensive spatial joins and returns in ~50-100ms per route vs ~200-300ms for the full query.
+
+**Error handling**: If a route string cannot be parsed (no waypoints resolved), it returns in the results array with empty fields rather than failing the entire batch:
+```json
+{
+  "route_string": "INVALID ROUTE XYZ",
+  "artccs": [],
+  "error": "No waypoints resolved"
+}
+```
+
+---
+
+### SWIM Throughput Retrieval
+
+The existing `GET /api/swim/v1/playbook/throughput` endpoint already supports retrieval by `play_id` or `route_id`. To support CTP-specific queries, add a `session_id` filter:
+
+```
+GET /api/swim/v1/playbook/throughput?session_id=1
+```
+
+This queries all throughput data for routes belonging to plays with `ctp_session_id = ?`. This is a small addition to the existing `handleGetThroughput()` function — join through `swim_playbook_routes` → `swim_playbook_plays` where `ctp_session_id = ?`.
+
+The CTP API can query PERTI's SWIM throughput endpoint to retrieve the throughput data it (or others) have pushed, enabling round-trip data flow.
+
+---
+
 ### File Changes
 
 | File | Change |
 |------|--------|
-| `api/swim/v1/ingest/ctp-routes.php` | **New** — main endpoint |
+| `api/swim/v1/ingest/ctp-routes.php` | **New** — main route sync endpoint |
+| `api/swim/v1/playbook/traversal.php` | **New** — batch route traversal lookup |
+| `api/swim/v1/playbook/throughput.php` | **Modified** — add `session_id` filter to GET handler |
 | `database/migrations/playbook/014_ctp_external_fields.sql` | **New** — schema: ENUM extension, external columns, origin/dest relaxation, UNIQUE index |
 | `load/swim_config.php` | Already has CTP data source config — no changes needed |
 
@@ -372,3 +507,50 @@ Settings to add on the CTP Route Planner:
 - `CTP_GROUP_MAPPING` = (optional override, defaults to `{"OCA": "ocean", "AMAS": "na", "EMEA": "emea"}`)
 
 **Retry recommendation**: The webhook is fire-and-forget. If PERTI is temporarily unavailable, the next save on the route planner will re-send the full state, so missed webhooks self-heal. For critical events, the CTP team can manually re-trigger by saving with no changes (the revision increments, and the full state is re-sent).
+
+#### Auto-Populating Facilities
+
+The CTP Route Planner can auto-populate its `facilities` field by calling the traversal lookup before saving:
+
+```python
+def _resolve_facilities(routes: list) -> list:
+    """Call PERTI traversal API to get ARTCC/FIR list for each route."""
+    perti_url = getattr(settings, "PERTI_TRAVERSAL_URL", "")
+    perti_key = getattr(settings, "PERTI_API_KEY", "")
+    if not perti_url:
+        return routes
+
+    try:
+        resp = requests.post(
+            perti_url,
+            json={
+                "routes": [r.routestring for r in routes],
+                "fields": ["artccs"]
+            },
+            headers={"X-API-Key": perti_key},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # Build lookup: route_string -> artccs
+        traversal = {r["route_string"]: " ".join(r.get("artccs", [])) for r in data.get("results", [])}
+        for route in routes:
+            if route.routestring in traversal:
+                route.facilities = traversal[route.routestring]
+    except Exception as exc:
+        logger.warning("PERTI traversal lookup failed: %s", exc)
+    return routes
+```
+
+Additional setting:
+- `PERTI_TRAVERSAL_URL` = `https://perti.vatcscc.org/api/swim/v1/playbook/traversal.php`
+
+#### Retrieving Throughput Data
+
+The CTP API can retrieve throughput data that was pushed during route sync:
+
+```
+GET https://perti.vatcscc.org/api/swim/v1/playbook/throughput?session_id=1
+```
+
+Returns all throughput records for the CTP session, including planned counts, slot counts, peak/avg rates, and any metadata. This enables round-trip data flow — push throughput during route sync, retrieve it later for analysis or display.
