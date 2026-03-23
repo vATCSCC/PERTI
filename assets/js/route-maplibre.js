@@ -2146,6 +2146,26 @@ $(document).ready(function() {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: [] }
         });
+        // Black outline layer (rendered first, underneath)
+        graphic_map.addLayer({
+            id: 'nat-track-label-outline',
+            type: 'symbol',
+            source: 'nat-track-labels',
+            layout: {
+                'text-field': ['get', 'label'],
+                'text-font': ['Noto Sans Bold'],
+                'text-size': 14,
+                'text-anchor': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+            },
+            paint: {
+                'text-color': '#000000',
+                'text-halo-color': '#000000',
+                'text-halo-width': 4,
+            },
+        });
+        // Colored halo layer (rendered on top)
         graphic_map.addLayer({
             id: 'nat-track-label-text',
             type: 'symbol',
@@ -2561,6 +2581,7 @@ $(document).ready(function() {
         'artcc_sub': { layerIds: ['artcc-sub-lines'], label: PERTII18n.t('common.hierarchy.subAreas') },
         'artcc_deep': { layerIds: ['artcc-deep-lines'], label: PERTII18n.t('common.hierarchy.deepSubAreas') },
         'route_labels': { layerIds: ['route-fixes-circles', 'route-fixes-labels', 'route-fixes-labels-moved', 'route-fix-leaders-lines'], label: PERTII18n.t('route.layer.routeFixLabels'), defaultOn: true },
+        'nat_labels': { layerIds: ['nat-track-label-outline', 'nat-track-label-text'], label: PERTII18n.t('route.layer.natTrackLabels'), defaultOn: true },
     };
 
     let layerControlExpanded = false;

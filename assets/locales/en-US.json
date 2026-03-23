@@ -4845,6 +4845,7 @@
       "artccLabels": "ARTCC/FIR Labels",
       "highSplits": "High Splits",
       "lowSplits": "Low Splits",
+      "natTrackLabels": "NAT Track Labels",
       "routeFixLabels": "Route Fix Labels",
       "sigmets": "SIGMETs",
       "superhighSplits": "Superhigh Splits",
