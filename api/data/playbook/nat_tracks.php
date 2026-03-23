@@ -15,6 +15,7 @@
  */
 
 include("../../../load/config.php");
+define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 require_once __DIR__ . '/../../../load/services/NATTrackFunctions.php';
 
@@ -40,8 +41,12 @@ $name       = isset($_GET['name']) ? strtoupper(trim($_GET['name'])) : null;
 // 1. Fetch natTrak tracks (primary source, cached 30 min in MySQL)
 $nattrak_tracks = fetchNatTrakTracks();
 
-// 2. Fetch CTP overrides from TMI database
-$ctp_tracks = fetchCTPTracks($session_id);
+// 2. Fetch CTP overrides from TMI database (only when session_id requested —
+//    avoids ~200-500ms lazy TMI connection for the common case)
+$ctp_tracks = [];
+if ($session_id !== null) {
+    $ctp_tracks = fetchCTPTracks($session_id);
+}
 
 // 3. Merge: CTP overrides natTrak for same track letter
 $merged = mergeTrackSources($nattrak_tracks, $ctp_tracks);
