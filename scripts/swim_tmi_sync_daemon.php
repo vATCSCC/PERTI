@@ -467,7 +467,7 @@ function getTier1TmiConfigs(): array {
             'swim_table' => 'swim_tmi_entries',
             'pk' => 'entry_id',
             'watermark' => 'updated_at',
-            'source_query' => 'SELECT entry_id, entry_guid, determinant_code, protocol_type, entry_type, ctl_element, element_type, requesting_facility, providing_facility, restriction_value, restriction_unit, condition_text, qualifiers, exclusions, reason_code, reason_detail, valid_from, valid_until, status, source_type, source_id, source_channel, discord_message_id, discord_posted_at, discord_channel_id, raw_input, parsed_data, created_by, created_by_name, created_at, updated_at, cancelled_by, cancelled_at, cancel_reason, content_hash, supersedes_entry_id FROM dbo.tmi_entries',
+            'source_query' => 'SELECT entry_id, entry_guid, determinant_code, protocol_type, entry_type, ctl_element, element_type, requesting_facility, providing_facility, restriction_value, restriction_unit, condition_text, qualifiers, exclusions, reason_code, reason_detail, aircraft_type, altitude, alt_type, speed, speed_operator, flow_type, valid_from, valid_until, status, source_type, source_id, source_channel, discord_message_id, discord_posted_at, discord_channel_id, raw_input, parsed_data, created_by, created_by_name, created_at, updated_at, cancelled_by, cancelled_at, cancel_reason, content_hash, supersedes_entry_id FROM dbo.tmi_entries',
             'columns' => [
                 'entry_id' => 'INT', 'entry_guid' => 'UNIQUEIDENTIFIER',
                 'determinant_code' => 'NVARCHAR(16)', 'protocol_type' => 'NVARCHAR(16)',
@@ -478,6 +478,9 @@ function getTier1TmiConfigs(): array {
                 'condition_text' => 'NVARCHAR(MAX)', 'qualifiers' => 'NVARCHAR(MAX)',
                 'exclusions' => 'NVARCHAR(MAX)',
                 'reason_code' => 'NVARCHAR(16)', 'reason_detail' => 'NVARCHAR(256)',
+                'aircraft_type' => 'NVARCHAR(16)', 'altitude' => 'NVARCHAR(16)',
+                'alt_type' => 'NVARCHAR(8)', 'speed' => 'NVARCHAR(16)',
+                'speed_operator' => 'NVARCHAR(8)', 'flow_type' => 'NVARCHAR(16)',
                 'valid_from' => 'DATETIME2', 'valid_until' => 'DATETIME2',
                 'status' => 'NVARCHAR(16)', 'source_type' => 'NVARCHAR(16)',
                 'source_id' => 'NVARCHAR(64)', 'source_channel' => 'NVARCHAR(32)',
@@ -632,7 +635,7 @@ function getTier1TmiConfigs(): array {
             'swim_table' => 'swim_tmi_public_routes',
             'pk' => 'route_id',
             'watermark' => 'updated_at',
-            'source_query' => 'SELECT route_id, route_guid, status, name, adv_number, advisory_id, reroute_id, route_string, advisory_text, color, line_weight, line_style, valid_start_utc, valid_end_utc, constrained_area, reason, origin_filter, dest_filter, facilities, route_geojson, created_by, created_at, updated_at FROM dbo.tmi_public_routes',
+            'source_query' => 'SELECT route_id, route_guid, status, name, adv_number, advisory_id, reroute_id, route_string, advisory_text, color, line_weight, line_style, valid_start_utc, valid_end_utc, constrained_area, reason, origin_filter, dest_filter, facilities, route_geojson, created_by, created_at, updated_at, coordination_status, coordination_proposal_id, discord_message_id, discord_channel_id, discord_posted_at FROM dbo.tmi_public_routes',
             'columns' => [
                 'route_id' => 'INT', 'route_guid' => 'UNIQUEIDENTIFIER',
                 'status' => 'INT', 'name' => 'NVARCHAR(64)', 'adv_number' => 'NVARCHAR(16)',
@@ -644,6 +647,9 @@ function getTier1TmiConfigs(): array {
                 'origin_filter' => 'NVARCHAR(256)', 'dest_filter' => 'NVARCHAR(256)',
                 'facilities' => 'NVARCHAR(256)', 'route_geojson' => 'NVARCHAR(MAX)',
                 'created_by' => 'NVARCHAR(32)', 'created_at' => 'DATETIME2', 'updated_at' => 'DATETIME2',
+                'coordination_status' => 'NVARCHAR(16)', 'coordination_proposal_id' => 'INT',
+                'discord_message_id' => 'NVARCHAR(32)', 'discord_channel_id' => 'NVARCHAR(32)',
+                'discord_posted_at' => 'DATETIME2',
             ],
         ],
 
