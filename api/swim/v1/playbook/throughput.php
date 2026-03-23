@@ -9,7 +9,8 @@
  *   Body: { "route_id": 123, "play_id": 456, "throughput": { "planned_count": 45, ... } }
  *
  * GET /api/swim/v1/playbook/throughput?play_id=456
- *   Returns throughput data for a play's routes.
+ * GET /api/swim/v1/playbook/throughput?session_id=1
+ *   Returns throughput data for a play's routes (or all routes in a CTP session).
  *
  * @version 1.0.0
  */
@@ -41,11 +42,12 @@ if ($method === 'GET') {
 function handleGetThroughput(): void {
     global $conn_swim_api;
 
-    $play_id  = swim_get_int_param('play_id', 0, 0, 999999);
-    $route_id = swim_get_int_param('route_id', 0, 0, 999999);
+    $play_id    = swim_get_int_param('play_id', 0, 0, 999999);
+    $route_id   = swim_get_int_param('route_id', 0, 0, 999999);
+    $session_id = swim_get_int_param('session_id', 0, 0, 999999);
 
-    if ($play_id <= 0 && $route_id <= 0) {
-        SwimResponse::error('play_id or route_id is required', 400, 'MISSING_PARAM');
+    if ($play_id <= 0 && $route_id <= 0 && $session_id <= 0) {
+        SwimResponse::error('play_id, route_id, or session_id is required', 400, 'MISSING_PARAM');
     }
 
     $sql = "SELECT t.throughput_id, t.route_id, t.play_id, t.source,
@@ -56,8 +58,18 @@ function handleGetThroughput(): void {
             FROM dbo.swim_playbook_route_throughput t
             JOIN dbo.swim_playbook_routes r ON t.route_id = r.route_id";
 
+    // session_id filter: JOIN through plays to find all plays in a CTP session
+    if ($session_id > 0) {
+        $sql .= " JOIN dbo.swim_playbook_plays p ON r.play_id = p.play_id";
+    }
+
     $where = [];
     $params = [];
+
+    if ($session_id > 0) {
+        $where[] = "p.ctp_session_id = ?";
+        $params[] = $session_id;
+    }
 
     if ($play_id > 0) {
         $where[] = "t.play_id = ?";
