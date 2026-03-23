@@ -320,13 +320,14 @@ Full daemon list and their intervals are documented in [[Daemons and Scripts]].
 
 **Symptoms:** All SWIM API endpoints return HTTP 503 (Service Unavailable). API consumers report connection failures.
 
-**Cause:** The SWIM API intentionally returns 503 during hibernation mode. This is expected behavior, not an error.
+**Cause:** If SWIM exemption is NOT enabled, the SWIM API returns 503 during hibernation mode. Since March 2026, SWIM is exempt from hibernation and should remain operational.
 
 **Solutions:**
-- Confirm the system is in hibernation mode (check `HIBERNATION_MODE` config)
-- Exit hibernation to restore API access -- follow `docs/HIBERNATION_RUNBOOK.md`
-- Notify API consumers that the service is temporarily suspended
-- After exiting hibernation, verify API access at `/api/swim/v1/health.php`
+- Confirm `PERTI_SWIM_ONLY` optimization is in place — SWIM endpoints should bypass hibernation checks
+- Verify SWIM sync daemons are running (`swim_sync_daemon.php`, `swim_ws_server.php`)
+- Check the SWIM_API database connectivity directly
+- If SWIM exemption was inadvertently disabled, re-enable it in `scripts/startup.sh`
+- Verify API access at `/api/swim/v1/health`
 
 ---
 

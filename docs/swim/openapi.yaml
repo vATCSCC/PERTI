@@ -69,10 +69,11 @@ info:
     3. Simulator - raw telemetry
     4. vATCSCC - ADL parsing fallback
 
-    ## FIXM Migration (2026-01-27)
+    ## FIXM Field Naming
 
-    VATSWIM is transitioning from legacy OOOI column names to FIXM-aligned naming.
-    During the 30-day transition, both column sets are populated (dual-write).
+    VATSWIM supports both legacy and FIXM-aligned field names permanently.
+    Default responses use legacy names; use `?format=fixm` for FIXM-aligned output.
+    Both column sets are populated in the database (dual-write).
 
     | Legacy | FIXM-Aligned |
     |--------|--------------|
@@ -123,8 +124,8 @@ info:
     - `discord_bot.py` - Discord integration
     - `data_provider_example.py` - CRC/provider data ingest
     - `route_compliance_monitor.py` - Reroute compliance tracking
-    
-  version: 1.0.0
+
+  version: 1.1.0
   contact:
     name: vATCSCC Development Team
     email: dev@vatcscc.org
@@ -222,6 +223,56 @@ tags:
       - Runway configuration presets
       - Airport operating conditions
       - FEA (Flow Evaluation Area) parameters
+  - name: Infrastructure
+    description: Health checks, connector status, and API infrastructure monitoring.
+  - name: Controllers
+    description: |
+      ATC controller data enriched with vNAS ERAM/STARS sector assignments.
+
+      **Use Cases:**
+      - Staffing displays per facility/ARTCC
+      - Sector assignment tracking for handoff routing
+      - Observer monitoring
+  - name: CDM
+    description: |
+      Collaborative Decision Making (A-CDM) endpoints.
+
+      **Use Cases:**
+      - Airport operational status dashboards
+      - Pilot readiness signals (TOBT, TSAT, TTOT)
+      - EDCT compliance monitoring
+      - CDM milestone tracking
+  - name: CTP
+    description: |
+      Cross the Pond event management.
+
+      **Use Cases:**
+      - CTP session and throughput configuration
+      - Slot assignment results
+      - NAT track capacity management
+  - name: Keys
+    description: |
+      API key provisioning and management.
+
+      **Use Cases:**
+      - Auto-provision developer keys via VATSIM OAuth
+      - Key revocation
+  - name: Playbook
+    description: |
+      Playbook route data, analysis, and throughput.
+
+      **Use Cases:**
+      - Route analysis with PostGIS spatial queries
+      - Play browsing and filtering
+      - CTP throughput data
+  - name: Flow
+    description: |
+      External flow management provider data (ECFMP, NavCanada, VATPAC).
+
+      **Use Cases:**
+      - Cross-provider measure aggregation
+      - International flow event tracking
+      - Provider health monitoring
 
 security:
   - bearerAuth: []
@@ -2124,6 +2175,1682 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           description: Airport not found in taxi reference data
+
+  # ==========================================================================
+  # Health & Infrastructure
+  # ==========================================================================
+
+  /health:
+    get:
+      tags:
+        - Infrastructure
+      summary: API Health Check
+      description: |
+        Returns health status and metrics for the VATSWIM API infrastructure,
+        including database connectivity, sync freshness, WebSocket server status,
+        cache hit rates, and rate limit configuration.
+      operationId: getHealth
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      responses:
+        '200':
+          description: Health status (may include status degraded)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  api:
+                    type: string
+                    example: VATSWIM
+                  version:
+                    type: string
+                    example: '1.0.0'
+                  timestamp_utc:
+                    type: string
+                    format: date-time
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  checks:
+                    type: object
+                    properties:
+                      database:
+                        type: object
+                      api_keys:
+                        type: object
+                      websocket:
+                        type: object
+                      cache:
+                        type: object
+                      rate_limits:
+                        type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: API is unhealthy
+
+  /controllers:
+    get:
+      tags:
+        - Controllers
+      summary: List ATC Controllers
+      description: |
+        Returns active ATC controller data from the SWIM_API database, enriched
+        with vNAS ERAM/STARS sector assignments where available. Supports filtering
+        by callsign, facility type, ARTCC, and controller rating.
+      operationId: listControllers
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by online status
+          schema:
+            type: string
+            enum: [active, all]
+            default: active
+        - name: callsign
+          in: query
+          description: Filter by callsign pattern (supports * wildcard)
+          schema:
+            type: string
+          example: ZDC_*
+        - name: facility_type
+          in: query
+          description: Comma-separated facility type filter
+          schema:
+            type: string
+          example: CTR,APP
+        - name: facility_id
+          in: query
+          description: Comma-separated facility ID filter
+          schema:
+            type: string
+          example: ZDC,ZNY
+        - name: artcc
+          in: query
+          description: Comma-separated ARTCC filter
+          schema:
+            type: string
+          example: ZDC,ZNY,ZBW
+        - name: summary
+          in: query
+          description: Return facility staffing aggregation instead of individual controllers
+          schema:
+            type: string
+            enum: ['true', 'false']
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+        - $ref: '#/components/parameters/format'
+      responses:
+        '200':
+          description: Paginated list of controllers
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==========================================================================
+  # CDM (Collaborative Decision Making)
+  # ==========================================================================
+
+  /cdm/airport-status:
+    get:
+      tags:
+        - CDM
+      summary: CDM Airport Operational Status
+      description: |
+        Returns A-CDM style airport operational picture including departure queue
+        composition, gate-hold metrics, weather conditions, and acceptance rates.
+        Optionally returns historical snapshots (up to 24h).
+      operationId: getCdmAirportStatus
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: airport
+          in: query
+          required: true
+          description: ICAO airport code
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 4
+          example: KJFK
+        - name: history
+          in: query
+          description: Set to 1 to return historical snapshots instead of current status
+          schema:
+            type: string
+            enum: ['0', '1']
+            default: '0'
+        - name: limit
+          in: query
+          description: Number of historical snapshots (max 288 = 24h at 5-min intervals)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 288
+            default: 24
+      responses:
+        '200':
+          description: Airport CDM status
+        '400':
+          description: Missing or invalid airport parameter
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /cdm/compliance:
+    get:
+      tags:
+        - CDM
+      summary: CDM Compliance Data
+      description: |
+        Returns real-time compliance data for flights under TMI control, including
+        EDCT adherence, TOBT accuracy, and milestone completion status.
+      operationId: getCdmCompliance
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: program_id
+          in: query
+          description: Filter by TMI program ID
+          schema:
+            type: integer
+        - name: flight_uid
+          in: query
+          description: Filter by flight UID
+          schema:
+            type: integer
+        - name: airport
+          in: query
+          description: Filter by airport ICAO code
+          schema:
+            type: string
+          example: KJFK
+        - name: status
+          in: query
+          description: Filter by compliance status
+          schema:
+            type: string
+            enum: [COMPLIANT, NON_COMPLIANT, AT_RISK, PENDING]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        '200':
+          description: Compliance records
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /cdm/metrics:
+    get:
+      tags:
+        - CDM
+      summary: CDM Effectiveness Metrics
+      description: |
+        Returns CDM effectiveness metrics including EDCT delivery rates,
+        compliance rates, pilot participation, and readiness signal adoption.
+      operationId: getCdmMetrics
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: program_id
+          in: query
+          description: Filter metrics for a specific TMI program
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: CDM metrics
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /cdm/readiness:
+    get:
+      tags:
+        - CDM
+      summary: Get Flight Readiness State
+      description: |
+        Returns the current CDM readiness state for a flight, including TOBT,
+        readiness signal, and associated milestones.
+      operationId: getCdmReadiness
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: callsign
+          in: query
+          description: Aircraft callsign
+          schema:
+            type: string
+          example: AAL123
+        - name: airport
+          in: query
+          description: Filter by departure airport
+          schema:
+            type: string
+          example: KJFK
+      responses:
+        '200':
+          description: Readiness state
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - CDM
+      summary: Update Flight Readiness State
+      description: |
+        Allows pilots to signal readiness state and report TOBT (Target Off-Block Time).
+        Requires write access.
+      operationId: updateCdmReadiness
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - callsign
+                - state
+              properties:
+                callsign:
+                  type: string
+                  example: AAL123
+                state:
+                  type: string
+                  enum: [PLANNING, BOARDING, READY, TAXIING, CANCELLED]
+                tobt_utc:
+                  type: string
+                  format: date-time
+                  example: '2026-03-23T14:30:00Z'
+      responses:
+        '200':
+          description: Readiness updated
+        '400':
+          description: Validation error
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  /cdm/status:
+    get:
+      tags:
+        - CDM
+      summary: Flight CDM Status
+      description: |
+        Returns comprehensive CDM status for a single flight including milestones,
+        readiness, TMI control, compliance, and pending messages.
+      operationId: getCdmStatus
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: callsign
+          in: query
+          description: Aircraft callsign (one of callsign or flight_uid required)
+          schema:
+            type: string
+          example: AAL123
+        - name: flight_uid
+          in: query
+          description: Internal flight UID (one of callsign or flight_uid required)
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Flight CDM status with milestones and compliance
+        '400':
+          description: Missing callsign or flight_uid
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Flight not found
+
+  # ==========================================================================
+  # Connectors
+  # ==========================================================================
+
+  /connectors/health:
+    get:
+      tags:
+        - Infrastructure
+      summary: Connector Health Summary
+      description: |
+        Lightweight aggregate health check across all VATSWIM external connectors.
+        Returns overall status (OK/DEGRADED/DOWN) and per-connector summary.
+      operationId: getConnectorsHealth
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      responses:
+        '200':
+          description: Connector health summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [OK, DEGRADED, DOWN]
+                  connectors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: vNAS
+                        key:
+                          type: string
+                          example: vnas
+                        status:
+                          type: string
+                          enum: [OK, DEGRADED, DOWN]
+                  checked_at:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /connectors/status:
+    get:
+      tags:
+        - Infrastructure
+      summary: Connector Detailed Status
+      description: |
+        Detailed per-connector status including health, circuit breaker state,
+        endpoints, configuration, and daemon status. Requires system or partner tier.
+      operationId: getConnectorsStatus
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      responses:
+        '200':
+          description: Detailed connector status
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Requires system or partner tier API key
+
+  # ==========================================================================
+  # CTP (Cross the Pond)
+  # ==========================================================================
+
+  /ctp/sessions:
+    get:
+      tags:
+        - CTP
+      summary: List CTP Sessions
+      description: |
+        Returns CTP event sessions with throughput configurations and flight statistics.
+        Without parameters, lists all ACTIVE/DRAFT/MONITORING sessions.
+        With session_id, returns detailed session data including throughput configs.
+      operationId: listCtpSessions
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: session_id
+          in: query
+          description: Get a specific session with full details
+          schema:
+            type: integer
+        - name: status
+          in: query
+          description: Filter by session status
+          schema:
+            type: string
+            enum: [DRAFT, ACTIVE, MONITORING, COMPLETED, CANCELLED]
+      responses:
+        '200':
+          description: CTP sessions
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Session not found (when session_id specified)
+
+  # ==========================================================================
+  # Additional Ingest Endpoints
+  # ==========================================================================
+
+  /ingest/acars:
+    post:
+      tags:
+        - Ingest
+      summary: ACARS Message Ingest
+      description: |
+        Receives ACARS messages from multiple sources (Hoppie, smartCARS, phpVMS, VAM,
+        SimBrief, FS2Crew, PACX, generic). Processes OOOI times, position reports,
+        PDC, weather, and telex messages. ACARS OOOI has priority 1 in the time
+        extraction pipeline.
+      operationId: ingestAcars
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - source
+                - messages
+              properties:
+                source:
+                  type: string
+                  enum: [hoppie, smartcars, phpvms, vam, simbrief, fs2crew, pacx, generic]
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - type
+                      - callsign
+                    properties:
+                      type:
+                        type: string
+                        enum: [oooi, position, progress, pdc, weather, telex]
+                      callsign:
+                        type: string
+                        example: UAL123
+                      timestamp:
+                        type: string
+                        format: date-time
+                      payload:
+                        type: object
+      responses:
+        '200':
+          description: Messages processed
+        '400':
+          description: Validation error
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  /ingest/cdm:
+    post:
+      tags:
+        - Ingest
+      summary: CDM Milestone Ingest
+      description: |
+        Receives A-CDM milestone data from authoritative sources (vACDM, CDM Plugin,
+        vATCSCC). Updates FIXM-aligned CDM timing fields and pilot readiness state.
+      operationId: ingestCdm
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - updates
+              properties:
+                updates:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - callsign
+                    properties:
+                      callsign:
+                        type: string
+                        example: BAW117
+                      gufi:
+                        type: string
+                        example: VAT-20260323-BAW117-EGLL-KJFK
+                      airport:
+                        type: string
+                        example: EGLL
+                      tobt:
+                        type: string
+                        format: date-time
+                        description: Target Off-Block Time
+                      tsat:
+                        type: string
+                        format: date-time
+                        description: Target Startup Approval Time
+                      ttot:
+                        type: string
+                        format: date-time
+                        description: Target Takeoff Time
+                      asat:
+                        type: string
+                        format: date-time
+                        description: Actual Startup Approval Time
+                      asrt:
+                        type: string
+                        format: date-time
+                        description: Actual Startup Request Time
+                      exot:
+                        type: integer
+                        description: Expected Taxi Out Time (minutes)
+                      readiness_state:
+                        type: string
+                        enum: [PLANNING, BOARDING, READY, TAXIING, CANCELLED]
+                      source:
+                        type: string
+                        example: VACDM
+      responses:
+        '200':
+          description: Milestones processed
+        '400':
+          description: Validation error
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  /ingest/ctp:
+    post:
+      tags:
+        - Ingest
+      summary: CTP Slot Assignment Ingest
+      description: |
+        Receives slot assignment results from the CTP API after the
+        SlotDistributionCreator optimizer runs. Updates flight control with EDCTs,
+        route segments, and NAT track assignments.
+      operationId: ingestCtpSlots
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event_id
+                - slots
+              properties:
+                event_id:
+                  type: string
+                  example: CTP2026W
+                session_id:
+                  type: integer
+                source:
+                  type: string
+                  example: ctp-api
+                slots:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - callsign
+                      - dep_airport
+                      - arr_airport
+                      - departure_time
+                    properties:
+                      callsign:
+                        type: string
+                        example: BAW117
+                      cid:
+                        type: integer
+                        example: 1234567
+                      dep_airport:
+                        type: string
+                        example: EGLL
+                      arr_airport:
+                        type: string
+                        example: KJFK
+                      departure_time:
+                        type: string
+                        format: date-time
+                      route_segments:
+                        type: array
+                        items:
+                          type: object
+                      slot_delay_min:
+                        type: integer
+      responses:
+        '200':
+          description: Slot assignments processed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: CTP write access required
+
+  /ingest/ctp_event:
+    post:
+      tags:
+        - Ingest
+      summary: CTP Event Sync
+      description: |
+        Creates or updates a CTP session and throughput configuration based on
+        event data pushed from the CTP API. Enables the CTP API to be the event
+        creation point.
+      operationId: ingestCtpEvent
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - event_id
+                - direction
+                - departure_window_start
+                - departure_window_end
+              properties:
+                event_id:
+                  type: string
+                  example: CTP2026W
+                title:
+                  type: string
+                  example: Cross the Pond Westbound 2026
+                direction:
+                  type: string
+                  enum: [WESTBOUND, EASTBOUND, BOTH]
+                departure_window_start:
+                  type: string
+                  format: date-time
+                departure_window_end:
+                  type: string
+                  format: date-time
+                constrained_firs:
+                  type: array
+                  items:
+                    type: string
+                  example: [CZQX, BIRD, EGGX, LPPO]
+                slot_interval_min:
+                  type: integer
+                  default: 5
+                airports:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      identifier:
+                        type: string
+                        example: EGLL
+                      max_acph:
+                        type: integer
+                        example: 38
+                route_segments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      identifier:
+                        type: string
+                        example: NATA
+                      group:
+                        type: string
+                        example: NAT
+                      max_acph:
+                        type: integer
+                        example: 25
+      responses:
+        '200':
+          description: Session created or updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      session_id:
+                        type: integer
+                      session_name:
+                        type: string
+                      action:
+                        type: string
+                        enum: [created, updated]
+                      status:
+                        type: string
+                      throughput_configs:
+                        type: object
+                        properties:
+                          created:
+                            type: integer
+                          updated:
+                            type: integer
+        '400':
+          description: Validation error
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: CTP write access required
+        '409':
+          description: Session not modifiable (completed/cancelled)
+
+  /ingest/simtraffic:
+    post:
+      tags:
+        - Ingest
+      summary: SimTraffic Flight Times Ingest
+      description: |
+        Receives SimTraffic flight timing data. Supports PUSH mode (SimTraffic sends
+        data directly) and PULL mode (triggers fetch from SimTraffic API). Maps
+        SimTraffic departure/arrival timing fields to SWIM OOOI and metering columns.
+      operationId: ingestSimtraffic
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mode
+              properties:
+                mode:
+                  type: string
+                  enum: [push, pull]
+                flights:
+                  type: array
+                  description: Required for push mode
+                  items:
+                    type: object
+                    required:
+                      - callsign
+                    properties:
+                      callsign:
+                        type: string
+                        example: UAL456
+                      departure:
+                        type: object
+                      arrival:
+                        type: object
+                      status:
+                        type: object
+      responses:
+        '200':
+          description: Flight times processed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  /ingest/vnas/controllers:
+    post:
+      tags:
+        - Ingest
+      summary: vNAS Controller Data Ingest
+      description: |
+        Receives controller data from vNAS (ERAM/STARS) systems and enriches
+        swim_controllers rows with sector assignments, position IDs, and role data.
+      operationId: ingestVnasControllers
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - controllers
+              properties:
+                controllers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      artccId:
+                        type: string
+                        example: ZDC
+                      role:
+                        type: string
+                        example: Controller
+                      isObserver:
+                        type: boolean
+                      vatsimData:
+                        type: object
+                        properties:
+                          cid:
+                            type: integer
+                            example: 1234567
+                          callsign:
+                            type: string
+                            example: ZDC_CTR
+      responses:
+        '200':
+          description: Controller data enriched
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  /ingest/vnas/handoff:
+    post:
+      tags:
+        - Ingest
+      summary: vNAS Handoff Data Ingest
+      description: |
+        Receives handoff data from vNAS (ERAM/STARS) systems. Updates handoff state
+        in swim_flights and logs transitions in swim_handoff_log.
+      operationId: ingestVnasHandoff
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - facility_id
+                - handoffs
+              properties:
+                facility_id:
+                  type: string
+                  example: ZDC
+                handoffs:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - callsign
+                      - handoff_type
+                      - from_sector
+                      - to_sector
+                      - status
+                      - initiated_at
+                    properties:
+                      callsign:
+                        type: string
+                        example: UAL123
+                      gufi:
+                        type: string
+                      handoff_type:
+                        type: string
+                        enum: [AUTOMATED, MANUAL, POINT_OUT]
+                      from_sector:
+                        type: string
+                        example: ZDC_33_CTR
+                      to_sector:
+                        type: string
+                        example: ZNY_42_CTR
+                      status:
+                        type: string
+                        enum: [INITIATED, ACCEPTED, REJECTED, RECALLED, COMPLETED]
+                      initiated_at:
+                        type: string
+                        format: date-time
+      responses:
+        '200':
+          description: Handoff data processed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  /ingest/vnas/tags:
+    post:
+      tags:
+        - Ingest
+      summary: vNAS Automation Tags Ingest
+      description: |
+        Receives automation tag data from vNAS (ERAM/STARS) systems. Updates assigned
+        altitudes, speeds, headings, scratchpads, and coordination status.
+      operationId: ingestVnasTags
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - facility_id
+                - system_type
+                - tags
+              properties:
+                facility_id:
+                  type: string
+                  example: ZDC
+                system_type:
+                  type: string
+                  enum: [ERAM, STARS]
+                tags:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - callsign
+                    properties:
+                      callsign:
+                        type: string
+                        example: UAL123
+                      assigned_altitude:
+                        type: integer
+                        example: 35000
+                      assigned_speed:
+                        type: integer
+                        example: 280
+                      assigned_heading:
+                        type: integer
+                        example: 270
+                      scratchpad:
+                        type: string
+                        example: KJFK/31L
+      responses:
+        '200':
+          description: Tag data processed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  /ingest/vnas/track:
+    post:
+      tags:
+        - Ingest
+      summary: vNAS Track/Surveillance Data Ingest
+      description: |
+        Receives real-time track/surveillance data from vNAS (ERAM/STARS) systems.
+        Updates position, track quality, and surveillance data in swim_flights.
+      operationId: ingestVnasTrack
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - facility_id
+                - system_type
+                - tracks
+              properties:
+                facility_id:
+                  type: string
+                  example: ZDC
+                system_type:
+                  type: string
+                  enum: [ERAM, STARS]
+                tracks:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - callsign
+                      - position
+                    properties:
+                      callsign:
+                        type: string
+                        example: UAL123
+                      beacon_code:
+                        type: string
+                        example: '1234'
+                      position:
+                        type: object
+                        required:
+                          - latitude
+                          - longitude
+                        properties:
+                          latitude:
+                            type: number
+                            example: 40.6413
+                          longitude:
+                            type: number
+                            example: -73.7781
+                          altitude_ft:
+                            type: integer
+                            example: 35000
+      responses:
+        '200':
+          description: Track data processed
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  # ==========================================================================
+  # API Key Management
+  # ==========================================================================
+
+  /keys/provision:
+    post:
+      tags:
+        - Keys
+      summary: Provision API Key
+      description: |
+        Auto-provisions API keys for pilot clients after VATSIM OAuth authentication.
+        Creates developer-tier keys tied to the pilot's VATSIM CID.
+      operationId: provisionApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - access_token
+              properties:
+                access_token:
+                  type: string
+                  description: VATSIM OAuth access token
+                client_name:
+                  type: string
+                  description: Name of the requesting client application
+                client_version:
+                  type: string
+                  description: Version of the requesting client
+      responses:
+        '200':
+          description: API key provisioned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  api_key:
+                    type: string
+                    example: swim_dev_a1b2c3d4e5f6
+                  tier:
+                    type: string
+                    example: developer
+                  rate_limit:
+                    type: integer
+                    example: 300
+                  cid:
+                    type: integer
+                    example: 1234567
+        '400':
+          description: Missing access_token
+        '401':
+          description: Invalid VATSIM OAuth token
+
+  /keys/revoke:
+    post:
+      tags:
+        - Keys
+      summary: Revoke API Key
+      description: |
+        Allows users to revoke their own API keys. Requires VATSIM OAuth token
+        for identity verification.
+      operationId: revokeApiKey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - access_token
+              properties:
+                access_token:
+                  type: string
+                  description: VATSIM OAuth access token
+                api_key:
+                  type: string
+                  description: Specific key to revoke (revokes all if omitted)
+                client_name:
+                  type: string
+                  description: Revoke keys for specific client only
+      responses:
+        '200':
+          description: Key(s) revoked
+        '400':
+          description: Missing access_token
+        '401':
+          description: Invalid VATSIM OAuth token
+
+  # ==========================================================================
+  # Additional Playbook Endpoints
+  # ==========================================================================
+
+  /playbook/analysis:
+    get:
+      tags:
+        - Playbook
+      summary: Playbook Route Analysis
+      description: |
+        Provides facility traversal, distance, and time analysis for playbook routes.
+        Proxies to the internal PostGIS analysis API with SWIM API key authentication.
+      operationId: getPlaybookAnalysis
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: route_id
+          in: query
+          description: Playbook route ID for stored route analysis
+          schema:
+            type: integer
+        - name: route_string
+          in: query
+          description: Route string for ad-hoc analysis
+          schema:
+            type: string
+          example: KJFK MERIT J64 BETTE NATA MALOT EGLL
+        - name: origin
+          in: query
+          description: Origin airport (required with route_string)
+          schema:
+            type: string
+          example: KJFK
+        - name: dest
+          in: query
+          description: Destination airport (required with route_string)
+          schema:
+            type: string
+          example: EGLL
+      responses:
+        '200':
+          description: Route analysis with waypoints, distances, and facility traversals
+        '400':
+          description: Missing required parameters
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /playbook/throughput:
+    get:
+      tags:
+        - Playbook
+      summary: Get Route Throughput Data
+      description: |
+        Returns throughput data (planned counts, slot counts, peak rates) for
+        a playbook play's routes.
+      operationId: getPlaybookThroughput
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: play_id
+          in: query
+          description: Playbook play ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Throughput data for play routes
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Playbook
+      summary: Ingest Route Throughput Data
+      description: |
+        CTP pushes per-route throughput data (planned counts, slot counts, peak
+        rates) for display on Playbook and Route pages. Requires write access.
+      operationId: ingestPlaybookThroughput
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                route_id:
+                  type: integer
+                play_id:
+                  type: integer
+                throughput:
+                  type: object
+                  properties:
+                    planned_count:
+                      type: integer
+      responses:
+        '200':
+          description: Throughput data stored
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  # ==========================================================================
+  # Additional TMI Endpoints
+  # ==========================================================================
+
+  /tmi:
+    get:
+      tags:
+        - TMI
+      summary: TMI Overview
+      description: |
+        Returns an overview of TMI data with active counts for programs, advisories,
+        entries, reroutes, public routes, and flow events/measures.
+      operationId: getTmiOverview
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      responses:
+        '200':
+          description: TMI overview with active counts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      active_entries:
+                        type: integer
+                      active_programs:
+                        type: integer
+                      active_advisories:
+                        type: integer
+                      active_reroutes:
+                        type: integer
+                      active_public_routes:
+                        type: integer
+                      active_flow_events:
+                        type: integer
+                      active_flow_measures:
+                        type: integer
+
+  /tmi/advisories:
+    get:
+      tags:
+        - TMI
+      summary: TMI Advisories
+      description: |
+        Returns formal TMI advisories (Ground Stop, GDP, Reroute, etc.) from
+        the SWIM_API mirror tables. Supports filtering by type, airport, facility,
+        status, and pagination.
+      operationId: getTmiAdvisories
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: type
+          in: query
+          description: Comma-separated advisory type filter (GS, GDP, REROUTE, etc.)
+          schema:
+            type: string
+          example: GS,GDP
+        - name: airport
+          in: query
+          description: Filter by affected airport
+          schema:
+            type: string
+          example: KJFK
+        - name: facility
+          in: query
+          description: Filter by issuing facility
+          schema:
+            type: string
+          example: ZNY
+        - name: active_only
+          in: query
+          description: Only return active advisories
+          schema:
+            type: string
+            default: 'true'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: Paginated advisory list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/entries:
+    get:
+      tags:
+        - TMI
+      summary: TMI Log Entries
+      description: |
+        Returns NTML log entries (MIT, MINIT, STOP, APREQ, CFR, TBM, DELAY, CONFIG)
+        from the SWIM_API mirror tables.
+      operationId: getTmiEntries
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: type
+          in: query
+          description: Comma-separated entry type filter
+          schema:
+            type: string
+          example: MIT,STOP
+        - name: airport
+          in: query
+          description: Filter by affected airport
+          schema:
+            type: string
+          example: KJFK
+        - name: active_only
+          in: query
+          description: Only return active entries
+          schema:
+            type: string
+            default: 'true'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: Paginated entry list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/measures:
+    get:
+      tags:
+        - TMI
+      summary: Unified TMI Measures
+      description: |
+        Returns ALL traffic management measures from both vATCSCC (GS/GDP/AFP,
+        MIT/MINIT) and external providers (ECFMP, NavCanada, VATPAC). Unified
+        TFMS/FIXM-aligned output format for global interoperability.
+      operationId: getTmiMeasures
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: provider
+          in: query
+          description: Comma-separated provider filter
+          schema:
+            type: string
+          example: VATCSCC,ECFMP
+        - name: type
+          in: query
+          description: Comma-separated measure type filter
+          schema:
+            type: string
+          example: GS,GDP,MIT
+        - name: airport
+          in: query
+          description: Filter by affected airport
+          schema:
+            type: string
+          example: KJFK
+        - name: region
+          in: query
+          description: Comma-separated region filter
+          schema:
+            type: string
+          example: NAM,EUR
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: Unified measures list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/routes:
+    get:
+      tags:
+        - TMI
+      summary: TMI Public Routes
+      description: |
+        Returns published TMI route visualizations. Supports GeoJSON output format
+        for map display.
+      operationId: getTmiRoutes
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: id
+          in: query
+          description: Get a specific route by ID
+          schema:
+            type: integer
+        - name: format
+          in: query
+          description: Output format
+          schema:
+            type: string
+            enum: [json, geojson]
+            default: json
+      responses:
+        '200':
+          description: Public routes list
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - TMI
+      summary: Create TMI Public Route
+      description: Creates a new published route visualization. Requires write access.
+      operationId: createTmiRoute
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Route created
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Write access required
+
+  /tmi/nat_tracks/metrics:
+    get:
+      tags:
+        - TMI
+      summary: NAT Track Metrics
+      description: |
+        Returns throughput metrics for North Atlantic Tracks including flight counts,
+        flow rates, and capacity utilization.
+      operationId: getNatTrackMetrics
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      responses:
+        '200':
+          description: NAT track metrics
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/nat_tracks/status:
+    get:
+      tags:
+        - TMI
+      summary: NAT Track Status
+      description: |
+        Returns current status of North Atlantic Tracks including active tracks,
+        direction, validity windows, and flight assignments.
+      operationId: getNatTrackStatus
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      responses:
+        '200':
+          description: NAT track status
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ==========================================================================
+  # External Flow Management
+  # ==========================================================================
+
+  /tmi/flow:
+    get:
+      tags:
+        - TMI
+        - Flow
+      summary: Flow Management Overview
+      description: |
+        Returns overview of external flow management data including provider counts,
+        active events, and active measures.
+      operationId: getFlowOverview
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      responses:
+        '200':
+          description: Flow management overview
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/flow/events:
+    get:
+      tags:
+        - TMI
+        - Flow
+      summary: Flow Events
+      description: |
+        Returns special events (CTP, FNO, etc.) from external flow management
+        providers. FIXM-aligned output.
+      operationId: getFlowEvents
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: provider
+          in: query
+          description: Filter by provider
+          schema:
+            type: string
+          example: ECFMP
+        - name: code
+          in: query
+          description: Filter by event code
+          schema:
+            type: string
+          example: CTP2026
+        - name: status
+          in: query
+          description: Filter by event status
+          schema:
+            type: string
+            enum: [ACTIVE, COMPLETED, CANCELLED]
+        - name: include_participants
+          in: query
+          description: Include participant list
+          schema:
+            type: string
+            enum: ['true', 'false']
+      responses:
+        '200':
+          description: Flow events
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/flow/measures:
+    get:
+      tags:
+        - TMI
+        - Flow
+      summary: Flow Measures
+      description: |
+        Returns flow measures (MIT, MINIT, MDI, GS, etc.) from external
+        flow management providers. TFMS/FIXM-aligned structure.
+      operationId: getFlowMeasures
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: provider
+          in: query
+          description: Filter by provider
+          schema:
+            type: string
+          example: ECFMP
+        - name: type
+          in: query
+          description: Comma-separated measure type filter
+          schema:
+            type: string
+          example: MIT,MDI
+        - name: event_id
+          in: query
+          description: Filter by parent event ID
+          schema:
+            type: integer
+        - name: airport
+          in: query
+          description: Filter by affected airport
+          schema:
+            type: string
+          example: EGLL
+      responses:
+        '200':
+          description: Flow measures
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /tmi/flow/providers:
+    get:
+      tags:
+        - TMI
+        - Flow
+      summary: Flow Providers
+      description: |
+        Returns registered external flow management providers. Supports ECFMP,
+        NavCanada, VATPAC, and future integrations.
+      operationId: getFlowProviders
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      parameters:
+        - name: active_only
+          in: query
+          description: Only return active providers
+          schema:
+            type: string
+            enum: ['true', 'false']
+            default: 'true'
+        - name: region
+          in: query
+          description: Comma-separated region filter
+          schema:
+            type: string
+          example: EUR,NAT
+      responses:
+        '200':
+          description: Flow providers
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
 components:
   securitySchemes:

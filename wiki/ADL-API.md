@@ -176,7 +176,7 @@ Returns boundary crossing data.
 
 ---
 
-## Airspace Element Demand APIs
+## ADL Demand APIs
 
 Query traffic demand at navigation fixes, airway segments, and route segments.
 

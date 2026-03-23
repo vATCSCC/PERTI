@@ -1,6 +1,6 @@
 # PERTI API Documentation
 
-> **System Status: HIBERNATED** (since March 9, 2026) — Most API endpoints return reduced data or are unavailable during hibernation. Only ADL ingest daemon is active.
+> **System Status: ACTIVE**
 
 OpenAPI specification for the internal PERTI platform API.
 

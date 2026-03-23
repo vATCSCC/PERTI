@@ -1,6 +1,6 @@
 # PERTI Deployment Guide
 
-> **System Status: HIBERNATED** (since March 9, 2026) — See `HIBERNATION_RUNBOOK.md` for exit procedure.
+> **System Status: HIBERNATED** (since March 22, 2026, SWIM exempt) — See `HIBERNATION_RUNBOOK.md` for exit procedure.
 
 Complete guide for deploying and operating your own PERTI (Plan, Execute, Review, Train, Improve) instance — a web-based air traffic flow management platform for the VATSIM virtual ATC network.
 

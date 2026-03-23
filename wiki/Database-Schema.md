@@ -1,11 +1,11 @@
 # Database Schema
 
 > **Last updated:** March 17, 2026 (v19)
-> **System Mode:** HIBERNATED (SWIM exempt since March 13, 2026)
+> **System Mode:** HIBERNATED (SWIM exempt since March 22, 2026)
 
 PERTI uses multiple databases across three engines: MySQL for application data, Azure SQL for flight/ADL and TMI data, and PostgreSQL/PostGIS for spatial queries.
 
-> **Note:** During hibernation, VATSIM_ADL is downscaled to Serverless min 1/max 4 vCores (~$30-50/mo), MySQL to B1ms (~$7/mo), and PostgreSQL to B1ms (~$7/mo). Total cost reduced from ~$3,500/mo to ~$150-170/mo. A backfill pipeline is processing accumulated data through offline stages (Phase 3/6 in progress as of March 11, 2026).
+> **Note:** During hibernation, VATSIM_ADL is downscaled to Serverless min 1/max 4 vCores (~$30-50/mo), MySQL to B1ms (~$7/mo), and PostgreSQL/PostGIS kept at B2s (needed for TMI Compliance Analysis). SWIM API and sync daemons remain operational.
 
 ---
 

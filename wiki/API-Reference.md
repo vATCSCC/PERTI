@@ -792,7 +792,7 @@ Applies manual rate override.
 
 ---
 
-## Airspace Element Demand APIs (v17)
+## ADL Demand APIs (v17)
 
 Query traffic demand at navigation fixes, airway segments, and route segments. These endpoints call table-valued functions in Azure SQL for efficient demand analysis.
 
@@ -1434,15 +1434,18 @@ Generates and manages simulated traffic.
 
 ## Rate Limiting
 
-API requests are subject to rate limiting:
+Internal PERTI API endpoints (`/api/adl/`, `/api/data/`, `/api/tmi/`, `/api/mgt/`) do not have formal rate limiting. They require VATSIM session authentication and are used by the web UI.
 
-| Tier | Requests/Minute | Notes |
-|------|-----------------|-------|
-| Public | 60 | Unauthenticated endpoints |
-| Authenticated | 300 | Standard users |
-| DCC Role | 600 | Traffic management personnel |
+For the external **SWIM API** (`/api/swim/v1/`), rate limits are enforced per API key tier:
 
-Exceeded limits return HTTP 429 with retry information.
+| Tier | Requests/Minute | Write Access | Use Case |
+|------|-----------------|-------------|----------|
+| public | 100 | No | Read-only data browsing |
+| developer | 300 | No | Pilot clients, personal projects |
+| partner | 3,000 | Yes | Virtual airlines, ATC tools |
+| system | 30,000 | Yes | Core integrations (vNAS, SimTraffic) |
+
+Exceeded SWIM rate limits return HTTP 429 with retry information.
 
 ---
 

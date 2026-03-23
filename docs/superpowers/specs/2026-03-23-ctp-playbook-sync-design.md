@@ -1,0 +1,578 @@
+# CTP Route Planner → Playbook Sync
+
+**Date**: 2026-03-23
+**Status**: Draft
+
+## Problem
+
+The CTP (Cross the Pond) Route Planner at `https://planning.ctp.vatsim.net/routeplanner/routes/` manages route definitions for CTP events. These routes need to be automatically synced into PERTI's Playbook system as 4 private playbooks shared to org `CTP`, with full changelog tracking and PERTI-native route processing (facility traversal, geometry, etc.).
+
+## External System: CTP Route Planner
+
+**Repo**: `vatsimnetwork/ctp-route-planner` (Django app)
+
+**Route model** (their `Route` table):
+- `identifier` (PK, string) — route name (e.g., `NATA`, `EGLL-KJFK-1`)
+- `group` (string) — segment group: `OCA` (oceanic), `AMAS` (North American), `EMEA` (European)
+- `routestring` (text) — the actual route string
+- `facilities` (text) — CTP-provided facility list (space-separated)
+- `tags` (text) — CTP-provided tags (space-separated)
+
+**Save flow**: After every save/delete on the route planner, `notify_routes_changed()` fires a Discord webhook with a full CSV dump of all routes. Our integration follows the same pattern — they add a second webhook call to our endpoint alongside the Discord one.
+
+**Revision system**: `RouteRevisionSet` snapshots all routes after each save, numbered sequentially.
+
+**Auth context**: `request.user_cid` (VATSIM CID) and `request.user_roles` are available at save time but not stored on the route or revision models.
+
+## Design
+
+### Integration Pattern: Full-State Sync
+
+The CTP Route Planner sends the **complete set of routes** to our endpoint after every save. We diff against current playbook state to produce changelog entries for adds, updates, and deletes. This is:
+
+- **Idempotent**: re-sending the same revision is a no-op
+- **Simple for the caller**: just POST everything, no need to track deltas
+- **Consistent with their Discord pattern**: fire-and-forget full state on save
+
+### Endpoint
+
+```
+POST /api/swim/v1/ingest/ctp-routes.php
+```
+
+**Auth**: SWIM API key, System tier, `ctp` field write authority (same auth pattern as `api/swim/v1/ingest/ctp.php`).
+
+**Connection bootstrap**: The SWIM auth module (`api/swim/v1/auth.php`) defines `PERTI_SWIM_ONLY`, which disables MySQL connections. Since this endpoint writes to MySQL playbook tables, the endpoint must load `config.php` and `connect.php` **before** including `auth.php`, so that MySQL connections (`$conn_pdo`, `$conn_sqli`) are initialized. Then include `auth.php` for SWIM API key validation only (skipping its `connect.php` include via `PERTI_LOADED` guard). This is the same approach used by endpoints that need both MySQL and SWIM auth.
+
+**Max payload**: 1000 routes per request. Payloads exceeding this limit return `400`.
+
+### Request Payload
+
+```json
+{
+  "session_id": 1,
+  "revision": 42,
+  "changed_by_cid": 1745968,
+  "group_mapping": {
+    "OCA":  "ocean",
+    "AMAS": "na",
+    "EMEA": "emea"
+  },
+  "routes": [
+    {
+      "identifier": "T220",
+      "group": "OCA",
+      "routestring": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+      "origin": "VESMI",
+      "dest": "BALIX",
+      "facilities": "CZQO EGGX"
+    },
+    {
+      "identifier": "KBOS_DOVEY_1",
+      "group": "AMAS",
+      "routestring": "BRUWN7 BRUWN DOVEY",
+      "origin": "KBOS",
+      "dest": "DOVEY",
+      "origin_filter": "B738 B739 A320 A321",
+      "facilities": "ZBW ZNY ZWY",
+      "tags": "BOS_BRUWN"
+    }
+  ]
+}
+```
+
+**Fields**:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `session_id` | Yes | CTP session ID. Used to construct play names and link to `ctp_sessions` in VATSIM_TMI (if exists). Does not require a matching `ctp_sessions` row — plays are self-contained. |
+| `revision` | Yes | CTP Route Planner revision number. Stored on plays for idempotency — skips processing if `revision <= last_processed_revision`. |
+| `changed_by_cid` | No | VATSIM CID of the person who made the change. If omitted, changelog uses system attribution ("CTP Route Planner"). Name resolved by querying `users` table; falls back to `"CTP User {cid}"` if not found. |
+| `group_mapping` | Yes | Maps CTP group values to playbook scope. Valid scope values: `ocean`, `na`, `emea`. Groups not present in the mapping are included in the FULL playbook only (not rejected). |
+| `routes` | Yes | Complete set of current routes. Empty array = delete all routes from all plays. Max 1000 routes. |
+
+**Route object fields**:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `identifier` | Yes | Unique route name within the CTP planner (e.g., `NATA`). |
+| `group` | Yes | Segment group (e.g., `OCA`, `AMAS`, `EMEA`). Freeform — unknown values are accepted and routed to FULL playbook only. |
+| `routestring` | Yes | The route string — shared with PERTI's `route_string` column. |
+| `origin` | No | Origin airport/waypoint label (e.g., `KBOS`). Stored in `playbook_routes.origin`. If omitted, extracted from first token of route string via `_extractRouteEndpoint()`. |
+| `dest` | No | Destination airport/waypoint label (e.g., `EGLL`). Stored in `playbook_routes.dest`. If omitted, extracted from last token of route string. |
+| `origin_filter` | No | Origin filter expression (e.g., aircraft type, airline). Stored in `playbook_routes.origin_filter`. |
+| `dest_filter` | No | Destination filter expression. Stored in `playbook_routes.dest_filter`. |
+| `facilities` | No | CTP-provided facility list (stored as-is in `external_facilities`). |
+| `tags` | No | CTP-provided tags (stored as-is in `external_tags`). |
+
+### 4 Auto-Created Playbooks
+
+On first sync for a `session_id`, 4 plays are auto-created. The `ctp_session_id` column already exists on `playbook_plays` (added in migration 012).
+
+| Play Name | `ctp_scope` | `visibility` | `org_code` | `source` | Routes Included |
+|-----------|-------------|-------------|------------|----------|-----------------|
+| `CTPE26-{session_id}-FULL` | (null) | `private_org` | `CTP` | `CTP` | All routes |
+| `CTPE26-{session_id}-NA` | `NA` | `private_org` | `CTP` | `CTP` | Routes with group mapped to `na` |
+| `CTPE26-{session_id}-EMEA` | `EU` | `private_org` | `CTP` | `CTP` | Routes with group mapped to `emea` |
+| `CTPE26-{session_id}-OCEANIC` | `OCEANIC` | `private_org` | `CTP` | `CTP` | Routes with group mapped to `ocean` |
+
+**Note**: The EMEA play uses `ctp_scope = 'EU'` (matching the existing ENUM values `NA`, `OCEANIC`, `EU` from migration 012) despite being named `EMEA` in the play name. This is intentional — `ctp_scope` aligns with the existing three-perspective model (`seg_na_route`, `seg_oceanic_route`, `seg_eu_route` in `ctp_flight_control`), while the play name uses the CTP team's preferred terminology.
+
+**Play metadata**:
+- `ctp_session_id` = the session_id from the payload
+- `category` = `CTP`
+- `status` = `active`
+- `source` = `CTP` (requires ENUM extension — see migration below)
+- `created_by` = `changed_by_cid` or `0` (system)
+- `description` = auto-generated (e.g., "CTPE26 Session 1 — Full Route Set")
+
+**Play name uniqueness**: Play names include `session_id`, so `CTPE26-1-FULL` and `CTPE26-2-FULL` are distinct. The unique index `idx_name_source` on `(play_name_norm, source)` ensures no collisions within the `CTP` source.
+
+If plays already exist for the session_id, they are reused (matched by `play_name`).
+
+**Play creation changelog**: When plays are auto-created, a `play_created` changelog entry is recorded per play.
+
+### Schema Changes
+
+**Migration**: `database/migrations/playbook/014_ctp_external_fields.sql`
+
+```sql
+-- 1. Extend source ENUM to include CTP
+ALTER TABLE playbook_plays
+  MODIFY COLUMN source ENUM('FAA','DCC','ECFMP','CANOC','CADENA','FAA_HISTORICAL','CTP')
+  NOT NULL DEFAULT 'DCC';
+
+-- 2. Add external revision tracking to plays
+ALTER TABLE playbook_plays ADD COLUMN external_revision BIGINT NULL;
+
+-- 3. Add external metadata columns to routes
+ALTER TABLE playbook_routes ADD COLUMN external_id VARCHAR(100) NULL;
+ALTER TABLE playbook_routes ADD COLUMN external_source VARCHAR(50) NULL;
+ALTER TABLE playbook_routes ADD COLUMN external_group VARCHAR(100) NULL;
+ALTER TABLE playbook_routes ADD COLUMN external_facilities TEXT NULL;
+ALTER TABLE playbook_routes ADD COLUMN external_tags TEXT NULL;
+
+-- 4. Relax origin/dest NOT NULL constraint (CTP oceanic routes have no airports)
+ALTER TABLE playbook_routes MODIFY COLUMN origin VARCHAR(200) NULL DEFAULT '';
+ALTER TABLE playbook_routes MODIFY COLUMN dest VARCHAR(200) NULL DEFAULT '';
+
+-- 5. Unique index for sync lookups (prevents duplicate external_ids within a play)
+CREATE UNIQUE INDEX IX_playbook_routes_external
+  ON playbook_routes (play_id, external_source, external_id);
+```
+
+**Why relax origin/dest**: CTP oceanic routes like `SUNOT 50N050W ... MALOT` have waypoint-only endpoints, not airports. The existing `NOT NULL` constraint would require empty strings, which is semantically inconsistent. Making them `NULL DEFAULT ''` is backward-compatible with existing data.
+
+**Why UNIQUE index on external_id**: Prevents duplicate route identifiers within a play from malformed payloads. The sync algorithm matches routes by `external_id`, so uniqueness is a correctness requirement.
+
+### Sync Algorithm
+
+The algorithm is structured in three phases to minimize redundant work:
+
+1. **Diff phase** — compute all diffs across all 4 playbooks (pure MySQL, no PostGIS)
+2. **Traversal phase** — call PostGIS once per unique `route_string` that needs processing
+3. **Write phase** — apply cached results to all playbooks, batch-write changelog entries
+
+Each playbook is written in its own MySQL transaction. If one play fails, previously synced plays remain committed and can be skipped on re-send (via per-play revision tracking).
+
+#### Phase 1: Diff (all plays)
+
+For each of the 4 plays (full, na, emea, ocean):
+
+1. **Filter** incoming routes by group mapping. For FULL: all routes. For scoped plays: only routes whose group maps to that scope.
+
+2. **Idempotency check**: If `play.external_revision >= incoming revision`, skip this play entirely. Re-sends return `200` with zero counts, not `409`.
+
+3. **Load** current routes: `SELECT * FROM playbook_routes WHERE play_id = ? AND external_source = 'CTP'`, indexed by `external_id`.
+
+4. **Diff** into three buckets:
+   - Incoming `external_id` not in current → **ADD**
+   - Incoming `external_id` in current, any field changed → **UPDATE** (sub-classified below)
+   - Current `external_id` not in incoming → **DELETE**
+   - All fields match → **SKIP**
+
+5. **Sub-classify updates**:
+   - `route_string` changed → **ROUTE_CHANGED** (needs PostGIS recomputation)
+   - `origin` or `dest` changed (but `route_string` unchanged) → **ROUTE_CHANGED** (affects PostGIS LINESTRING bookending via `_extractRouteEndpoint()`)
+   - Only `external_facilities`, `external_tags`, `external_group`, `origin_filter`, or `dest_filter` changed → **METADATA_ONLY** (skip PostGIS, update fields only)
+
+Collect all unique `(route_string, origin, dest)` tuples from ADDs and ROUTE_CHANGED updates across all 4 plays into a deduplication set.
+
+#### Phase 2: Traversal (deduplicated PostGIS)
+
+For each unique `(route_string, origin, dest)` tuple in the deduplication set (N calls, not 2N+):
+
+1. Determine `origin`/`dest` endpoints: If CTP-provided `origin`/`dest` are present in the route object, use those directly. Otherwise, extract via `_extractRouteEndpoint()` on the first/last tokens. For airport-starting routes (e.g., `KJFK ...`), auto-extraction works correctly. For oceanic waypoint-only routes (e.g., `VESMI ... BALIX`), origin/dest are set to the waypoint name — acceptable as meaningful endpoint labels.
+
+2. Call `computeTraversedFacilities($route_string, ..., origin, dest, ...)` — same function used by `api/mgt/playbook/route.php`. The explicit `origin`/`dest` are passed as endpoint parameters to ensure the LINESTRING is properly bookended. This runs PostGIS `expand_route_with_artccs()` to compute: `artccs`, `tracons`, `sectors`, route geometry, distance, waypoint list.
+
+3. Cache the result keyed by `(route_string, origin, dest)` tuple.
+
+**PostGIS context note**: For oceanic routes, there are no bookend airports to prepend/append. The LINESTRING starts/ends at the first/last waypoint. This is acceptable — the route geometry accurately represents the segment.
+
+**Deduplication impact**: Each route appears in FULL + its scoped play = 2 playbooks. With N incoming routes, the naive approach would make ~2N PostGIS calls. With deduplication, it's at most N calls. For metadata-only updates it's 0 calls.
+
+#### Phase 3: Write (per play, batched)
+
+For each play that has changes:
+
+1. **Begin transaction.**
+
+2. **Batch-insert new routes**: Multi-row `INSERT INTO playbook_routes (play_id, route_string, external_id, external_source, external_group, external_facilities, external_tags, origin, dest, origin_filter, dest_filter, origin_artccs, dest_artccs, ...) VALUES (...), (...), (...)` using cached traversal results. CTP-provided `origin`/`dest` are stored as-is; if omitted, auto-extracted values from Phase 2 are used.
+
+3. **Update changed routes**:
+   - ROUTE_CHANGED: Update `route_string`, `origin`, `dest`, `external_*` fields, and all PERTI-computed fields from cached traversal. Prepared statement executed in a loop.
+   - METADATA_ONLY: Update only `external_facilities`, `external_tags`, `external_group`, `origin_filter`, `dest_filter`. No traversal fields touched.
+
+4. **Delete removed routes**: `DELETE FROM playbook_routes WHERE route_id IN (...)`.
+
+5. **Batch-insert changelog entries**: Multi-row `INSERT INTO playbook_changelog (...) VALUES (...), (...), (...)` for all changes in this play (see Changelog Entries below).
+
+6. **Update play**: Set `external_revision = incoming revision`, `updated_at = NOW()`, `updated_by = changed_by_cid`.
+
+7. **Commit transaction.**
+
+### Changelog Entries
+
+Each route change produces one or more `playbook_changelog` rows:
+
+**Route added**:
+```
+action = 'route_added'
+route_id = (new route_id)
+field_name = NULL
+old_value = NULL
+new_value = route_string
+changed_by = changed_by_cid (or NULL)
+changed_by_name = (resolved from users table) or 'CTP Route Planner'
+session_context = '{"source": "ctp-route-planner", "revision": 42, "ctp_session_id": 1}'
+```
+
+**Route updated** (one entry per changed field):
+```
+action = 'route_updated'
+route_id = (existing route_id)
+field_name = 'route_string' | 'origin' | 'dest' | 'origin_filter' | 'dest_filter' | 'external_facilities' | 'external_tags' | 'external_group'
+old_value = (previous value)
+new_value = (new value)
+changed_by = changed_by_cid (or NULL)
+changed_by_name = (resolved from users table) or 'CTP Route Planner'
+session_context = '{"source": "ctp-route-planner", "revision": 42, "ctp_session_id": 1}'
+```
+
+**Route deleted**:
+```
+action = 'route_deleted'
+route_id = (deleted route_id)
+field_name = NULL
+old_value = route_string
+new_value = NULL
+changed_by = changed_by_cid (or NULL)
+changed_by_name = (resolved from users table) or 'CTP Route Planner'
+session_context = '{"source": "ctp-route-planner", "revision": 42, "ctp_session_id": 1}'
+```
+
+**Name resolution**: If `changed_by_cid` is provided, query `SELECT name_first, name_last FROM users WHERE cid = ?`. If found, use `"{name_first} {name_last}"`. If not found, use `"CTP User {cid}"`. If `changed_by_cid` is omitted, use `"CTP Route Planner"`.
+
+### Response
+
+```json
+{
+  "success": true,
+  "revision": 42,
+  "plays": {
+    "full":    {"play_id": 40, "added": 12, "updated": 3, "deleted": 1, "unchanged": 30},
+    "na":      {"play_id": 41, "added": 5,  "updated": 1, "deleted": 0, "unchanged": 10},
+    "emea":    {"play_id": 42, "added": 4,  "updated": 1, "deleted": 0, "unchanged": 12},
+    "ocean":   {"play_id": 43, "added": 3,  "updated": 1, "deleted": 1, "unchanged": 8}
+  }
+}
+```
+
+**Idempotent re-sends**: If all plays have `external_revision >= incoming revision`, the response is `200` with all counts at zero — not `409`. This allows transparent retries without error handling on the caller side.
+
+**Error responses**:
+- `401` — Invalid or missing API key
+- `403` — API key lacks `ctp` field authority
+- `400` — Validation errors (missing required fields, invalid `group_mapping` scope values, payload exceeds 1000 routes)
+- `500` — Internal error (PostGIS unavailable, DB error)
+
+### Route Processing Pipeline
+
+CTP routes go through the **exact same processing** as user-created playbook routes:
+
+1. `computeTraversedFacilities()` in `api/mgt/playbook/playbook_helpers.php`
+2. PostGIS `expand_route_with_artccs()` — resolves waypoints, airways, coordinates
+3. Spatial joins against `tracon_boundaries`, `sector_boundaries`
+4. Route geometry (GeoJSON LINESTRING) stored for map rendering
+5. Distance computation (nautical miles)
+6. Origin/destination endpoint extraction via `_extractRouteEndpoint()`
+
+The only difference is that CTP routes store additional `external_*` metadata alongside the PERTI-computed fields.
+
+### Throughput Data in Route Sync
+
+Each route object in the sync payload may optionally include throughput data. This is stored in the existing `playbook_route_throughput` table (migration 012) and synced to the SWIM API `swim_playbook_route_throughput` table for external retrieval.
+
+**Extended route object**:
+```json
+{
+  "identifier": "T220",
+  "group": "OCA",
+  "routestring": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+  "facilities": "CZQO EGGX",
+  "throughput": {
+    "planned_count": 45,
+    "slot_count": 40,
+    "peak_rate_hr": 18,
+    "avg_rate_hr": 12.5,
+    "period_start": "2026-10-19T11:00:00Z",
+    "period_end": "2026-10-19T17:00:00Z",
+    "metadata": {"track_direction": "westbound", "priority": "primary"}
+  }
+}
+```
+
+**Throughput fields** (all optional):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `planned_count` | int | Total flights planned for this route |
+| `slot_count` | int | Number of optimizer slots allocated |
+| `peak_rate_hr` | int | Peak aircraft per hour |
+| `avg_rate_hr` | float | Average aircraft per hour |
+| `period_start` | ISO 8601 | Start of the throughput measurement window |
+| `period_end` | ISO 8601 | End of the throughput measurement window |
+| `metadata` | object | Arbitrary JSON metadata (track direction, priority, etc.) |
+
+**Processing**: If `throughput` is present on a route, it is upserted into `playbook_route_throughput` (MySQL, keyed on `route_id + source='CTP'`) during the write phase. Throughput changes are changelogged as `throughput_updated`. If `throughput` is omitted on a route that previously had throughput data, the existing data is preserved (not deleted) — explicit `"throughput": null` deletes it.
+
+**SWIM sync**: Throughput data is also written to `swim_playbook_route_throughput` in SWIM_API (Azure SQL) so it's available via the existing `GET /api/swim/v1/playbook/throughput?play_id=X` endpoint.
+
+---
+
+### Traversal Lookup Endpoint
+
+A standalone read-only endpoint for the CTP Route Planner to query L1 ARTCC/FIR traversal for route strings in batch, so they can auto-populate their `facilities` field before saving.
+
+```
+POST /api/swim/v1/playbook/traversal.php
+```
+
+**Auth**: SWIM API key (any tier — this is read-only, no `ctp` authority required).
+
+**Connection bootstrap**: Same as `ctp-routes.php` — needs PostGIS via `get_conn_gis()`. Does NOT need MySQL (no playbook reads/writes). Uses `PERTI_SWIM_ONLY` from SWIM auth, then lazy-loads PostGIS.
+
+**Request**:
+```json
+{
+  "routes": [
+    "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+    "BRUWN7 BRUWN DOVEY"
+  ],
+  "fields": ["artccs"]
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `routes` | Yes | Array of route strings to analyze. Max 100 per request. |
+| `fields` | No | Filter which data to return. Valid values: `artccs`, `tracons`, `sectors`, `geometry`, `distance`, `waypoints`. Defaults to all fields if omitted. |
+
+**Response** (with `"fields": ["artccs"]`):
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "route_string": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+      "artccs": ["CZQM", "CZQO", "CZQX", "BGGL", "EGGX"]
+    },
+    {
+      "route_string": "BRUWN7 BRUWN DOVEY",
+      "artccs": ["KZBW", "KZNY", "KZWY"]
+    }
+  ]
+}
+```
+
+**Response** (with all fields / `fields` omitted):
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "route_string": "VESMI 6050N 6040N 6030N 6020N 6015N BALIX",
+      "artccs": ["CZQM", "CZQO", "CZQX", "BGGL", "EGGX"],
+      "tracons": [],
+      "sectors": {
+        "low": ["CZQO_GANDER OCA FIR", "CZQO_GOTA_N_E_LOW", "CZQO_GANDER-OCA-LOW", "CZQO_GANDER-OCA-SONDRESTROM"],
+        "high": ["CZQXVESMI-SECTOR", "CZQX_GANDER-HI5", "CZQO_GANDER-OCA", "CZQO_GANDER-OCA-SONDRESTROM"],
+        "superhigh": []
+      },
+      "distance_nm": 1494.5,
+      "waypoints": [
+        {"name": "VESMI", "lat": 53.5, "lon": -50.0},
+        {"name": "6050N", "lat": 50.0, "lon": -50.0},
+        {"name": "6040N", "lat": 50.0, "lon": -40.0},
+        {"name": "6030N", "lat": 50.0, "lon": -30.0},
+        {"name": "6020N", "lat": 50.0, "lon": -20.0},
+        {"name": "6015N", "lat": 50.0, "lon": -15.0},
+        {"name": "BALIX", "lat": 51.0, "lon": -8.0}
+      ],
+      "geometry": { "type": "LineString", "coordinates": [[-50.0, 53.5], [-50.0, 50.0], "..."] }
+    }
+  ]
+}
+```
+
+**Implementation**: Calls `computeTraversedFacilities()` per route string, then filters the response to only include requested fields. The `fields` parameter controls which data is extracted from the PostGIS result — when only `artccs` is requested, the full PostGIS query still runs (the query is a single CTE), but TRACON/sector spatial joins and geometry serialization are skipped by passing a filter flag, and only the `artccs_traversed` array from `expand_route_with_artccs()` is returned.
+
+**Performance optimization for `artccs`-only**: When `fields` contains only `artccs` (the expected CTP use case), use a simplified PostGIS query that calls `expand_route_with_artccs()` but skips the LATERAL JOIN against `tracon_boundaries` and `sector_boundaries`. This avoids the most expensive spatial joins and returns in ~50-100ms per route vs ~200-300ms for the full query.
+
+**Error handling**: If a route string cannot be parsed (no waypoints resolved), it returns in the results array with empty fields rather than failing the entire batch:
+```json
+{
+  "route_string": "INVALID ROUTE XYZ",
+  "artccs": [],
+  "error": "No waypoints resolved"
+}
+```
+
+---
+
+### SWIM Throughput Retrieval
+
+The existing `GET /api/swim/v1/playbook/throughput` endpoint already supports retrieval by `play_id` or `route_id`. To support CTP-specific queries, add a `session_id` filter:
+
+```
+GET /api/swim/v1/playbook/throughput?session_id=1
+```
+
+This queries all throughput data for routes belonging to plays with `ctp_session_id = ?`. This is a small addition to the existing `handleGetThroughput()` function — join through `swim_playbook_routes` → `swim_playbook_plays` where `ctp_session_id = ?`.
+
+The CTP API can query PERTI's SWIM throughput endpoint to retrieve the throughput data it (or others) have pushed, enabling round-trip data flow.
+
+---
+
+### File Changes
+
+| File | Change |
+|------|--------|
+| `api/swim/v1/ingest/ctp-routes.php` | **New** — main route sync endpoint |
+| `api/swim/v1/playbook/traversal.php` | **New** — batch route traversal lookup |
+| `api/swim/v1/playbook/throughput.php` | **Modified** — add `session_id` filter to GET handler |
+| `database/migrations/playbook/014_ctp_external_fields.sql` | **New** — schema: ENUM extension, external columns, origin/dest relaxation, UNIQUE index |
+| `load/swim_config.php` | Already has CTP data source config — no changes needed |
+
+### Maintenance Notes
+
+- `api/mgt/playbook/save.php` has a PHP-side source whitelist (`['DCC', 'ECFMP', 'CANOC', 'CADENA']`) that does not include `CTP`. This is fine — the new endpoint bypasses `save.php` entirely. If CTP plays need to be editable through the normal playbook UI in the future, that whitelist must be updated.
+- Editing CTP-synced routes through the normal playbook UI is not blocked — but manual edits to `route_string` will be overwritten on the next sync. The `external_*` fields serve as the sync anchor.
+
+### Dependencies
+
+- PostGIS must be available for route processing (currently B2s tier, kept during hibernation)
+- SWIM API key infrastructure already exists
+- `playbook_helpers.php` `computeTraversedFacilities()` already exists
+- `playbook_changelog` table and changelog patterns already exist
+- `playbook_plays` ACL and visibility infrastructure already exists
+- `playbook_plays.ctp_session_id` column already exists (migration 012)
+
+### Integration Guide (for CTP team)
+
+The CTP Route Planner needs to add one webhook call in `routeplanner/discord.py` alongside `notify_routes_changed()`, or in `routes_save()` / `route_delete()`:
+
+```python
+def _send_to_perti(action: str, user_cid: int = None) -> None:
+    perti_url = getattr(settings, "PERTI_WEBHOOK_URL", "")
+    perti_key = getattr(settings, "PERTI_API_KEY", "")
+    if not perti_url:
+        return
+    try:
+        routes = Route.objects.all().order_by("group", "identifier")
+        latest_rev = RouteRevisionSet.objects.order_by('-number').first()
+        payload = {
+            "session_id": getattr(settings, "CTP_SESSION_ID", 1),
+            "revision": latest_rev.number if latest_rev else 0,
+            "changed_by_cid": user_cid,
+            "group_mapping": getattr(settings, "CTP_GROUP_MAPPING", {
+                "OCA": "ocean",
+                "AMAS": "na",
+                "EMEA": "emea"
+            }),
+            "routes": [
+                {
+                    "identifier": r.identifier,
+                    "group": r.group,
+                    "routestring": r.routestring,
+                    "facilities": r.facilities,
+                    "tags": r.tags,
+                }
+                for r in routes
+            ]
+        }
+        requests.post(
+            perti_url,
+            json=payload,
+            headers={"X-API-Key": perti_key},
+            timeout=30,
+        )
+    except Exception as exc:
+        logger.warning("PERTI webhook failed: %s", exc)
+```
+
+Settings to add on the CTP Route Planner:
+- `PERTI_WEBHOOK_URL` = `https://perti.vatcscc.org/api/swim/v1/ingest/ctp-routes.php`
+- `PERTI_API_KEY` = (SWIM API key with System tier + ctp authority)
+- `CTP_SESSION_ID` = (set per event deployment)
+- `CTP_GROUP_MAPPING` = (optional override, defaults to `{"OCA": "ocean", "AMAS": "na", "EMEA": "emea"}`)
+
+**Retry recommendation**: The webhook is fire-and-forget. If PERTI is temporarily unavailable, the next save on the route planner will re-send the full state, so missed webhooks self-heal. For critical events, the CTP team can manually re-trigger by saving with no changes (the revision increments, and the full state is re-sent).
+
+#### Auto-Populating Facilities
+
+The CTP Route Planner can auto-populate its `facilities` field by calling the traversal lookup before saving:
+
+```python
+def _resolve_facilities(routes: list) -> list:
+    """Call PERTI traversal API to get ARTCC/FIR list for each route."""
+    perti_url = getattr(settings, "PERTI_TRAVERSAL_URL", "")
+    perti_key = getattr(settings, "PERTI_API_KEY", "")
+    if not perti_url:
+        return routes
+
+    try:
+        resp = requests.post(
+            perti_url,
+            json={
+                "routes": [r.routestring for r in routes],
+                "fields": ["artccs"]
+            },
+            headers={"X-API-Key": perti_key},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # Build lookup: route_string -> artccs
+        traversal = {r["route_string"]: " ".join(r.get("artccs", [])) for r in data.get("results", [])}
+        for route in routes:
+            if route.routestring in traversal:
+                route.facilities = traversal[route.routestring]
+    except Exception as exc:
+        logger.warning("PERTI traversal lookup failed: %s", exc)
+    return routes
+```
+
+Additional setting:
+- `PERTI_TRAVERSAL_URL` = `https://perti.vatcscc.org/api/swim/v1/playbook/traversal.php`
+
+#### Retrieving Throughput Data
+
+The CTP API can retrieve throughput data that was pushed during route sync:
+
+```
+GET https://perti.vatcscc.org/api/swim/v1/playbook/throughput?session_id=1
+```
+
+Returns all throughput records for the CTP session, including planned counts, slot counts, peak/avg rates, and any metadata. This enables round-trip data flow — push throughput during route sync, retrieve it later for analysis or display.

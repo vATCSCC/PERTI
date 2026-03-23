@@ -20,7 +20,7 @@ info:
     ## Response Types
     Most endpoints return JSON. Some legacy endpoints return HTML table rows
     (noted in each endpoint's description).
-  version: 1.0.0
+  version: 1.1.0
   contact:
     name: PERTI Support
 
@@ -64,11 +64,6 @@ tags:
       Planned boundary crossings for TMI (Traffic Management Initiative) analysis.
       Pre-computes which boundaries (ARTCCs, sectors, TRACONs) flights will cross,
       enabling queries like "show all flights crossing ZDC between 18:00-20:00".
-  - name: Airspace Elements
-    description: |
-      Custom airspace element management. Define volumes, points, and lines
-      for crossing analysis and TMI planning. Supports referencing existing
-      boundaries or defining custom geometry.
   - name: Management
     description: |
       ⚠️ **CAUTION: DATABASE MODIFICATION** - CRUD operations for planning data.
@@ -3730,7 +3725,7 @@ paths:
   # CROSSINGS ENDPOINTS
   # ============================================================================
 
-  /data/crossings/forecast.php:
+  /data/crossings/forecast:
     get:
       tags: [Crossings]
       summary: Get planned boundary crossings forecast
@@ -3791,277 +3786,6 @@ paths:
                   - $ref: '#/components/schemas/CrossingStatsResponse'
         '400':
           description: Missing required parameter
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          $ref: '#/components/responses/ServerError'
-
-  # ============================================================================
-  # AIRSPACE ELEMENTS ENDPOINTS
-  # ============================================================================
-
-  /data/airspace_elements/list.php:
-    get:
-      tags: [Airspace Elements]
-      summary: List airspace elements
-      description: Returns list of custom airspace elements with optional filtering.
-      parameters:
-        - name: category
-          in: query
-          description: Filter by category (TMI, FCA, AFP, REROUTE, CUSTOM)
-          schema:
-            type: string
-        - name: type
-          in: query
-          description: Filter by element type
-          schema:
-            type: string
-            enum: [VOLUME, POINT, LINE]
-        - name: active
-          in: query
-          description: Filter by active status (1=active, 0=inactive)
-          schema:
-            type: integer
-            default: 1
-        - name: search
-          in: query
-          description: Search by name or description
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AirspaceElementListResponse'
-        '500':
-          $ref: '#/components/responses/ServerError'
-
-  /data/airspace_elements/get.php:
-    get:
-      tags: [Airspace Elements]
-      summary: Get single airspace element
-      description: Returns detailed information for a single airspace element including crossing statistics.
-      parameters:
-        - name: element_id
-          in: query
-          required: true
-          description: Element ID
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AirspaceElementDetailResponse'
-        '400':
-          description: Missing element_id
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Element not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          $ref: '#/components/responses/ServerError'
-
-  /data/airspace_elements/lookup.php:
-    get:
-      tags: [Airspace Elements]
-      summary: Lookup reference data for elements
-      description: Returns reference data for creating/editing airspace elements (boundaries, fixes, airways, subtypes).
-      parameters:
-        - name: type
-          in: query
-          required: true
-          description: |
-            Type of reference data:
-            - `boundaries` - List available boundaries
-            - `fixes` - Search fixes by name
-            - `airways` - Search airways
-            - `subtypes` - Element subtype options
-            - `categories` - Categories in use
-          schema:
-            type: string
-            enum: [boundaries, fixes, airways, subtypes, categories]
-        - name: search
-          in: query
-          description: Search term (for fixes, airways, boundaries)
-          schema:
-            type: string
-        - name: boundary_type
-          in: query
-          description: Filter boundaries by type (ARTCC, TRACON, etc.)
-          schema:
-            type: string
-        - name: limit
-          in: query
-          description: Maximum results (default 100, max 500)
-          schema:
-            type: integer
-            default: 100
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LookupResponse'
-        '400':
-          description: Invalid type parameter
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          $ref: '#/components/responses/ServerError'
-
-  /mgt/airspace_elements/post.php:
-    post:
-      tags: [Airspace Elements, Management]
-      summary: Create airspace element
-      description: Creates a new custom airspace element. Requires authentication.
-      security:
-        - sessionAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AirspaceElementCreate'
-      responses:
-        '200':
-          description: Element created
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  element_id:
-                    type: integer
-                  message:
-                    type: string
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          $ref: '#/components/responses/ServerError'
-
-  /mgt/airspace_elements/update.php:
-    post:
-      tags: [Airspace Elements, Management]
-      summary: Update airspace element
-      description: Updates an existing airspace element. Requires authentication.
-      security:
-        - sessionAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AirspaceElementUpdate'
-      responses:
-        '200':
-          description: Element updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  element_id:
-                    type: integer
-                  message:
-                    type: string
-        '400':
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Element not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          $ref: '#/components/responses/ServerError'
-
-  /mgt/airspace_elements/delete.php:
-    post:
-      tags: [Airspace Elements, Management]
-      summary: Delete airspace element
-      description: |
-        Soft-deletes (deactivates) an airspace element by default.
-        Use `hard=1` for permanent deletion. Requires authentication.
-      security:
-        - sessionAuth: []
-      parameters:
-        - name: element_id
-          in: query
-          required: true
-          description: Element ID to delete
-          schema:
-            type: integer
-        - name: hard
-          in: query
-          description: Set to 1 for permanent deletion (removes associated crossings)
-          schema:
-            type: integer
-            enum: [0, 1]
-            default: 0
-      responses:
-        '200':
-          description: Element deleted/deactivated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  element_id:
-                    type: integer
-                  hard_delete:
-                    type: boolean
-                  message:
-                    type: string
-        '403':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Element not found
           content:
             application/json:
               schema:
@@ -4223,7 +3947,7 @@ paths:
   # CTP THROUGHPUT ENDPOINTS
   # ============================================================================
 
-  /ctp/throughput/list.php:
+  /ctp/throughput/list:
     get:
       tags: [CTP-Throughput]
       summary: List throughput configs
@@ -4267,7 +3991,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/throughput/create.php:
+  /ctp/throughput/create:
     post:
       tags: [CTP-Throughput]
       summary: Create throughput config
@@ -4342,7 +4066,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/throughput/update.php:
+  /ctp/throughput/update:
     post:
       tags: [CTP-Throughput]
       summary: Update throughput config
@@ -4430,7 +4154,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/throughput/delete.php:
+  /ctp/throughput/delete:
     post:
       tags: [CTP-Throughput]
       summary: Delete throughput config
@@ -4474,7 +4198,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/throughput/preview.php:
+  /ctp/throughput/preview:
     get:
       tags: [CTP-Throughput]
       summary: Preview throughput utilization
@@ -4571,7 +4295,7 @@ paths:
   # CTP PLANNING ENDPOINTS
   # ============================================================================
 
-  /ctp/planning/scenarios.php:
+  /ctp/planning/scenarios:
     get:
       tags: [CTP-Planning]
       summary: List planning scenarios
@@ -4651,7 +4375,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/planning/scenario_save.php:
+  /ctp/planning/scenario_save:
     post:
       tags: [CTP-Planning]
       summary: Update planning scenario
@@ -4701,7 +4425,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/planning/scenario_delete.php:
+  /ctp/planning/scenario_delete:
     post:
       tags: [CTP-Planning]
       summary: Delete planning scenario
@@ -4744,7 +4468,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/planning/scenario_clone.php:
+  /ctp/planning/scenario_clone:
     post:
       tags: [CTP-Planning]
       summary: Clone planning scenario
@@ -4789,7 +4513,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/planning/block_save.php:
+  /ctp/planning/block_save:
     post:
       tags: [CTP-Planning]
       summary: Create or update departure block
@@ -4855,7 +4579,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/planning/block_delete.php:
+  /ctp/planning/block_delete:
     post:
       tags: [CTP-Planning]
       summary: Delete departure block
@@ -4898,7 +4622,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/planning/assignment_save.php:
+  /ctp/planning/assignment_save:
     post:
       tags: [CTP-Planning]
       summary: Create or update track assignment
@@ -4955,7 +4679,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/planning/assignment_delete.php:
+  /ctp/planning/assignment_delete:
     post:
       tags: [CTP-Planning]
       summary: Delete track assignment
@@ -4998,7 +4722,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/planning/compute.php:
+  /ctp/planning/compute:
     post:
       tags: [CTP-Planning]
       summary: Compute planning scenario
@@ -5044,7 +4768,7 @@ paths:
         '500':
           $ref: '#/components/responses/ServerError'
 
-  /ctp/planning/apply_to_session.php:
+  /ctp/planning/apply_to_session:
     post:
       tags: [CTP-Planning]
       summary: Apply scenario to session
@@ -5593,214 +5317,6 @@ components:
             newest_calculation:
               type: string
               format: date-time
-
-    # ==========================================================================
-    # AIRSPACE ELEMENTS SCHEMAS
-    # ==========================================================================
-
-    AirspaceElement:
-      type: object
-      properties:
-        element_id:
-          type: integer
-        element_name:
-          type: string
-        element_type:
-          type: string
-          enum: [VOLUME, POINT, LINE]
-        element_subtype:
-          type: string
-          nullable: true
-        reference_boundary_id:
-          type: integer
-          nullable: true
-        reference_fix_name:
-          type: string
-          nullable: true
-        reference_airway:
-          type: string
-          nullable: true
-        geometry_wkt:
-          type: string
-          nullable: true
-          description: WKT representation of custom geometry
-        definition_json:
-          type: string
-          nullable: true
-        radius_nm:
-          type: number
-          nullable: true
-        floor_fl:
-          type: integer
-          nullable: true
-        ceiling_fl:
-          type: integer
-          nullable: true
-        category:
-          type: string
-          nullable: true
-        description:
-          type: string
-          nullable: true
-        created_by:
-          type: string
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-        is_active:
-          type: integer
-          enum: [0, 1]
-        ref_boundary_code:
-          type: string
-          nullable: true
-        ref_boundary_type:
-          type: string
-          nullable: true
-
-    AirspaceElementListResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        count:
-          type: integer
-        categories:
-          type: array
-          items:
-            type: string
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/AirspaceElement'
-
-    AirspaceElementDetailResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        data:
-          $ref: '#/components/schemas/AirspaceElement'
-        crossing_stats:
-          type: object
-          properties:
-            total_crossings:
-              type: integer
-            unique_flights:
-              type: integer
-            earliest_crossing:
-              type: string
-              format: date-time
-              nullable: true
-            latest_crossing:
-              type: string
-              format: date-time
-              nullable: true
-
-    AirspaceElementCreate:
-      type: object
-      required:
-        - element_name
-        - element_type
-      properties:
-        element_name:
-          type: string
-          description: Unique name for the element (e.g., FCA_KJFK_WEST)
-        element_type:
-          type: string
-          enum: [VOLUME, POINT, LINE]
-        element_subtype:
-          type: string
-          description: Subtype (ARTCC, SECTOR_HIGH, FIX, AIRWAY, etc.)
-        reference_boundary_id:
-          type: integer
-          description: ID of existing boundary to reference
-        reference_fix_name:
-          type: string
-          description: Name of fix to reference (for POINT types)
-        reference_airway:
-          type: string
-          description: Airway identifier to reference (for LINE types)
-        geometry_wkt:
-          type: string
-          description: WKT geometry (POLYGON, POINT, or LINESTRING)
-        definition_json:
-          type: object
-          description: JSON definition for UI display
-        radius_nm:
-          type: number
-          description: Radius in nautical miles (for POINT types)
-        floor_fl:
-          type: integer
-          description: Floor flight level constraint
-        ceiling_fl:
-          type: integer
-          description: Ceiling flight level constraint
-        category:
-          type: string
-          description: Category (TMI, FCA, AFP, REROUTE, CUSTOM)
-        description:
-          type: string
-          description: Brief description of the element
-
-    AirspaceElementUpdate:
-      type: object
-      required:
-        - element_id
-      properties:
-        element_id:
-          type: integer
-        element_name:
-          type: string
-        element_type:
-          type: string
-          enum: [VOLUME, POINT, LINE]
-        element_subtype:
-          type: string
-        reference_boundary_id:
-          type: integer
-        reference_fix_name:
-          type: string
-        reference_airway:
-          type: string
-        geometry_wkt:
-          type: string
-        definition_json:
-          type: object
-        radius_nm:
-          type: number
-        floor_fl:
-          type: integer
-        ceiling_fl:
-          type: integer
-        category:
-          type: string
-        description:
-          type: string
-        is_active:
-          type: integer
-          enum: [0, 1]
-
-    LookupResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-        type:
-          type: string
-        count:
-          type: integer
-        data:
-          type: array
-          items:
-            type: object
-        boundary_types:
-          type: array
-          items:
-            type: string
-          description: Available boundary types (only for boundaries lookup)
 
     ErrorResponse:
       type: object
