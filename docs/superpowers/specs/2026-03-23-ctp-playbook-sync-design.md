@@ -158,38 +158,69 @@ CREATE UNIQUE INDEX IX_playbook_routes_external
 
 ### Sync Algorithm
 
-Each playbook is synced in its own MySQL transaction. If one play fails, previously synced plays remain committed and can be skipped on re-send (via per-play revision tracking). This matches the idempotency design — partial failures are recoverable by re-sending the same revision.
+The algorithm is structured in three phases to minimize redundant work:
 
-Per playbook (4 iterations: full, na, emea, ocean):
+1. **Diff phase** — compute all diffs across all 4 playbooks (pure MySQL, no PostGIS)
+2. **Traversal phase** — call PostGIS once per unique `route_string` that needs processing
+3. **Write phase** — apply cached results to all playbooks, batch-write changelog entries
 
-1. **Begin transaction.**
+Each playbook is written in its own MySQL transaction. If one play fails, previously synced plays remain committed and can be skipped on re-send (via per-play revision tracking).
 
-2. **Filter** incoming routes by group mapping. For FULL: all routes. For scoped plays: only routes whose group maps to that scope.
+#### Phase 1: Diff (all plays)
 
-3. **Idempotency check**: If `play.external_revision >= incoming revision`, skip this play (no transaction needed). This means re-sends of the same revision return `200` with zero counts, not `409`.
+For each of the 4 plays (full, na, emea, ocean):
 
-4. **Load** current routes: `SELECT * FROM playbook_routes WHERE play_id = ? AND external_source = 'CTP'`, indexed by `external_id`.
+1. **Filter** incoming routes by group mapping. For FULL: all routes. For scoped plays: only routes whose group maps to that scope.
 
-5. **Diff**:
+2. **Idempotency check**: If `play.external_revision >= incoming revision`, skip this play entirely. Re-sends return `200` with zero counts, not `409`.
+
+3. **Load** current routes: `SELECT * FROM playbook_routes WHERE play_id = ? AND external_source = 'CTP'`, indexed by `external_id`.
+
+4. **Diff** into three buckets:
    - Incoming `external_id` not in current → **ADD**
-   - Incoming `external_id` in current, any field changed (`route_string`, `external_facilities`, `external_tags`, `external_group`) → **UPDATE**
+   - Incoming `external_id` in current, any field changed → **UPDATE** (sub-classified below)
    - Current `external_id` not in incoming → **DELETE**
    - All fields match → **SKIP**
 
-6. **Process additions and updates**:
-   - Write `route_string` and `external_*` fields
-   - Set `origin` and `dest`: use `_extractRouteEndpoint()` on the first/last tokens of the route string. For routes starting/ending with airports (e.g., `KJFK ... EGLL`), this extracts them correctly. For oceanic routes starting/ending with waypoints (e.g., `SUNOT ... MALOT`), `origin`/`dest` are set to the waypoint name (acceptable — these are not airports but are still meaningful endpoint labels).
-   - Call `computeTraversedFacilities($route_string, ...)` — same function used by `api/mgt/playbook/route.php`
-   - This runs PostGIS `expand_route_with_artccs()` to compute: `origin_artccs`, `dest_artccs`, `origin_tracons`, `dest_tracons`, route geometry, distance, waypoint list
-   - **PostGIS context note**: For oceanic routes, there are no bookend airports to prepend/append. The LINESTRING starts/ends at the first/last waypoint. This is acceptable — the route geometry accurately represents the segment.
+5. **Sub-classify updates**:
+   - `route_string` changed → **ROUTE_CHANGED** (needs PostGIS recomputation)
+   - Only `external_facilities`, `external_tags`, or `external_group` changed → **METADATA_ONLY** (skip PostGIS, update external fields only)
 
-7. **Process deletions**: DELETE the route row.
+Collect all unique `route_string` values from ADDs and ROUTE_CHANGED updates across all 4 plays into a deduplication set.
 
-8. **Changelog**: One `playbook_changelog` entry per change (see below).
+#### Phase 2: Traversal (deduplicated PostGIS)
 
-9. **Update play**: Set `external_revision = incoming revision`, `updated_at = NOW()`, `updated_by = changed_by_cid`.
+For each unique `route_string` in the deduplication set (N calls, not 2N+):
 
-10. **Commit transaction.**
+1. Extract `origin`/`dest` via `_extractRouteEndpoint()` on the first/last tokens. For airport-starting routes (e.g., `KJFK ...`), this extracts correctly. For oceanic waypoint-only routes (e.g., `VESMI ... BALIX`), origin/dest are set to the waypoint name — acceptable as meaningful endpoint labels.
+
+2. Call `computeTraversedFacilities($route_string, ...)` — same function used by `api/mgt/playbook/route.php`. This runs PostGIS `expand_route_with_artccs()` to compute: `origin_artccs`, `dest_artccs`, `origin_tracons`, `dest_tracons`, route geometry, distance, waypoint list.
+
+3. Cache the result keyed by `route_string`.
+
+**PostGIS context note**: For oceanic routes, there are no bookend airports to prepend/append. The LINESTRING starts/ends at the first/last waypoint. This is acceptable — the route geometry accurately represents the segment.
+
+**Deduplication impact**: Each route appears in FULL + its scoped play = 2 playbooks. With N incoming routes, the naive approach would make ~2N PostGIS calls. With deduplication, it's at most N calls. For metadata-only updates it's 0 calls.
+
+#### Phase 3: Write (per play, batched)
+
+For each play that has changes:
+
+1. **Begin transaction.**
+
+2. **Batch-insert new routes**: Multi-row `INSERT INTO playbook_routes (play_id, route_string, external_id, external_source, external_group, external_facilities, external_tags, origin, dest, origin_artccs, dest_artccs, ...) VALUES (...), (...), (...)` using cached traversal results.
+
+3. **Update changed routes**:
+   - ROUTE_CHANGED: Update `route_string`, `external_*` fields, and all PERTI-computed fields from cached traversal. Prepared statement executed in a loop.
+   - METADATA_ONLY: Update only `external_facilities`, `external_tags`, `external_group`. No traversal fields touched.
+
+4. **Delete removed routes**: `DELETE FROM playbook_routes WHERE route_id IN (...)`.
+
+5. **Batch-insert changelog entries**: Multi-row `INSERT INTO playbook_changelog (...) VALUES (...), (...), (...)` for all changes in this play (see Changelog Entries below).
+
+6. **Update play**: Set `external_revision = incoming revision`, `updated_at = NOW()`, `updated_by = changed_by_cid`.
+
+7. **Commit transaction.**
 
 ### Changelog Entries
 
