@@ -544,7 +544,7 @@ The largest cost driver is the VATSIM_ADL Hyperscale Serverless database, which 
 
 ## Hibernation Mode
 
-> **Status:** ACTIVE since March 13, 2026 (SWIM exempt)
+> **Status:** ACTIVE since March 22, 2026 (SWIM exempt)
 
 During hibernation, the system operates in reduced capacity. SWIM pages and API endpoints remain operational during hibernation. All SWIM sync daemons continue running.
 
@@ -562,11 +562,11 @@ During hibernation, the system operates in reduced capacity. SWIM pages and API 
 | SWIM API | Active | Active (SWIM exempt) |
 | Azure SQL (ADL) | Hyperscale 3-16 vCores | Min 1, Max 4 |
 | MySQL | D2ds_v4 | B1ms (downscaled) |
-| PostgreSQL/PostGIS | B2s | B1ms (downscaled) |
+| PostgreSQL/PostGIS | B2s | B2s (kept for TMI Compliance) |
 
 **Monthly cost during hibernation:** ~$50-80 (vs ~$3,500 normal)
 
-**Backfill status:** Phase 3 of 6 in progress (crossing calculations for 705K flights)
+**Backfill status:** Phase 3 of 6 in progress (crossing calculations)
 
 See `docs/HIBERNATION_RUNBOOK.md` for entry/exit procedures.
 

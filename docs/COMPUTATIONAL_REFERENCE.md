@@ -1,6 +1,6 @@
 # PERTI Computational Reference
 
-> **System Status: HIBERNATED** (since March 9, 2026) — See `HIBERNATION_RUNBOOK.md` for exit procedure.
+> **System Status: HIBERNATED** (since March 22, 2026, SWIM exempt) — See `HIBERNATION_RUNBOOK.md` for exit procedure.
 
 Detailed technical reference for every computational system, algorithm, formula, and data pipeline in PERTI. This document supplements `DEPLOYMENT_GUIDE.md` with the implementation details needed to understand, maintain, and extend each subsystem.
 

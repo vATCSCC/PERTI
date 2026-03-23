@@ -246,7 +246,7 @@ PERTI/
 │       ├── tsconfig.json
 │       └── README.md
 └── docs/swim/
-    ├── VATSIM_SWIM_API_Documentation.md
+    ├── VATSWIM_API_Documentation.md
     ├── SWIM_TODO.md
     ├── openapi.yaml
     └── VATSIM_SWIM_API.postman_collection.json
@@ -272,11 +272,50 @@ PERTI/
 | `/api/swim/v1/flights` | GET | ✅ |
 | `/api/swim/v1/flight` | GET | ✅ |
 | `/api/swim/v1/positions` | GET | ✅ |
+| `/api/swim/v1/metering` | GET | ✅ |
+| `/api/swim/v1/health` | GET | ✅ |
+| `/api/swim/v1/controllers` | GET | ✅ |
+| `/api/swim/v1/cdm/airport-status` | GET | ✅ |
+| `/api/swim/v1/cdm/compliance` | GET | ✅ |
+| `/api/swim/v1/cdm/metrics` | GET | ✅ |
+| `/api/swim/v1/cdm/readiness` | GET | ✅ |
+| `/api/swim/v1/cdm/status` | GET | ✅ |
+| `/api/swim/v1/connectors/health` | GET | ✅ |
+| `/api/swim/v1/connectors/status` | GET | ✅ |
+| `/api/swim/v1/ctp/sessions` | GET | ✅ |
+| `/api/swim/v1/playbook/analysis` | GET | ✅ |
+| `/api/swim/v1/playbook/plays` | GET | ✅ |
+| `/api/swim/v1/playbook/throughput` | GET | ✅ |
+| `/api/swim/v1/reference/taxi-times` | GET | ✅ |
+| `/api/swim/v1/routes/cdrs` | GET | ✅ |
 | `/api/swim/v1/tmi/programs` | GET | ✅ |
 | `/api/swim/v1/tmi/controlled` | GET | ✅ |
+| `/api/swim/v1/tmi/advisories` | GET | ✅ |
+| `/api/swim/v1/tmi/entries` | GET | ✅ |
+| `/api/swim/v1/tmi/measures` | GET | ✅ |
+| `/api/swim/v1/tmi/reroutes` | GET | ✅ |
+| `/api/swim/v1/tmi/routes` | GET | ✅ |
+| `/api/swim/v1/tmi/nat_tracks/metrics` | GET | ✅ |
+| `/api/swim/v1/tmi/nat_tracks/status` | GET | ✅ |
+| `/api/swim/v1/tmi/flow/events` | GET | ✅ |
+| `/api/swim/v1/tmi/flow/measures` | GET | ✅ |
+| `/api/swim/v1/tmi/flow/providers` | GET | ✅ |
 | `/api/swim/v1/ingest/adl` | POST | ✅ |
 | `/api/swim/v1/ingest/track` | POST | ✅ |
+| `/api/swim/v1/ingest/acars` | POST | ✅ |
+| `/api/swim/v1/ingest/cdm` | POST | ✅ |
+| `/api/swim/v1/ingest/ctp` | POST | ✅ |
+| `/api/swim/v1/ingest/ctp_event` | POST | ✅ |
+| `/api/swim/v1/ingest/metering` | POST | ✅ |
+| `/api/swim/v1/ingest/simtraffic` | POST | ✅ |
+| `/api/swim/v1/ingest/vnas/controllers` | POST | ✅ |
+| `/api/swim/v1/ingest/vnas/handoff` | POST | ✅ |
+| `/api/swim/v1/ingest/vnas/tags` | POST | ✅ |
+| `/api/swim/v1/ingest/vnas/track` | POST | ✅ |
+| `/api/swim/v1/keys/provision` | POST | ✅ |
+| `/api/swim/v1/keys/revoke` | POST | ✅ |
 | `/api/swim/v1/ws` | WS | ✅ |
+| `/api/swim/v1/ws/publish` | POST | ✅ |
 
 ---
 

@@ -1,6 +1,6 @@
 # Daemons and Scripts
 
-> **HIBERNATION MODE ACTIVE** (since March 13, 2026): ADL Ingest and all SWIM daemons run during hibernation (SWIM exempt). All non-SWIM daemons are suspended. See `docs/HIBERNATION_RUNBOOK.md` for re-activation procedures.
+> **HIBERNATION MODE ACTIVE** (since March 22, 2026): ADL Ingest and all SWIM daemons run during hibernation (SWIM exempt). All non-SWIM daemons are suspended. See `docs/HIBERNATION_RUNBOOK.md` for re-activation procedures.
 
 Background processes that keep PERTI data current. All 17 daemons are started at App Service boot via `scripts/startup.sh` and run continuously (ADL Archive is conditional on `ADL_ARCHIVE_STORAGE_CONN`).
 

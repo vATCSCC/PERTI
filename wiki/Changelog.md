@@ -8,7 +8,7 @@ This document tracks significant changes to PERTI across versions.
 
 *Released: March 2026*
 
-> **Note:** System re-entered hibernation mode on March 13, 2026 with SWIM exemption — all SWIM daemons and API endpoints remain active. A backfill pipeline is processing historical data (Phase 3 of 6 in progress).
+> **Note:** System in hibernation mode since March 22, 2026 with SWIM exemption — all SWIM daemons and API endpoints remain active.
 
 ### SWIM Data Isolation (Phase 4 — Migration 026)
 

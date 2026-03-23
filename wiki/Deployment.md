@@ -381,7 +381,7 @@ Azure SQL Database firewall must allow:
 
 ## Hibernation Mode
 
-> **Current Status:** Hibernation active since March 9, 2026.
+> **Current Status:** Hibernation active since March 22, 2026 (SWIM exempt).
 
 Hibernation mode is a cost-saving operational state that suspends most processing while preserving core data ingestion. During hibernation:
 
@@ -391,21 +391,20 @@ Hibernation mode is a cost-saving operational state that suspends most processin
 |----------|-------------|------------------|
 | Azure SQL (ADL) | Hyperscale Serverless 3/16 vCores | Min 1 / Max 4 vCores |
 | MySQL (perti_site) | General Purpose D2ds_v4 | Burstable B1ms |
-| PostgreSQL (GIS) | Burstable B2s | Burstable B1ms |
+| PostgreSQL (GIS) | Burstable B2s | Burstable B2s (kept for TMI Compliance) |
 
 ### Daemon Status During Hibernation
 
-Only the core **ADL Ingest daemon** (`scripts/vatsim_adl_daemon.php`) continues running. All other 14 daemons are suspended:
+The core **ADL Ingest daemon** and all **SWIM daemons** continue running (SWIM exempt). Non-SWIM daemons are suspended:
 
-- Parse Queue, Boundary Detection, Crossing Calculation, Waypoint ETA -- all stopped
-- SWIM WebSocket, SWIM Sync, SimTraffic Poll, Reverse Sync -- all stopped
-- Scheduler, Archival, Monitoring, Discord Queue, Event Sync, ADL Archive -- all stopped
+- **Running:** ADL Ingest, SWIM WebSocket, SWIM Sync, SimTraffic Poll, Reverse Sync
+- **Stopped:** Parse Queue, Boundary Detection, Crossing Calculation, Waypoint ETA, Scheduler, Archival, Monitoring, Discord Queue, Event Sync, ADL Archive
 
 ### Web Application Behavior
 
 - Most authenticated pages redirect to `/hibernation` (info page)
-- SWIM API returns HTTP 503 (Service Unavailable)
-- `review.php` is exempted from the redirect (remains accessible)
+- SWIM API remains operational (SWIM exempt since March 2026)
+- `review.php` is exempted from the redirect (remains accessible for TMR + TMI Compliance Analysis)
 - Public pages (JATOC, NOD) are redirected
 
 ### Configuration

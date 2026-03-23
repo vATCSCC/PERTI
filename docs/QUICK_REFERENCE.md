@@ -2,7 +2,7 @@
 
 Quick lookup for common codebase elements. Last updated: 2026-03-12
 
-> **SYSTEM STATUS: HIBERNATED** (since March 9, 2026). Only the ADL ingest daemon runs (15s cycle). All other daemons suspended. Azure resources downscaled. SWIM API returns 503. See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
+> **SYSTEM STATUS: HIBERNATED** (since March 22, 2026). ADL ingest + all SWIM daemons run (SWIM exempt). Non-SWIM daemons suspended. Azure resources downscaled (PostGIS kept at B2s). See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
 
 ---
 
@@ -19,7 +19,7 @@ Quick lookup for common codebase elements. Last updated: 2026-03-12
 | `/api/adl/trajectory.php` | GET | Flight trajectory points |
 | `/api/adl/crossings.php` | GET | Boundary crossing data |
 
-### Airspace Element Demand
+### ADL Demand
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -332,7 +332,6 @@ Quick lookup for common codebase elements. Last updated: 2026-03-12
 | Plan | `plan.php` | Planning worksheets |
 | Transparency | `transparency.php` | Infrastructure transparency page |
 | Airport Configs | `airport_config.php` | Runway configuration |
-| Airspace Elements | `airspace-elements.php` | Custom airspace elements |
 | TMI Publisher | `tmi-publish.php` | TMI publishing to Discord |
 | Playbook | `playbook.php` | Route play catalog (FAA/DCC/ECFMP/CANOC) |
 | System Status | `status.php` | System health dashboard |

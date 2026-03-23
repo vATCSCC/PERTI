@@ -4,8 +4,8 @@
 
 Hibernation mode is an open-ended operational pause that reduces PERTI to core data collection plus VATSWIM. Most downstream flight processing and several UI pages are suspended, but **SWIM API, SWIM pages, and SWIM daemons remain fully operational**. Azure resources are downscaled to match the reduced workload.
 
-**Status**: Inactive (exited 2026-03-20)
-**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption; Exited March 20, 2026
+**Status**: Active (entered 2026-03-22, PostGIS kept at B2s, review/TMR/TMI Compliance exempt)
+**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption; Exited March 20, 2026; Re-entered March 22, 2026 with PostGIS at B2s + review/TMR/TMI Compliance exemption
 
 ---
 
