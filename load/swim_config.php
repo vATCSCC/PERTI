@@ -104,6 +104,9 @@ $SWIM_DATA_SOURCES = [
     'VEDST'           => 'vedst',            // vEDST - Enhanced Departure Sequencing Tool
     'VATIS'           => 'vatis',            // vATIS correlation (runway, weather)
 
+    // CTP integration (vatsimnetwork/ctp-api)
+    'CTP_API'         => 'ctp_api',          // CTP API slot optimizer (slot assignments, NAT tracks)
+
     // CDM sources (A-CDM milestone data)
     'VACDM'           => 'vacdm',            // vACDM instances (TOBT/TSAT/TTOT)
     'CDM_PLUGIN'      => 'cdm_plugin',       // CDM Plugin (departure sequencing)
@@ -154,7 +157,10 @@ $SWIM_DATA_AUTHORITY = [
     'airline'       => ['VIRTUAL_AIRLINE', false],
 
     // CDM milestone data - vACDM primary, CDM Plugin and vATCSCC can override
-    'cdm'           => ['VACDM', true]
+    'cdm'           => ['VACDM', true],
+
+    // CTP slot data - CTP API primary, vATCSCC can override
+    'ctp'           => ['CTP_API', true],
 
     // TODO: Uncomment when migration 024 is deployed and controller data is ready
     // // Controller data - vNAS primary, VATSIM datafeed fallback
@@ -286,6 +292,12 @@ $SWIM_SOURCE_PRIORITY = [
         'vatcscc'    => 3,  // PERTI manual/automated CDM
     ],
 
+    // CTP slot assignment data (EDCTs, NAT tracks, route segments)
+    'ctp' => [
+        'ctp_api'    => 1,  // CTP API optimizer is primary for slot assignments
+        'vatcscc'    => 2,  // PERTI manual slot overrides
+    ],
+
     // TODO: Uncomment when migration 024 is deployed and controller data is ready
     // // Controller data (positions, sectors, roles)
     // 'controller' => [
@@ -371,6 +383,11 @@ $SWIM_FIELD_MERGE_BEHAVIOR = [
     'runway'           => 'variable',
     'sta_meter_fix_utc'=> 'variable',   // STA at meter fix (TBFM-style)
 
+    // CTP fields - variable (CTP API or vATCSCC can update)
+    'resolved_nat_track'      => 'variable',
+    'nat_track_resolved_at'   => 'variable',
+    'nat_track_source'        => 'variable',
+
     // Flight plan core - immutable (only VATSIM)
     'fp_dept_icao'     => 'immutable',
     'fp_dest_icao'     => 'immutable',
@@ -447,6 +464,11 @@ $SWIM_FIELD_AUTHORITY_MAP = [
     'expected_taxi_out_time'         => 'cdm',   // SWIM column: EXOT
     'eu_atfcm_status'                => 'cdm',   // SWIM column: EU ATFCM status
     'controlled_time_of_departure'   => 'cdm',   // SWIM column: CTD (writable by CDM sources)
+
+    // CTP fields - ctp authority (CTP API primary)
+    'resolved_nat_track'      => 'ctp',
+    'nat_track_resolved_at'   => 'ctp',
+    'nat_track_source'        => 'ctp',
 
     // Metering fields - metering authority (SimTraffic primary)
     'sequence'          => 'metering',
@@ -798,6 +820,7 @@ function swim_should_accept_update($field, $incoming_source, $incoming_timestamp
         'tmi'        => 'times',
         'adl'        => 'times',
         'cdm'        => 'cdm',           // CDM milestones use cdm priority
+        'ctp'        => 'ctp',           // CTP slot data use ctp priority
     ];
     $priority_group = $priority_group_map[$authority_group] ?? 'times';
 
