@@ -300,11 +300,8 @@ class TmiAuth {
             return trim($_SERVER['HTTP_X_API_KEY']);
         }
         
-        // Query parameter (for internal debugging only)
-        if (isset($_GET['api_key']) && defined('DEV') && DEV === true) {
-            return trim($_GET['api_key']);
-        }
-        
+        // Query parameter auth removed — API keys must be sent via headers only
+
         return null;
     }
     

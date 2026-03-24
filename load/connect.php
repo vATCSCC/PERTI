@@ -12,6 +12,9 @@ define('CONNECT_PHP_LOADED', true);
 
 include_once(__DIR__ . "/config.php");
 
+// Load shared constants, CORS helper, and auth helper (guard: PERTI_CONSTANTS_LOADED)
+require_once(__DIR__ . '/perti_constants.php');
+
 // Include safe input handling functions for PHP 8.2+
 require_once(__DIR__ . '/input.php');
 

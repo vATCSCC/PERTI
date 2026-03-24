@@ -16,7 +16,7 @@
 
 header('Content-Type: application/json');
 header('Cache-Control: max-age=300'); // Cache for 5 minutes
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 

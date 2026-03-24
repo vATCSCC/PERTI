@@ -19,6 +19,90 @@ if (defined('PERTI_CONSTANTS_LOADED')) return;
 define('PERTI_CONSTANTS_LOADED', true);
 
 // =============================================================================
+// CORS Origin Whitelist (shared across all API endpoints)
+// Canonical list — matches lib/Response.php and api/tmi/helpers.php
+// =============================================================================
+
+/** Allowed CORS origins for API responses */
+const PERTI_ALLOWED_ORIGINS = [
+    'https://perti.vatcscc.org',
+    'https://vatcscc.org',
+    'https://vatcscc.azurewebsites.net',
+    'https://swim.vatcscc.org',
+    'http://localhost',
+    'http://localhost:3000',
+    'http://localhost:8080',
+];
+
+/**
+ * Set CORS headers using the origin whitelist.
+ * No wildcard fallback — unknown origins get no Access-Control-Allow-Origin header.
+ *
+ * Call this instead of header('Access-Control-Allow-Origin: *').
+ *
+ * @param bool $allow_credentials Whether to send Access-Control-Allow-Credentials: true
+ */
+function perti_set_cors(bool $allow_credentials = false): void {
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+    if (in_array($origin, PERTI_ALLOWED_ORIGINS, true)) {
+        header("Access-Control-Allow-Origin: {$origin}");
+    } elseif (preg_match('/^https?:\/\/localhost(:\d+)?$/', $origin)) {
+        header("Access-Control-Allow-Origin: {$origin}");
+    }
+    // No wildcard fallback — request fails CORS silently if not in whitelist
+
+    header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, X-API-Key, X-SWIM-Source');
+    header('Access-Control-Max-Age: 86400');
+    header('Vary: Origin');
+
+    if ($allow_credentials) {
+        header('Access-Control-Allow-Credentials: true');
+    }
+}
+
+/**
+ * Handle OPTIONS preflight and exit.
+ * Call at the top of API endpoints before routing.
+ */
+function perti_handle_preflight(): void {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
+        perti_set_cors();
+        http_response_code(204);
+        exit;
+    }
+}
+
+/**
+ * Require session authentication for API endpoints.
+ * Returns the authenticated user's CID or sends 401 and exits.
+ *
+ * @param bool $start_session Whether to start session if not active
+ * @return string The authenticated user's VATSIM CID
+ */
+function perti_require_auth(bool $start_session = true): string {
+    if ($start_session && session_status() === PHP_SESSION_NONE && !headers_sent()) {
+        @session_start();
+    }
+
+    $cid = $_SESSION['VATSIM_CID'] ?? null;
+
+    if (empty($cid)) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => false,
+            'error' => 'Authentication required',
+            'error_code' => 401
+        ]);
+        exit;
+    }
+
+    return (string)$cid;
+}
+
+// =============================================================================
 // TMI Types (mirrors perti.js ATFM.TMI_TYPES)
 // =============================================================================
 
