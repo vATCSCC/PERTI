@@ -1,5 +1,7 @@
 <?php /* route.php - merged groups_v4 + updated_v3 (header comment added) */
 include("sessions/handler.php");
+include_once("load/config.php");
+define('PERTI_MYSQL_ONLY', true);
 include("load/i18n.php");
 include("load/org_context.php");
 $is_canoc = (get_org_code() === 'canoc');
