@@ -138,7 +138,7 @@ $entries = $payload['entries'];
 $production = !empty($payload['production']);
 $userCid = $payload['userCid'] ?? null;
 $userName = $payload['userName'] ?? 'Unknown';
-$asyncDiscord = $payload['async'] ?? false; // DISABLED: Queue processor not implemented - post directly to Discord
+$asyncDiscord = $payload['async'] ?? false; // Async mode: queues to tmi_discord_posts, processed by scripts/tmi/process_discord_queue.php
 
 // Get org code from session context
 if (session_status() === PHP_SESSION_NONE) {
@@ -340,10 +340,16 @@ foreach ($entries as $index => $entry) {
             'chunks' => $totalChunks
         ]);
 
-        // Get target orgs
-        $targetOrgs = $entry['orgs'] ?? ['vatcscc'];
+        // Get target orgs — auto-detect cross-border targets when not provided by frontend
+        $targetOrgs = $entry['orgs'] ?? null;
+        if (empty($targetOrgs) && $multiDiscord) {
+            $entryData = $entry['data'] ?? $entry;
+            $userHomeOrg = $org_code ?? 'vatcscc';
+            $targetOrgs = $multiDiscord->determineTargetOrgs($entryData, $userHomeOrg, false);
+            tmi_debug_log("Auto-detected target orgs", ['orgs' => $targetOrgs, 'home' => $userHomeOrg]);
+        }
         if (empty($targetOrgs)) {
-            $targetOrgs = ['vatcscc'];
+            $targetOrgs = [$org_code ?? 'vatcscc'];
         }
 
         // Post to Discord
@@ -458,6 +464,22 @@ foreach ($entries as $index => $entry) {
                         'error' => $lastError
                     ];
 
+                    // Track in tmi_discord_posts for multi-org message tracking
+                    if ($databaseId && $tmiConn) {
+                        trackDiscordPost(
+                            $tmiConn,
+                            $isAdvisory ? 'ADVISORY' : 'ENTRY',
+                            $databaseId,
+                            $orgCode,
+                            $channelPurpose,
+                            null, // channel_id not available from multi-Discord
+                            $firstMessageId,
+                            $allSuccess ? 'POSTED' : 'FAILED',
+                            $userCid,
+                            $userName
+                        );
+                    }
+
                     tmi_debug_log("Post result for {$orgCode}", $discordResults[$orgCode]);
                 }
             } else {
@@ -513,6 +535,22 @@ foreach ($entries as $index => $entry) {
                         'chunks_posted' => $totalChunks,
                         'error' => $lastError
                     ];
+
+                    // Track in tmi_discord_posts for single-Discord fallback
+                    if ($databaseId && $tmiConn) {
+                        trackDiscordPost(
+                            $tmiConn,
+                            $isAdvisory ? 'ADVISORY' : 'ENTRY',
+                            $databaseId,
+                            'vatcscc',
+                            $channelPurpose,
+                            $channelId,
+                            $firstMessageId,
+                            $allSuccess ? 'POSTED' : 'FAILED',
+                            $userCid,
+                            $userName
+                        );
+                    }
 
                     tmi_debug_log("Discord response", $discordResults['vatcscc']);
                 } else {
@@ -1166,4 +1204,56 @@ function queueDiscordPost($conn, $entityType, $entityId, $orgCode, $channelPurpo
     ]);
 
     return $conn->lastInsertId();
+}
+
+/**
+ * Track a Discord post in tmi_discord_posts for multi-org message tracking.
+ *
+ * @param PDO $conn TMI database connection (PDO)
+ * @param string $entityType 'ENTRY' or 'ADVISORY'
+ * @param int $entityId Entity ID
+ * @param string $orgCode Discord org code (e.g., 'vatcscc')
+ * @param string $channelPurpose Channel purpose (e.g., 'ntml', 'advisories')
+ * @param string|null $channelId Discord channel ID
+ * @param string|null $messageId Discord message ID
+ * @param string $status Post status ('POSTED', 'FAILED', etc.)
+ * @param string|null $createdBy VATSIM CID
+ * @param string|null $createdByName Display name
+ */
+function trackDiscordPost($conn, $entityType, $entityId, $orgCode, $channelPurpose, $channelId, $messageId, $status, $createdBy = null, $createdByName = null) {
+    try {
+        $sql = "INSERT INTO dbo.tmi_discord_posts (
+                    entity_type, entity_id, org_code, channel_purpose,
+                    channel_id, message_id, status, direction,
+                    posted_at, created_by, created_by_name
+                ) VALUES (
+                    :entity_type, :entity_id, :org_code, :channel_purpose,
+                    :channel_id, :message_id, :status, 'OUTBOUND',
+                    CASE WHEN :status_check = 'POSTED' THEN SYSUTCDATETIME() ELSE NULL END,
+                    :created_by, :created_by_name
+                )";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->execute([
+            ':entity_type' => $entityType,
+            ':entity_id' => $entityId,
+            ':org_code' => $orgCode,
+            ':channel_purpose' => $channelPurpose,
+            ':channel_id' => $channelId ?? 'UNKNOWN',
+            ':message_id' => $messageId,
+            ':status' => $status,
+            ':status_check' => $status,
+            ':created_by' => $createdBy,
+            ':created_by_name' => $createdByName,
+        ]);
+
+        tmi_debug_log("Tracked Discord post", [
+            'entity' => $entityType . '#' . $entityId,
+            'org' => $orgCode,
+            'message_id' => $messageId,
+            'status' => $status,
+        ]);
+    } catch (Exception $e) {
+        tmi_debug_log("Failed to track Discord post", ['error' => $e->getMessage()]);
+    }
 }

@@ -161,8 +161,8 @@
         const sourceDetails = document.getElementById('gsgdpSourceDetails');
         if (sourceInfo && sourceDetails) {
             sourceInfo.style.display = '';
-            sourceDetails.textContent = ' - ' + state.handoffType + ' for ' + (data.ctl_element || 'Unknown') +
-                                        ' received at ' + formatTime(data.created_at);
+            sourceDetails.textContent = ' - ' + state.handoffType + ' for ' + (data.ctl_element || PERTII18n.t('common.unknown')) +
+                                        ' ' + PERTII18n.t('tmiGdp.receivedAt', { time: formatTime(data.created_at) });
         }
 
         // Update header
@@ -205,11 +205,11 @@
 
             const summary = data.summary || data.simulation_data || {};
             document.getElementById('gsgdpProgramRate').textContent =
-                (data.program_rate || summary.program_rate || '--') + '/hr';
+                (data.program_rate || summary.program_rate || '--') + PERTII18n.t('tmiGdp.perHour');
             document.getElementById('gsgdpAvgDelay').textContent =
-                (summary.avg_delay_min || summary.avg_delay || summary.avgDelay || '--') + ' min';
+                (summary.avg_delay_min || summary.avg_delay || summary.avgDelay || '--') + PERTII18n.t('tmiGdp.minutesSuffix');
             document.getElementById('gsgdpMaxDelay').textContent =
-                (summary.max_delay_min || summary.max_delay || summary.maxDelay || '--') + ' min';
+                (summary.max_delay_min || summary.max_delay || summary.maxDelay || '--') + PERTII18n.t('tmiGdp.minutesSuffix');
         }
 
         // Flight list
@@ -644,7 +644,7 @@
                 if (statsEl && stats.total > 0) {
                     const avgDelay = Math.round(stats.avg_delay_min || 0);
                     const maxDelay = stats.max_delay_min || 0;
-                    statsEl.textContent = 'Avg: ' + avgDelay + ' / Max: ' + maxDelay + ' min';
+                    statsEl.textContent = PERTII18n.t('tmiGdp.statsAvgMax', { avg: avgDelay, max: maxDelay });
                     statsEl.style.display = '';
                 }
 
@@ -659,8 +659,8 @@
 
                 // Update GS/GDP specific displays
                 if (state.handoffType === 'GDP') {
-                    document.getElementById('gsgdpAvgDelay').textContent = Math.round(stats.avg_delay_min || 0) + ' min';
-                    document.getElementById('gsgdpMaxDelay').textContent = (stats.max_delay_min || 0) + ' min';
+                    document.getElementById('gsgdpAvgDelay').textContent = Math.round(stats.avg_delay_min || 0) + PERTII18n.t('tmiGdp.minutesSuffix');
+                    document.getElementById('gsgdpMaxDelay').textContent = (stats.max_delay_min || 0) + PERTII18n.t('tmiGdp.minutesSuffix');
                 } else {
                     document.getElementById('gsgdpAffectedFlights').textContent = stats.total || 0;
                 }
@@ -719,7 +719,7 @@
             facilities: facilities,
             advisory_text: advisoryText,
             user_cid: window.TMI_PUBLISHER_CONFIG?.userCid || null,
-            user_name: window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown',
+            user_name: window.TMI_PUBLISHER_CONFIG?.userName || PERTII18n.t('common.unknown'),
         };
 
         const btn = document.getElementById('gsgdpSubmitCoord');
@@ -803,7 +803,7 @@
             organizations: orgs,
             flights: state.handoffData.flights || [],
             user_cid: window.TMI_PUBLISHER_CONFIG?.userCid || null,
-            user_name: window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown',
+            user_name: window.TMI_PUBLISHER_CONFIG?.userName || PERTII18n.t('common.unknown'),
         };
 
         // Add type-specific data
@@ -1127,7 +1127,7 @@
             edct_action: edctAction,
             edct_action_time: edctActionTime,
             user_cid: window.TMI_PUBLISHER_CONFIG?.userCid || null,
-            user_name: window.TMI_PUBLISHER_CONFIG?.userName || 'Unknown',
+            user_name: window.TMI_PUBLISHER_CONFIG?.userName || PERTII18n.t('common.unknown'),
         };
 
         const btn = document.getElementById('confirmCancelBtn');

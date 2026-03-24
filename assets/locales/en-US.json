@@ -7382,13 +7382,30 @@
       "trailAircraft": "Trail Aircraft"
     }
   },
+  "tmiGdp": {
+    "minutesSuffix": " min",
+    "perHour": "/hr",
+    "receivedAt": "received at {time}",
+    "statsAvgMax": "Avg: {avg} / Max: {max} min"
+  },
   "tmiPublish": {
     "activeTmi": {
+      "details": "TMI Details",
       "detailsComingSoon": "{type} #{id} - Details view coming soon",
+      "field": {
+        "element": "CTL Element",
+        "provFacility": "Providing Facility",
+        "reqFacility": "Requesting Facility",
+        "status": "Status",
+        "type": "Type",
+        "validFrom": "Valid From",
+        "validUntil": "Valid Until"
+      },
       "loadFailed": "Failed to load TMIs",
       "loading": "Loading active TMIs...",
       "noActiveTmis": "No active TMIs found",
       "noActiveTmisDbError": "No active TMIs (database may not be configured)",
+      "notFoundText": "{type} #{id} not found or no longer available",
       "viewDetails": "View Details"
     },
     "advisoryTypes": {
@@ -7464,7 +7481,9 @@
       "cancelling": "Cancelling TMI...",
       "confirmBtn": "Cancel TMI",
       "failed": "Failed to cancel TMI",
-      "text": "This will cancel {type} #{id}"
+      "success": "TMI cancelled successfully",
+      "text": "This will cancel {type} #{id}",
+      "title": "Cancel TMI?"
     },
     "causes": {
       "airShow": "Air Show",
@@ -8223,7 +8242,9 @@
     "queue": {
       "addedToQueue": "Added to Queue",
       "clearQueue": "Clear Queue?",
-      "clearQueueText": "Remove all entries from the queue?"
+      "clearQueueText": "Remove all entries from the queue?",
+      "collapse": "Collapse",
+      "showFull": "Show full"
     },
     "queueItem": {
       "clearAll": "Clear All",

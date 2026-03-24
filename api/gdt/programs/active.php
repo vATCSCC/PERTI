@@ -45,6 +45,11 @@ $include_recent = isset($_GET['include_recent']) && $_GET['include_recent'] === 
 
 // ============================================================================
 // Auto-complete expired programs (ACTIVE with end_utc in the past)
+//
+// Design decision: Program expiry is checked here (on dashboard load) rather
+// than in a daemon, because GDT is the authoritative UI for program lifecycle.
+// This is the ONLY point where program auto-completion runs. The ADL daemon
+// reads program status but never changes it.
 // ============================================================================
 $auto_complete_sql = "
     UPDATE dbo.tmi_programs

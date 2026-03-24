@@ -4117,11 +4117,11 @@
             if (isExpanded) {
                 $full.hide();
                 $short.show();
-                $(this).html('<i class="fas fa-chevron-down"></i> Show full');
+                $(this).html('<i class="fas fa-chevron-down"></i> ' + PERTII18n.t('tmiPublish.queue.showFull'));
             } else {
                 $short.hide();
                 $full.show();
-                $(this).html('<i class="fas fa-chevron-up"></i> Collapse');
+                $(this).html('<i class="fas fa-chevron-up"></i> ' + PERTII18n.t('tmiPublish.queue.collapse'));
             }
         });
     }
@@ -5605,13 +5605,71 @@
     }
 
     function viewTmiDetails(id, entityType) {
-        PERTIDialog.info(
-            'tmiPublish.tmiDetails', null, {},
-            { text: PERTII18n.t('tmiPublish.activeTmi.detailsComingSoon', { type: entityType || PERTII18n.t('tmiPublish.generic.entry'), id: id }) },
-        );
+        const typeParam = (entityType || 'entry').toLowerCase();
+        $.ajax({
+            url: 'api/mgt/tmi/active.php',
+            method: 'GET',
+            data: { type: 'all', include_scheduled: '1', include_cancelled: '1', cancelled_hours: 24 },
+            success: function(response) {
+                if (!response.success) {
+                    PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('common.unknownError') });
+                    return;
+                }
+                const allEntries = [
+                    ...(response.data?.active || []),
+                    ...(response.data?.scheduled || []),
+                    ...(response.data?.cancelled || []),
+                ];
+                const match = allEntries.find(function(e) {
+                    const eid = (typeParam === 'advisory') ? e.advisory_id : e.entry_id;
+                    return eid === id || eid === String(id);
+                });
+                if (!match) {
+                    PERTIDialog.warning('tmiPublish.activeTmi.details', null, {}, {
+                        text: PERTII18n.t('tmiPublish.activeTmi.notFoundText', { type: entityType || PERTII18n.t('tmiPublish.generic.entry'), id: id }),
+                    });
+                    return;
+                }
+                const rows = [
+                    [PERTII18n.t('tmiPublish.activeTmi.field.type'), match.entry_type || match.advisory_type || '--'],
+                    [PERTII18n.t('tmiPublish.activeTmi.field.element'), match.ctl_element || '--'],
+                    [PERTII18n.t('tmiPublish.activeTmi.field.reqFacility'), match.requesting_facility || match.scope_facilities || '--'],
+                    [PERTII18n.t('tmiPublish.activeTmi.field.provFacility'), match.providing_facility || '--'],
+                    [PERTII18n.t('tmiPublish.activeTmi.field.validFrom'), match.valid_from || match.effective_from || '--'],
+                    [PERTII18n.t('tmiPublish.activeTmi.field.validUntil'), match.valid_until || match.effective_until || '--'],
+                    [PERTII18n.t('tmiPublish.activeTmi.field.status'), match.status || '--'],
+                ];
+                let tableHtml = '<table class="table table-sm table-bordered mb-2">';
+                rows.forEach(function(r) {
+                    tableHtml += '<tr><td class="font-weight-bold" style="width:40%">' + escapeHtml(r[0]) + '</td><td>' + escapeHtml(r[1]) + '</td></tr>';
+                });
+                tableHtml += '</table>';
+                if (match.raw_input || match.body_text) {
+                    tableHtml += '<pre class="bg-dark text-light p-2 rounded small" style="max-height:200px;overflow:auto;white-space:pre-wrap">' +
+                        escapeHtml(match.raw_input || match.body_text) + '</pre>';
+                }
+                Swal.fire({
+                    title: PERTII18n.t('tmiPublish.activeTmi.details') + ' #' + id,
+                    html: tableHtml,
+                    width: '600px',
+                    showConfirmButton: true,
+                    confirmButtonText: PERTII18n.t('common.close'),
+                });
+            },
+            error: function() {
+                PERTIDialog.error('tmiPublish.networkError');
+            },
+        });
     }
 
     function cancelTmi(id, entityType) {
+        // Delegate to TMIActiveDisplay's full cancel implementation when available
+        if (window.TMIActiveDisplay && typeof window.TMIActiveDisplay.cancelTmi === 'function') {
+            window.TMIActiveDisplay.cancelTmi(id, entityType);
+            return;
+        }
+
+        // Fallback: direct POST to cancel endpoint
         PERTIDialog.confirm(
             'tmiPublish.cancelTmi.title', null, {},
             {
@@ -5619,10 +5677,22 @@
                 confirmButtonColor: '#dc3545',
                 confirmButtonText: PERTII18n.t('tmiPublish.cancelTmi.confirmBtn'),
             },
-        ).then((result) => {
+        ).then(function(result) {
             if (result.isConfirmed) {
-                PERTIDialog.info('tmiPublish.comingSoon', null, {}, {
-                    text: PERTII18n.t('tmiPublish.rerouteBuilder.cancelComingSoon'),
+                $.ajax({
+                    url: 'api/mgt/tmi/cancel.php',
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ entityType: entityType, entityId: id }),
+                    success: function(resp) {
+                        if (resp.success) {
+                            PERTIDialog.success('tmiPublish.cancelTmi.success');
+                            loadActiveTmis();
+                        } else {
+                            PERTIDialog.error('common.error', null, {}, { text: resp.error || resp.message });
+                        }
+                    },
+                    error: function() { PERTIDialog.error('tmiPublish.networkError'); },
                 });
             }
         });
