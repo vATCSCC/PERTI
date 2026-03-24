@@ -12,6 +12,7 @@ include("load/i18n.php");
 <head>
     <?php $page_title = __('routes.title'); include("load/header.php"); ?>
     <link rel="stylesheet" href="assets/css/routes.css<?= _v('assets/css/routes.css') ?>">
+    <link rel="stylesheet" href="assets/css/route-analysis.css<?= _v('assets/css/route-analysis.css') ?>">
     <!-- MapLibre GL JS -->
     <script>window.PERTI_USE_MAPLIBRE = true;</script>
     <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
@@ -159,11 +160,124 @@ include("load/i18n.php");
         <div style="padding: 20px; text-align: center; color: #888;">
             Detail panel will appear here when a route is selected
         </div>
+        <!-- RouteAnalysisPanel container (shown only on Analysis tab) -->
+        <div id="routes_analysis_container" style="display:none; overflow-y: auto; height: calc(100% - 40px);">
+            <div id="route-analysis-panel" style="display:none;">
+                <div class="ra-header" id="ra-toggle">
+                    <span class="ra-title"><i class="fas fa-chart-line mr-2"></i>Route Analysis</span>
+                    <span id="ra-route-label" class="ra-route-label"></span>
+                    <div class="ra-controls">
+                        <div class="ra-speed-group">
+                            <label for="ra-cruise-speed">Speed</label>
+                            <input type="number" class="ra-speed-input" id="ra-cruise-speed" value="460" min="100" max="600" step="10">
+                            <span class="ra-speed-sep">|</span>
+                            <label for="ra-wind">Wind</label>
+                            <input type="number" class="ra-speed-input" id="ra-wind" value="0" min="-200" max="200" step="5">
+                            <span class="ra-speed-sep">|</span>
+                            <label for="ra-dep-time">Dep Time</label>
+                            <input type="text" class="ra-speed-input ra-dep-time-input" id="ra-dep-time" placeholder="Now" maxlength="5" title="Departure time in UTC (HH:MM)">
+                            <button class="ra-recalc-btn" id="ra-recalc-btn" title="Recalculate"><i class="fas fa-sync-alt"></i></button>
+                            <button class="ra-recalc-btn" id="ra-time-fmt-btn" title="Toggle time format"><i class="fas fa-clock"></i> <span id="ra-time-fmt-label">hh:mm:ss</span></button>
+                        </div>
+                        <div class="ra-export-dropdown">
+                            <button class="ra-export-btn" id="ra-export-btn"><i class="fas fa-download mr-1"></i>Export</button>
+                            <div class="ra-export-menu" id="ra-export-menu">
+                                <a href="#" id="ra-exp-clipboard"><i class="fas fa-clipboard"></i> Clipboard</a>
+                                <a href="#" id="ra-exp-txt"><i class="fas fa-file-alt"></i> TXT</a>
+                                <a href="#" id="ra-exp-csv"><i class="fas fa-file-csv"></i> CSV</a>
+                                <a href="#" id="ra-exp-xlsx"><i class="fas fa-file-excel"></i> XLSX</a>
+                            </div>
+                        </div>
+                    </div>
+                    <i class="fas fa-chevron-up ra-chevron"></i>
+                </div>
+                <div id="ra-body">
+                    <div class="ra-route-picker" id="ra-route-picker" style="display:none;">
+                        <div class="ra-picker-row">
+                            <input type="text" class="ra-picker-input ra-picker-icao" id="ra-picker-origin" placeholder="Origin" maxlength="4">
+                            <span class="ra-picker-arrow">&rarr;</span>
+                            <input type="text" class="ra-picker-input ra-picker-icao" id="ra-picker-dest" placeholder="Dest" maxlength="4">
+                            <input type="text" class="ra-picker-input ra-picker-route" id="ra-picker-route" placeholder="Route string">
+                            <button class="ra-picker-go-btn" id="ra-picker-go" title="Analyze"><i class="fas fa-search"></i> Analyze</button>
+                        </div>
+                        <div class="ra-picker-matches" id="ra-picker-matches"></div>
+                    </div>
+                    <div class="ra-summary" id="ra-summary"></div>
+                    <div class="ra-table-section ra-table-full">
+                        <div class="ra-table-title">Facility Traversal</div>
+                        <div class="ra-facility-filters" id="ra-facility-filters"></div>
+                        <div class="ra-table-wrap">
+                            <table class="ra-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Facility</th>
+                                        <th>Type</th>
+                                        <th class="text-right">Dist (nm)</th>
+                                        <th class="text-right">Time</th>
+                                        <th class="text-right">Entry (Z)</th>
+                                        <th class="text-right">Exit (Z)</th>
+                                        <th class="text-right">Segment</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ra-facility-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="ra-tables">
+                        <div class="ra-table-section">
+                            <div class="ra-table-title">Fix Analysis</div>
+                            <div class="ra-table-wrap">
+                                <table class="ra-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Fix</th>
+                                            <th class="text-right">Cum Dist</th>
+                                            <th class="text-right">Cum Time</th>
+                                            <th class="text-right">ETA (Z)</th>
+                                            <th class="text-right">Seg Dist</th>
+                                            <th class="text-right">Seg Time</th>
+                                            <th class="text-right">Rem Dist</th>
+                                            <th class="text-right">Rem Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ra-fix-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="ra-table-section">
+                            <div class="ra-table-title">Segment Analysis</div>
+                            <div class="ra-table-wrap">
+                                <table class="ra-table">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>From</th>
+                                            <th>To</th>
+                                            <th class="text-right">Dist (nm)</th>
+                                            <th class="text-right">Time</th>
+                                            <th class="text-right">Entry Dist</th>
+                                            <th class="text-right">Entry (Z)</th>
+                                            <th class="text-right">Exit Dist</th>
+                                            <th class="text-right">Exit (Z)</th>
+                                            <th class="text-right">GS (kts)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="ra-segment-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <?php include("load/footer.php"); ?>
 <script src="assets/js/routes-map.js<?= _v('assets/js/routes-map.js') ?>"></script>
+<script src="assets/js/route-analysis-panel.js<?= _v('assets/js/route-analysis-panel.js') ?>"></script>
 <script src="assets/js/routes.js<?= _v('assets/js/routes.js') ?>"></script>
 </body>
 </html>

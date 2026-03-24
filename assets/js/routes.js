@@ -1051,6 +1051,10 @@
 
     function showDetailPanel(data) {
         var $panel = $('#routes_bottom_panel');
+
+        // Save analysis container before clearing
+        var $analysisContainer = $('#routes_analysis_container').detach();
+
         $panel.empty();
 
         // Tab header
@@ -1087,6 +1091,10 @@
         var $content = $('<div class="routes-detail-content" id="routes_detail_content"></div>');
         $panel.append($content);
 
+        // Re-append analysis container
+        $panel.append($analysisContainer);
+        $analysisContainer.hide();
+
         // Show default tab
         renderVariantsTab(data);
         $panel.show();
@@ -1096,6 +1104,18 @@
         // Update active tab
         $('.routes-detail-tab').removeClass('active');
         $('.routes-detail-tab[data-tab="' + tabId + '"]').addClass('active');
+
+        // Toggle between content containers
+        var $content = $('#routes_detail_content');
+        var $analysisContainer = $('#routes_analysis_container');
+
+        if (tabId === 'analysis') {
+            $content.hide();
+            $analysisContainer.show();
+        } else {
+            $analysisContainer.hide();
+            $content.show();
+        }
 
         // Render content
         switch (tabId) {
@@ -1109,6 +1129,7 @@
     function renderVariantsTab(data) {
         var $content = $('#routes_detail_content');
         $content.empty();
+        $content.show();
 
         if (!data.variants || data.variants.length === 0) {
             $content.html('<div class="routes-detail-empty">No variants found</div>');
@@ -1137,6 +1158,7 @@
     function renderStatisticsTab(data) {
         var $content = $('#routes_detail_content');
         $content.empty();
+        $content.show();
 
         // 2x2 grid of charts
         var html = '<div class="routes-stats-grid">';
@@ -1239,12 +1261,57 @@
     }
 
     function renderAnalysisTab(data) {
-        var $content = $('#routes_detail_content');
-        $content.html('<div class="routes-detail-empty"><i class="fas fa-chart-line"></i> Route analysis coming in next task</div>');
+        // Check if RouteAnalysisPanel is available
+        if (typeof RouteAnalysisPanel === 'undefined') {
+            console.error('[Routes] RouteAnalysisPanel module not loaded');
+            $('#routes_analysis_container').html(
+                '<div class="routes-detail-empty"><i class="fas fa-exclamation-triangle"></i> Route analysis module not loaded</div>'
+            );
+            return;
+        }
+
+        // Get current route data
+        if (!state.selectedRoute) {
+            console.error('[Routes] No route selected');
+            return;
+        }
+
+        var routeStr = state.selectedRoute.normalized_route;
+        var origin = state.selectedRoute.origin_icao;
+        var dest = state.selectedRoute.dest_icao;
+        var routeId = state.selectedRoute.route_dim_id;
+
+        // Show loading state
+        RouteAnalysisPanel.showLoading();
+
+        // Fetch analysis data from API
+        var url = 'api/data/playbook/analysis.php?route_string=' +
+                  encodeURIComponent(routeStr) +
+                  '&origin=' + encodeURIComponent(origin) +
+                  '&dest=' + encodeURIComponent(dest);
+
+        $.ajax({
+            url: url,
+            method: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    RouteAnalysisPanel.show(response, routeStr, origin, dest, routeId);
+                } else {
+                    console.error('[Routes] Analysis API returned error:', response.message);
+                    RouteAnalysisPanel.showError(response.message || 'Failed to analyze route');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('[Routes] Analysis API request failed:', status, error);
+                RouteAnalysisPanel.showError('Network error: ' + error);
+            }
+        });
     }
 
     function renderExportTab(data) {
         var $content = $('#routes_detail_content');
+        $content.show();
         $content.html('<div class="routes-detail-empty"><i class="fas fa-file-export"></i> Export coming in next task</div>');
     }
 
