@@ -144,6 +144,9 @@ include("load/i18n.php");
         </div>
     </div>
 
+    <!-- Splitter -->
+    <div class="routes-splitter" id="routes_splitter"></div>
+
     <!-- Right Panel: Map -->
     <div class="routes-right-panel">
         <div id="routes_map" style="width: 100%; height: 100%;"></div>

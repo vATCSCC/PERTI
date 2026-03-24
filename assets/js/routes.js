@@ -51,6 +51,7 @@
         console.log('[Routes] Initializing...');
         initFilterSections();
         initFilters();
+        initSplitter();
         parseUrlState();
 
         // Initialize map
@@ -64,6 +65,74 @@
             doSearch();
         }
     });
+
+    // ========================================================================
+    // SPLITTER INITIALIZATION
+    // ========================================================================
+
+    function initSplitter() {
+        var $splitter = $('#routes_splitter');
+        var $left = $('.routes-left-panel');
+        var $right = $('.routes-right-panel');
+        var isDragging = false;
+
+        // Restore saved ratio
+        var savedRatio = localStorage.getItem('routes_panel_ratio');
+        if (savedRatio) {
+            var ratio = parseFloat(savedRatio);
+            if (ratio >= 0.2 && ratio <= 0.6) {
+                var containerWidth = $('.routes-container').width();
+                var newLeftWidth = Math.round(ratio * containerWidth);
+                $left.css('width', newLeftWidth + 'px');
+                $right.css('width', (containerWidth - newLeftWidth) + 'px');
+                $left.css('flex', 'none');
+                $right.css('flex', 'none');
+                $left.css('max-width', 'none');
+                $left.css('min-width', '300px');
+                $('#routes_bottom_panel').css('left', newLeftWidth + 'px');
+            }
+        }
+
+        $splitter.on('mousedown', function(e) {
+            e.preventDefault();
+            isDragging = true;
+            $('body').addClass('routes-resizing');
+        });
+
+        $(document).on('mousemove', function(e) {
+            if (!isDragging) return;
+            var containerWidth = $('.routes-container').width();
+            var newLeftWidth = e.pageX;
+            var minLeft = 300;
+            var minRight = 400;
+
+            if (newLeftWidth < minLeft) newLeftWidth = minLeft;
+            if (containerWidth - newLeftWidth < minRight) newLeftWidth = containerWidth - minRight;
+
+            var ratio = newLeftWidth / containerWidth;
+            $left.css('width', newLeftWidth + 'px');
+            $left.css('flex', 'none');
+            $left.css('max-width', 'none');
+            $right.css('width', (containerWidth - newLeftWidth) + 'px');
+            $right.css('flex', 'none');
+
+            // Update bottom panel offset
+            $('#routes_bottom_panel').css('left', newLeftWidth + 'px');
+
+            localStorage.setItem('routes_panel_ratio', ratio.toFixed(3));
+        });
+
+        $(document).on('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                $('body').removeClass('routes-resizing');
+                // Resize map
+                if (typeof RoutesMap !== 'undefined' && RoutesMap.getMap()) {
+                    RoutesMap.getMap().resize();
+                }
+            }
+        });
+    }
 
     // ========================================================================
     // FILTER SECTIONS INITIALIZATION
