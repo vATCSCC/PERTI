@@ -33,7 +33,8 @@ if (!defined('DEV')) {
 
 $search = get_input('search');
 
-$query = mysqli_query($conn_sqli, ("SELECT * FROM route_playbook WHERE pb_name LIKE '%$search%' ORDER BY pb_id ASC LIMIT 50"));
+$search_param = '%' . $conn_sqli->real_escape_string($search) . '%';
+$query = mysqli_query($conn_sqli, "SELECT * FROM route_playbook WHERE pb_name LIKE '$search_param' ORDER BY pb_id ASC LIMIT 50");
 
 while ($data = mysqli_fetch_array($query)) {
 echo '<tr>';

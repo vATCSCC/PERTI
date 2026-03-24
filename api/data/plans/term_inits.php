@@ -58,10 +58,10 @@ $times = [
     '20',
 ];
 
-$p_id = get_input('p_id');
+$p_id = intval(get_input('p_id'));
 
 require_once(dirname(__DIR__, 3) . '/load/org_context.php');
-if (!validate_plan_org((int)$p_id, $conn_sqli)) {
+if (!validate_plan_org($p_id, $conn_sqli)) {
     http_response_code(403);
     exit();
 }
@@ -73,7 +73,7 @@ if ($c_q['total'] > 0) {
 
     while ($data = mysqli_fetch_array($query)) {
         // Setting Values
-        $init_id = $data['id'];
+        $init_id = intval($data['id']);
 
         echo '<table class="table table-bordered w-75 text-left mb-0">';
             echo '<tbody>';

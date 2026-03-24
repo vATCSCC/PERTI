@@ -198,7 +198,8 @@ $search = isset($_GET['search']) ? get_input('search') : '';
 // Check if ADL connection is available
 if (!$conn_adl) {
     // Fallback to MySQL (legacy) - simplified output
-    $query = mysqli_query($conn_sqli, "SELECT * FROM config_data WHERE airport LIKE '%$search%' ORDER BY airport ASC LIMIT 50");
+    $search_param = '%' . $conn_sqli->real_escape_string($search) . '%';
+    $query = mysqli_query($conn_sqli, "SELECT * FROM config_data WHERE airport LIKE '$search_param' ORDER BY airport ASC LIMIT 50");
 
     while ($data = mysqli_fetch_array($query)) {
         echo '<tr>';

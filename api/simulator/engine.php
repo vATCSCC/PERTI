@@ -30,6 +30,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     exit(0);
 }
 
+perti_require_auth();
+
 // Node.js engine URL - configure based on environment
 define('ENGINE_URL', getenv('ATFM_ENGINE_URL') ?: 'http://localhost:3001');
 

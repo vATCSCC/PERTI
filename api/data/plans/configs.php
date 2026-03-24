@@ -30,7 +30,7 @@ if (!defined('DEV')) {
     $_SESSION['VATSIM_FIRST_NAME'] = $_SESSION['VATSIM_LAST_NAME'] = $_SESSION['VATSIM_CID'] = 0;
 }
 
-$p_id = get_input('p_id');
+$p_id = intval(get_input('p_id'));
 
 require_once(dirname(__DIR__, 3) . '/load/org_context.php');
 if (!validate_plan_org((int)$p_id, $conn_sqli)) {

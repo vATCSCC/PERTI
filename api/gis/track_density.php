@@ -36,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../load/connect.php';
 
+perti_require_auth();
+
 $response = ['success' => false, 'data' => null, 'error' => null, 'cached' => false];
 
 try {

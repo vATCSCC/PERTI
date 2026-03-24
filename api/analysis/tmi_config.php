@@ -14,6 +14,10 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === realpath(__FILE__)) {
     header('Content-Type: application/json');
 
     include("../../load/config.php");
+    define('PERTI_MYSQL_ONLY', true);
+    include("../../load/connect.php");
+
+    perti_require_auth();
 
     $response = [
         'success' => true,
