@@ -39,6 +39,8 @@ if (!validate_plan_org((int)$p_id, $conn_sqli)) {
     exit();
 }
 
+$h = function($v) { return htmlspecialchars($v ?? '', ENT_QUOTES, 'UTF-8'); };
+
 $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_enroute_planning WHERE p_id='$p_id'")->fetch_assoc();
 
 if ($c_q['total'] > 0) {
@@ -48,16 +50,16 @@ if ($c_q['total'] > 0) {
         echo '<div class="col-md-6 col-xl-4 mb-4">';
             echo '<div class="card">';
                 echo '<div class="card-body">';
-                    echo '<h5 class="card-title"><b>'.$data['facility_name'].'</b></h5>';
-                    echo '<p class="text-wrap">'.$data['comments'].'</p>';
+                    echo '<h5 class="card-title"><b>'.$h($data['facility_name']).'</b></h5>';
+                    echo '<p class="text-wrap">'.$h($data['comments']).'</p>';
 
                     if ($perm == true) {
                         echo '<hr>';
 
-                        echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Planning Data"><span class="badge badge-warning" data-toggle="modal" data-target="#editenrouteplanningModal" data-id="'.$data['id'].'" data-facility_name="'.$data['facility_name'].'" data-comments="'.$data['comments'].'">
+                        echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Planning Data"><span class="badge badge-warning" data-toggle="modal" data-target="#editenrouteplanningModal" data-id="'.intval($data['id']).'" data-facility_name="'.$h($data['facility_name']).'" data-comments="'.$h($data['comments']).'">
                         <i class="fas fa-pencil-alt"></i> Edit</span></a>';
                         echo ' ';
-                        echo '<a href="javascript:void(0)" onclick="deleteEnroutePlanning('.$data['id'].')" data-toggle="tooltip" title="Delete Planning Data"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                        echo '<a href="javascript:void(0)" onclick="deleteEnroutePlanning('.intval($data['id']).')" data-toggle="tooltip" title="Delete Planning Data"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
                     }
                 echo '</div>';
             echo '</div>';

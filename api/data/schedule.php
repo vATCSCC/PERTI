@@ -38,6 +38,8 @@ if ($perm == true) {
     exit();
 }
 
+$h = function($v) { return htmlspecialchars($v ?? '', ENT_QUOTES, 'UTF-8'); };
+
 function checkIfAssigned($id, $conn_sqli) {
     $data = $conn_sqli->query("SELECT COUNT(*) as `total` FROM assigned WHERE e_id=$id")->fetch_assoc();
 
@@ -66,8 +68,8 @@ if (isset($_GET['assigned'])) {
 
                 // Event not scheduled
                 echo '<tr class="">';
-                    echo '<td>'.$data['e_title'].'</td>';
-                    echo '<td class="border-right">'.$data['e_date'].'</td>';
+                    echo '<td>'.$h($data['e_title']).'</td>';
+                    echo '<td class="border-right">'.$h($data['e_date']).'</td>';
 
                     if ($data['p_cid'] > 0) {
                         echo '<td class="text-danger text-center">'.cidtoName($data['p_cid'], $conn_sqli).'</td>';
@@ -100,10 +102,10 @@ if (isset($_GET['assigned'])) {
                     }
 
                     echo '<td class="border-left text-center">';
-                        echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Assigned Personnel"><span class="badge badge-warning" data-toggle="modal" data-target="#editassignedModal" data-id="'.$data['id'].'" data-p_cid="'.$data['p_cid'].'" data-e_cid="'.$data['e_cid'].'" data-r_cid="'.$data['r_cid'].'" data-t_cid="'.$data['t_cid'].'" data-i_cid="'.$data['i_cid'].'">
+                        echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Assigned Personnel"><span class="badge badge-warning" data-toggle="modal" data-target="#editassignedModal" data-id="'.intval($data['id']).'" data-p_cid="'.intval($data['p_cid']).'" data-e_cid="'.intval($data['e_cid']).'" data-r_cid="'.intval($data['r_cid']).'" data-t_cid="'.intval($data['t_cid']).'" data-i_cid="'.intval($data['i_cid']).'">
                         <i class="fas fa-pencil-alt"></i> Edit</span></a>';
                         echo ' ';
-                        echo '<a href="javascript:void(0)" onclick="deleteEvent('.$data['id'].')" data-toggle="tooltip" title="Delete Event from Schedule"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                        echo '<a href="javascript:void(0)" onclick="deleteEvent('.intval($data['id']).')" data-toggle="tooltip" title="Delete Event from Schedule"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
                     echo '</td>';
 
                 echo '</tr>';
@@ -125,15 +127,15 @@ if (isset($_GET['assigned'])) {
         if (checkIfAssigned($data['id_event'], $conn_sqli) === false) {
             // Event not scheduled
             echo '<tr class="table-secondary">';
-                echo '<td>'.$data['title'].'</td>';
-                echo '<td class="border-right">'.$data['start_date'].'</td>';
+                echo '<td>'.$h($data['title']).'</td>';
+                echo '<td class="border-right">'.$h($data['start_date']).'</td>';
                 echo '<td class="text-center">Not Scheduled</td>';
                 echo '<td class="text-center">Not Scheduled</td>';
                 echo '<td class="text-center">Not Scheduled</td>';
                 echo '<td class="text-center">Not Scheduled</td>';
                 echo '<td class="text-center">Not Scheduled</td>';
 
-                echo '<td class="border-left text-center"><a href="javascript:void(0)" onclick="schedule('.$data['id_event'].', `'.$data['title'].'`, `'.$data['start_date'].'`)" data-toggle="tooltip" title="Move Up to Schedule Event"><span class="badge badge-primary"><i class="fas fa-calendar"></i> Schedule</span></a></td>';
+                echo '<td class="border-left text-center"><a href="javascript:void(0)" onclick="schedule('.intval($data['id_event']).', '.htmlspecialchars(json_encode($data['title']), ENT_QUOTES, 'UTF-8').', '.htmlspecialchars(json_encode($data['start_date']), ENT_QUOTES, 'UTF-8').')" data-toggle="tooltip" title="Move Up to Schedule Event"><span class="badge badge-primary"><i class="fas fa-calendar"></i> Schedule</span></a></td>';
             echo '</tr>';
         }
     }

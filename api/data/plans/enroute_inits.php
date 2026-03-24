@@ -79,22 +79,22 @@ if ($c_q['total'] > 0) {
             echo '<tbody>';
                 echo '<tr class="bg-dark text-light">';
                     if ($perm == true) {
-                        echo '<td colspan="20">'.$data['title'].'</td>'; 
+                        echo '<td colspan="20">'.htmlspecialchars($data['title'], ENT_QUOTES, 'UTF-8').'</td>';
 
                         echo '<td class="text-center" colspan="5">';
-                            echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Enroute Initiative"><span class="badge badge-warning" data-toggle="modal" data-target="#editenrouteinitModal" data-id="'.$data['id'].'" data-title="'.$data['title'].'" data-context="'.$data['context'].'">
+                            echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Enroute Initiative"><span class="badge badge-warning" data-toggle="modal" data-target="#editenrouteinitModal" data-id="'.intval($data['id']).'" data-title="'.htmlspecialchars($data['title'], ENT_QUOTES, 'UTF-8').'" data-context="'.htmlspecialchars($data['context'], ENT_QUOTES, 'UTF-8').'">
                             <i class="fas fa-pencil-alt"></i> Edit</span></a>';
                             echo ' ';
-                            echo '<a href="javascript:void(0)" onclick="deleteEnrouteInit('.$data['id'].')" data-toggle="tooltip" title="Delete Enroute Initiative"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                            echo '<a href="javascript:void(0)" onclick="deleteEnrouteInit('.intval($data['id']).')" data-toggle="tooltip" title="Delete Enroute Initiative"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
                         echo '</td>';
 
                     } else {
-                        echo '<td colspan="25">'.$data['title'].'</td>'; 
+                        echo '<td colspan="25">'.htmlspecialchars($data['title'], ENT_QUOTES, 'UTF-8').'</td>'; 
                     }
 
                 echo '</tr>';
                 echo '<tr class="bg-secondary">';
-                    echo '<td>'.$data['context'].'</td>';
+                    echo '<td>'.htmlspecialchars($data['context'], ENT_QUOTES, 'UTF-8').'</td>';
 
                     foreach ($times as &$time) {
                         echo '<td style="width: 3%;">'.$time.'Z</td>';
@@ -111,7 +111,7 @@ if ($c_q['total'] > 0) {
                             if ($t_q['probability'] == 0) {
                                 // CDW
                                 if ($perm == true) {
-                                    echo '<td style="width: 3%; background-color: #ffd501;" onclick="changeEnrouteTime(`'.$t_q['id'].'`, `'.$t_q['probability'].'`)" data-toggle="tooltip" title="Critical Decision Window"></td>';
+                                    echo '<td style="width: 3%; background-color: #ffd501;" onclick="changeEnrouteTime(`'.intval($t_q['id']).'`, `'.intval($t_q['probability']).'`)" data-toggle="tooltip" title="Critical Decision Window"></td>';
                                 } else {
                                     echo '<td style="width: 3%; background-color: #ffd501;" data-toggle="tooltip" title="Critical Decision Window"></td>';
                                 }
@@ -119,7 +119,7 @@ if ($c_q['total'] > 0) {
                             } elseif ($t_q['probability'] == 1) {
                                 // Possible
                                 if ($perm == true) {
-                                    echo '<td style="width: 3%;" onclick="changeEnrouteTime(`'.$t_q['id'].'`, `'.$t_q['probability'].'`)" class="bg-info" data-toggle="tooltip" title="Possible"></td>';
+                                    echo '<td style="width: 3%;" onclick="changeEnrouteTime(`'.intval($t_q['id']).'`, `'.intval($t_q['probability']).'`)" class="bg-info" data-toggle="tooltip" title="Possible"></td>';
                                 } else {
                                     echo '<td style="width: 3%;" class="bg-info" data-toggle="tooltip" title="Possible"></td>';
                                 }
@@ -127,14 +127,14 @@ if ($c_q['total'] > 0) {
                             } elseif ($t_q['probability'] == 2) {
                                 // Probable
                                 if ($perm == true) {
-                                    echo '<td style="width: 3%; background-color: #ff5601;" onclick="changeEnrouteTime(`'.$t_q['id'].'`, `'.$t_q['probability'].'`)" data-toggle="tooltip" title="Probable"></td>';
+                                    echo '<td style="width: 3%; background-color: #ff5601;" onclick="changeEnrouteTime(`'.intval($t_q['id']).'`, `'.intval($t_q['probability']).'`)" data-toggle="tooltip" title="Probable"></td>';
                                 } else {
                                     echo '<td style="width: 3%; background-color: #ff5601;" data-toggle="tooltip" title="Probable"></td>';
                                 }
                             } elseif ($t_q['probability'] == 3) {
                                 // Expected
                                 if ($perm == true) {
-                                    echo '<td style="width: 3%; background-color: #ff012b;" onclick="changeEnrouteTime(`'.$t_q['id'].'`, `'.$t_q['probability'].'`)" data-toggle="tooltip" title="Expected"></td>';
+                                    echo '<td style="width: 3%; background-color: #ff012b;" onclick="changeEnrouteTime(`'.intval($t_q['id']).'`, `'.intval($t_q['probability']).'`)" data-toggle="tooltip" title="Expected"></td>';
                                 } else {
                                     echo '<td style="width: 3%; background-color: #ff012b;" data-toggle="tooltip" title="Expected"></td>';
                                 }
@@ -142,7 +142,7 @@ if ($c_q['total'] > 0) {
                             } else {
                                 // Actual
                                 if ($perm == true) {
-                                    echo '<td style="width: 3%; background-color: #4400CD;" onclick="deleteEnrouteTime(`'.$t_q['id'].'`)" data-toggle="tooltip" title="Actual"></td>';
+                                    echo '<td style="width: 3%; background-color: #4400CD;" onclick="deleteEnrouteTime(`'.intval($t_q['id']).'`)" data-toggle="tooltip" title="Actual"></td>';
                                 } else {
                                     echo '<td style="width: 3%; background-color: #4400CD;" data-toggle="tooltip" title="Actual"></td>';
                                 }

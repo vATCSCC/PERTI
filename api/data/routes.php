@@ -39,21 +39,21 @@ $query = mysqli_query($conn_sqli, "SELECT * FROM route_cdr WHERE rte_orig LIKE '
 while ($data = mysqli_fetch_array($query)) {
     echo '<tr>';
 
-        echo '<td class="text-center">'.$data['cdr_code'].'</td>';
-        echo '<td class="text-center">'.$data['rte_orig'].'</td>';
-        echo '<td class="text-center">'.$data['rte_dest'].'</td>';
-        echo '<td class="text-center">'.$data['rte_dep_fix'].'</td>';
-        echo '<td class="text-center">'.$data['rte_string'].'</td>';
-        echo '<td class="text-center">'.$data['rte_dep_artcc'].'</td>';
-        echo '<td class="text-center">'.$data['rte_arr_artcc'].'</td>';
-        echo '<td class="text-center">'.$data['pb_name'].'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['cdr_code'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['rte_orig'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['rte_dest'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['rte_dep_fix'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['rte_string'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['rte_dep_artcc'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['rte_arr_artcc'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['pb_name'], ENT_QUOTES, 'UTF-8').'</td>';
 
         if ($perm == true) {
         echo '<td><center>';
-                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Update Field Configuration"><span class="badge badge-warning" data-toggle="modal" data-target="#updateconfigModal" data-id="'.$data['id'].'" data-airport="'.$data['airport'].'" data-arr="'.$data['arr'].'" data-dep="'.$data['dep'].'" data-vmc_aar="'.$data['vmc_aar'].'" data-lvmc_aar="'.$data['lvmc_aar'].'" data-imc_aar="'.$data['imc_aar'].'" data-limc_aar="'.$data['limc_aar'].'" data-vmc_adr="'.$data['vmc_adr'].'" data-imc_adr="'.$data['imc_adr'].'">
+                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Update Field Configuration"><span class="badge badge-warning" data-toggle="modal" data-target="#updateconfigModal" data-id="'.intval($data['id']).'" data-airport="'.htmlspecialchars($data['airport'], ENT_QUOTES, 'UTF-8').'" data-arr="'.htmlspecialchars($data['arr'], ENT_QUOTES, 'UTF-8').'" data-dep="'.htmlspecialchars($data['dep'], ENT_QUOTES, 'UTF-8').'" data-vmc_aar="'.htmlspecialchars($data['vmc_aar'], ENT_QUOTES, 'UTF-8').'" data-lvmc_aar="'.htmlspecialchars($data['lvmc_aar'], ENT_QUOTES, 'UTF-8').'" data-imc_aar="'.htmlspecialchars($data['imc_aar'], ENT_QUOTES, 'UTF-8').'" data-limc_aar="'.htmlspecialchars($data['limc_aar'], ENT_QUOTES, 'UTF-8').'" data-vmc_adr="'.htmlspecialchars($data['vmc_adr'], ENT_QUOTES, 'UTF-8').'" data-imc_adr="'.htmlspecialchars($data['imc_adr'], ENT_QUOTES, 'UTF-8').'">
                     <i class="fas fa-pencil-alt"></i> Update</span></a>';
                 echo ' ';
-                echo '<a href="javascript:void(0)" onclick="deleteConfig('.$data['id'].')" data-toggle="tooltip" title="Delete Field Configuration"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                echo '<a href="javascript:void(0)" onclick="deleteConfig('.intval($data['id']).')" data-toggle="tooltip" title="Delete Field Configuration"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
         echo '</center></td>';
         }
 

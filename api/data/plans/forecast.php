@@ -47,19 +47,19 @@ if ($c_q['total'] > 0) {
     while ($data = mysqli_fetch_array($query)) {
         echo '<div class="col-md-6 col-xl-6 mb-4">';
             echo '<div class="card">';
-                echo '<img class="card-img-top" src="'.$data['image_url'].'">';
+                echo '<img class="card-img-top" src="'.htmlspecialchars($data['image_url'], ENT_QUOTES, 'UTF-8').'">';
 
                 echo '<div class="card-body">';
-                    echo '<h5 class="card-title">Forecast for <b>'.$data['date'].'Z</b></h5>';
-                    echo '<p class="text-wrap">'.$data['summary'].'</p>';
+                    echo '<h5 class="card-title">Forecast for <b>'.htmlspecialchars($data['date'], ENT_QUOTES, 'UTF-8').'Z</b></h5>';
+                    echo '<p class="text-wrap">'.htmlspecialchars($data['summary'], ENT_QUOTES, 'UTF-8').'</p>';
 
                     if ($perm == true) {
                         echo '<hr>';
 
-                        echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Forecast Entry"><span class="badge badge-warning" data-toggle="modal" data-target="#editforecastModal" data-id="'.$data['id'].'" data-date="'.$data['date'].'" data-summary="'.$data['summary'].'" data-image_url="'.$data['image_url'].'">
+                        echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Forecast Entry"><span class="badge badge-warning" data-toggle="modal" data-target="#editforecastModal" data-id="'.intval($data['id']).'" data-date="'.htmlspecialchars($data['date'], ENT_QUOTES, 'UTF-8').'" data-summary="'.htmlspecialchars($data['summary'], ENT_QUOTES, 'UTF-8').'" data-image_url="'.htmlspecialchars($data['image_url'], ENT_QUOTES, 'UTF-8').'">
                         <i class="fas fa-pencil-alt"></i> Edit</span></a>';
                         echo ' ';
-                        echo '<a href="javascript:void(0)" onclick="deleteForecast('.$data['id'].')" data-toggle="tooltip" title="Delete Forecast Entry"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                        echo '<a href="javascript:void(0)" onclick="deleteForecast('.intval($data['id']).')" data-toggle="tooltip" title="Delete Forecast Entry"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
                     }
                 echo '</div>';
             echo '</div>';

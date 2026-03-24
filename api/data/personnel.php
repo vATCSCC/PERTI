@@ -57,9 +57,9 @@ if ($perm !== false) {
         $member_codes = array_column($memberships, 'org_code');
 
         echo '<tr>';
-        echo '<td class="text-center text-primary">'.$cid.'</td>';
-        echo '<td class="text-center">'.$data['first_name'].'</td>';
-        echo '<td class="text-center">'.$data['last_name'].'</td>';
+        echo '<td class="text-center text-primary">'.htmlspecialchars($cid, ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['first_name'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['last_name'], ENT_QUOTES, 'UTF-8').'</td>';
 
         // Org column with checkboxes
         echo '<td class="text-center">';
@@ -73,19 +73,19 @@ if ($perm !== false) {
             }
             $priv_class = $priv ? 'text-warning' : '';
             echo '<label class="mr-2 mb-0" style="cursor:pointer;">';
-            echo '<input type="checkbox" class="org-toggle" data-cid="'.$cid.'" data-org="'.$org['org_code'].'" '.$checked.'> ';
-            echo '<span class="'.$priv_class.'">'.$org['display_name'].'</span>';
+            echo '<input type="checkbox" class="org-toggle" data-cid="'.htmlspecialchars($cid, ENT_QUOTES, 'UTF-8').'" data-org="'.htmlspecialchars($org['org_code'], ENT_QUOTES, 'UTF-8').'" '.$checked.'> ';
+            echo '<span class="'.$priv_class.'">'.htmlspecialchars($org['display_name'], ENT_QUOTES, 'UTF-8').'</span>';
             echo '</label>';
         }
         echo '</td>';
 
-        echo '<td class="text-center">'.$data['updated_at'].'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['updated_at'], ENT_QUOTES, 'UTF-8').'</td>';
 
             echo '<td><center>';
             if ($cid == $protected_cid) {
                 echo '<span class="badge badge-secondary" data-toggle="tooltip" title="System personnel cannot be deleted"><i class="fas fa-lock"></i> Protected</span>';
             } else {
-                echo '<a href="javascript:void(0)" onclick="deletePersonnel('.$data['id'].')" data-toggle="tooltip" title="Delete Personnel"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                echo '<a href="javascript:void(0)" onclick="deletePersonnel('.intval($data['id']).')" data-toggle="tooltip" title="Delete Personnel"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
             }
             echo '</center></td>';
 
