@@ -56,6 +56,31 @@ class ArtccNormalizer
     }
 
     /**
+     * Strip sub-sector suffixes to produce L1-only ARTCC codes.
+     * Sub-sectors always have a hyphen (e.g. BIRD-E, CZQO-GOTA, SBBS-SE).
+     * Splits on $sep, strips everything after the first '-' in each token,
+     * normalizes, deduplicates, and rejoins.
+     */
+    public static function toL1Csv(string $csv, string $sep = ','): string
+    {
+        if (trim($csv) === '') return '';
+        $codes = array_map('trim', explode($sep, $csv));
+        $result = [];
+        foreach ($codes as $code) {
+            if ($code === '') continue;
+            $hyphen = strpos($code, '-');
+            if ($hyphen !== false) {
+                $code = substr($code, 0, $hyphen);
+            }
+            $normalized = self::normalize($code);
+            if ($normalized !== '' && !in_array(strtoupper($normalized), self::PSEUDO_FIXES, true)) {
+                $result[] = $normalized;
+            }
+        }
+        return implode($sep, array_unique($result));
+    }
+
+    /**
      * Normalize an array of ARTCC codes.
      * Filters pseudo-fixes and deduplicates.
      */

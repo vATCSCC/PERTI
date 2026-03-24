@@ -19,6 +19,8 @@ include("../../../load/input.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 include("../../../load/playbook_visibility.php");
+require_once __DIR__ . '/../../../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
 
 $play_id = get_int('id');
 if ($play_id <= 0) {
@@ -50,6 +52,14 @@ if (!can_view_play($play, $conn_sqli)) {
 $play['play_id'] = (int)$play['play_id'];
 $play['route_count'] = (int)$play['route_count'];
 
+// Filter ARTCC fields to L1 only (strip sub-sector suffixes like BIRD-E → BIRD)
+if (!empty($play['impacted_area'])) {
+    $play['impacted_area'] = ArtccNormalizer::toL1Csv($play['impacted_area'], '/');
+}
+if (!empty($play['facilities_involved'])) {
+    $play['facilities_involved'] = ArtccNormalizer::toL1Csv($play['facilities_involved'], ',');
+}
+
 // Fetch routes
 $stmt = $conn_sqli->prepare("SELECT * FROM playbook_routes WHERE play_id = ? ORDER BY sort_order ASC, route_id ASC");
 $stmt->bind_param('i', $play_id);
@@ -61,6 +71,9 @@ while ($row = $result->fetch_assoc()) {
     $row['route_id'] = (int)$row['route_id'];
     $row['play_id'] = (int)$row['play_id'];
     $row['sort_order'] = (int)$row['sort_order'];
+    if (!empty($row['traversed_artccs'])) {
+        $row['traversed_artccs'] = ArtccNormalizer::toL1Csv($row['traversed_artccs'], ',');
+    }
     $routes[] = $row;
 }
 $stmt->close();
