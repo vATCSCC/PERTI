@@ -21,11 +21,12 @@
  *   }
  */
 
-header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Cache-Control: no-cache, no-store, must-revalidate');
-
 require_once(__DIR__ . '/../../../../load/config.php');
+require_once(__DIR__ . '/../../../../load/perti_constants.php');
+
+header('Content-Type: application/json; charset=utf-8');
+perti_set_cors();
+header('Cache-Control: no-cache, no-store, must-revalidate');
 
 // Auth: require system or partner tier key
 $apiKey = $_GET['key'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';

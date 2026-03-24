@@ -20,7 +20,7 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Cache-Control: max-age=600'); // Cache for 10 minutes
 
 // AWC SIGMET feed URL

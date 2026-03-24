@@ -13,7 +13,7 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 
 require_once __DIR__ . '/../../load/connect.php';
 

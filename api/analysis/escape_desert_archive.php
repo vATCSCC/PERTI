@@ -20,7 +20,7 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Cache-Control: public, max-age=3600'); // Cache for 1 hour
 
 require_once __DIR__ . '/../../load/config.php';

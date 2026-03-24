@@ -11,7 +11,7 @@
  */
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Cache-Control: no-cache, no-store, must-revalidate');
 
 // Load config first to get MONITORING_API_KEY

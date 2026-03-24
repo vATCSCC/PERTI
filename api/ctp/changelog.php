@@ -17,7 +17,7 @@ define('CTP_API_INCLUDED', true);
 require_once(__DIR__ . '/common.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
+    perti_set_cors();
     header('Access-Control-Allow-Methods: GET, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type');
     http_response_code(204);

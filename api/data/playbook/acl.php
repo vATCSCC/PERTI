@@ -11,7 +11,7 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 
 if (session_status() == PHP_SESSION_NONE) {
     session_start();

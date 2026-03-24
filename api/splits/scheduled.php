@@ -6,7 +6,7 @@
  * Supports GET (list), PUT (update), DELETE operations
  */
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Access-Control-Allow-Methods: GET, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 

@@ -80,7 +80,7 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Cache-Control: public, max-age=60');

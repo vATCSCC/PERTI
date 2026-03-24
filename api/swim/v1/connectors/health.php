@@ -21,11 +21,12 @@
  *   }
  */
 
-header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Cache-Control: no-cache, no-store, must-revalidate');
-
 require_once(__DIR__ . '/../../../../load/config.php');
+require_once(__DIR__ . '/../../../../load/perti_constants.php');
+
+header('Content-Type: application/json; charset=utf-8');
+perti_set_cors();
+header('Cache-Control: no-cache, no-store, must-revalidate');
 
 // Auth: localhost or any valid-looking SWIM key
 $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1', 'localhost']);

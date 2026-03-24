@@ -183,7 +183,7 @@ sqlsrv_free_stmt($stmt);
 header('Content-Type: application/geo+json; charset=utf-8');
 header('X-SWIM-Version: ' . SWIM_API_VERSION);
 header('X-SWIM-Source: swim_api');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 echo json_encode([
     'type' => 'FeatureCollection',
     'features' => $features,

@@ -13,7 +13,7 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Cache-Control: max-age=300'); // Cache for 5 minutes
 
 // Use the transformed SUA GeoJSON file (falls back to original if not available)

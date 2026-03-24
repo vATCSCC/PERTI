@@ -10,7 +10,7 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 
 require_once("../../load/config.php");
 require_once(__DIR__ . '/StatsHelper.php');

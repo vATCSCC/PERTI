@@ -25,7 +25,7 @@ set_time_limit(120); // PostGIS spatial queries can be slow for large trajectory
 ini_set('memory_limit', '256M');
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
