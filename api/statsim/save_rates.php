@@ -14,6 +14,8 @@ if (session_status() == PHP_SESSION_NONE) {
 include("../../load/config.php");
 include("../../load/connect.php");
 
+perti_require_auth(false);
+
 // Check VATSIM_ADL connection
 if (!isset($conn_adl) || $conn_adl === false) {
     echo json_encode([

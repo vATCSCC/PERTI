@@ -58,7 +58,7 @@ $times = [
     '20',
 ];
 
-$p_id = get_input('p_id');
+$p_id = intval(get_input('p_id'));
 
 $c_q = $conn_sqli->query("SELECT COUNT(*) AS 'total' FROM p_terminal_init WHERE p_id='$p_id'")->fetch_assoc();
 
@@ -67,7 +67,7 @@ if ($c_q['total'] > 0) {
 
     while ($data = mysqli_fetch_array($query)) {
         // Setting Values
-        $init_id = $data['id'];
+        $init_id = intval($data['id']);
 
         echo '<table class="table table-bordered w-75 text-left mb-0">';
             echo '<tbody>';

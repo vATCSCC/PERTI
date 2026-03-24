@@ -15,6 +15,8 @@ require_once(__DIR__ . '/../../load/config.php');
 require_once(__DIR__ . '/../../load/connect.php');
 require_once(__DIR__ . '/../../scripts/atis_parser.php');
 
+perti_require_auth();
+
 // Check ADL connection
 if (!isset($conn_adl) || $conn_adl === null || $conn_adl === false) {
     http_response_code(500);

@@ -22,6 +22,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 
 require_once __DIR__ . '/../../load/connect.php';
 
+perti_require_auth();
+
 try {
     if (!isset($conn_adl)) {
         throw new Exception('Database connection not available');
