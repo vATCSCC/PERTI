@@ -52,6 +52,11 @@
         initFilters();
         parseUrlState();
 
+        // Initialize map
+        if (typeof RoutesMap !== 'undefined') {
+            RoutesMap.init('routes_map');
+        }
+
         // If URL had filters, auto-search
         if (hasActiveFilters()) {
             console.log('[Routes] Found filters in URL, auto-searching');
@@ -650,6 +655,11 @@
                     renderRouteList(data);
                     renderFilterChips();
                     updateUrl();
+
+                    // Plot routes on map
+                    if (typeof RoutesMap !== 'undefined' && data.routes) {
+                        RoutesMap.plotRoutes(data.routes, data.total_flights || 0);
+                    }
                 } else {
                     showError(data.error || PERTII18n.t('error.loadFailed', { resource: 'routes' }));
                 }
@@ -923,6 +933,11 @@
             return $(this).data('route_id') === route.route_dim_id;
         }).addClass('selected');
 
+        // Highlight on map
+        if (typeof RoutesMap !== 'undefined') {
+            RoutesMap.highlightRoute(route.route_dim_id);
+        }
+
         // Fetch detail
         $.ajax({
             url: 'api/data/route-history/detail.php?route_dim_id=' + route.route_dim_id,
@@ -1019,6 +1034,31 @@
         $error.append('<p>' + message + '</p>');
         $list.append($error);
     }
+
+    // ========================================================================
+    // MAP INTEGRATION
+    // ========================================================================
+
+    // Map click callback
+    window.onRouteMapClick = function(dimId) {
+        // Find the route in results
+        if (!state.results || !state.results.routes) return;
+        var route = null;
+        for (var i = 0; i < state.results.routes.length; i++) {
+            if (state.results.routes[i].route_dim_id === dimId) {
+                route = state.results.routes[i];
+                break;
+            }
+        }
+        if (route) {
+            selectRoute(route);
+            // Scroll to item in list
+            var $item = $('.routes-item').eq(state.results.routes.indexOf(route));
+            if ($item.length) {
+                $item[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    };
 
     // ========================================================================
     // URL STATE MANAGEMENT
@@ -1248,6 +1288,11 @@
 
         // Clear season pills
         $('.routes-season-pill').removeClass('active');
+
+        // Clear map
+        if (typeof RoutesMap !== 'undefined') {
+            RoutesMap.clearRoutes();
+        }
 
         populateFiltersFromState();
         showNoFiltersState();

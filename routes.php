@@ -12,6 +12,10 @@ include("load/i18n.php");
 <head>
     <?php $page_title = __('routes.title'); include("load/header.php"); ?>
     <link rel="stylesheet" href="assets/css/routes.css<?= _v('assets/css/routes.css') ?>">
+    <!-- MapLibre GL JS -->
+    <script>window.PERTI_USE_MAPLIBRE = true;</script>
+    <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
 </head>
 <body>
 <?php include("load/nav.php"); ?>
@@ -140,11 +144,9 @@ include("load/i18n.php");
         </div>
     </div>
 
-    <!-- Right Panel: Map Placeholder -->
+    <!-- Right Panel: Map -->
     <div class="routes-right-panel">
-        <div id="routes_map_container" class="routes-map-placeholder">
-            <p>Map visualization coming soon</p>
-        </div>
+        <div id="routes_map" style="width: 100%; height: 100%;"></div>
     </div>
 
     <!-- Bottom Panel: Detail Panel (hidden by default) -->
@@ -156,6 +158,7 @@ include("load/i18n.php");
 </div>
 
 <?php include("load/footer.php"); ?>
+<script src="assets/js/routes-map.js<?= _v('assets/js/routes-map.js') ?>"></script>
 <script src="assets/js/routes.js<?= _v('assets/js/routes.js') ?>"></script>
 </body>
 </html>
