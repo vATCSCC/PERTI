@@ -12,7 +12,6 @@
  */
 
 header('Content-Type: application/json');
-perti_set_cors();
 
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
@@ -24,6 +23,7 @@ include("../../../load/input.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 include("../../../load/playbook_visibility.php");
+perti_set_cors();
 require_once __DIR__ . '/../../../lib/ArtccNormalizer.php';
 use PERTI\Lib\ArtccNormalizer;
 

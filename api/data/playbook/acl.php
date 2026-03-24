@@ -11,7 +11,6 @@
  */
 
 header('Content-Type: application/json');
-perti_set_cors();
 
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
@@ -23,6 +22,7 @@ include("../../../load/input.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 include("../../../load/playbook_visibility.php");
+perti_set_cors();
 
 $play_id = get_int('play_id');
 if ($play_id <= 0) {

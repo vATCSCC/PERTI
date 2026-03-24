@@ -19,9 +19,9 @@
 // Bootstrap: Need PostGIS via computeTraversedFacilities(),
 // which lazy-loads get_conn_gis() internally.
 // Load config + connect BEFORE auth so PostGIS getter is available.
-require_once __DIR__ . '/../../../load/config.php';
-require_once __DIR__ . '/../../../load/connect.php';
-require_once __DIR__ . '/../../mgt/playbook/playbook_helpers.php';
+require_once __DIR__ . '/../../../../load/config.php';
+require_once __DIR__ . '/../../../../load/connect.php';
+require_once __DIR__ . '/../../../mgt/playbook/playbook_helpers.php';
 require_once __DIR__ . '/../auth.php';
 
 // Auth: any tier can read (no write authority required)

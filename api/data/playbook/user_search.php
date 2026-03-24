@@ -9,7 +9,6 @@
  */
 
 header('Content-Type: application/json');
-perti_set_cors();
 
 if (session_status() == PHP_SESSION_NONE) {
     session_start();
@@ -20,6 +19,7 @@ include("../../../load/config.php");
 include("../../../load/input.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
+perti_set_cors();
 
 // Auth required
 if (!isset($_SESSION['VATSIM_CID'])) {
