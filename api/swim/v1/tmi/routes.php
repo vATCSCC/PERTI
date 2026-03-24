@@ -32,7 +32,7 @@ if (!$conn_swim) {
 
 // Handle CORS preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
+    perti_set_cors();
     header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
     header('Access-Control-Max-Age: 86400');
@@ -825,7 +825,7 @@ function outputJSON($routes, $filter = 'all') {
     ];
 
     header('Content-Type: application/json; charset=utf-8');
-    header('Access-Control-Allow-Origin: *');
+    perti_set_cors();
     echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -852,7 +852,7 @@ function outputGeoJSON($routes) {
     ];
     
     header('Content-Type: application/geo+json; charset=utf-8');
-    header('Access-Control-Allow-Origin: *');
+    perti_set_cors();
     echo json_encode($geoJson);
     exit;
 }

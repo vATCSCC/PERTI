@@ -28,7 +28,7 @@ require_once __DIR__ . '/../auth.php';
 
 // Handle CORS preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
+    perti_set_cors();
     header('Access-Control-Allow-Methods: GET, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
     header('Access-Control-Max-Age: 86400');

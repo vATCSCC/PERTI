@@ -27,7 +27,7 @@ use PERTI\Lib\ArtccNormalizer;
 
 // Handle CORS preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    header('Access-Control-Allow-Origin: *');
+    perti_set_cors();
     header('Access-Control-Allow-Methods: GET, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-Key');
     header('Access-Control-Max-Age: 86400');
@@ -437,7 +437,7 @@ function outputGeoJSON(array $play, bool $hasGeometry = false): void {
     }
 
     header('Content-Type: application/geo+json; charset=utf-8');
-    header('Access-Control-Allow-Origin: *');
+    perti_set_cors();
     echo json_encode($geojson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -458,7 +458,7 @@ function outputGeoJSONCollection(array $plays): void {
     ];
 
     header('Content-Type: application/geo+json; charset=utf-8');
-    header('Access-Control-Allow-Origin: *');
+    perti_set_cors();
     echo json_encode($geojson, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }

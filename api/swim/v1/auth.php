@@ -466,8 +466,6 @@ class SwimResponse {
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
         if (in_array($origin, $SWIM_CORS_ORIGINS)) {
             header("Access-Control-Allow-Origin: $origin");
-        } else {
-            header("Access-Control-Allow-Origin: *");
         }
         header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
         header('Access-Control-Allow-Headers: Authorization, Content-Type, X-SWIM-Source, X-API-Key');
@@ -955,8 +953,6 @@ class SwimFormat {
         global $SWIM_CORS_ORIGINS;
         if (isset($SWIM_CORS_ORIGINS) && in_array($origin, $SWIM_CORS_ORIGINS)) {
             header("Access-Control-Allow-Origin: $origin");
-        } else {
-            header("Access-Control-Allow-Origin: *");
         }
 
         // Content-Disposition for downloadable formats

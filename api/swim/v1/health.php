@@ -12,12 +12,13 @@
  * @version 1.0.0
  */
 
-header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Cache-Control: no-cache, no-store, must-revalidate');
-
 // Load dependencies - config.php defines SWIM_SQL_* constants
 require_once(__DIR__ . '/../../../load/config.php');
+require_once(__DIR__ . '/../../../load/perti_constants.php');
+
+header('Content-Type: application/json; charset=utf-8');
+perti_set_cors();
+header('Cache-Control: no-cache, no-store, must-revalidate');
 
 // Simple auth check - allow localhost or require any valid SWIM API key
 $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1', 'localhost']);

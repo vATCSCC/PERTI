@@ -20,7 +20,7 @@
  */
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Cache-Control: max-age=3600'); // Cache for 1 hour
 
 // Static GeoJSON file path (generated from AIXM data)

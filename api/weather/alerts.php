@@ -20,7 +20,7 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Cache-Control: max-age=60'); // Cache for 1 minute
 
 // ---------------------------------------------------------------------------
