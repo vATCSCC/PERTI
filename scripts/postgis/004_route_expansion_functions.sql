@@ -22,10 +22,119 @@
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
+-- 0. parse_coordinate_token - Parse aviation coordinate formats
+-- -----------------------------------------------------------------------------
+-- Parses aviation coordinate formats into lat/lon. Returns NULL if not a
+-- valid coordinate token.
+--
+-- Supported formats:
+--   ICAO compact:  4520N07350W → 45.333°N, 73.833°W  (ddmmN/dddmmW)
+--                  41N060W     → 41°N, 60°W           (ddNdddW)
+--   NAT slash:     45/73       → 45°N, 73°W           (dd/ddd or dd/dd)
+--   NAT half-deg:  H4573       → 45.5°N, 73.5°W       (Hdddd)
+--   ARINC 5-char:  4573N       → 45°N, 73°W           (ddddH)
+--                  45N73       → 45°N, 73°W           (ddHdd)
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION parse_coordinate_token(p_token TEXT)
+RETURNS TABLE(lat NUMERIC, lon NUMERIC)
+LANGUAGE plpgsql IMMUTABLE
+AS $parse_coord$
+DECLARE
+    v_match TEXT[];
+    v_lat NUMERIC;
+    v_lon NUMERIC;
+    v_lat_deg INT;
+    v_lat_min INT;
+    v_lon_deg INT;
+    v_lon_min INT;
+    v_ns CHAR(1);
+    v_ew CHAR(1);
+BEGIN
+    IF p_token IS NULL OR p_token = '' THEN
+        RETURN;
+    END IF;
+
+    -- Format 1: ICAO compact (ddmmNdddmmW or ddNdddW)
+    v_match := regexp_match(p_token, '^(\d{2})(\d{2})?([NS])(\d{3})(\d{2})?([EW])$');
+    IF v_match IS NOT NULL THEN
+        v_lat_deg := v_match[1]::INT;
+        v_lat_min := COALESCE(v_match[2]::INT, 0);
+        v_ns := v_match[3];
+        v_lon_deg := v_match[4]::INT;
+        v_lon_min := COALESCE(v_match[5]::INT, 0);
+        v_ew := v_match[6];
+        v_lat := v_lat_deg + v_lat_min / 60.0;
+        v_lon := v_lon_deg + v_lon_min / 60.0;
+        IF v_ns = 'S' THEN v_lat := -v_lat; END IF;
+        IF v_ew = 'W' THEN v_lon := -v_lon; END IF;
+        IF v_lat BETWEEN -90 AND 90 AND v_lon BETWEEN -180 AND 180 THEN
+            RETURN QUERY SELECT v_lat, v_lon;
+            RETURN;
+        END IF;
+    END IF;
+
+    -- Format 2: NAT slash (dd/ddd or dd/dd)
+    v_match := regexp_match(p_token, '^(\d{2})/(\d{2,3})$');
+    IF v_match IS NOT NULL THEN
+        v_lat := v_match[1]::NUMERIC;
+        v_lon := -(v_match[2]::NUMERIC);
+        IF v_lat BETWEEN 0 AND 90 AND v_lon BETWEEN -180 AND 0 THEN
+            RETURN QUERY SELECT v_lat, v_lon;
+            RETURN;
+        END IF;
+    END IF;
+
+    -- Format 3: NAT half-degree (Hdddd)
+    v_match := regexp_match(p_token, '^H(\d{2})(\d{2})$');
+    IF v_match IS NOT NULL THEN
+        v_lat := v_match[1]::NUMERIC + 0.5;
+        v_lon := -(v_match[2]::NUMERIC + 0.5);
+        IF v_lat BETWEEN 0 AND 90 AND v_lon BETWEEN -180 AND 0 THEN
+            RETURN QUERY SELECT v_lat, v_lon;
+            RETURN;
+        END IF;
+    END IF;
+
+    -- Format 4a: ARINC 5-char trailing hemisphere (ddddH)
+    v_match := regexp_match(p_token, '^(\d{2})(\d{2})([NSEW])$');
+    IF v_match IS NOT NULL THEN
+        v_lat_deg := v_match[1]::INT;
+        v_lon_deg := v_match[2]::INT;
+        v_ns := v_match[3];
+        IF v_ns = 'N' THEN v_lat := v_lat_deg; v_lon := -v_lon_deg;
+        ELSIF v_ns = 'S' THEN v_lat := -v_lat_deg; v_lon := -v_lon_deg;
+        ELSIF v_ns = 'E' THEN v_lat := v_lat_deg; v_lon := v_lon_deg;
+        ELSIF v_ns = 'W' THEN v_lat := -v_lat_deg; v_lon := v_lon_deg;
+        END IF;
+        IF v_lat BETWEEN -90 AND 90 AND v_lon BETWEEN -180 AND 180 THEN
+            RETURN QUERY SELECT v_lat, v_lon;
+            RETURN;
+        END IF;
+    END IF;
+
+    -- Format 4b: ARINC 5-char middle hemisphere (ddHdd or ddHddd)
+    v_match := regexp_match(p_token, '^(\d{2})([NS])(\d{2,3})$');
+    IF v_match IS NOT NULL THEN
+        v_lat := v_match[1]::NUMERIC;
+        v_ns := v_match[2];
+        v_lon := v_match[3]::NUMERIC;
+        IF v_ns = 'S' THEN v_lat := -v_lat; END IF;
+        v_lon := -v_lon;
+        IF v_lat BETWEEN -90 AND 90 AND v_lon BETWEEN -180 AND 180 THEN
+            RETURN QUERY SELECT v_lat, v_lon;
+            RETURN;
+        END IF;
+    END IF;
+END;
+$parse_coord$;
+
+COMMENT ON FUNCTION parse_coordinate_token(TEXT) IS 'Parses aviation coordinate formats (ICAO compact, NAT slash, NAT half-degree, ARINC 5-char) into lat/lon';
+
+-- -----------------------------------------------------------------------------
 -- 1. resolve_waypoint - Resolve a fix/airport identifier to coordinates
 -- -----------------------------------------------------------------------------
--- Input: Fix identifier (e.g., 'BNA', 'KDFW', 'ZBW')
--- Output: fix_id, lat, lon, source (nav_fix, airport, airport_faa, airport_k, area_center)
+-- Input: Fix identifier (e.g., 'BNA', 'KDFW', 'ZBW', '41N060W')
+-- Output: fix_id, lat, lon, source (nav_fix, airport, airport_faa, airport_k, area_center, coordinate)
 -- -----------------------------------------------------------------------------
 -- Drop old overloads so callers resolve to the new 5-param version with defaults
 DROP FUNCTION IF EXISTS resolve_waypoint(VARCHAR);
@@ -164,6 +273,18 @@ BEGIN
         'area_center'::VARCHAR AS source
     FROM area_centers ac
     WHERE ac.center_code = p_fix_name
+    LIMIT 1;
+
+    IF FOUND THEN RETURN; END IF;
+
+    -- Fallback: try parsing as a coordinate token (e.g., 41N060W, 4430N03000W, 45/73)
+    RETURN QUERY
+    SELECT
+        p_fix_name::VARCHAR AS fix_id,
+        ct.lat::DECIMAL(10,7),
+        ct.lon::DECIMAL(11,7),
+        'coordinate'::VARCHAR(20) AS source
+    FROM parse_coordinate_token(p_fix_name) ct
     LIMIT 1;
 
 END;
@@ -512,6 +633,7 @@ RETURNS TABLE (
     waypoint_type VARCHAR(20)
 ) AS $$
 DECLARE
+    v_raw_parts TEXT[];
     v_parts TEXT[];
     v_idx INT;
     v_part TEXT;
@@ -536,9 +658,37 @@ DECLARE
     v_lookahead_token TEXT;
     v_next_wp_lat DECIMAL(10,7);
     v_next_wp_lon DECIMAL(11,7);
+    v_slash_parts TEXT[];
+    v_processed TEXT[];
+    v_pp INT;
 BEGIN
-    -- Split route string into parts
-    v_parts := regexp_split_to_array(TRIM(p_route_string), '\s+');
+    -- Split route string into raw parts
+    v_raw_parts := regexp_split_to_array(TRIM(p_route_string), '\s+');
+
+    -- Pre-process: split slash-delimited tokens that are NOT coordinate formats
+    -- NAT slash coords like "45/73" are kept intact; "KDFW/0305" is split into two tokens
+    v_processed := ARRAY[]::TEXT[];
+    FOR v_pp IN 1..COALESCE(array_length(v_raw_parts, 1), 0) LOOP
+        v_part := v_raw_parts[v_pp];
+        IF v_part IS NULL OR v_part = '' THEN
+            CONTINUE;
+        END IF;
+        IF v_part ~ '^\d{2}/\d{2,3}$' THEN
+            -- NAT slash coordinate — keep intact
+            v_processed := array_append(v_processed, v_part);
+        ELSIF position('/' IN v_part) > 0 THEN
+            -- Split on slash and take each non-empty piece
+            v_slash_parts := string_to_array(v_part, '/');
+            FOR v_idx IN 1..array_length(v_slash_parts, 1) LOOP
+                IF v_slash_parts[v_idx] IS NOT NULL AND v_slash_parts[v_idx] != '' THEN
+                    v_processed := array_append(v_processed, v_slash_parts[v_idx]);
+                END IF;
+            END LOOP;
+        ELSE
+            v_processed := array_append(v_processed, v_part);
+        END IF;
+    END LOOP;
+    v_parts := v_processed;
 
     v_idx := 1;
     WHILE v_idx <= array_length(v_parts, 1) LOOP
