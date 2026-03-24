@@ -4459,6 +4459,7 @@
     "results": {
       "noFilters": "Please add at least one filter to search",
       "noResults": "No routes found — try broadening your filters",
+      "noResultsTitle": "No Routes Found",
       "loading": "Searching routes...",
       "totalRoutes": "routes",
       "totalFlights": "flights",

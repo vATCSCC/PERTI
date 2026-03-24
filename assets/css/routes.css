@@ -613,26 +613,38 @@
    ======================================================================== */
 
 .routes-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #888;
     text-align: center;
-    padding: 60px 20px;
-    color: #aaa;
+    padding: 40px 20px;
 }
 
 .routes-empty-state i {
-    font-size: 4rem;
-    color: #444;
-    margin-bottom: 20px;
+    font-size: 2.5rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+    width: 64px;
+    height: 64px;
+    line-height: 64px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .routes-empty-state h3 {
-    font-size: 1.2rem;
-    color: #ccc;
-    margin-bottom: 10px;
+    margin: 0 0 8px;
+    font-size: 1.1rem;
+    color: #aaa;
 }
 
 .routes-empty-state p {
-    font-size: 0.9rem;
-    color: #888;
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    max-width: 280px;
 }
 
 /* ========================================================================
@@ -866,19 +878,90 @@ body.routes-resizing .maplibregl-map {
    RESPONSIVE
    ======================================================================== */
 
+@media (max-width: 1024px) {
+    .routes-left-panel {
+        width: 320px;
+        min-width: 260px;
+    }
+
+    .routes-right-panel {
+        min-width: 300px;
+    }
+}
+
 @media (max-width: 768px) {
     .routes-container {
         flex-direction: column;
     }
 
     .routes-left-panel {
-        width: 100%;
+        width: 100% !important;
         max-width: 100%;
         min-width: 100%;
-        height: 50vh;
+        height: auto;
+        max-height: 45vh;
+        border-right: none;
+        border-bottom: 1px solid #333;
+    }
+
+    .routes-splitter {
+        display: none;
+    }
+
+    .routes-right-panel {
+        min-width: 100%;
+        height: 55vh;
     }
 
     .routes-bottom-panel {
-        left: 0;
+        left: 0 !important;
+        height: 250px;
+    }
+
+    .routes-filter-chips {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+    }
+
+    .routes-result-bar {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .routes-detail-tabs .routes-detail-tab {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+    }
+
+    .routes-detail-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .routes-left-panel {
+        max-height: 40vh;
+    }
+
+    .routes-filter-header h5 {
+        font-size: 0.85rem;
+    }
+
+    .routes-mode-pills {
+        gap: 4px;
+    }
+
+    .routes-mode-pill {
+        font-size: 0.7rem;
+        padding: 3px 8px;
+    }
+
+    .routes-search-btn {
+        font-size: 0.85rem;
+        padding: 8px;
+    }
+
+    .routes-route-card {
+        padding: 8px;
     }
 }

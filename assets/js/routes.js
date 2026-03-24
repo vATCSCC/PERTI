@@ -1447,7 +1447,7 @@
 
         var $empty = $('<div class="routes-empty-state"></div>');
         $empty.append('<i class="fas fa-search"></i>');
-        $empty.append('<h3>' + PERTII18n.t('routes.results.noResults') + '</h3>');
+        $empty.append('<h3>' + PERTII18n.t('routes.results.noResultsTitle') + '</h3>');
         $empty.append('<p>' + PERTII18n.t('routes.results.noResults') + '</p>');
         $list.append($empty);
     }
