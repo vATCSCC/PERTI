@@ -222,7 +222,8 @@ function computeTraversedFacilities($route_string, $origin_artccs, $dest_artccs,
     }
     $artccs = array_merge($origin_list, $artccs, $dest_list);
 
-    $result['artccs'] = implode(',', array_unique(array_filter($artccs)));
+    $merged = implode(',', array_unique(array_filter($artccs)));
+    $result['artccs'] = ArtccNormalizer::toL1Csv($merged, ',');
     $result['tracons'] = implode(',', array_unique(array_filter($tracons)));
     $result['sectors_low'] = implode(',', array_unique(array_filter($sectors_low)));
     $result['sectors_high'] = implode(',', array_unique(array_filter($sectors_high)));

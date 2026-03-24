@@ -24,6 +24,8 @@ include("../../../load/input.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 include("../../../load/playbook_visibility.php");
+require_once __DIR__ . '/../../../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
 
 $category    = get_input('category');
 $status      = get_input('status');
@@ -197,6 +199,16 @@ if (!empty($play_ids)) {
     while ($row = $data_result->fetch_assoc()) {
         $row['play_id'] = (int)$row['play_id'];
         $row['route_count'] = (int)$row['route_count'];
+        // Filter ARTCC fields to L1 only (strip sub-sector suffixes)
+        if (!empty($row['impacted_area'])) {
+            $row['impacted_area'] = ArtccNormalizer::toL1Csv($row['impacted_area'], '/');
+        }
+        if (!empty($row['facilities_involved'])) {
+            $row['facilities_involved'] = ArtccNormalizer::toL1Csv($row['facilities_involved'], ',');
+        }
+        if (!empty($row['agg_traversed_artccs'])) {
+            $row['agg_traversed_artccs'] = ArtccNormalizer::toL1Csv($row['agg_traversed_artccs'], ',');
+        }
         $rows[] = $row;
     }
 }
