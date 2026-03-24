@@ -1053,31 +1053,204 @@
         var $panel = $('#routes_bottom_panel');
         $panel.empty();
 
-        // Basic variant list for now
-        var html = '<div style="padding: 20px;">';
-        html += '<h4 style="margin-bottom: 16px;">' + PERTII18n.t('routes.detail.variants') +
-                ' (' + data.variants.length + ')</h4>';
+        // Tab header
+        var $tabs = $('<div class="routes-detail-tabs"></div>');
+        var tabs = [
+            { id: 'variants', label: PERTII18n.t('routes.detail.variants') },
+            { id: 'statistics', label: PERTII18n.t('routes.detail.statistics') },
+            { id: 'analysis', label: PERTII18n.t('routes.detail.analysis') },
+            { id: 'export', label: PERTII18n.t('routes.detail.export') }
+        ];
 
-        html += '<table class="table table-sm table-striped">';
+        tabs.forEach(function(tab) {
+            var $tab = $('<button class="routes-detail-tab"></button>')
+                .text(tab.label)
+                .data('tab', tab.id)
+                .on('click', function() {
+                    switchDetailTab(tab.id, data);
+                });
+            if (tab.id === 'variants') $tab.addClass('active'); // Default tab
+            $tabs.append($tab);
+        });
+
+        // Close button
+        var $close = $('<button class="routes-detail-close"><i class="fas fa-times"></i></button>')
+            .on('click', function() {
+                $panel.hide();
+                state.selectedRoute = null;
+                if (typeof RoutesMap !== 'undefined') RoutesMap.clearHighlight();
+            });
+        $tabs.append($close);
+        $panel.append($tabs);
+
+        // Tab content container
+        var $content = $('<div class="routes-detail-content" id="routes_detail_content"></div>');
+        $panel.append($content);
+
+        // Show default tab
+        renderVariantsTab(data);
+        $panel.show();
+    }
+
+    function switchDetailTab(tabId, data) {
+        // Update active tab
+        $('.routes-detail-tab').removeClass('active');
+        $('.routes-detail-tab[data-tab="' + tabId + '"]').addClass('active');
+
+        // Render content
+        switch (tabId) {
+            case 'variants': renderVariantsTab(data); break;
+            case 'statistics': renderStatisticsTab(data); break;
+            case 'analysis': renderAnalysisTab(data); break;
+            case 'export': renderExportTab(data); break;
+        }
+    }
+
+    function renderVariantsTab(data) {
+        var $content = $('#routes_detail_content');
+        $content.empty();
+
+        if (!data.variants || data.variants.length === 0) {
+            $content.html('<div class="routes-detail-empty">No variants found</div>');
+            return;
+        }
+
+        var html = '<table class="routes-detail-table">';
         html += '<thead><tr>';
         html += '<th>' + PERTII18n.t('routes.detail.rawRoute') + '</th>';
-        html += '<th>' + PERTII18n.t('routes.detail.count') + '</th>';
-        html += '<th>' + PERTII18n.t('routes.detail.lastFiled') + '</th>';
+        html += '<th style="width:80px;text-align:right;">' + PERTII18n.t('routes.detail.count') + '</th>';
+        html += '<th style="width:120px;text-align:right;">' + PERTII18n.t('routes.detail.lastFiled') + '</th>';
         html += '</tr></thead><tbody>';
 
         data.variants.forEach(function(variant) {
             html += '<tr>';
-            html += '<td style="font-family: monospace; font-size: 0.85rem;">' +
-                    (variant.raw_route || variant.normalized_route) + '</td>';
-            html += '<td>' + variant.flight_count.toLocaleString() + '</td>';
-            html += '<td>' + formatDate(variant.last_filed) + '</td>';
+            html += '<td class="routes-detail-route-cell">' + escapeHtml(variant.raw_route || variant.normalized_route) + '</td>';
+            html += '<td style="text-align:right;">' + variant.flight_count.toLocaleString() + '</td>';
+            html += '<td style="text-align:right;">' + formatDate(variant.last_filed) + '</td>';
             html += '</tr>';
         });
 
-        html += '</tbody></table></div>';
+        html += '</tbody></table>';
+        $content.html(html);
+    }
 
-        $panel.html(html);
-        $panel.show();
+    function renderStatisticsTab(data) {
+        var $content = $('#routes_detail_content');
+        $content.empty();
+
+        // 2x2 grid of charts
+        var html = '<div class="routes-stats-grid">';
+        html += '<div class="routes-stats-chart" id="chart_aircraft_mix"></div>';
+        html += '<div class="routes-stats-chart" id="chart_airline_mix"></div>';
+        html += '<div class="routes-stats-chart" id="chart_monthly_trend"></div>';
+        html += '<div class="routes-stats-chart" id="chart_altitude_dist"></div>';
+        html += '</div>';
+        $content.html(html);
+
+        // Render charts after DOM is ready
+        setTimeout(function() {
+            renderAircraftMixChart(data.aircraft_mix || []);
+            renderAirlineMixChart(data.airline_mix || []);
+            renderMonthlyTrendChart(data.monthly_trend || []);
+            renderAltitudeDistChart(data.altitude_distribution || []);
+        }, 50);
+    }
+
+    function renderAircraftMixChart(data) {
+        var dom = document.getElementById('chart_aircraft_mix');
+        if (!dom || data.length === 0) return;
+        var chart = echarts.init(dom, 'dark');
+        chart.setOption({
+            title: { text: PERTII18n.t('routes.detail.aircraftMix'), textStyle: { fontSize: 13, color: '#ccc' }, left: 10, top: 5 },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            grid: { left: 60, right: 20, top: 35, bottom: 20 },
+            xAxis: { type: 'value', axisLabel: { color: '#999' } },
+            yAxis: { type: 'category', data: data.map(function(d) { return d.icao_code; }).reverse(), axisLabel: { color: '#ccc', fontSize: 10 } },
+            series: [{
+                type: 'bar',
+                data: data.map(function(d) { return d.flight_count; }).reverse(),
+                itemStyle: { color: '#239BCD' },
+                barMaxWidth: 18
+            }],
+            backgroundColor: 'transparent'
+        });
+    }
+
+    function renderAirlineMixChart(data) {
+        var dom = document.getElementById('chart_airline_mix');
+        if (!dom || data.length === 0) return;
+        var chart = echarts.init(dom, 'dark');
+        chart.setOption({
+            title: { text: PERTII18n.t('routes.detail.airlineMix'), textStyle: { fontSize: 13, color: '#ccc' }, left: 10, top: 5 },
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            grid: { left: 60, right: 20, top: 35, bottom: 20 },
+            xAxis: { type: 'value', axisLabel: { color: '#999' } },
+            yAxis: { type: 'category', data: data.map(function(d) { return d.airline_icao; }).reverse(), axisLabel: { color: '#ccc', fontSize: 10 } },
+            series: [{
+                type: 'bar',
+                data: data.map(function(d) { return d.flight_count; }).reverse(),
+                itemStyle: { color: '#4ECDC4' },
+                barMaxWidth: 18
+            }],
+            backgroundColor: 'transparent'
+        });
+    }
+
+    function renderMonthlyTrendChart(data) {
+        var dom = document.getElementById('chart_monthly_trend');
+        if (!dom || data.length === 0) return;
+        var chart = echarts.init(dom, 'dark');
+        chart.setOption({
+            title: { text: PERTII18n.t('routes.detail.monthlyTrend'), textStyle: { fontSize: 13, color: '#ccc' }, left: 10, top: 5 },
+            tooltip: { trigger: 'axis' },
+            grid: { left: 50, right: 20, top: 35, bottom: 30 },
+            xAxis: { type: 'category', data: data.map(function(d) { return d.month_label || d.partition_month; }), axisLabel: { color: '#999', fontSize: 9, rotate: 45 } },
+            yAxis: { type: 'value', axisLabel: { color: '#999' } },
+            series: [{
+                type: 'line',
+                data: data.map(function(d) { return d.flight_count; }),
+                smooth: true,
+                lineStyle: { color: '#FFE66D', width: 2 },
+                itemStyle: { color: '#FFE66D' },
+                areaStyle: { color: 'rgba(255, 230, 109, 0.1)' }
+            }],
+            backgroundColor: 'transparent'
+        });
+    }
+
+    function renderAltitudeDistChart(data) {
+        var dom = document.getElementById('chart_altitude_dist');
+        if (!dom || data.length === 0) return;
+        var chart = echarts.init(dom, 'dark');
+        chart.setOption({
+            title: { text: PERTII18n.t('routes.detail.altitudeDistribution'), textStyle: { fontSize: 13, color: '#ccc' }, left: 10, top: 5 },
+            tooltip: { trigger: 'axis' },
+            grid: { left: 50, right: 20, top: 35, bottom: 30 },
+            xAxis: { type: 'category', data: data.map(function(d) { return 'FL' + d.cruise_altitude; }), axisLabel: { color: '#999', fontSize: 9, rotate: 45 } },
+            yAxis: { type: 'value', axisLabel: { color: '#999' } },
+            series: [{
+                type: 'bar',
+                data: data.map(function(d) { return d.flight_count; }),
+                itemStyle: { color: '#7B68EE' },
+                barMaxWidth: 24
+            }],
+            backgroundColor: 'transparent'
+        });
+    }
+
+    function renderAnalysisTab(data) {
+        var $content = $('#routes_detail_content');
+        $content.html('<div class="routes-detail-empty"><i class="fas fa-chart-line"></i> Route analysis coming in next task</div>');
+    }
+
+    function renderExportTab(data) {
+        var $content = $('#routes_detail_content');
+        $content.html('<div class="routes-detail-empty"><i class="fas fa-file-export"></i> Export coming in next task</div>');
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     // ========================================================================

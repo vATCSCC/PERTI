@@ -16,6 +16,8 @@ include("load/i18n.php");
     <script>window.PERTI_USE_MAPLIBRE = true;</script>
     <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
+    <!-- ECharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 </head>
 <body>
 <?php include("load/nav.php"); ?>
