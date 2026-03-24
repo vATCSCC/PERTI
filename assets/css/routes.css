@@ -228,6 +228,123 @@
     color: #fff;
 }
 
+/* Checkbox groups */
+.routes-checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.routes-checkbox-item {
+    display: inline-flex;
+    align-items: center;
+    color: #ccc;
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.routes-checkbox-item input[type="checkbox"] {
+    margin-right: 6px;
+    cursor: pointer;
+}
+
+/* Date range */
+.routes-date-range {
+    display: flex;
+    gap: 8px;
+}
+
+/* Hour range */
+.routes-hour-range {
+    display: flex;
+    gap: 8px;
+}
+
+/* Season pills */
+.routes-season-pills {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+.routes-season-pill {
+    flex: 1;
+    min-width: 70px;
+    padding: 6px 12px;
+    background: #252540;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #aaa;
+    font-size: 0.8rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: capitalize;
+}
+
+.routes-season-pill:hover {
+    background: #2d2d4a;
+    border-color: #666;
+}
+
+.routes-season-pill.active {
+    background: #239BCD;
+    border-color: #239BCD;
+    color: #fff;
+}
+
+/* Select2 Dark Theme Overrides */
+.select2-container .select2-selection--multiple {
+    background-color: #252540 !important;
+    border: 1px solid #444 !important;
+    color: #fff !important;
+}
+
+.select2-container .select2-selection--multiple .select2-selection__choice {
+    background-color: #239BCD !important;
+    border: 1px solid #239BCD !important;
+    color: #fff !important;
+}
+
+.select2-container .select2-selection--multiple .select2-selection__choice__remove {
+    color: #fff !important;
+}
+
+.select2-container .select2-selection--multiple .select2-search__field {
+    color: #fff !important;
+}
+
+.select2-container.select2-container--focus .select2-selection--multiple {
+    border-color: #239BCD !important;
+    box-shadow: 0 0 0 2px rgba(35, 155, 205, 0.2) !important;
+}
+
+.select2-container .select2-dropdown {
+    background-color: #252540 !important;
+    border: 1px solid #444 !important;
+}
+
+.select2-container .select2-results__option {
+    color: #fff !important;
+    background-color: #252540 !important;
+}
+
+.select2-container .select2-results__option--highlighted {
+    background-color: #2d2d4a !important;
+}
+
+.select2-container .select2-results__option[aria-selected="true"] {
+    background-color: #239BCD !important;
+}
+
+.select2-container .select2-search--dropdown .select2-search__field {
+    background-color: #1a1a2e !important;
+    border: 1px solid #444 !important;
+    color: #fff !important;
+}
+
 /* ========================================================================
    FILTER CHIPS BAR
    ======================================================================== */

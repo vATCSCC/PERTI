@@ -14,7 +14,26 @@
             origins: [],
             destinations: [],
             origMode: 'airport',
-            destMode: 'airport'
+            destMode: 'airport',
+            // Aircraft filters
+            aircraft: [],        // ICAO type codes
+            manufacturer: [],    // manufacturer names
+            weight: [],          // weight classes (S/L/H/J)
+            wake: [],            // wake categories (L/M/H/J)
+            engine: [],          // engine types (J/T/P/E)
+            // Operator filters
+            airline: [],         // airline ICAO codes
+            callsignPrefix: '',  // 3-char prefix string
+            operatorGroup: [],   // group names
+            // Time filters
+            dateFrom: '',        // ISO date string
+            dateTo: '',          // ISO date string
+            month: [],           // 1-12
+            dayOfWeek: [],       // 1-7
+            hourMin: '',         // 0-23
+            hourMax: '',         // 0-23
+            season: [],          // winter/spring/summer/fall
+            year: []             // year numbers
         },
         results: null,
         selectedRoute: null,
@@ -29,6 +48,7 @@
 
     $(document).ready(function() {
         console.log('[Routes] Initializing...');
+        initFilterSections();
         initFilters();
         parseUrlState();
 
@@ -38,6 +58,270 @@
             doSearch();
         }
     });
+
+    // ========================================================================
+    // FILTER SECTIONS INITIALIZATION
+    // ========================================================================
+
+    function initFilterSections() {
+        buildAircraftSection();
+        buildOperatorSection();
+        buildTimeSection();
+    }
+
+    function buildAircraftSection() {
+        var $body = $('#filter_aircraft .routes-filter-body');
+        $body.empty();
+
+        // Type select2
+        var $typeGroup = $('<div class="routes-filter-group"></div>');
+        $typeGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.aircraftType') + '</label>');
+        var $typeSelect = $('<select id="aircraft_type_select" multiple></select>');
+        $typeGroup.append($typeSelect);
+        $body.append($typeGroup);
+
+        // Weight class checkboxes
+        var $weightGroup = $('<div class="routes-filter-group"></div>');
+        $weightGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.weightClass') + '</label>');
+        var $weightCheckboxes = $('<div class="routes-checkbox-group"></div>');
+        $weightCheckboxes.append(buildCheckbox('weight', 'S', PERTII18n.t('routes.filters.weightSmall')));
+        $weightCheckboxes.append(buildCheckbox('weight', 'L', PERTII18n.t('routes.filters.weightLarge')));
+        $weightCheckboxes.append(buildCheckbox('weight', 'H', PERTII18n.t('routes.filters.weightHeavy')));
+        $weightCheckboxes.append(buildCheckbox('weight', 'J', PERTII18n.t('routes.filters.weightSuper')));
+        $weightGroup.append($weightCheckboxes);
+        $body.append($weightGroup);
+
+        // Wake category checkboxes
+        var $wakeGroup = $('<div class="routes-filter-group"></div>');
+        $wakeGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.wakeCategory') + '</label>');
+        var $wakeCheckboxes = $('<div class="routes-checkbox-group"></div>');
+        $wakeCheckboxes.append(buildCheckbox('wake', 'L', PERTII18n.t('routes.filters.wakeLight')));
+        $wakeCheckboxes.append(buildCheckbox('wake', 'M', PERTII18n.t('routes.filters.wakeMedium')));
+        $wakeCheckboxes.append(buildCheckbox('wake', 'H', PERTII18n.t('routes.filters.wakeHeavy')));
+        $wakeCheckboxes.append(buildCheckbox('wake', 'J', PERTII18n.t('routes.filters.wakeSuper')));
+        $wakeGroup.append($wakeCheckboxes);
+        $body.append($wakeGroup);
+
+        // Engine type checkboxes
+        var $engineGroup = $('<div class="routes-filter-group"></div>');
+        $engineGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.engineType') + '</label>');
+        var $engineCheckboxes = $('<div class="routes-checkbox-group"></div>');
+        $engineCheckboxes.append(buildCheckbox('engine', 'J', PERTII18n.t('routes.filters.engineJet')));
+        $engineCheckboxes.append(buildCheckbox('engine', 'T', PERTII18n.t('routes.filters.engineTurboprop')));
+        $engineCheckboxes.append(buildCheckbox('engine', 'P', PERTII18n.t('routes.filters.enginePiston')));
+        $engineCheckboxes.append(buildCheckbox('engine', 'E', PERTII18n.t('routes.filters.engineElectric')));
+        $engineGroup.append($engineCheckboxes);
+        $body.append($engineGroup);
+
+        // Initialize Select2
+        initSelect2Ajax('aircraft_type_select', 'aircraft', 'aircraft');
+    }
+
+    function buildOperatorSection() {
+        var $body = $('#filter_operator .routes-filter-body');
+        $body.empty();
+
+        // Airline select2
+        var $airlineGroup = $('<div class="routes-filter-group"></div>');
+        $airlineGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.airline') + '</label>');
+        var $airlineSelect = $('<select id="airline_select" multiple></select>');
+        $airlineGroup.append($airlineSelect);
+        $body.append($airlineGroup);
+
+        // Callsign prefix input
+        var $callsignGroup = $('<div class="routes-filter-group"></div>');
+        $callsignGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.callsignPrefix') + '</label>');
+        var $callsignInput = $('<input type="text" id="callsign_prefix_input" class="routes-filter-input" maxlength="3" placeholder="' + PERTII18n.t('routes.filters.callsignPlaceholder') + '">');
+        $callsignInput.on('input', function() {
+            var pos = this.selectionStart;
+            this.value = this.value.toUpperCase();
+            this.setSelectionRange(pos, pos);
+            state.filters.callsignPrefix = this.value;
+            renderFilterChips();
+            updateClearButton();
+        });
+        $callsignGroup.append($callsignInput);
+        $body.append($callsignGroup);
+
+        // Operator group checkboxes
+        var $groupGroup = $('<div class="routes-filter-group"></div>');
+        $groupGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.operatorGroup') + '</label>');
+        var $groupCheckboxes = $('<div class="routes-checkbox-group"></div>');
+        $groupCheckboxes.append(buildCheckbox('operatorGroup', 'legacy_carrier', PERTII18n.t('routes.filters.opLegacy')));
+        $groupCheckboxes.append(buildCheckbox('operatorGroup', 'regional', PERTII18n.t('routes.filters.opRegional')));
+        $groupCheckboxes.append(buildCheckbox('operatorGroup', 'lcc', PERTII18n.t('routes.filters.opLcc')));
+        $groupCheckboxes.append(buildCheckbox('operatorGroup', 'cargo', PERTII18n.t('routes.filters.opCargo')));
+        $groupCheckboxes.append(buildCheckbox('operatorGroup', 'bizjet', PERTII18n.t('routes.filters.opBizjet')));
+        $groupCheckboxes.append(buildCheckbox('operatorGroup', 'charter', PERTII18n.t('routes.filters.opCharter')));
+        $groupCheckboxes.append(buildCheckbox('operatorGroup', 'military', PERTII18n.t('routes.filters.opMilitary')));
+        $groupCheckboxes.append(buildCheckbox('operatorGroup', 'ga', PERTII18n.t('routes.filters.opGa')));
+        $groupGroup.append($groupCheckboxes);
+        $body.append($groupGroup);
+
+        // Initialize Select2
+        initSelect2Ajax('airline_select', 'operator', 'airline');
+    }
+
+    function buildTimeSection() {
+        var $body = $('#filter_time .routes-filter-body');
+        $body.empty();
+
+        // Date range
+        var $dateGroup = $('<div class="routes-filter-group"></div>');
+        $dateGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.dateRange') + '</label>');
+        var $dateRange = $('<div class="routes-date-range"></div>');
+        var $dateFrom = $('<input type="date" id="date_from_input" class="routes-filter-input" style="flex:1">');
+        var $dateTo = $('<input type="date" id="date_to_input" class="routes-filter-input" style="flex:1">');
+        $dateFrom.on('change', function() {
+            state.filters.dateFrom = this.value;
+            renderFilterChips();
+            updateClearButton();
+        });
+        $dateTo.on('change', function() {
+            state.filters.dateTo = this.value;
+            renderFilterChips();
+            updateClearButton();
+        });
+        $dateRange.append($dateFrom, $dateTo);
+        $dateGroup.append($dateRange);
+        $body.append($dateGroup);
+
+        // Year checkboxes
+        var $yearGroup = $('<div class="routes-filter-group"></div>');
+        $yearGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.year') + '</label>');
+        var $yearCheckboxes = $('<div class="routes-checkbox-group"></div>');
+        $yearCheckboxes.append(buildCheckbox('year', '2025', '2025'));
+        $yearCheckboxes.append(buildCheckbox('year', '2026', '2026'));
+        $yearGroup.append($yearCheckboxes);
+        $body.append($yearGroup);
+
+        // Month checkboxes
+        var $monthGroup = $('<div class="routes-filter-group"></div>');
+        $monthGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.month') + '</label>');
+        var $monthCheckboxes = $('<div class="routes-checkbox-group"></div>');
+        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        for (var i = 0; i < months.length; i++) {
+            $monthCheckboxes.append(buildCheckbox('month', String(i + 1), months[i]));
+        }
+        $monthGroup.append($monthCheckboxes);
+        $body.append($monthGroup);
+
+        // Day of week checkboxes
+        var $dowGroup = $('<div class="routes-filter-group"></div>');
+        $dowGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.dayOfWeek') + '</label>');
+        var $dowCheckboxes = $('<div class="routes-checkbox-group"></div>');
+        var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        for (var j = 0; j < days.length; j++) {
+            $dowCheckboxes.append(buildCheckbox('dayOfWeek', String(j + 1), days[j]));
+        }
+        $dowGroup.append($dowCheckboxes);
+        $body.append($dowGroup);
+
+        // Hour range
+        var $hourGroup = $('<div class="routes-filter-group"></div>');
+        $hourGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.hourRange') + '</label>');
+        var $hourRange = $('<div class="routes-hour-range"></div>');
+        var $hourMin = $('<input type="number" id="hour_min_input" class="routes-filter-input" min="0" max="23" placeholder="0" style="flex:1">');
+        var $hourMax = $('<input type="number" id="hour_max_input" class="routes-filter-input" min="0" max="23" placeholder="23" style="flex:1">');
+        $hourMin.on('change', function() {
+            state.filters.hourMin = this.value;
+            renderFilterChips();
+            updateClearButton();
+        });
+        $hourMax.on('change', function() {
+            state.filters.hourMax = this.value;
+            renderFilterChips();
+            updateClearButton();
+        });
+        $hourRange.append($hourMin, $hourMax);
+        $hourGroup.append($hourRange);
+        $body.append($hourGroup);
+
+        // Season pills
+        var $seasonGroup = $('<div class="routes-filter-group"></div>');
+        $seasonGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.season') + '</label>');
+        var $seasonPills = $('<div class="routes-season-pills"></div>');
+        var seasons = [
+            { value: 'winter', label: PERTII18n.t('routes.filters.seasonWinter') },
+            { value: 'spring', label: PERTII18n.t('routes.filters.seasonSpring') },
+            { value: 'summer', label: PERTII18n.t('routes.filters.seasonSummer') },
+            { value: 'fall', label: PERTII18n.t('routes.filters.seasonFall') }
+        ];
+        seasons.forEach(function(season) {
+            var $pill = $('<div class="routes-season-pill" data-value="' + season.value + '"></div>')
+                .text(season.label)
+                .on('click', function() {
+                    var val = $(this).data('value');
+                    var idx = state.filters.season.indexOf(val);
+                    if (idx === -1) {
+                        state.filters.season.push(val);
+                        $(this).addClass('active');
+                    } else {
+                        state.filters.season.splice(idx, 1);
+                        $(this).removeClass('active');
+                    }
+                    renderFilterChips();
+                    updateClearButton();
+                });
+            $seasonPills.append($pill);
+        });
+        $seasonGroup.append($seasonPills);
+        $body.append($seasonGroup);
+    }
+
+    function buildCheckbox(filterKey, value, label) {
+        var $item = $('<label class="routes-checkbox-item"></label>');
+        var $checkbox = $('<input type="checkbox" value="' + value + '">');
+        $checkbox.on('change', function() {
+            var val = $(this).val();
+            if (this.checked) {
+                if (state.filters[filterKey].indexOf(val) === -1) {
+                    state.filters[filterKey].push(val);
+                }
+            } else {
+                state.filters[filterKey] = state.filters[filterKey].filter(function(v) {
+                    return v !== val;
+                });
+            }
+            renderFilterChips();
+            updateClearButton();
+        });
+        $item.append($checkbox);
+        $item.append(' ' + label);
+        return $item;
+    }
+
+    function initSelect2Ajax(selectId, filterType, stateKey) {
+        $('#' + selectId).select2({
+            ajax: {
+                url: 'api/data/route-history/filters.php',
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return { type: filterType, q: params.term };
+                },
+                processResults: function(data) {
+                    return {
+                        results: (data.results || []).map(function(item) {
+                            return {
+                                id: item.code || item.icao_code,
+                                text: (item.code || item.icao_code) + ' - ' + item.name
+                            };
+                        })
+                    };
+                }
+            },
+            minimumInputLength: 2,
+            placeholder: PERTII18n.t('routes.filters.' + filterType) || filterType,
+            allowClear: true,
+            multiple: true
+        }).on('change', function() {
+            var vals = $(this).val() || [];
+            state.filters[stateKey] = vals;
+            renderFilterChips();
+            updateClearButton();
+        });
+    }
 
     // ========================================================================
     // FILTER INITIALIZATION
@@ -210,6 +494,125 @@
                 doSearch();
             }));
         });
+
+        // Aircraft chips
+        state.filters.aircraft.forEach(function(code) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.aircraft') + ': ' + code, function() {
+                removeArrayValue('aircraft', code);
+            }));
+        });
+
+        state.filters.weight.forEach(function(code) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.weight') + ': ' + code, function() {
+                removeArrayValue('weight', code);
+            }));
+        });
+
+        state.filters.wake.forEach(function(code) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.wake') + ': ' + code, function() {
+                removeArrayValue('wake', code);
+            }));
+        });
+
+        state.filters.engine.forEach(function(code) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.engine') + ': ' + code, function() {
+                removeArrayValue('engine', code);
+            }));
+        });
+
+        // Operator chips
+        state.filters.airline.forEach(function(code) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.airline') + ': ' + code, function() {
+                removeArrayValue('airline', code);
+            }));
+        });
+
+        if (state.filters.callsignPrefix) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.callsignPrefix') + ': ' + state.filters.callsignPrefix, function() {
+                state.filters.callsignPrefix = '';
+                $('#callsign_prefix_input').val('');
+                renderFilterChips();
+                updateClearButton();
+            }));
+        }
+
+        state.filters.operatorGroup.forEach(function(code) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.operatorGroup') + ': ' + code, function() {
+                removeArrayValue('operatorGroup', code);
+            }));
+        });
+
+        // Time chips
+        if (state.filters.dateFrom) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.from') + ': ' + state.filters.dateFrom, function() {
+                state.filters.dateFrom = '';
+                $('#date_from_input').val('');
+                renderFilterChips();
+                updateClearButton();
+            }));
+        }
+
+        if (state.filters.dateTo) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.to') + ': ' + state.filters.dateTo, function() {
+                state.filters.dateTo = '';
+                $('#date_to_input').val('');
+                renderFilterChips();
+                updateClearButton();
+            }));
+        }
+
+        state.filters.year.forEach(function(code) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.year') + ': ' + code, function() {
+                removeArrayValue('year', code);
+            }));
+        });
+
+        state.filters.month.forEach(function(code) {
+            var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            $bar.append(buildChip(PERTII18n.t('routes.filters.month') + ': ' + months[parseInt(code) - 1], function() {
+                removeArrayValue('month', code);
+            }));
+        });
+
+        state.filters.dayOfWeek.forEach(function(code) {
+            var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            $bar.append(buildChip(PERTII18n.t('routes.filters.dayOfWeek') + ': ' + days[parseInt(code) - 1], function() {
+                removeArrayValue('dayOfWeek', code);
+            }));
+        });
+
+        if (state.filters.hourMin !== '') {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.hourMin') + ': ' + state.filters.hourMin, function() {
+                state.filters.hourMin = '';
+                $('#hour_min_input').val('');
+                renderFilterChips();
+                updateClearButton();
+            }));
+        }
+
+        if (state.filters.hourMax !== '') {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.hourMax') + ': ' + state.filters.hourMax, function() {
+                state.filters.hourMax = '';
+                $('#hour_max_input').val('');
+                renderFilterChips();
+                updateClearButton();
+            }));
+        }
+
+        state.filters.season.forEach(function(code) {
+            $bar.append(buildChip(PERTII18n.t('routes.filters.season') + ': ' + code, function() {
+                removeArrayValue('season', code);
+            }));
+        });
+    }
+
+    function removeArrayValue(filterKey, value) {
+        state.filters[filterKey] = state.filters[filterKey].filter(function(v) {
+            return v !== value;
+        });
+        populateFiltersFromState();
+        renderFilterChips();
+        updateClearButton();
     }
 
     function buildChip(label, onRemove) {
@@ -276,6 +679,60 @@
             }
         }
 
+        // Aircraft filters
+        if (state.filters.aircraft.length > 0) {
+            params.push('aircraft=' + state.filters.aircraft.join(','));
+        }
+        if (state.filters.manufacturer.length > 0) {
+            params.push('manufacturer=' + state.filters.manufacturer.join(','));
+        }
+        if (state.filters.weight.length > 0) {
+            params.push('weight=' + state.filters.weight.join(','));
+        }
+        if (state.filters.wake.length > 0) {
+            params.push('wake=' + state.filters.wake.join(','));
+        }
+        if (state.filters.engine.length > 0) {
+            params.push('engine=' + state.filters.engine.join(','));
+        }
+
+        // Operator filters
+        if (state.filters.airline.length > 0) {
+            params.push('airline=' + state.filters.airline.join(','));
+        }
+        if (state.filters.callsignPrefix) {
+            params.push('callsign_prefix=' + state.filters.callsignPrefix);
+        }
+        if (state.filters.operatorGroup.length > 0) {
+            params.push('operator_group=' + state.filters.operatorGroup.join(','));
+        }
+
+        // Time filters
+        if (state.filters.dateFrom) {
+            params.push('date_from=' + state.filters.dateFrom);
+        }
+        if (state.filters.dateTo) {
+            params.push('date_to=' + state.filters.dateTo);
+        }
+        if (state.filters.month.length > 0) {
+            params.push('month=' + state.filters.month.join(','));
+        }
+        if (state.filters.dayOfWeek.length > 0) {
+            params.push('day_of_week=' + state.filters.dayOfWeek.join(','));
+        }
+        if (state.filters.hourMin !== '') {
+            params.push('hour_min=' + state.filters.hourMin);
+        }
+        if (state.filters.hourMax !== '') {
+            params.push('hour_max=' + state.filters.hourMax);
+        }
+        if (state.filters.season.length > 0) {
+            params.push('season=' + state.filters.season.join(','));
+        }
+        if (state.filters.year.length > 0) {
+            params.push('year=' + state.filters.year.join(','));
+        }
+
         // Need at least one filter
         if (params.length === 0) {
             return null;
@@ -290,7 +747,24 @@
     }
 
     function hasActiveFilters() {
-        return state.filters.origins.length > 0 || state.filters.destinations.length > 0;
+        return state.filters.origins.length > 0 ||
+               state.filters.destinations.length > 0 ||
+               state.filters.aircraft.length > 0 ||
+               state.filters.manufacturer.length > 0 ||
+               state.filters.weight.length > 0 ||
+               state.filters.wake.length > 0 ||
+               state.filters.engine.length > 0 ||
+               state.filters.airline.length > 0 ||
+               state.filters.callsignPrefix !== '' ||
+               state.filters.operatorGroup.length > 0 ||
+               state.filters.dateFrom !== '' ||
+               state.filters.dateTo !== '' ||
+               state.filters.month.length > 0 ||
+               state.filters.dayOfWeek.length > 0 ||
+               state.filters.hourMin !== '' ||
+               state.filters.hourMax !== '' ||
+               state.filters.season.length > 0 ||
+               state.filters.year.length > 0;
     }
 
     // ========================================================================
@@ -578,6 +1052,60 @@
             state.filters.destMode = params.get('dest_mode');
         }
 
+        // Aircraft
+        if (params.get('aircraft')) {
+            state.filters.aircraft = params.get('aircraft').split(',');
+        }
+        if (params.get('manufacturer')) {
+            state.filters.manufacturer = params.get('manufacturer').split(',');
+        }
+        if (params.get('weight')) {
+            state.filters.weight = params.get('weight').split(',');
+        }
+        if (params.get('wake')) {
+            state.filters.wake = params.get('wake').split(',');
+        }
+        if (params.get('engine')) {
+            state.filters.engine = params.get('engine').split(',');
+        }
+
+        // Operator
+        if (params.get('airline')) {
+            state.filters.airline = params.get('airline').split(',');
+        }
+        if (params.get('callsign_prefix')) {
+            state.filters.callsignPrefix = params.get('callsign_prefix');
+        }
+        if (params.get('operator_group')) {
+            state.filters.operatorGroup = params.get('operator_group').split(',');
+        }
+
+        // Time
+        if (params.get('date_from')) {
+            state.filters.dateFrom = params.get('date_from');
+        }
+        if (params.get('date_to')) {
+            state.filters.dateTo = params.get('date_to');
+        }
+        if (params.get('month')) {
+            state.filters.month = params.get('month').split(',');
+        }
+        if (params.get('day_of_week')) {
+            state.filters.dayOfWeek = params.get('day_of_week').split(',');
+        }
+        if (params.get('hour_min')) {
+            state.filters.hourMin = params.get('hour_min');
+        }
+        if (params.get('hour_max')) {
+            state.filters.hourMax = params.get('hour_max');
+        }
+        if (params.get('season')) {
+            state.filters.season = params.get('season').split(',');
+        }
+        if (params.get('year')) {
+            state.filters.year = params.get('year').split(',');
+        }
+
         // Sort/view/page
         if (params.get('sort')) {
             state.sort = params.get('sort');
@@ -605,6 +1133,73 @@
         $('.routes-mode-pill[data-target="dest"]').removeClass('active');
         $('.routes-mode-pill[data-target="dest"][data-mode="' + state.filters.destMode + '"]').addClass('active');
 
+        // Aircraft - Select2
+        if (state.filters.aircraft.length > 0) {
+            var $select = $('#aircraft_type_select');
+            state.filters.aircraft.forEach(function(val) {
+                if (!$select.find('option[value="' + val + '"]').length) {
+                    $select.append(new Option(val, val, true, true));
+                }
+            });
+            $select.trigger('change.select2');
+        }
+
+        // Aircraft - Checkboxes
+        $('input[type="checkbox"][value]').each(function() {
+            var $cb = $(this);
+            var val = $cb.val();
+            var filterKey = null;
+            if ($cb.closest('.routes-checkbox-group').prev('.routes-filter-label').text().indexOf(PERTII18n.t('routes.filters.weightClass')) !== -1) {
+                filterKey = 'weight';
+            } else if ($cb.closest('.routes-checkbox-group').prev('.routes-filter-label').text().indexOf(PERTII18n.t('routes.filters.wakeCategory')) !== -1) {
+                filterKey = 'wake';
+            } else if ($cb.closest('.routes-checkbox-group').prev('.routes-filter-label').text().indexOf(PERTII18n.t('routes.filters.engineType')) !== -1) {
+                filterKey = 'engine';
+            } else if ($cb.closest('.routes-checkbox-group').prev('.routes-filter-label').text().indexOf(PERTII18n.t('routes.filters.operatorGroup')) !== -1) {
+                filterKey = 'operatorGroup';
+            } else if ($cb.closest('.routes-checkbox-group').prev('.routes-filter-label').text().indexOf(PERTII18n.t('routes.filters.year')) !== -1) {
+                filterKey = 'year';
+            } else if ($cb.closest('.routes-checkbox-group').prev('.routes-filter-label').text().indexOf(PERTII18n.t('routes.filters.month')) !== -1) {
+                filterKey = 'month';
+            } else if ($cb.closest('.routes-checkbox-group').prev('.routes-filter-label').text().indexOf(PERTII18n.t('routes.filters.dayOfWeek')) !== -1) {
+                filterKey = 'dayOfWeek';
+            }
+
+            if (filterKey && state.filters[filterKey].indexOf(val) !== -1) {
+                $cb.prop('checked', true);
+            } else {
+                $cb.prop('checked', false);
+            }
+        });
+
+        // Operator - Select2
+        if (state.filters.airline.length > 0) {
+            var $airlineSelect = $('#airline_select');
+            state.filters.airline.forEach(function(val) {
+                if (!$airlineSelect.find('option[value="' + val + '"]').length) {
+                    $airlineSelect.append(new Option(val, val, true, true));
+                }
+            });
+            $airlineSelect.trigger('change.select2');
+        }
+
+        // Operator - Callsign prefix
+        $('#callsign_prefix_input').val(state.filters.callsignPrefix);
+
+        // Time - Date inputs
+        $('#date_from_input').val(state.filters.dateFrom);
+        $('#date_to_input').val(state.filters.dateTo);
+
+        // Time - Hour inputs
+        $('#hour_min_input').val(state.filters.hourMin);
+        $('#hour_max_input').val(state.filters.hourMax);
+
+        // Time - Season pills
+        $('.routes-season-pill').removeClass('active');
+        state.filters.season.forEach(function(val) {
+            $('.routes-season-pill[data-value="' + val + '"]').addClass('active');
+        });
+
         // Update chips
         renderFilterChips();
         updateClearButton();
@@ -619,7 +1214,40 @@
         state.filters.destinations = [];
         state.filters.origMode = 'airport';
         state.filters.destMode = 'airport';
+        state.filters.aircraft = [];
+        state.filters.manufacturer = [];
+        state.filters.weight = [];
+        state.filters.wake = [];
+        state.filters.engine = [];
+        state.filters.airline = [];
+        state.filters.callsignPrefix = '';
+        state.filters.operatorGroup = [];
+        state.filters.dateFrom = '';
+        state.filters.dateTo = '';
+        state.filters.month = [];
+        state.filters.dayOfWeek = [];
+        state.filters.hourMin = '';
+        state.filters.hourMax = '';
+        state.filters.season = [];
+        state.filters.year = [];
         state.page = 1;
+
+        // Clear Select2
+        $('#aircraft_type_select').val(null).trigger('change');
+        $('#airline_select').val(null).trigger('change');
+
+        // Clear checkboxes
+        $('input[type="checkbox"]').prop('checked', false);
+
+        // Clear text inputs
+        $('#callsign_prefix_input').val('');
+        $('#date_from_input').val('');
+        $('#date_to_input').val('');
+        $('#hour_min_input').val('');
+        $('#hour_max_input').val('');
+
+        // Clear season pills
+        $('.routes-season-pill').removeClass('active');
 
         populateFiltersFromState();
         showNoFiltersState();
