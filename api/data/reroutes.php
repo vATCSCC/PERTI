@@ -39,16 +39,16 @@ $query = mysqli_query($conn_sqli, "SELECT * FROM route_playbook WHERE pb_name LI
 while ($data = mysqli_fetch_array($query)) {
 echo '<tr>';
 
-        echo '<td class="text-center">'.$data['pb_category'].'</td>';
-        echo '<td class="text-center">'.$data['pb_name'].'</td>';
-        echo '<td class="text-center">'.$data['pb_route_advisory'].'</td>';	}
+        echo '<td class="text-center">'.htmlspecialchars($data['pb_category'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['pb_name'], ENT_QUOTES, 'UTF-8').'</td>';
+        echo '<td class="text-center">'.htmlspecialchars($data['pb_route_advisory'], ENT_QUOTES, 'UTF-8').'</td>';	}
 
         if ($perm == true) {
         echo '<td><center>';
-                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Update Reroute Database"><span class="badge badge-warning" data-toggle="modal" data-target="#updatererouteModal" data-pb_id="'.$data['pb_id'].'" data-pb-name="'.$data['pb_name'].'" data-pb-category="'.$data['pb_category'].'" data-pb-route-advisory="'.$data['pb_route_advisory'].'">
+                echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Update Reroute Database"><span class="badge badge-warning" data-toggle="modal" data-target="#updatererouteModal" data-pb_id="'.intval($data['pb_id']).'" data-pb-name="'.htmlspecialchars($data['pb_name'], ENT_QUOTES, 'UTF-8').'" data-pb-category="'.htmlspecialchars($data['pb_category'], ENT_QUOTES, 'UTF-8').'" data-pb-route-advisory="'.htmlspecialchars($data['pb_route_advisory'], ENT_QUOTES, 'UTF-8').'">
                     <i class="fas fa-pencil-alt"></i> Update</span></a>';
                 echo ' ';
-                echo '<a href="javascript:void(0)" onclick="deleteReroute('.$data['pb_id'].')" data-toggle="tooltip" title="Delete Reroute"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                echo '<a href="javascript:void(0)" onclick="deleteReroute('.intval($data['pb_id']).')" data-toggle="tooltip" title="Delete Reroute"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
         echo '</center></td>';
         }
 

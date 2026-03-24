@@ -48,16 +48,16 @@ if ($c_q['total'] > 0) {
     while ($data = mysqli_fetch_array($query)) {
         echo '<tr>';
 
-            echo '<td class="text-center" style="width: 40%;">'.$data['location'].' - '.$data['context'].'</td>';
-            echo '<td class="text-center" style="width: 20%;">Through '.$data['date'].'</td>';
-            echo '<td class="text-center">'.$data['impact'].'</td>';
-    
+            echo '<td class="text-center" style="width: 40%;">'.htmlspecialchars($data['location'], ENT_QUOTES, 'UTF-8').' - '.htmlspecialchars($data['context'], ENT_QUOTES, 'UTF-8').'</td>';
+            echo '<td class="text-center" style="width: 20%;">Through '.htmlspecialchars($data['date'], ENT_QUOTES, 'UTF-8').'</td>';
+            echo '<td class="text-center">'.htmlspecialchars($data['impact'], ENT_QUOTES, 'UTF-8').'</td>';
+
             if ($perm == true) {
                 echo '<td style="width: 10%;"><center>';
-                    echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Constraint"><span class="badge badge-warning" data-toggle="modal" data-target="#edittermconstraintModal" data-id="'.$data['id'].'" data-location="'.$data['location'].'" data-context="'.$data['context'].'" data-date="'.$data['date'].'" data-impact="'.$data['impact'].'">
+                    echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Constraint"><span class="badge badge-warning" data-toggle="modal" data-target="#edittermconstraintModal" data-id="'.intval($data['id']).'" data-location="'.htmlspecialchars($data['location'], ENT_QUOTES, 'UTF-8').'" data-context="'.htmlspecialchars($data['context'], ENT_QUOTES, 'UTF-8').'" data-date="'.htmlspecialchars($data['date'], ENT_QUOTES, 'UTF-8').'" data-impact="'.htmlspecialchars($data['impact'], ENT_QUOTES, 'UTF-8').'">
                     <i class="fas fa-pencil-alt"></i> Edit</span></a>';
                     echo ' ';
-                    echo '<a href="javascript:void(0)" onclick="deleteTermConstraint('.$data['id'].')" data-toggle="tooltip" title="Delete Constraint"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                    echo '<a href="javascript:void(0)" onclick="deleteTermConstraint('.intval($data['id']).')" data-toggle="tooltip" title="Delete Constraint"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
                 echo '</center></td>';
             }
     

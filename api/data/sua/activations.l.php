@@ -58,6 +58,8 @@ if (!$row) {
     exit;
 }
 
+$h = function($v) { return htmlspecialchars($v ?? '', ENT_QUOTES, 'UTF-8'); };
+
 // Type display names
 $type_names = [
     'P' => 'Prohibited',
@@ -85,15 +87,15 @@ $status_badges = [
 
 // Process first row and continue
 do {
-    $id = $row['id'];
+    $id = intval($row['id']);
     $sua_type = $row['sua_type'];
     $tfr_subtype = $row['tfr_subtype'];
-    $name = htmlspecialchars($row['name']);
+    $name = $row['name'];
     $artcc = $row['artcc'] ?? '-';
     $status = $row['status'];
     $lower_alt = $row['lower_alt'] ?? '-';
     $upper_alt = $row['upper_alt'] ?? '-';
-    $remarks = htmlspecialchars($row['remarks'] ?? '');
+    $remarks = $row['remarks'] ?? '';
 
     // Format dates
     $start_utc = $row['start_utc'];
@@ -121,32 +123,32 @@ do {
     $status_badge = $status_badges[$status] ?? 'badge-secondary';
 
     echo '<tr>';
-    echo '<td><span class="badge badge-primary">' . $type_display . '</span></td>';
-    echo '<td>' . $name . '</td>';
-    echo '<td>' . $artcc . '</td>';
-    echo '<td class="text-monospace small">' . $start . '</td>';
-    echo '<td class="text-monospace small">' . $end . '</td>';
-    echo '<td>' . $lower_alt . ' - ' . $upper_alt . '</td>';
-    echo '<td><span class="badge ' . $status_badge . '">' . $status . '</span></td>';
+    echo '<td><span class="badge badge-primary">' . $h($type_display) . '</span></td>';
+    echo '<td>' . $h($name) . '</td>';
+    echo '<td>' . $h($artcc) . '</td>';
+    echo '<td class="text-monospace small">' . $h($start) . '</td>';
+    echo '<td class="text-monospace small">' . $h($end) . '</td>';
+    echo '<td>' . $h($lower_alt) . ' - ' . $h($upper_alt) . '</td>';
+    echo '<td><span class="badge ' . $status_badge . '">' . $h($status) . '</span></td>';
     echo '<td class="text-right">';
 
     // Action buttons
     if ($status === 'SCHEDULED' || $status === 'ACTIVE') {
         echo '<span class="badge badge-warning mr-1" style="cursor:pointer" data-toggle="modal" data-target="#editModal" ';
         echo 'data-id="' . $id . '" ';
-        echo 'data-sua-id="' . htmlspecialchars($row['sua_id'] ?? '') . '" ';
-        echo 'data-sua-type="' . $sua_type . '" ';
-        echo 'data-tfr-subtype="' . $tfr_subtype . '" ';
-        echo 'data-name="' . $name . '" ';
-        echo 'data-artcc="' . $artcc . '" ';
-        echo 'data-start="' . $start_iso . '" ';
-        echo 'data-end="' . $end_iso . '" ';
-        echo 'data-lower-alt="' . $lower_alt . '" ';
-        echo 'data-upper-alt="' . $upper_alt . '" ';
-        echo 'data-remarks="' . $remarks . '">';
+        echo 'data-sua-id="' . $h($row['sua_id'] ?? '') . '" ';
+        echo 'data-sua-type="' . $h($sua_type) . '" ';
+        echo 'data-tfr-subtype="' . $h($tfr_subtype) . '" ';
+        echo 'data-name="' . $h($name) . '" ';
+        echo 'data-artcc="' . $h($artcc) . '" ';
+        echo 'data-start="' . $h($start_iso) . '" ';
+        echo 'data-end="' . $h($end_iso) . '" ';
+        echo 'data-lower-alt="' . $h($lower_alt) . '" ';
+        echo 'data-upper-alt="' . $h($upper_alt) . '" ';
+        echo 'data-remarks="' . $h($remarks) . '">';
         echo '<i class="fas fa-edit"></i></span>';
 
-        echo '<span class="badge badge-danger" style="cursor:pointer" onclick="cancelActivation(' . $id . ', \'' . addslashes($name) . '\')">';
+        echo '<span class="badge badge-danger" style="cursor:pointer" onclick="cancelActivation(' . $id . ', ' . htmlspecialchars(json_encode($row['name']), ENT_QUOTES, 'UTF-8') . ')">';
         echo '<i class="fas fa-times"></i></span>';
     }
 

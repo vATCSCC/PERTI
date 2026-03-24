@@ -51,17 +51,17 @@ if ($c_q['total'] > 0) {
 
     while ($data = mysqli_fetch_array($query)) {
         echo '<tr>';
-            echo '<td>'.$data['comments'].'</td>';
-    
+            echo '<td>'.htmlspecialchars($data['comments'], ENT_QUOTES, 'UTF-8').'</td>';
+
             if ($perm == true) {
                 echo '<td class="w-25"><center>';
-                    echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Goal"><span class="badge badge-warning" data-toggle="modal" data-target="#editgoalModal" data-id="'.$data['id'].'" data-comments="'.$data['comments'].'">
+                    echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Goal"><span class="badge badge-warning" data-toggle="modal" data-target="#editgoalModal" data-id="'.intval($data['id']).'" data-comments="'.htmlspecialchars($data['comments'], ENT_QUOTES, 'UTF-8').'">
                         <i class="fas fa-pencil-alt"></i> Edit</span></a>';
                     echo ' ';
-                    echo '<a href="javascript:void(0)" onclick="deleteGoal('.$data['id'].')" data-toggle="tooltip" title="Delete Goal"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                    echo '<a href="javascript:void(0)" onclick="deleteGoal('.intval($data['id']).')" data-toggle="tooltip" title="Delete Goal"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
                 echo '</center></td>';
             }
-    
+
         echo '</tr>';
     }
 } else {

@@ -48,32 +48,32 @@ if ($c_q['total'] > 0) {
     while ($data = mysqli_fetch_array($query)) {
         echo '<tr>';
 
-            echo '<td class="text-center" style="width: 15%;">'.$data['entity'].'</td>';
-            echo '<td class="text-center" style="width: 5%;">'.$data['dep'].'</td>';
-            echo '<td class="text-center" style="width: 5%;">'.$data['arr'].'</td>';
-            echo '<td class="text-center" style="width: 5%;">'.$data['etd'].'Z</td>';
-            echo '<td class="text-center" style="width: 5%;">'.$data['eta'].'Z</td>';
+            echo '<td class="text-center" style="width: 15%;">'.htmlspecialchars($data['entity'], ENT_QUOTES, 'UTF-8').'</td>';
+            echo '<td class="text-center" style="width: 5%;">'.htmlspecialchars($data['dep'], ENT_QUOTES, 'UTF-8').'</td>';
+            echo '<td class="text-center" style="width: 5%;">'.htmlspecialchars($data['arr'], ENT_QUOTES, 'UTF-8').'</td>';
+            echo '<td class="text-center" style="width: 5%;">'.htmlspecialchars($data['etd'], ENT_QUOTES, 'UTF-8').'Z</td>';
+            echo '<td class="text-center" style="width: 5%;">'.htmlspecialchars($data['eta'], ENT_QUOTES, 'UTF-8').'Z</td>';
 
             if ($data['pilot_quantity'] < 5) {
-                echo '<td class="text-center" style="width: 10%; background-color: #5CFF5C;">'.$data['pilot_quantity'].'</td>';
+                echo '<td class="text-center" style="width: 10%; background-color: #5CFF5C;">'.intval($data['pilot_quantity']).'</td>';
             } elseif ($data['pilot_quantity'] < 10) {
-                echo '<td class="text-center" style="width: 10%; background-color: #318931;">'.$data['pilot_quantity'].'</td>';
+                echo '<td class="text-center" style="width: 10%; background-color: #318931;">'.intval($data['pilot_quantity']).'</td>';
             } elseif ($data['pilot_quantity'] < 15) {
-                echo '<td class="text-center" style="width: 10%; background-color: #FFFF5C;">'.$data['pilot_quantity'].'</td>';
+                echo '<td class="text-center" style="width: 10%; background-color: #FFFF5C;">'.intval($data['pilot_quantity']).'</td>';
             } elseif ($data['pilot_quantity'] < 20) {
-                echo '<td class="text-center" style="width: 10%; background-color: #ff8811;">'.$data['pilot_quantity'].'</td>';
+                echo '<td class="text-center" style="width: 10%; background-color: #ff8811;">'.intval($data['pilot_quantity']).'</td>';
             } else {
-                echo '<td class="text-center" style="width: 10%; background-color: #ff2b2b;">'.$data['pilot_quantity'].'</td>';
+                echo '<td class="text-center" style="width: 10%; background-color: #ff2b2b;">'.intval($data['pilot_quantity']).'</td>';
             }
 
-            echo '<td class="text-center">'.$data['route'].'</td>';
+            echo '<td class="text-center">'.htmlspecialchars($data['route'], ENT_QUOTES, 'UTF-8').'</td>';
     
             if ($perm == true) {
                 echo '<td style="width: 10%;"><center>';
-                    echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Group Flight"><span class="badge badge-warning" data-toggle="modal" data-target="#editgroupflightModal" data-id="'.$data['id'].'" data-entity="'.$data['entity'].'" data-dep="'.$data['dep'].'" data-arr="'.$data['arr'].'" data-etd="'.$data['etd'].'" data-eta="'.$data['eta'].'" data-pilot_quantity="'.$data['pilot_quantity'].'" data-route="'.$data['route'].'">
+                    echo '<a href="javascript:void(0)" data-toggle="tooltip" title="Edit Group Flight"><span class="badge badge-warning" data-toggle="modal" data-target="#editgroupflightModal" data-id="'.intval($data['id']).'" data-entity="'.htmlspecialchars($data['entity'], ENT_QUOTES, 'UTF-8').'" data-dep="'.htmlspecialchars($data['dep'], ENT_QUOTES, 'UTF-8').'" data-arr="'.htmlspecialchars($data['arr'], ENT_QUOTES, 'UTF-8').'" data-etd="'.htmlspecialchars($data['etd'], ENT_QUOTES, 'UTF-8').'" data-eta="'.htmlspecialchars($data['eta'], ENT_QUOTES, 'UTF-8').'" data-pilot_quantity="'.intval($data['pilot_quantity']).'" data-route="'.htmlspecialchars($data['route'], ENT_QUOTES, 'UTF-8').'">
                         <i class="fas fa-pencil-alt"></i> Edit</span></a>';
                     echo ' ';
-                    echo '<a href="javascript:void(0)" onclick="deleteGroupFlight('.$data['id'].')" data-toggle="tooltip" title="Delete Group Flight"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
+                    echo '<a href="javascript:void(0)" onclick="deleteGroupFlight('.intval($data['id']).')" data-toggle="tooltip" title="Delete Group Flight"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
                 echo '</center></td>';
             }
     
