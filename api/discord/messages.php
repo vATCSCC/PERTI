@@ -23,6 +23,10 @@ if ($config_path) require_once($config_path);
 if ($connect_path) require_once($connect_path);
 if ($discord_api_path) require_once($discord_api_path);
 
+// CORS + preflight
+perti_set_cors();
+perti_handle_preflight();
+
 // Initialize Discord API
 $discord = new DiscordAPI();
 
@@ -35,6 +39,11 @@ if (!$discord->isConfigured()) {
 
 // Route request
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+// Require authentication for mutation operations
+if (in_array($method, ['POST', 'PUT', 'DELETE'])) {
+    perti_require_auth();
+}
 
 try {
     switch ($method) {

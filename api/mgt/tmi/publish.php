@@ -16,7 +16,7 @@
 
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
-header('Access-Control-Allow-Origin: *');
+perti_set_cors();
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
