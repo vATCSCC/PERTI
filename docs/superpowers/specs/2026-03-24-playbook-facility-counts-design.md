@@ -426,7 +426,8 @@ Clicking again or clicking a different facility clears the previous highlight.
 | `api/swim/v1/playbook/plays.php` | Add `facility_counts` to `handleGetSingle()` response |
 | `api-docs/openapi.yaml` | Document new endpoint + updated response schema |
 | `assets/js/playbook.js` | Enhance "Traversed Facilities" section → counts with pill tabs, bars, click-to-highlight; pass counts to route analysis panel |
-| `assets/js/route-analysis-panel.js` | Add conditional "Play Facility Counts" section |
+| `assets/js/route-analysis-panel.js` | Add conditional "Play Facility Counts" section; extend `show()` signature to accept 6th `options` param |
+| `playbook.php` | Add `<div id="ra-play-facility-counts"></div>` container before the facility traversal table (line 269). Route analysis panel tables are static HTML in this file — JS only populates tbody elements. |
 | `assets/css/playbook.css` | Styles for count bars, pill tabs, hover states |
 | `assets/locales/en-US.json` | i18n keys for new UI strings |
 
@@ -438,7 +439,6 @@ Clicking again or clicking a different facility clears the previous highlight.
 | `api/mgt/playbook/playbook_helpers.php` | Traversal computation unchanged |
 | `load/services/GISService.php` | No new PostGIS queries needed |
 | `scripts/swim_refdata_sync.php` | Sync pipeline unchanged (traversed columns already synced) |
-| `playbook.php` | No new HTML containers needed — existing `#pb_info_content` rendered dynamically by JS |
 
 ## Performance
 
