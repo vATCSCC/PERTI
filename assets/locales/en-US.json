@@ -4481,6 +4481,15 @@
       "analysis": "Analysis",
       "statistics": "Statistics",
       "export": "Export",
+      "exportTab": {
+        "csvDownload": "Download CSV",
+        "clipboard": "Copy to Clipboard",
+        "geojson": "Download GeoJSON",
+        "copied": "Copied to clipboard!",
+        "routeExport": "Export This Route",
+        "searchExport": "Export All Search Results",
+        "description": "Export route data in various formats"
+      },
       "aircraftMix": "Aircraft Mix",
       "airlineMix": "Airline Mix",
       "monthlyTrend": "Monthly Trend",

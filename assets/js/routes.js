@@ -1312,7 +1312,113 @@
     function renderExportTab(data) {
         var $content = $('#routes_detail_content');
         $content.show();
-        $content.html('<div class="routes-detail-empty"><i class="fas fa-file-export"></i> Export coming in next task</div>');
+
+        var routeDimId = state.selectedRoute.route_dim_id;
+        var html = '';
+
+        html += '<div class="routes-export-container">';
+        html += '<p class="routes-export-description">' + PERTII18n.t('routes.detail.exportTab.description') + '</p>';
+
+        // Route-specific export section
+        html += '<div class="routes-export-section">';
+        html += '<h4>' + PERTII18n.t('routes.detail.exportTab.routeExport') + '</h4>';
+        html += '<div class="routes-export-buttons">';
+        html += '<button class="btn btn-primary routes-export-btn" data-format="csv" data-scope="route">';
+        html += '<i class="fas fa-file-csv"></i> ' + PERTII18n.t('routes.detail.exportTab.csvDownload');
+        html += '</button>';
+        html += '<button class="btn btn-secondary routes-export-btn" data-format="clipboard" data-scope="route">';
+        html += '<i class="fas fa-clipboard"></i> ' + PERTII18n.t('routes.detail.exportTab.clipboard');
+        html += '</button>';
+        html += '<button class="btn btn-info routes-export-btn" data-format="geojson" data-scope="route">';
+        html += '<i class="fas fa-map"></i> ' + PERTII18n.t('routes.detail.exportTab.geojson');
+        html += '</button>';
+        html += '</div>';
+        html += '</div>';
+
+        // Full search export section
+        html += '<div class="routes-export-section">';
+        html += '<h4>' + PERTII18n.t('routes.detail.exportTab.searchExport') + '</h4>';
+        html += '<div class="routes-export-buttons">';
+        html += '<button class="btn btn-primary routes-export-btn" data-format="csv" data-scope="search">';
+        html += '<i class="fas fa-file-csv"></i> ' + PERTII18n.t('routes.detail.exportTab.csvDownload');
+        html += '</button>';
+        html += '<button class="btn btn-secondary routes-export-btn" data-format="clipboard" data-scope="search">';
+        html += '<i class="fas fa-clipboard"></i> ' + PERTII18n.t('routes.detail.exportTab.clipboard');
+        html += '</button>';
+        html += '<button class="btn btn-info routes-export-btn" data-format="geojson" data-scope="search">';
+        html += '<i class="fas fa-map"></i> ' + PERTII18n.t('routes.detail.exportTab.geojson');
+        html += '</button>';
+        html += '</div>';
+        html += '</div>';
+
+        html += '</div>';
+
+        $content.html(html);
+
+        // Attach event handlers
+        $('.routes-export-btn').on('click', function() {
+            var format = $(this).data('format');
+            var scope = $(this).data('scope');
+            handleExport(format, scope);
+        });
+    }
+
+    function handleExport(format, scope) {
+        var url = 'api/data/route-history/export.php?format=' + encodeURIComponent(format);
+
+        if (scope === 'route') {
+            // Export selected route group
+            url += '&route_dim_id=' + state.selectedRoute.route_dim_id;
+        } else {
+            // Export full search results with all filters
+            url += '&' + buildFilterQueryString();
+        }
+
+        if (format === 'clipboard') {
+            // AJAX call to get clipboard data
+            $.ajax({
+                url: url,
+                method: 'GET',
+                success: function(response) {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(response).then(function() {
+                            Swal.fire({
+                                icon: 'success',
+                                title: PERTII18n.t('routes.detail.exportTab.copied'),
+                                toast: true,
+                                position: 'top-end',
+                                showConfirmButton: false,
+                                timer: 2000
+                            });
+                        }).catch(function(err) {
+                            console.error('[Routes] Clipboard write failed:', err);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Failed to copy to clipboard',
+                                text: 'Please use CSV download instead.'
+                            });
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Clipboard not available',
+                            text: 'Please use CSV download instead.'
+                        });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('[Routes] Export failed:', status, error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Export failed',
+                        text: error
+                    });
+                }
+            });
+        } else {
+            // CSV or GeoJSON - open in new tab to trigger download
+            window.open(url, '_blank');
+        }
     }
 
     function escapeHtml(str) {
