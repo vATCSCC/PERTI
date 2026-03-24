@@ -679,6 +679,9 @@
                 removeArrayValue('season', code);
             }));
         });
+
+        // Toggle visibility class based on whether chips exist
+        $bar.toggleClass('has-chips', $bar.children().length > 0);
     }
 
     function removeArrayValue(filterKey, value) {
