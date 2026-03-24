@@ -37,6 +37,7 @@
         },
         results: null,
         selectedRoute: null,
+        multiSelected: [],   // Array of route_dim_ids (max 6)
         page: 1,
         sort: 'frequency',
         view: 'grouped'
@@ -866,6 +867,15 @@
     function buildRouteItem(route) {
         var $item = $('<div class="routes-item"></div>');
 
+        // Multi-select checkbox
+        var $checkbox = $('<input type="checkbox" class="routes-multi-check">')
+            .prop('checked', state.multiSelected.indexOf(route.route_dim_id) !== -1)
+            .on('click', function(e) {
+                e.stopPropagation();
+                toggleMultiSelect(route.route_dim_id);
+            });
+        $item.append($checkbox);
+
         // Header: airports
         var $header = $('<div class="routes-item-header"></div>');
         var $airports = $('<div class="routes-item-airports"></div>')
@@ -920,6 +930,14 @@
             $item.addClass('selected');
         }
 
+        // Mark as multi-selected and apply color
+        var multiIdx = state.multiSelected.indexOf(route.route_dim_id);
+        if (multiIdx !== -1) {
+            var colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#7B68EE', '#FF8C42', '#A8E6CF'];
+            $item.addClass('multi-selected');
+            $item.css('--multi-color', colors[multiIdx]);
+        }
+
         return $item;
     }
 
@@ -933,9 +951,14 @@
             return $(this).data('route_id') === route.route_dim_id;
         }).addClass('selected');
 
-        // Highlight on map
+        // Highlight on map (only if no multi-select is active)
         if (typeof RoutesMap !== 'undefined') {
-            RoutesMap.highlightRoute(route.route_dim_id);
+            if (state.multiSelected.length === 0) {
+                RoutesMap.highlightRoute(route.route_dim_id);
+            } else {
+                // Keep multi-select highlighting
+                RoutesMap.highlightMultiple(state.multiSelected);
+            }
         }
 
         // Fetch detail
@@ -1033,6 +1056,64 @@
         $error.append('<h3 style="color: #ff6b6b;">Error</h3>');
         $error.append('<p>' + message + '</p>');
         $list.append($error);
+    }
+
+    // ========================================================================
+    // MULTI-SELECT MANAGEMENT
+    // ========================================================================
+
+    function toggleMultiSelect(dimId) {
+        var idx = state.multiSelected.indexOf(dimId);
+        if (idx >= 0) {
+            state.multiSelected.splice(idx, 1);
+        } else {
+            if (state.multiSelected.length >= 6) {
+                console.warn('[Routes] Maximum 6 routes can be selected for comparison');
+                return;
+            }
+            state.multiSelected.push(dimId);
+        }
+        updateMultiSelectUI();
+    }
+
+    function updateMultiSelectUI() {
+        // Update checkboxes and styles in list
+        $('.routes-item').each(function() {
+            var $item = $(this);
+            var $checkbox = $item.find('.routes-multi-check');
+            if (!$checkbox.length) return;
+
+            // Find route data for this item
+            var route = null;
+            if (state.results && state.results.routes) {
+                var itemIndex = $('.routes-item').index($item);
+                route = state.results.routes[itemIndex];
+            }
+            if (!route) return;
+
+            var multiIdx = state.multiSelected.indexOf(route.route_dim_id);
+            var isMultiSelected = multiIdx !== -1;
+
+            // Update checkbox
+            $checkbox.prop('checked', isMultiSelected);
+
+            // Update multi-selected class and color
+            var colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#7B68EE', '#FF8C42', '#A8E6CF'];
+            if (isMultiSelected) {
+                $item.addClass('multi-selected');
+                $item.css('--multi-color', colors[multiIdx]);
+            } else {
+                $item.removeClass('multi-selected');
+                $item.css('--multi-color', '');
+            }
+        });
+
+        // Update map highlighting
+        if (state.multiSelected.length > 0 && typeof RoutesMap !== 'undefined') {
+            RoutesMap.highlightMultiple(state.multiSelected);
+        } else if (typeof RoutesMap !== 'undefined') {
+            RoutesMap.clearHighlight();
+        }
     }
 
     // ========================================================================

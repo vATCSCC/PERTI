@@ -510,6 +510,9 @@
     margin-bottom: 10px;
     cursor: pointer;
     transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .routes-item:hover {
@@ -523,11 +526,24 @@
     box-shadow: 0 0 0 2px rgba(35, 155, 205, 0.3);
 }
 
+.routes-item.multi-selected {
+    border-left: 3px solid var(--multi-color, #239BCD);
+}
+
+.routes-multi-check {
+    flex-shrink: 0;
+    margin-right: 8px;
+    accent-color: #239BCD;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    align-self: flex-start;
+}
+
 .routes-item-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
 }
 
 .routes-item-airports {
@@ -550,7 +566,6 @@
     font-family: 'Courier New', monospace;
     font-size: 0.85rem;
     color: #ccc;
-    margin-bottom: 8px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
