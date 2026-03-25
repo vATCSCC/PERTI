@@ -272,6 +272,104 @@ function handleGetSingle(int $id): void {
         $formatted['routes'] = expandPlaybookRouteGeometry($formatted['routes']);
     }
 
+    // ── Aggregate facility_counts from route traversal data ─────────
+    $fc = ['artccs' => [], 'tracons' => [], 'sectors_low' => [],
+           'sectors_high' => [], 'sectors_superhigh' => []];
+    $with_traversal = 0;
+    $all_sector_codes = []; // code => type for coverage
+    $swim_to_type = ['sectors_low' => 'LOW', 'sectors_high' => 'HIGH', 'sectors_superhigh' => 'SUPERHIGH'];
+
+    foreach ($routes as $r) {
+        $trav = $r['traversal'] ?? [];
+        $has = false;
+        foreach ($fc as $key => &$counts) {
+            $codes = array_unique($trav[$key] ?? []);
+            if (!empty($codes)) $has = true;
+            foreach ($codes as $code) {
+                if ($code === '') continue;
+                $counts[$code] = ($counts[$code] ?? 0) + 1;
+            }
+            if (isset($swim_to_type[$key])) {
+                foreach ($codes as $code) {
+                    if ($code !== '') $all_sector_codes[$code] = $swim_to_type[$key];
+                }
+            }
+        }
+        unset($counts);
+        if ($has) $with_traversal++;
+    }
+
+    $facility_counts = ['total_routes' => count($routes), 'routes_with_traversal' => $with_traversal];
+    foreach ($fc as $key => $counts) {
+        arsort($counts);
+        $facility_counts[$key] = [];
+        foreach ($counts as $code => $count) {
+            $facility_counts[$key][] = ['code' => $code, 'route_count' => $count];
+        }
+    }
+
+    // Sector coverage via PostGIS
+    if (!empty($all_sector_codes)) {
+        $conn_gis = get_conn_gis();
+        if ($conn_gis) {
+            try {
+                $sector_codes_list = array_keys($all_sector_codes);
+                $ph = implode(',', array_fill(0, count($sector_codes_list), '?'));
+                $stmt_gis = $conn_gis->prepare(
+                    "SELECT sector_code, parent_artcc, sector_type FROM sector_boundaries WHERE sector_code IN ($ph)"
+                );
+                $stmt_gis->execute($sector_codes_list);
+                $sector_artcc_map = [];
+                $relevant_artccs = [];
+                foreach ($stmt_gis->fetchAll(PDO::FETCH_ASSOC) as $si) {
+                    $sector_artcc_map[$si['sector_code']] = $si['parent_artcc'];
+                    $relevant_artccs[$si['parent_artcc']] = true;
+                }
+
+                if (!empty($relevant_artccs)) {
+                    $artcc_list = array_keys($relevant_artccs);
+                    $ph2 = implode(',', array_fill(0, count($artcc_list), '?'));
+                    $stmt_t = $conn_gis->prepare(
+                        "SELECT parent_artcc, sector_type, COUNT(*) AS total FROM sector_boundaries WHERE parent_artcc IN ($ph2) GROUP BY parent_artcc, sector_type"
+                    );
+                    $stmt_t->execute($artcc_list);
+                    $sector_totals = [];
+                    foreach ($stmt_t->fetchAll(PDO::FETCH_ASSOC) as $t) {
+                        $sector_totals[$t['parent_artcc']][$t['sector_type']] = (int)$t['total'];
+                    }
+
+                    $play_sectors = [];
+                    foreach ($all_sector_codes as $code => $stype) {
+                        $artcc = $sector_artcc_map[$code] ?? null;
+                        if ($artcc) $play_sectors[$artcc][$stype][$code] = true;
+                    }
+
+                    $coverage_data = [];
+                    foreach ($play_sectors as $artcc => $types) {
+                        foreach ($types as $stype => $codes_set) {
+                            $tc = count($codes_set);
+                            $tot = $sector_totals[$artcc][$stype] ?? 0;
+                            $coverage_data[$artcc][$stype] = [
+                                'traversed' => $tc,
+                                'total' => $tot,
+                                'pct' => $tot > 0 ? round($tc / $tot * 100, 1) : 0,
+                            ];
+                        }
+                    }
+                    $facility_counts['coverage'] = [
+                        'sector_totals' => $sector_totals,
+                        'play_sectors' => $coverage_data,
+                        'sector_artcc_map' => $sector_artcc_map,
+                    ];
+                }
+            } catch (Exception $e) {
+                // PostGIS unavailable — skip coverage
+            }
+        }
+    }
+
+    $formatted['facility_counts'] = $facility_counts;
+
     if ($format === 'geojson') {
         outputGeoJSON($formatted, $include_geometry);
         return;
