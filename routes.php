@@ -20,7 +20,7 @@ include("load/i18n.php");
     <!-- ECharts CDN -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 </head>
-<body>
+<body class="routes-page">
 <?php include("load/nav.php"); ?>
 
 <div class="routes-container">

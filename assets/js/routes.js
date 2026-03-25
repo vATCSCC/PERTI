@@ -948,10 +948,12 @@
             });
         $item.append($checkbox);
 
-        // Header: airports
+        // Header: airports (fallback to filter values if API doesn't return them)
         var $header = $('<div class="routes-item-header"></div>');
+        var originLabel = route.origin_icao || (state.filters.origins.length === 1 ? state.filters.origins[0] : '???');
+        var destLabel = route.dest_icao || (state.filters.destinations.length === 1 ? state.filters.destinations[0] : '???');
         var $airports = $('<div class="routes-item-airports"></div>')
-            .html(route.origin_icao + ' <span class="arrow">&rarr;</span> ' + route.dest_icao);
+            .html(originLabel + ' <span class="arrow">&rarr;</span> ' + destLabel);
         var $stats = $('<div class="routes-item-stats"></div>')
             .text(route.flight_count.toLocaleString() + ' ' + PERTII18n.t('routes.results.flights'));
         $header.append($airports, $stats);
