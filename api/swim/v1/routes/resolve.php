@@ -71,11 +71,11 @@ if (!$result) {
 $waypoints = [];
 foreach ($result['waypoints'] as $i => $wp) {
     $waypoints[] = [
-        'seq'  => $i + 1,
-        'fix'  => $wp['waypoint_id'] ?? $wp['fix'] ?? null,
+        'seq'  => $wp['seq'] ?? ($i + 1),
+        'fix'  => $wp['id'] ?? null,
         'lat'  => isset($wp['lat']) ? round((float)$wp['lat'], 6) : null,
         'lon'  => isset($wp['lon']) ? round((float)$wp['lon'], 6) : null,
-        'type' => $wp['waypoint_type'] ?? $wp['type'] ?? null,
+        'type' => $wp['type'] ?? null,
     ];
 }
 
