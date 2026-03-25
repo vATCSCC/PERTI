@@ -13,9 +13,18 @@ window.RoutesMap = (function() {
     var currentRoutes = [];
     var highlightedDimId = null;
     var multiSelectDimIds = [];
+    var routeCount = 0; // routes successfully plotted
+    var MAX_MAP_ROUTES = 25;
 
     // Multi-select colors (up to 6)
     var MULTI_COLORS = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#7B68EE', '#FF8C42', '#A8E6CF'];
+
+    // Layer visibility state
+    var layerState = {
+        artcc: true,
+        tracon: false,
+        high: false
+    };
 
     function init(containerId) {
         if (map) return; // already initialized
@@ -55,6 +64,7 @@ window.RoutesMap = (function() {
             mapReady = true;
             map.resize();
             loadBoundaryLayers();
+            buildLayerControls(containerId);
             if (pendingFeatures) {
                 addRoutesToMap(pendingFeatures);
                 pendingFeatures = null;
@@ -97,7 +107,7 @@ window.RoutesMap = (function() {
             })
             .catch(function(err) { console.warn('[RoutesMap] Failed to load ARTCC boundaries:', err); });
 
-        // TRACON boundaries (hidden by default, shown at higher zoom)
+        // TRACON boundaries (hidden by default)
         fetch('assets/geojson/tracon.json')
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -105,7 +115,7 @@ window.RoutesMap = (function() {
                 map.addLayer({
                     id: 'tracon-lines', type: 'line', source: 'tracon',
                     paint: { 'line-color': '#666', 'line-width': 0.8, 'line-opacity': 0.5 },
-                    minzoom: 6,
+                    layout: { visibility: 'none' },
                 });
             })
             .catch(function(err) { console.warn('[RoutesMap] Failed to load TRACON boundaries:', err); });
@@ -125,6 +135,75 @@ window.RoutesMap = (function() {
     }
 
     /**
+     * Build layer toggle controls and route count badge
+     */
+    function buildLayerControls(containerId) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+
+        // Layer control panel
+        var panel = document.createElement('div');
+        panel.className = 'rmap-layer-panel';
+
+        var layers = [
+            { id: 'artcc', label: 'ARTCC', layers: ['artcc-lines', 'artcc-labels'], checked: true },
+            { id: 'tracon', label: 'TRACON', layers: ['tracon-lines'], checked: false },
+            { id: 'high', label: 'High Sectors', layers: ['high-sector-lines'], checked: false }
+        ];
+
+        layers.forEach(function(layer) {
+            var row = document.createElement('label');
+            row.className = 'rmap-layer-row';
+
+            var checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = layer.checked;
+            checkbox.className = 'rmap-layer-check';
+            checkbox.addEventListener('change', function() {
+                var vis = this.checked ? 'visible' : 'none';
+                layer.layers.forEach(function(layerId) {
+                    if (map.getLayer(layerId)) {
+                        map.setLayoutProperty(layerId, 'visibility', vis);
+                    }
+                });
+                layerState[layer.id] = this.checked;
+            });
+
+            var span = document.createElement('span');
+            span.className = 'rmap-layer-label';
+            span.textContent = layer.label;
+
+            row.appendChild(checkbox);
+            row.appendChild(span);
+            panel.appendChild(row);
+        });
+
+        container.appendChild(panel);
+
+        // Route count badge
+        var badge = document.createElement('div');
+        badge.className = 'rmap-route-count';
+        badge.id = 'rmap_route_count';
+        badge.style.display = 'none';
+        container.appendChild(badge);
+    }
+
+    function updateRouteCount(count, total) {
+        var badge = document.getElementById('rmap_route_count');
+        if (!badge) return;
+        if (count <= 0) {
+            badge.style.display = 'none';
+            return;
+        }
+        var label = count + ' route' + (count !== 1 ? 's' : '') + ' on map';
+        if (total > MAX_MAP_ROUTES) {
+            label += ' (top ' + MAX_MAP_ROUTES + ' of ' + total + ')';
+        }
+        badge.textContent = label;
+        badge.style.display = 'block';
+    }
+
+    /**
      * Plot routes on the map. Fetches geometry from analysis.php for each route.
      * @param {Array} routes - Array of route objects from search results
      * @param {number} totalFlights - Total flights across all routes (for frequency %)
@@ -133,10 +212,13 @@ window.RoutesMap = (function() {
         clearRoutes();
         currentRoutes = routes;
 
-        if (!map || !routes || routes.length === 0) return;
+        if (!map || !routes || routes.length === 0) {
+            updateRouteCount(0, 0);
+            return;
+        }
 
-        // Fetch geometry for top N routes (limit to 10 for performance)
-        var toFetch = routes.slice(0, 10);
+        var totalRoutes = routes.length;
+        var toFetch = routes.slice(0, MAX_MAP_ROUTES);
         var pendingCount = toFetch.length;
         var features = [];
 
@@ -148,7 +230,10 @@ window.RoutesMap = (function() {
                 var feature = buildFeature(route, routeGeometryCache[dimId], totalFlights);
                 if (feature) features.push(feature);
                 pendingCount--;
-                if (pendingCount === 0) addRoutesToMap(features);
+                if (pendingCount === 0) {
+                    addRoutesToMap(features);
+                    updateRouteCount(features.length, totalRoutes);
+                }
                 return;
             }
 
@@ -182,7 +267,10 @@ window.RoutesMap = (function() {
                 },
                 complete: function() {
                     pendingCount--;
-                    if (pendingCount === 0) addRoutesToMap(features);
+                    if (pendingCount === 0) {
+                        addRoutesToMap(features);
+                        updateRouteCount(features.length, totalRoutes);
+                    }
                 }
             });
         });
@@ -418,6 +506,7 @@ window.RoutesMap = (function() {
         currentRoutes = [];
         highlightedDimId = null;
         multiSelectDimIds = [];
+        updateRouteCount(0, 0);
     }
 
     function removeRouteLayers() {

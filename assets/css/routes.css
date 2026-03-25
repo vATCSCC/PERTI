@@ -1218,6 +1218,67 @@ body.routes-resizing .maplibregl-map {
     font-size: 0.85rem;
 }
 
+/* ========================================================================
+   MAP LAYER CONTROLS & ROUTE COUNT
+   ======================================================================== */
+
+.rmap-layer-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    background: rgba(20, 20, 40, 0.9);
+    border: 1px solid #3a3a55;
+    border-radius: 6px;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    backdrop-filter: blur(4px);
+}
+
+.rmap-layer-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 2px 0;
+    font-size: 0.78rem;
+    color: #ccc;
+    user-select: none;
+}
+
+.rmap-layer-row:hover {
+    color: #fff;
+}
+
+.rmap-layer-check {
+    width: 14px;
+    height: 14px;
+    accent-color: #239BCD;
+    cursor: pointer;
+}
+
+.rmap-layer-label {
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+    letter-spacing: 0.3px;
+}
+
+.rmap-route-count {
+    position: absolute;
+    bottom: 28px;
+    left: 10px;
+    z-index: 10;
+    background: rgba(20, 20, 40, 0.9);
+    border: 1px solid #3a3a55;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    color: #aaa;
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+    backdrop-filter: blur(4px);
+}
+
 @media (max-width: 480px) {
     .routes-left-panel {
         max-height: 40vh;
