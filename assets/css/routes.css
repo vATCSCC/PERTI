@@ -982,6 +982,242 @@ body.routes-resizing .maplibregl-map {
     }
 }
 
+/* ========================================================================
+   ROUTE INFO DIALOG (SweetAlert2)
+   ======================================================================== */
+
+.route-info-popup {
+    background: #1e1e36 !important;
+    border: 1px solid #3a3a55;
+    border-radius: 10px !important;
+    color: #e0e0e0;
+    max-height: 85vh;
+}
+
+.route-info-title {
+    color: #fff !important;
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace !important;
+    font-size: 1.4rem !important;
+    letter-spacing: 1px;
+}
+
+.route-info-html {
+    text-align: left !important;
+    padding: 0 8px !important;
+}
+
+.route-info-popup .swal2-close {
+    color: #888 !important;
+}
+
+.route-info-popup .swal2-close:hover {
+    color: #fff !important;
+}
+
+.route-info-dialog {
+    font-size: 0.9rem;
+}
+
+.rid-route-string {
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+    font-size: 0.82rem;
+    color: #9ba8c0;
+    background: #15152a;
+    border: 1px solid #2a2a45;
+    border-radius: 6px;
+    padding: 10px 12px;
+    line-height: 1.4;
+    word-break: break-all;
+    margin-bottom: 16px;
+}
+
+.rid-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.rid-stat {
+    flex: 1 1 auto;
+    min-width: 80px;
+    background: #252545;
+    border: 1px solid #3a3a55;
+    border-radius: 6px;
+    padding: 8px 12px;
+    text-align: center;
+}
+
+.rid-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+}
+
+.rid-stat-label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+
+.rid-dates {
+    display: flex;
+    gap: 16px;
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 14px;
+    padding: 0 4px;
+}
+
+.rid-dates i {
+    color: #5a7a9a;
+    margin-right: 4px;
+}
+
+.rid-section {
+    margin-bottom: 14px;
+}
+
+.rid-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #2a2a45;
+}
+
+.rid-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    max-height: 200px;
+    display: block;
+    overflow-y: auto;
+}
+
+.rid-table thead,
+.rid-table tbody,
+.rid-table tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+
+.rid-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.rid-table th {
+    background: #252545;
+    color: #aaa;
+    font-weight: 600;
+    padding: 5px 8px;
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+.rid-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid #1a1a30;
+    color: #ccc;
+}
+
+.rid-table tbody tr:hover {
+    background: #2a2a48;
+}
+
+.rid-route-cell {
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+    font-size: 0.75rem;
+    color: #9ba8c0;
+    word-break: break-all;
+}
+
+.rid-col-num {
+    width: 60px;
+    text-align: right !important;
+}
+
+.rid-col-date {
+    width: 90px;
+    text-align: right !important;
+}
+
+/* Bar chart rows */
+.rid-bar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rid-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rid-bar-label {
+    width: 110px;
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    color: #ccc;
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rid-bar-track {
+    flex: 1;
+    height: 14px;
+    background: #1a1a30;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.rid-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+.rid-bar-cyan  { background: #239BCD; }
+.rid-bar-teal  { background: #4ECDC4; }
+.rid-bar-purple { background: #7B68EE; }
+
+.rid-bar-value {
+    width: 40px;
+    flex-shrink: 0;
+    text-align: right;
+    font-size: 0.75rem;
+    color: #aaa;
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+}
+
+.rid-loading {
+    text-align: center;
+    color: #888;
+    padding: 16px 0;
+    font-size: 0.85rem;
+}
+
+.rid-empty {
+    text-align: center;
+    color: #666;
+    padding: 12px 0;
+    font-size: 0.85rem;
+}
+
 @media (max-width: 480px) {
     .routes-left-panel {
         max-height: 40vh;
