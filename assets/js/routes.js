@@ -835,10 +835,11 @@
             return null;
         }
 
-        // Sort and view
+        // Sort, view, and pagination
         params.push('sort=' + state.sort);
         params.push('view=' + state.view);
         params.push('page=' + state.page);
+        params.push('per_page=50');
 
         return params.join('&');
     }

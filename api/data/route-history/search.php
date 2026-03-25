@@ -33,10 +33,10 @@ $hourMin   = get_input('hour_min') !== '' ? (int)get_input('hour_min') : null;
 $hourMax   = get_input('hour_max') !== '' ? (int)get_input('hour_max') : null;
 $seasons   = array_filter(array_map('trim', explode(',', get_input('season') ?? '')));
 $years     = array_filter(array_map('intval', explode(',', get_input('year') ?? '')));
-$page      = max(1, (int)(get_input('page') ?? 1));
-$perPage   = min(200, max(1, (int)(get_input('per_page') ?? 50)));
-$sort      = get_input('sort') ?? 'frequency';
-$view      = get_input('view') ?? 'grouped';
+$page      = max(1, (int)(get_input('page') ?: 1));
+$perPage   = min(200, max(1, (int)(get_input('per_page') ?: 50)));
+$sort      = get_input('sort') ?: 'frequency';
+$view      = get_input('view') ?: 'grouped';
 
 // ── Guard: at least one filter required ──
 $hasFilter = !empty($orig) || !empty($dest) || !empty($aircraft) || !empty($manufacturer)
