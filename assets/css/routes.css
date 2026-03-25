@@ -991,7 +991,22 @@ body.routes-resizing .maplibregl-map {
     border: 1px solid #3a3a55;
     border-radius: 10px !important;
     color: #e0e0e0;
-    max-height: 85vh;
+    max-height: 90vh;
+}
+
+.route-info-popup.rid-minimized {
+    max-height: none !important;
+    width: 400px !important;
+    bottom: 20px !important;
+    top: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    position: fixed !important;
+}
+
+.route-info-popup.rid-minimized .swal2-html-container,
+.route-info-popup.rid-minimized .swal2-actions {
+    display: none !important;
 }
 
 .route-info-title {
@@ -1012,6 +1027,70 @@ body.routes-resizing .maplibregl-map {
 
 .route-info-popup .swal2-close:hover {
     color: #fff !important;
+}
+
+/* Minimize button */
+.rid-minimize-btn {
+    position: absolute;
+    top: 8px;
+    right: 44px;
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    z-index: 10;
+    transition: color 0.2s;
+}
+
+.rid-minimize-btn:hover {
+    color: #fff;
+}
+
+/* Sortable column headers */
+.rid-table th.rid-sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 16px;
+}
+
+.rid-table th.rid-sortable:hover {
+    color: #239BCD;
+}
+
+.rid-table th.rid-sortable::after {
+    content: '\f0dc';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    font-size: 0.6rem;
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.4;
+}
+
+.rid-table th.rid-sort-asc::after {
+    content: '\f0de';
+    opacity: 1;
+    color: #239BCD;
+}
+
+.rid-table th.rid-sort-desc::after {
+    content: '\f0dd';
+    opacity: 1;
+    color: #239BCD;
+}
+
+/* Selectable table rows */
+.rid-table tbody tr.rid-row-selected {
+    background: rgba(35, 155, 205, 0.2) !important;
+}
+
+.rid-table tbody tr {
+    cursor: pointer;
 }
 
 .route-info-dialog {
@@ -1096,7 +1175,7 @@ body.routes-resizing .maplibregl-map {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.8rem;
-    max-height: 200px;
+    max-height: 300px;
     display: block;
     overflow-y: auto;
 }
@@ -1204,6 +1283,51 @@ body.routes-resizing .maplibregl-map {
     font-family: "Inconsolata", "SF Mono", Consolas, monospace;
 }
 
+/* Variant selection actions */
+.rid-variant-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    margin-bottom: 4px;
+}
+
+.rid-filter-selected-btn {
+    background: #239BCD;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.rid-filter-selected-btn:hover {
+    background: #1d84b0;
+}
+
+.rid-clear-selected-btn {
+    background: transparent;
+    color: #aaa;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.rid-clear-selected-btn:hover {
+    color: #fff;
+    border-color: #666;
+}
+
+.rid-selected-count {
+    font-size: 0.75rem;
+    color: #888;
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+}
+
 .rid-loading {
     text-align: center;
     color: #888;
@@ -1227,14 +1351,58 @@ body.routes-resizing .maplibregl-map {
     top: 10px;
     left: 10px;
     z-index: 10;
-    background: rgba(20, 20, 40, 0.9);
+    backdrop-filter: blur(4px);
+}
+
+.rmap-layer-toggle {
+    background: rgba(20, 20, 40, 0.92);
+    border: 1px solid #3a3a55;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 0.78rem;
+    color: #ccc;
+    cursor: pointer;
+    user-select: none;
+    font-family: "Inconsolata", "SF Mono", Consolas, monospace;
+    letter-spacing: 0.3px;
+    transition: background 0.15s;
+}
+
+.rmap-layer-toggle:hover,
+.rmap-layer-toggle.expanded {
+    background: rgba(30, 30, 55, 0.95);
+    color: #fff;
+}
+
+.rmap-layer-toggle i {
+    margin-right: 4px;
+    color: #239BCD;
+}
+
+.rmap-layer-list {
+    background: rgba(20, 20, 40, 0.95);
     border: 1px solid #3a3a55;
     border-radius: 6px;
-    padding: 6px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    backdrop-filter: blur(4px);
+    padding: 4px 0;
+    margin-top: 4px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.rmap-layer-separator {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 6px 10px 2px;
+    border-top: 1px solid #2a2a45;
+    margin-top: 2px;
+}
+
+.rmap-layer-separator:first-child {
+    border-top: none;
+    margin-top: 0;
 }
 
 .rmap-layer-row {
@@ -1242,7 +1410,7 @@ body.routes-resizing .maplibregl-map {
     align-items: center;
     gap: 6px;
     cursor: pointer;
-    padding: 2px 0;
+    padding: 3px 10px;
     font-size: 0.78rem;
     color: #ccc;
     user-select: none;
@@ -1250,6 +1418,7 @@ body.routes-resizing .maplibregl-map {
 
 .rmap-layer-row:hover {
     color: #fff;
+    background: rgba(35, 155, 205, 0.1);
 }
 
 .rmap-layer-check {

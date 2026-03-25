@@ -1,7 +1,7 @@
 /**
  * Historical Routes - Map Module
  * MapLibre route visualization with frequency-based styling
- * Includes ARTCC/TRACON boundary layers matching route.php
+ * Includes ARTCC/TRACON/sector boundary layers matching route.php
  */
 window.RoutesMap = (function() {
     'use strict';
@@ -22,8 +22,14 @@ window.RoutesMap = (function() {
     // Layer visibility state
     var layerState = {
         artcc: true,
+        artcc_labels: true,
         tracon: false,
-        high: false
+        high: false,
+        low: false,
+        superhigh: false,
+        artcc_super: false,
+        artcc_sub: false,
+        artcc_deep: false
     };
 
     function init(containerId) {
@@ -73,10 +79,15 @@ window.RoutesMap = (function() {
     }
 
     /**
-     * Load ARTCC and TRACON boundary layers (matching route.php style)
+     * Load all boundary layers matching route.php
+     * Sector colors match route-maplibre.js sectorLineDark (#1a1a1a)
      */
     function loadBoundaryLayers() {
-        // ARTCC boundaries
+        var sectorColor = '#555';
+        var sectorWidth = 1;
+        var sectorOpacity = 0.5;
+
+        // ARTCC boundaries (L1 FIR lines)
         fetch('assets/geojson/artcc.json')
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -107,6 +118,38 @@ window.RoutesMap = (function() {
             })
             .catch(function(err) { console.warn('[RoutesMap] Failed to load ARTCC boundaries:', err); });
 
+        // ARTCC hierarchy layers
+        fetch('assets/geojson/supercenter.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                map.addSource('artcc-super-source', { type: 'geojson', data: data });
+                map.addLayer({
+                    id: 'artcc-super-lines', type: 'line', source: 'artcc-super-source',
+                    paint: { 'line-color': '#F0C946', 'line-width': 2.5, 'line-opacity': 0.8 },
+                    layout: { visibility: 'none' },
+                });
+            })
+            .catch(function() {});
+
+        fetch('assets/geojson/artcc_area.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                map.addSource('artcc-area-source', { type: 'geojson', data: data });
+                map.addLayer({
+                    id: 'artcc-sub-lines', type: 'line', source: 'artcc-area-source',
+                    filter: ['==', ['get', 'hierarchy_level'], 2],
+                    paint: { 'line-color': '#2E6AAD', 'line-width': 1.2, 'line-opacity': 0.8, 'line-dasharray': [4, 3] },
+                    layout: { visibility: 'none' },
+                });
+                map.addLayer({
+                    id: 'artcc-deep-lines', type: 'line', source: 'artcc-area-source',
+                    filter: ['>=', ['get', 'hierarchy_level'], 3],
+                    paint: { 'line-color': '#1E4A7A', 'line-width': 0.8, 'line-opacity': 0.8, 'line-dasharray': [4, 3] },
+                    layout: { visibility: 'none' },
+                });
+            })
+            .catch(function() {});
+
         // TRACON boundaries (hidden by default)
         fetch('assets/geojson/tracon.json')
             .then(function(r) { return r.json(); })
@@ -127,7 +170,33 @@ window.RoutesMap = (function() {
                 map.addSource('high-sectors', { type: 'geojson', data: data });
                 map.addLayer({
                     id: 'high-sector-lines', type: 'line', source: 'high-sectors',
-                    paint: { 'line-color': '#555', 'line-width': 0.6, 'line-opacity': 0.4 },
+                    paint: { 'line-color': sectorColor, 'line-width': sectorWidth, 'line-opacity': sectorOpacity },
+                    layout: { visibility: 'none' },
+                });
+            })
+            .catch(function() {});
+
+        // Low altitude sectors (hidden by default)
+        fetch('assets/geojson/low.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                map.addSource('low-sectors', { type: 'geojson', data: data });
+                map.addLayer({
+                    id: 'low-sector-lines', type: 'line', source: 'low-sectors',
+                    paint: { 'line-color': sectorColor, 'line-width': sectorWidth, 'line-opacity': sectorOpacity },
+                    layout: { visibility: 'none' },
+                });
+            })
+            .catch(function() {});
+
+        // Superhigh altitude sectors (hidden by default)
+        fetch('assets/geojson/superhigh.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                map.addSource('superhigh-sectors', { type: 'geojson', data: data });
+                map.addLayer({
+                    id: 'superhigh-sector-lines', type: 'line', source: 'superhigh-sectors',
+                    paint: { 'line-color': sectorColor, 'line-width': sectorWidth, 'line-opacity': sectorOpacity },
                     layout: { visibility: 'none' },
                 });
             })
@@ -145,13 +214,48 @@ window.RoutesMap = (function() {
         var panel = document.createElement('div');
         panel.className = 'rmap-layer-panel';
 
+        // Toggle button
+        var toggleBtn = document.createElement('div');
+        toggleBtn.className = 'rmap-layer-toggle';
+        toggleBtn.innerHTML = '<i class="fas fa-layer-group"></i> Overlays';
+        toggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var list = panel.querySelector('.rmap-layer-list');
+            if (list) {
+                var isShown = list.style.display !== 'none';
+                list.style.display = isShown ? 'none' : 'block';
+                toggleBtn.classList.toggle('expanded', !isShown);
+            }
+        });
+        panel.appendChild(toggleBtn);
+
+        var list = document.createElement('div');
+        list.className = 'rmap-layer-list';
+        list.style.display = 'none';
+
+        // Separator helper
+        function addSeparator(label) {
+            var sep = document.createElement('div');
+            sep.className = 'rmap-layer-separator';
+            sep.textContent = label;
+            list.appendChild(sep);
+        }
+
         var layers = [
-            { id: 'artcc', label: 'ARTCC', layers: ['artcc-lines', 'artcc-labels'], checked: true },
-            { id: 'tracon', label: 'TRACON', layers: ['tracon-lines'], checked: false },
-            { id: 'high', label: 'High Sectors', layers: ['high-sector-lines'], checked: false }
+            { id: 'artcc', label: 'ARTCC Boundaries', layers: ['artcc-lines'], checked: true },
+            { id: 'artcc_labels', label: 'ARTCC Labels', layers: ['artcc-labels'], checked: true },
+            { id: 'artcc_super', label: 'Super Centers', layers: ['artcc-super-lines'], checked: false, separator: 'ARTCC Hierarchy' },
+            { id: 'artcc_sub', label: 'Sub Areas', layers: ['artcc-sub-lines'], checked: false },
+            { id: 'artcc_deep', label: 'Deep Sub Areas', layers: ['artcc-deep-lines'], checked: false },
+            { id: 'tracon', label: 'TRACON', layers: ['tracon-lines'], checked: false, separator: 'Sectors' },
+            { id: 'high', label: 'High Sectors', layers: ['high-sector-lines'], checked: false },
+            { id: 'low', label: 'Low Sectors', layers: ['low-sector-lines'], checked: false },
+            { id: 'superhigh', label: 'Superhigh Sectors', layers: ['superhigh-sector-lines'], checked: false }
         ];
 
         layers.forEach(function(layer) {
+            if (layer.separator) addSeparator(layer.separator);
+
             var row = document.createElement('label');
             row.className = 'rmap-layer-row';
 
@@ -175,7 +279,17 @@ window.RoutesMap = (function() {
 
             row.appendChild(checkbox);
             row.appendChild(span);
-            panel.appendChild(row);
+            list.appendChild(row);
+        });
+
+        panel.appendChild(list);
+
+        // Close panel when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!panel.contains(e.target)) {
+                list.style.display = 'none';
+                toggleBtn.classList.remove('expanded');
+            }
         });
 
         container.appendChild(panel);

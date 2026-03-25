@@ -1118,7 +1118,7 @@
         Swal.fire({
             title: originLabel + '  \u2192  ' + destLabel,
             html: html,
-            width: 680,
+            width: 900,
             showConfirmButton: false,
             showCloseButton: true,
             customClass: {
@@ -1127,6 +1127,37 @@
                 htmlContainer: 'route-info-html'
             },
             didOpen: function() {
+                // Add minimize button
+                var popup = Swal.getPopup();
+                if (popup) {
+                    var minBtn = document.createElement('button');
+                    minBtn.className = 'rid-minimize-btn';
+                    minBtn.innerHTML = '<i class="fas fa-window-minimize"></i>';
+                    minBtn.title = 'Minimize';
+                    minBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        var isMin = popup.classList.toggle('rid-minimized');
+                        minBtn.innerHTML = isMin
+                            ? '<i class="fas fa-window-maximize"></i>'
+                            : '<i class="fas fa-window-minimize"></i>';
+                        minBtn.title = isMin ? 'Restore' : 'Minimize';
+                        // Click title to restore when minimized
+                        if (isMin) {
+                            var titleEl = popup.querySelector('.swal2-title');
+                            if (titleEl) {
+                                titleEl.style.cursor = 'pointer';
+                                titleEl.onclick = function() {
+                                    popup.classList.remove('rid-minimized');
+                                    minBtn.innerHTML = '<i class="fas fa-window-minimize"></i>';
+                                    minBtn.title = 'Minimize';
+                                    titleEl.style.cursor = '';
+                                    titleEl.onclick = null;
+                                };
+                            }
+                        }
+                    });
+                    popup.appendChild(minBtn);
+                }
                 // Fetch detail data to enrich dialog
                 fetchRouteDetail(route);
             }
@@ -1157,17 +1188,23 @@
 
         var html = '';
 
-        // Variants section
+        // Variants section with sortable headers and selectable rows
         if (data.variants && data.variants.length > 0) {
             html += '<div class="rid-section">';
             html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.variants') + ' (' + data.variants.length + ')</div>';
-            html += '<table class="rid-table"><thead><tr>';
-            html += '<th>' + PERTII18n.t('routes.detail.rawRoute') + '</th>';
-            html += '<th class="rid-col-num">' + PERTII18n.t('routes.detail.count') + '</th>';
-            html += '<th class="rid-col-date">' + PERTII18n.t('routes.detail.lastFiled') + '</th>';
+            html += '<div class="rid-variant-actions" id="rid_variant_actions" style="display:none;">';
+            html += '<button class="rid-filter-selected-btn" id="rid_filter_selected"><i class="fas fa-filter"></i> Filter to selected</button>';
+            html += '<button class="rid-clear-selected-btn" id="rid_clear_selected"><i class="fas fa-times"></i> Clear</button>';
+            html += '<span class="rid-selected-count" id="rid_selected_count"></span>';
+            html += '</div>';
+            html += '<table class="rid-table" id="rid_variants_table"><thead><tr>';
+            html += '<th class="rid-sortable" data-sort="route">' + PERTII18n.t('routes.detail.rawRoute') + '</th>';
+            html += '<th class="rid-col-num rid-sortable" data-sort="count">' + PERTII18n.t('routes.detail.count') + '</th>';
+            html += '<th class="rid-col-date rid-sortable" data-sort="date">' + PERTII18n.t('routes.detail.lastFiled') + '</th>';
             html += '</tr></thead><tbody>';
-            data.variants.forEach(function(v) {
-                html += '<tr><td class="rid-route-cell">' + escapeHtml(v.raw_route) + '</td>';
+            data.variants.forEach(function(v, idx) {
+                html += '<tr data-idx="' + idx + '" data-route="' + escapeHtml(v.raw_route) + '" data-cnt="' + parseInt(v.cnt) + '" data-date="' + (v.last_filed || '') + '">';
+                html += '<td class="rid-route-cell">' + escapeHtml(v.raw_route) + '</td>';
                 html += '<td class="rid-col-num">' + parseInt(v.cnt).toLocaleString() + '</td>';
                 html += '<td class="rid-col-date">' + formatDate(v.last_filed) + '</td></tr>';
             });
@@ -1202,9 +1239,8 @@
             var maxAl = Math.max.apply(null, airlines.map(function(a) { return parseInt(a.cnt); }));
             airlines.slice(0, 8).forEach(function(a) {
                 var pct = maxAl > 0 ? (parseInt(a.cnt) / maxAl * 100) : 0;
-                var label = a.airline_icao + (a.airline_name ? ' (' + a.airline_name + ')' : '');
                 html += '<div class="rid-bar-row">';
-                html += '<span class="rid-bar-label">' + escapeHtml(label) + '</span>';
+                html += '<span class="rid-bar-label">' + escapeHtml(a.airline_icao) + '</span>';
                 html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-teal" style="width:' + pct + '%"></div></div>';
                 html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
                 html += '</div>';
@@ -1235,6 +1271,99 @@
         }
 
         $container.html(html);
+
+        // Wire up sortable column headers
+        var $table = $('#rid_variants_table');
+        if ($table.length) {
+            $table.find('th.rid-sortable').on('click', function() {
+                var $th = $(this);
+                var sortKey = $th.data('sort');
+                var $tbody = $table.find('tbody');
+                var $rows = $tbody.find('tr').get();
+
+                // Cycle: none -> asc -> desc -> none
+                var currentState = $th.hasClass('rid-sort-asc') ? 'asc' : ($th.hasClass('rid-sort-desc') ? 'desc' : 'none');
+                $table.find('th').removeClass('rid-sort-asc rid-sort-desc');
+
+                if (currentState === 'none') {
+                    $th.addClass('rid-sort-asc');
+                    sortVariantRows($rows, sortKey, 1);
+                } else if (currentState === 'asc') {
+                    $th.addClass('rid-sort-desc');
+                    sortVariantRows($rows, sortKey, -1);
+                } else {
+                    // Reset to default (by count desc)
+                    sortVariantRows($rows, 'count', -1);
+                }
+
+                $rows.forEach(function(row) { $tbody.append(row); });
+            });
+
+            // Wire up row selection
+            $table.find('tbody').on('click', 'tr', function(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    $(this).toggleClass('rid-row-selected');
+                } else if (e.shiftKey) {
+                    // Range select
+                    var $allRows = $table.find('tbody tr');
+                    var lastIdx = $table.data('lastSelectedIdx') || 0;
+                    var thisIdx = $allRows.index(this);
+                    var start = Math.min(lastIdx, thisIdx);
+                    var end = Math.max(lastIdx, thisIdx);
+                    $allRows.slice(start, end + 1).addClass('rid-row-selected');
+                } else {
+                    var wasSelected = $(this).hasClass('rid-row-selected');
+                    $table.find('tbody tr').removeClass('rid-row-selected');
+                    if (!wasSelected) $(this).addClass('rid-row-selected');
+                }
+                $table.data('lastSelectedIdx', $table.find('tbody tr').index(this));
+                updateVariantActions();
+            });
+        }
+
+        // Wire up filter/clear buttons
+        $(document).off('click.ridFilter').on('click.ridFilter', '#rid_filter_selected', function() {
+            var selected = [];
+            $('#rid_variants_table tbody tr.rid-row-selected').each(function() {
+                selected.push($(this).data('route'));
+            });
+            if (selected.length > 0 && typeof window.filterRoutesByVariants === 'function') {
+                window.filterRoutesByVariants(selected);
+            }
+        });
+        $(document).off('click.ridClear').on('click.ridClear', '#rid_clear_selected', function() {
+            $('#rid_variants_table tbody tr').removeClass('rid-row-selected');
+            updateVariantActions();
+        });
+    }
+
+    function sortVariantRows(rows, key, dir) {
+        rows.sort(function(a, b) {
+            var aVal, bVal;
+            if (key === 'count') {
+                aVal = parseInt($(a).data('cnt')) || 0;
+                bVal = parseInt($(b).data('cnt')) || 0;
+            } else if (key === 'date') {
+                aVal = $(a).data('date') || '';
+                bVal = $(b).data('date') || '';
+            } else {
+                aVal = ($(a).data('route') || '').toLowerCase();
+                bVal = ($(b).data('route') || '').toLowerCase();
+            }
+            if (aVal < bVal) return -1 * dir;
+            if (aVal > bVal) return 1 * dir;
+            return 0;
+        });
+    }
+
+    function updateVariantActions() {
+        var count = $('#rid_variants_table tbody tr.rid-row-selected').length;
+        if (count > 0) {
+            $('#rid_variant_actions').show();
+            $('#rid_selected_count').text(count + ' selected');
+        } else {
+            $('#rid_variant_actions').hide();
+        }
     }
 
     function handleExport(format, scope) {
