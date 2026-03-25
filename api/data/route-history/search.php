@@ -223,7 +223,9 @@ if ($view === 'grouped') {
             ROUND(AVG(f.ete_minutes)) as avg_ete_minutes,
             ROUND(AVG(f.altitude_ft)) as avg_altitude_ft,
             MIN(dr.first_seen) as first_filed,
-            MAX(dr.last_seen) as last_filed
+            MAX(dr.last_seen) as last_filed,
+            MAX(f.origin_icao) as origin_icao,
+            MAX(f.dest_icao) as dest_icao
         FROM route_history_facts f
         JOIN dim_route dr ON dr.route_dim_id = f.route_dim_id
         $joins
@@ -271,7 +273,9 @@ if ($view === 'grouped') {
             ROUND(AVG(f.ete_minutes)) as avg_ete_minutes,
             ROUND(AVG(f.altitude_ft)) as avg_altitude_ft,
             MIN(dtm2.flight_date) as first_filed,
-            MAX(dtm2.flight_date) as last_filed
+            MAX(dtm2.flight_date) as last_filed,
+            MAX(f.origin_icao) as origin_icao,
+            MAX(f.dest_icao) as dest_icao
         FROM route_history_facts f
         JOIN dim_time dtm2 ON dtm2.time_dim_id = f.time_dim_id
         $joins

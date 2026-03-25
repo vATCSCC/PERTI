@@ -9,10 +9,19 @@
 
 .routes-container {
     display: flex;
-    height: 100vh;
-    padding-top: 76px; /* Push below absolute-positioned navbar */
-    box-sizing: border-box;
+    height: calc(100vh - 76px);
+    margin-top: 76px; /* Push below absolute-positioned navbar */
     overflow: hidden;
+}
+
+/* Dark background behind transparent navbar so white text is readable */
+body.routes-page {
+    background: #131325;
+}
+
+/* Hide footer on full-viewport routes page */
+body.routes-page .cs-footer {
+    display: none;
 }
 
 .routes-left-panel {

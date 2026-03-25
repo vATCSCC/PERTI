@@ -1,4 +1,4 @@
-# Playbook Facility Route Counts
+# Per-Play Facility Route Counts
 
 **Date**: 2026-03-24
 **Status**: Draft
@@ -6,237 +6,394 @@
 
 ## Problem
 
-The playbook has ~42K routes, each with pre-computed `traversed_artccs`, `traversed_tracons`, `traversed_sectors_low/high/superhigh` columns in MySQL (and mirrored to `swim_playbook_routes` in SWIM_API). Currently, these are exposed per-route or per-play, but there is no aggregate view answering "how many routes traverse each facility across the playbook?"
+When viewing a playbook play (e.g., "ORD EAST GATE 1" with 45 routes), the existing "Traversed Facilities" section shows **which** facilities are traversed (unique codes) but not **how many routes** traverse each one. Users need to see: "ZNY superhigh sector ZNY_SH_1: 12 routes, N90 TRACON: 10 routes, ZDC ARTCC: 35 routes" — per-facility route counts within a single play.
 
 ## Solution
 
-Add facility route count aggregation to:
-1. Internal API (`api/data/playbook/facility_counts.php`)
-2. SWIM API (`api/swim/v1/playbook/facility-counts` + `include=facility_counts` on plays endpoint)
-3. Playbook UI (catalog sidebar section + route analysis panel section)
+Enhance per-play facility traversal to include route counts:
+1. **Internal API** (`api/data/playbook/get.php`) — add `facility_counts` to single-play response
+2. **SWIM API** (`api/swim/v1/playbook/plays.php`) — add `facility_counts` to single-play response
+3. **SWIM standalone** (`api/swim/v1/playbook/facility-counts.php`) — lightweight counts-only endpoint
+4. **Playbook UI** — enhance existing "Traversed Facilities" sidebar section + add counts section to route analysis panel
 
 ## Data Source
 
-### MySQL (`perti_site.playbook_routes`)
+All 5 traversed columns are already populated per-route in MySQL and mirrored to SWIM_API:
 
-All 5 traversed columns are populated at route save time via `computeTraversedFacilities()` (PostGIS) and backfilled via `scripts/playbook/backfill_geometry.php`:
+| Column | MySQL Type | SWIM Type | Format | Example |
+|--------|-----------|-----------|--------|---------|
+| `traversed_artccs` | VARCHAR(500) | NVARCHAR(MAX) | CSV | `ZNY,ZDC,ZBW,CZUL` |
+| `traversed_tracons` | VARCHAR(500) | NVARCHAR(MAX) | CSV | `N90,PCT,C90` |
+| `traversed_sectors_low` | VARCHAR(500) | NVARCHAR(MAX) | CSV | `ZNY_42,ZDC_15` |
+| `traversed_sectors_high` | VARCHAR(500) | NVARCHAR(MAX) | CSV | `ZNY_HIGH_31,ZDC_HIGH_22` |
+| `traversed_sectors_superhigh` | VARCHAR(500) | NVARCHAR(MAX) | CSV | `ZLA_SH_1` |
 
-| Column | Type | Format | Example |
-|--------|------|--------|---------|
-| `traversed_artccs` | VARCHAR(500) | CSV | `ZNY,ZDC,ZBW,CZUL` |
-| `traversed_tracons` | VARCHAR(500) | CSV | `N90,PCT,C90` |
-| `traversed_sectors_low` | VARCHAR(500) | CSV | `ZNY_42,ZDC_15` |
-| `traversed_sectors_high` | VARCHAR(500) | CSV | `ZNY_HIGH_31,ZDC_HIGH_22` |
-| `traversed_sectors_superhigh` | VARCHAR(500) | CSV | `ZLA_SH_1` |
-
-### Azure SQL (`SWIM_API.dbo.swim_playbook_routes`)
-
-Mirror of MySQL columns as `NVARCHAR(MAX)`. Azure SQL has `STRING_SPLIT()` for server-side aggregation.
+**No new PostGIS queries or backfill needed** — aggregation is purely from existing stored data.
 
 ## API Design
 
-### 1. Internal API: `GET api/data/playbook/facility_counts.php`
+### 1. Internal API: `GET api/data/playbook/get.php?id=123`
 
-**Auth**: Session-based (same as playbook list)
+**Change**: Add `facility_counts` object to the existing single-play response.
 
-**Parameters** (match `list.php` filter params):
+The `get.php` endpoint already loads all routes with their `traversed_*` columns. After fetching routes, aggregate counts in PHP before returning.
 
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `scope` | string | `filtered` | `filtered` (apply filters) or `all` (entire playbook) |
-| `category` | string | null | Filter by play category |
-| `source` | string | null | Filter by play source (FAA/DCC/etc.) |
-| `status` | string | `active` | Filter by play status |
-| `artcc` | string | null | Filter by ARTCC in `facilities_involved` |
-| `search` | string | null | Full-text search on play name/description |
-| `hide_legacy` | int | 0 | Hide `_old_` and FAA_HISTORICAL plays |
-| `type` | string | null | Filter to specific facility type: `ARTCC`, `TRACON`, `SECTOR_LOW`, `SECTOR_HIGH`, `SECTOR_SUPERHIGH` |
+**Updated response** (new field highlighted):
 
-**Response**:
 ```json
 {
   "success": true,
-  "scope": "filtered",
-  "total_routes": 1847,
-  "routes_with_traversal": 1623,
+  "play": { "play_id": 123, "play_name": "ORD_EAST_1", ... },
+  "routes": [ ... ],
   "facility_counts": {
+    "total_routes": 45,
+    "routes_with_traversal": 42,
     "ARTCC": [
-      {"code": "ZNY", "route_count": 234},
-      {"code": "ZDC", "route_count": 198},
-      {"code": "ZBW", "route_count": 156}
+      {"code": "ZNY", "route_count": 35},
+      {"code": "ZDC", "route_count": 28},
+      {"code": "ZBW", "route_count": 12}
     ],
     "TRACON": [
-      {"code": "N90", "route_count": 112},
-      {"code": "PCT", "route_count": 87}
+      {"code": "N90", "route_count": 22},
+      {"code": "PCT", "route_count": 15}
     ],
     "SECTOR_LOW": [
-      {"code": "ZNY_42", "route_count": 23}
+      {"code": "ZNY_42", "route_count": 8}
     ],
     "SECTOR_HIGH": [
-      {"code": "ZDC_HIGH_31", "route_count": 45}
+      {"code": "ZDC_HIGH_31", "route_count": 18}
     ],
     "SECTOR_SUPERHIGH": [
-      {"code": "ZLA_SH_1", "route_count": 12}
+      {"code": "ZNY_SH_1", "route_count": 12}
     ]
   }
 }
 ```
 
-Each array is sorted by `route_count` descending.
+Each array sorted by `route_count` descending.
 
-**Implementation**: PHP-side aggregation. Query all matching routes' traversed_* columns (lightweight — just 5 short text fields per row), split CSV in PHP, accumulate counts in associative arrays, sort descending.
+**Implementation** (in `get.php`, after route fetch loop):
 
 ```php
-// Pseudocode
-$sql = "SELECT r.traversed_artccs, r.traversed_tracons,
-               r.traversed_sectors_low, r.traversed_sectors_high,
-               r.traversed_sectors_superhigh
-        FROM playbook_routes r
-        JOIN playbook_plays p ON r.play_id = p.play_id
-        WHERE p.status != 'archived' ..." ;
-// Apply same filter WHERE clauses as list.php
+// Aggregate facility counts from route traversal columns
+$facility_counts = ['ARTCC' => [], 'TRACON' => [], 'SECTOR_LOW' => [],
+                    'SECTOR_HIGH' => [], 'SECTOR_SUPERHIGH' => []];
+$routes_with_traversal = 0;
+$column_map = [
+    'ARTCC'             => 'traversed_artccs',
+    'TRACON'            => 'traversed_tracons',
+    'SECTOR_LOW'        => 'traversed_sectors_low',
+    'SECTOR_HIGH'       => 'traversed_sectors_high',
+    'SECTOR_SUPERHIGH'  => 'traversed_sectors_superhigh',
+];
 
-$counts = ['ARTCC' => [], 'TRACON' => [], ...];
-while ($row = fetch) {
-    foreach (explode(',', $row['traversed_artccs']) as $code) {
-        if ($code !== '') $counts['ARTCC'][$code] = ($counts['ARTCC'][$code] ?? 0) + 1;
+foreach ($routes_raw as $r) {
+    $has_data = false;
+    foreach ($column_map as $type => $col) {
+        $val = trim($r[$col] ?? '');
+        if ($val === '') continue;
+        $has_data = true;
+        // Dedupe per-route: if a route re-enters ZNY, count ZNY once for this route
+        $codes = array_unique(array_filter(array_map('trim', explode(',', $val))));
+        if ($type === 'ARTCC') {
+            $codes = array_map(function($c) {
+                return ArtccNormalizer::normalize($c);
+            }, $codes);
+            $codes = array_unique($codes);
+        }
+        foreach ($codes as $code) {
+            $facility_counts[$type][$code] = ($facility_counts[$type][$code] ?? 0) + 1;
+        }
     }
-    // ... same for other types
+    if ($has_data) $routes_with_traversal++;
 }
-// Sort each type descending by count
+
+// Sort each type descending by count, format as arrays
+$formatted_counts = [];
+foreach ($facility_counts as $type => $counts) {
+    arsort($counts);
+    $formatted_counts[$type] = [];
+    foreach ($counts as $code => $count) {
+        $formatted_counts[$type][] = ['code' => $code, 'route_count' => $count];
+    }
+}
+$formatted_counts['total_routes'] = count($routes_raw);
+$formatted_counts['routes_with_traversal'] = $routes_with_traversal;
 ```
 
-### 2. SWIM API: `GET api/swim/v1/playbook/facility-counts`
+### 2. SWIM API: `GET api/swim/v1/playbook/plays?id=123`
+
+**Change**: Add `facility_counts` to the single-play response in `handleGetSingle()`.
+
+The existing `handleGetSingle()` (line 199 of `plays.php`) already fetches all routes and returns them with per-route `traversal` objects. After the route fetch loop, aggregate counts from the formatted routes' `traversal` arrays.
+
+**Updated SWIM response** (new field):
+
+```json
+{
+  "status": "success",
+  "data": {
+    "play_id": 123,
+    "play_name": "ORD_EAST_1",
+    "routes": [ ... ],
+    "facility_counts": {
+      "total_routes": 45,
+      "routes_with_traversal": 42,
+      "artccs": [
+        {"code": "ZNY", "route_count": 35},
+        {"code": "ZDC", "route_count": 28}
+      ],
+      "tracons": [
+        {"code": "N90", "route_count": 22}
+      ],
+      "sectors_low": [
+        {"code": "ZNY_42", "route_count": 8}
+      ],
+      "sectors_high": [
+        {"code": "ZDC_HIGH_31", "route_count": 18}
+      ],
+      "sectors_superhigh": [
+        {"code": "ZNY_SH_1", "route_count": 12}
+      ]
+    }
+  }
+}
+```
+
+Note: SWIM uses snake_case keys (`artccs`, `sectors_high`) matching the existing per-route `traversal` object convention (lines 355-361 of `plays.php`).
+
+**Implementation** (in `handleGetSingle()`, after route formatting, before response):
+
+```php
+// Aggregate facility_counts from formatted route traversal data
+$fc = ['artccs' => [], 'tracons' => [], 'sectors_low' => [],
+       'sectors_high' => [], 'sectors_superhigh' => []];
+$with_traversal = 0;
+
+foreach ($routes as $r) {
+    $trav = $r['traversal'] ?? [];
+    $has = false;
+    foreach ($fc as $key => &$counts) {
+        $codes = array_unique($trav[$key] ?? []);
+        if (!empty($codes)) $has = true;
+        foreach ($codes as $code) {
+            $counts[$code] = ($counts[$code] ?? 0) + 1;
+        }
+    }
+    unset($counts);
+    if ($has) $with_traversal++;
+}
+
+// Sort descending, format
+$facility_counts = ['total_routes' => count($routes), 'routes_with_traversal' => $with_traversal];
+foreach ($fc as $key => $counts) {
+    arsort($counts);
+    $facility_counts[$key] = [];
+    foreach ($counts as $code => $count) {
+        $facility_counts[$key][] = ['code' => $code, 'route_count' => $count];
+    }
+}
+
+$formatted['facility_counts'] = $facility_counts;
+```
+
+### 3. SWIM Standalone: `GET api/swim/v1/playbook/facility-counts?play_id=123`
+
+**New file**: `api/swim/v1/playbook/facility-counts.php`
+
+Lightweight endpoint for API consumers who want just the counts without loading all routes. Uses Azure SQL `STRING_SPLIT()` for server-side aggregation.
+
+**IMPORTANT**: Do NOT define `PERTI_MYSQL_ONLY` — this endpoint queries Azure SQL via `get_conn_swim()`. Follow the standard SWIM auth pattern: include `auth.php`, call `swim_init_auth()`, use `get_conn_swim()`.
 
 **Auth**: API key (any tier)
 
 **Parameters**:
 
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `category` | string | null | Filter by play category |
-| `source` | string | null | Filter by play source |
-| `artcc` | string | null | Filter by ARTCC |
-| `type` | string | null | Filter to specific facility type |
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| `play_id` | int | Yes | Play ID to aggregate |
 
-**Response**: Same structure as internal API, wrapped in SWIM envelope:
-```json
-{
-  "status": "success",
-  "data": {
-    "scope": "all",
-    "total_routes": 42187,
-    "routes_with_traversal": 38450,
-    "facility_counts": { ... }
-  },
-  "meta": {
-    "api_version": "1.0",
-    "generated_utc": "2026-03-24T15:30:00Z"
-  }
-}
-```
+**Response**: Same `facility_counts` structure as the plays endpoint.
 
-**Implementation**: Azure SQL `STRING_SPLIT()` for efficient server-side aggregation:
+**Implementation**: Azure SQL with per-route deduplication:
+
 ```sql
-SELECT value AS facility_code, COUNT(*) AS route_count
-FROM swim_playbook_routes r
-JOIN swim_playbook_plays p ON r.play_id = p.play_id
-CROSS APPLY STRING_SPLIT(r.traversed_artccs, ',')
-WHERE value != '' AND p.status = 'active'
-GROUP BY value
-ORDER BY route_count DESC
+SELECT 'artccs' AS facility_type, code, COUNT(*) AS route_count
+FROM (
+    SELECT DISTINCT r.route_id, LTRIM(RTRIM(s.value)) AS code
+    FROM dbo.swim_playbook_routes r
+    CROSS APPLY STRING_SPLIT(r.traversed_artccs, ',') s
+    WHERE r.play_id = ? AND LTRIM(RTRIM(s.value)) != ''
+) deduped
+GROUP BY code
+
+UNION ALL
+
+SELECT 'tracons', code, COUNT(*)
+FROM (
+    SELECT DISTINCT r.route_id, LTRIM(RTRIM(s.value)) AS code
+    FROM dbo.swim_playbook_routes r
+    CROSS APPLY STRING_SPLIT(r.traversed_tracons, ',') s
+    WHERE r.play_id = ? AND LTRIM(RTRIM(s.value)) != ''
+) deduped
+GROUP BY code
+
+UNION ALL
+
+SELECT 'sectors_low', code, COUNT(*)
+FROM (
+    SELECT DISTINCT r.route_id, LTRIM(RTRIM(s.value)) AS code
+    FROM dbo.swim_playbook_routes r
+    CROSS APPLY STRING_SPLIT(r.traversed_sectors_low, ',') s
+    WHERE r.play_id = ? AND LTRIM(RTRIM(s.value)) != ''
+) deduped
+GROUP BY code
+
+UNION ALL
+
+SELECT 'sectors_high', code, COUNT(*)
+FROM (
+    SELECT DISTINCT r.route_id, LTRIM(RTRIM(s.value)) AS code
+    FROM dbo.swim_playbook_routes r
+    CROSS APPLY STRING_SPLIT(r.traversed_sectors_high, ',') s
+    WHERE r.play_id = ? AND LTRIM(RTRIM(s.value)) != ''
+) deduped
+GROUP BY code
+
+UNION ALL
+
+SELECT 'sectors_superhigh', code, COUNT(*)
+FROM (
+    SELECT DISTINCT r.route_id, LTRIM(RTRIM(s.value)) AS code
+    FROM dbo.swim_playbook_routes r
+    CROSS APPLY STRING_SPLIT(r.traversed_sectors_superhigh, ',') s
+    WHERE r.play_id = ? AND LTRIM(RTRIM(s.value)) != ''
+) deduped
+GROUP BY code
+
+ORDER BY facility_type, route_count DESC
 ```
-
-One query per facility type (5 queries total), or UNION ALL for a single round-trip.
-
-### 3. SWIM Plays Endpoint Update: `include=facility_counts`
-
-**Endpoint**: `GET api/swim/v1/playbook/plays?include=facility_counts`
-
-When `facility_counts` is in the `include` param, append to the response:
-```json
-{
-  "data": [ ...plays... ],
-  "facility_counts": {
-    "ARTCC": [...],
-    "TRACON": [...],
-    ...
-  }
-}
-```
-
-This aggregates across all plays in the current result set (respects existing filters). Computed from the same routes that produce the play list.
 
 ### 4. OpenAPI Spec Update
 
-Add `/playbook/facility-counts` endpoint to `api-docs/openapi.yaml` with:
-- Parameter definitions (category, source, artcc, type)
-- Response schema (FacilityCountsResponse)
-- 200/401/500 responses
-
-Update `/playbook/plays` endpoint to document `include=facility_counts` option.
+Update `api-docs/openapi.yaml`:
+- Add `facility_counts` to the single-play response schema under `/playbook/plays?id={id}`
+- Add new `/playbook/facility-counts` endpoint definition
+- Define `FacilityCount` schema: `{code: string, route_count: integer}`
+- Define `FacilityCounts` schema with typed arrays + `total_routes` + `routes_with_traversal`
 
 ## UI Design
 
-### Catalog Sidebar: "Facility Route Counts" Section
+### Catalog Sidebar: Enhanced "Traversed Facilities" Section
 
-**Location**: Below existing "Traversed Facilities" section in the info overlay, OR as a new section in the catalog overlay (left sidebar) visible even when no play is selected.
+**Location**: Replace the existing "Traversed Facilities" section in `renderInfoOverlay()` (playbook.js lines 1162-1193). Currently shows unique facility codes; enhance to show route counts.
 
-**Decision**: Place in the **catalog overlay** (left sidebar) so it's always visible regardless of play selection. This makes it a playbook-wide tool.
+**Current behavior** (lines 1134-1145): Builds `Set()` for each facility type (unique codes only).
 
-**Structure**:
-```
-[Facility Route Counts]                    [filtered ▾]
-┌─────────────────────────────────────────────────────┐
-│ ARTCC │ TRACON │ Sec Low │ Sec High │ Sec SH │      │  ← pill tabs
-├─────────────────────────────────────────────────────┤
-│ ZNY    234 ████████████████████                      │
-│ ZDC    198 ███████████████                           │
-│ ZBW    156 ████████████                              │
-│ ZID    134 ██████████                                │
-│ CZUL    89 ███████                                   │
-│ ... (show top 15, expandable)                        │
-└─────────────────────────────────────────────────────┘
-```
+**New behavior**: Build count objects instead of Sets:
 
-- **Collapsible** (collapsed by default, expand via header click)
-- **Pill tabs** to switch between facility types (ARTCC, TRACON, Sector Low/High/SH)
-- **Sorted** by route count descending
-- **Inline bar** (proportional to max count, CSS width%)
-- **Scope toggle**: "filtered" (matches current catalog filters) / "all" (entire playbook)
-- **Click a facility row** → highlights boundary on map + sets catalog filter to plays traversing that facility
-- **Top 15** shown by default, "Show all (N)" expander for full list
+```javascript
+// Before (current):
+var travArtccs = new Set();
+routes.forEach(function(r) {
+    csvSplit(r.traversed_artccs).forEach(function(a) { if (a) travArtccs.add(a.toUpperCase()); });
+});
 
-### Route Analysis Panel: "Playbook Summary" Section
-
-**Location**: New full-width section above the existing "Facility Traversal" table. Only visible when in playbook context (not single-route analysis from route.php).
-
-**Structure**:
-```
-┌─ Playbook Facility Summary ──────────────────── [scope: filtered ▾] [export ▾] ─┐
-│                                                                                   │
-│  Facility     │ Type        │ Routes │ % of Total │                               │
-│  ─────────────┼─────────────┼────────┼────────────┤                               │
-│  ZNY          │ ARTCC       │    234 │     12.7%  │ ████████████                  │
-│  N90          │ TRACON      │    189 │     10.3%  │ ██████████                    │
-│  ZDC          │ ARTCC       │    198 │     10.8%  │ ██████████                    │
-│  ...                                                                              │
-│                                                                                   │
-│  [ARTCC] [TRACON] [Sec Low] [Sec High] [Sec SH]   ← type filter pills           │
-└───────────────────────────────────────────────────────────────────────────────────┘
+// After (new):
+var travArtccs = {};  // code → route count
+routes.forEach(function(r) {
+    var seen = {};  // dedupe per-route
+    csvSplit(r.traversed_artccs).forEach(function(a) {
+        if (a) seen[a.toUpperCase()] = 1;
+    });
+    Object.keys(seen).forEach(function(a) {
+        travArtccs[a] = (travArtccs[a] || 0) + 1;
+    });
+});
 ```
 
-- **Sortable columns**: click header to sort by facility, type, count, or percentage
-- **Type filter pills**: same as existing facility filter pattern in route-analysis-panel.js
-- **Export**: clipboard / CSV (reuse existing export pattern)
-- **Click row** → highlight boundary on map + filter catalog
-- **Only shown in playbook context** (check `window.PlaybookContext` or similar flag)
+**Display structure** (replaces current comma-separated list):
+
+```
+▶ Facility Route Counts (45 routes)
+  ┌──────────────────────────────────────────┐
+  │ [ARTCC] [TRACON] [Sec SH] [Sec Hi] [Lo] │  ← pill tabs
+  ├──────────────────────────────────────────┤
+  │ ZNY     35/45  ██████████████████████     │
+  │ ZDC     28/45  ███████████████            │
+  │ ZBW     12/45  ████████                   │
+  │ ZID      8/45  █████                      │
+  │ CZUL     5/45  ███                        │
+  └──────────────────────────────────────────┘
+```
+
+- Show `route_count/total_routes` format (e.g., "35/45")
+- Proportional bar (CSS width% relative to max count in that type)
+- Sorted by count descending
+- Pill tabs to switch facility type (reuse existing `.pb-fac-code` styling)
+- **Click a row** → highlight boundary on map via existing `map.setFilter()` mechanism
+- Collapsible (same toggle pattern as current `pb_traversed_toggle`)
+
+### Route Analysis Panel: "Facility Counts" Section
+
+**Location**: New full-width section above the existing "Facility Traversal" table in `route-analysis-panel.js`. Only shown when the analysis was triggered from a playbook play (not a standalone route on route.php).
+
+**Trigger**: When `RouteAnalysisPanel.show()` is called from playbook.js, pass the play's facility counts data. The panel checks for this data and renders the section if present.
+
+**API signature change**: The current `show()` function accepts 5 parameters: `show(data, routeStr, origin, dest, routeId)`. Add a 6th optional `options` parameter:
+
+```javascript
+// BEFORE:
+function show(data, routeStr, origin, dest, routeId)
+
+// AFTER:
+function show(data, routeStr, origin, dest, routeId, options)
+// options = { facilityCounts, totalRoutes, playName } or undefined
+```
+
+Existing callers (route.php) pass 5 args and are unaffected. Only playbook.js passes the 6th.
+
+**Data flow**:
+```
+playbook.js: user clicks "Analyze" on a route within a play
+  ├── Already has: play routes with traversed_* fields (from get.php)
+  ├── Computes: facility_counts (client-side, same as sidebar)
+  └── Calls RouteAnalysisPanel.show(data, routeStr, origin, dest, routeId, {
+          facilityCounts: { ARTCC: {ZNY: 35, ...}, TRACON: {...}, ... },
+          totalRoutes: 45,
+          playName: "ORD_EAST_1"
+      })
+```
+
+**Display structure**:
+
+```
+┌─ Play Facility Counts (45 routes in ORD_EAST_1) ──────────── [export ▾] ─┐
+│                                                                           │
+│  [ARTCC] [TRACON] [Sec Low] [Sec High] [Sec SH]  ← type filter pills    │
+│                                                                           │
+│  Facility       │ Routes │ % of Play │                                    │
+│  ───────────────┼────────┼───────────┤                                    │
+│  ZNY            │  35    │   77.8%   │ ████████████████████████████████    │
+│  ZDC            │  28    │   62.2%   │ █████████████████████████           │
+│  ZBW            │  12    │   26.7%   │ ███████████                         │
+│  ...                                                                      │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Sortable**: click column header to sort by name or count
+- **Type filter pills**: same pattern as existing facility filter in `renderFacilityFilters()`
+- **Bar visualization**: proportional to max count (CSS)
+- **Click row** → highlight boundary on map
+- **Export**: clipboard / CSV (reuse existing `exportClipboard()` pattern)
+- **Conditional render**: only when `facilityCounts` option is provided
 
 ## Map Interaction
 
-### Highlight Pattern
+### Highlight on Click
 
 Reuse existing MapLibre filter mechanism:
+
 ```javascript
 // ARTCC highlight
 map.setFilter('artcc-play-traversed', ['in', 'ICAOCODE', facilityCode]);
@@ -248,42 +405,36 @@ map.setFilter('tracon-search-include', ['in', 'sector', facilityCode]);
 map.setFilter(sectorType + '-sector-search-include', ['in', 'label', facilityCode]);
 ```
 
-### Filter-on-Click Pattern
+Clicking a facility row in either the sidebar or route analysis panel:
+1. Highlights the boundary polygon on the map (existing layers, filter update)
+2. Fits map bounds to the boundary extent
+3. Shows a brief tooltip: "ZNY: 35 of 45 routes"
 
-When a facility is clicked in the counts UI:
-1. Highlight the boundary on the map (using existing layers)
-2. Update the catalog search to include a `traverses:FACILITY_CODE` filter
-3. `applyFilters()` re-runs with the new constraint
-4. Plays not containing routes through that facility are hidden
-5. A filter badge appears: "traverses: ZNY [x]" (removable)
-
-This requires extending the existing `matchesSearch()` and `buildSearchIndex()` functions in playbook.js:
-- `buildSearchIndex()` must add route-level traversal codes to the play's `_facilityCodes` set (currently only includes play-level `facilities_involved` and `impacted_area`). Extend it to iterate the play's `agg_traversed_artccs`, `agg_traversed_tracons`, `agg_traversed_sectors_low/high/superhigh` aggregate fields and add those codes to `_facilityCodes`.
-- `matchesSearch()` must recognize the `traverses:` prefix and match against these expanded facility codes.
+Clicking again or clicking a different facility clears the previous highlight.
 
 ## File Changes
 
 ### New Files
 | File | Purpose |
 |------|---------|
-| `api/data/playbook/facility_counts.php` | Internal facility count aggregation endpoint |
-| `api/swim/v1/playbook/facility-counts.php` | SWIM facility count endpoint |
+| `api/swim/v1/playbook/facility-counts.php` | SWIM standalone facility counts endpoint |
 
 ### Modified Files
 | File | Change |
 |------|--------|
-| `api/swim/v1/playbook/plays.php` | Add `include=facility_counts` support |
-| `api-docs/openapi.yaml` | Document new endpoint + updated plays param |
-| `assets/js/playbook.js` | Catalog sidebar facility counts section, filter-on-click, `traverses:` search field |
-| `assets/js/route-analysis-panel.js` | Playbook summary section (conditional on playbook context) |
-| `playbook.php` | HTML containers for new sections |
-| `assets/css/playbook.css` | Styles for facility counts section |
+| `api/data/playbook/get.php` | Add `facility_counts` aggregation to single-play response |
+| `api/swim/v1/playbook/plays.php` | Add `facility_counts` to `handleGetSingle()` response |
+| `api-docs/openapi.yaml` | Document new endpoint + updated response schema |
+| `assets/js/playbook.js` | Enhance "Traversed Facilities" section → counts with pill tabs, bars, click-to-highlight; pass counts to route analysis panel |
+| `assets/js/route-analysis-panel.js` | Add conditional "Play Facility Counts" section; extend `show()` signature to accept 6th `options` param |
+| `playbook.php` | Add `<div id="ra-play-facility-counts"></div>` container before the facility traversal table (line 269). Route analysis panel tables are static HTML in this file — JS only populates tbody elements. |
+| `assets/css/playbook.css` | Styles for count bars, pill tabs, hover states |
 | `assets/locales/en-US.json` | i18n keys for new UI strings |
 
-### Unchanged Files (verified no changes needed)
+### Unchanged Files (verified)
 | File | Reason |
 |------|--------|
-| `api/data/playbook/list.php` | Filters reused via shared logic, no changes to list endpoint itself |
+| `api/data/playbook/list.php` | List endpoint unaffected (per-play counts only on get) |
 | `api/data/playbook/analysis.php` | Per-route analysis unchanged |
 | `api/mgt/playbook/playbook_helpers.php` | Traversal computation unchanged |
 | `load/services/GISService.php` | No new PostGIS queries needed |
@@ -291,15 +442,18 @@ This requires extending the existing `matchesSearch()` and `buildSearchIndex()` 
 
 ## Performance
 
-- **Internal API**: ~42K rows, 5 short text columns each. MySQL fetch + PHP split/count: ~50-100ms.
-- **SWIM API**: Azure SQL `STRING_SPLIT()` with `GROUP BY`: ~100-200ms for 56K rows.
-- **No caching needed initially** — queries are fast enough. Can add 60s cache later if needed.
-- **Client-side**: Single fetch on catalog load + re-fetch on filter change (debounced 300ms).
+- **Internal API (get.php)**: Routes already fetched; PHP aggregation of ~5-200 routes per play is <1ms overhead.
+- **SWIM single-play**: Same — routes already in memory, aggregation is trivial.
+- **SWIM standalone endpoint**: Azure SQL `STRING_SPLIT()` + `GROUP BY` on ~5-200 rows per play: <10ms.
+- **Client-side**: Counts computed in JS from already-loaded route data. Zero additional network requests for sidebar.
+- **Route analysis panel**: Receives pre-computed counts from playbook.js. Zero additional fetch.
 
 ## Edge Cases
 
-- **Routes without traversal data**: Count as `routes_with_traversal` < `total_routes`. Show "(N routes missing traversal data)" note if > 5% missing.
-- **Empty filter results**: Return empty arrays, `total_routes: 0`.
-- **Very long sector codes**: Some CDM sectors have codes like `EDGGFRK/1` (up to 50 chars). Display truncated in sidebar, full on hover.
-- **Duplicate facility codes in single route**: A route's `traversed_artccs` might list `ZNY,ZDC,ZNY` if the route re-enters ZNY. Count as 1 route for ZNY (dedupe per-route before counting).
-- **ARTCC normalization**: Apply `ArtccNormalizer::toL1Csv()` to ensure consistent L1 codes (strip sub-sector suffixes).
+- **Routes without traversal data**: `routes_with_traversal` < `total_routes`. Show "(N routes missing data)" note if gap > 0.
+- **Single-route plays**: Still show counts section (trivially: every facility = 1/1).
+- **Duplicate facility in single route**: A route re-entering ZNY lists it twice in CSV. **Deduplicate per-route** before counting (each route contributes at most 1 to each facility's count).
+- **ARTCC normalization**: Apply `ArtccNormalizer::normalize()` (internal) / L1 normalization (SWIM) to ensure consistent codes.
+- **Long sector codes**: CDM sectors like `EDGGFRK/1` (up to 50 chars). Truncate display with full code on hover/title attribute.
+- **Empty traversal for all routes**: Show "No traversal data available" message instead of empty table.
+- **Play with 0 routes**: Don't show facility counts section at all.
