@@ -6,6 +6,8 @@ window.RoutesMap = (function() {
     'use strict';
 
     var map = null;
+    var mapReady = false;
+    var pendingFeatures = null; // queued features waiting for style load
     var routeGeometryCache = {}; // dimId -> GeoJSON
     var currentRoutes = [];
     var highlightedDimId = null;
@@ -48,6 +50,14 @@ window.RoutesMap = (function() {
         });
 
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        map.on('load', function() {
+            mapReady = true;
+            if (pendingFeatures) {
+                addRoutesToMap(pendingFeatures);
+                pendingFeatures = null;
+            }
+        });
     }
 
     /**
@@ -140,6 +150,12 @@ window.RoutesMap = (function() {
 
     function addRoutesToMap(features) {
         if (!map || features.length === 0) return;
+
+        // Queue if style hasn't loaded yet
+        if (!mapReady) {
+            pendingFeatures = features;
+            return;
+        }
 
         // Remove existing layers/sources if present
         removeMapLayers();
