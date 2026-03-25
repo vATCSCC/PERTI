@@ -204,6 +204,7 @@ window.RoutesMap = (function() {
 
     function highlightRoute(dimId) {
         if (!map) return;
+        if (!map.getSource('routes')) return; // No routes plotted yet
         highlightedDimId = dimId;
 
         // Add highlight layer
@@ -238,6 +239,7 @@ window.RoutesMap = (function() {
 
     function highlightMultiple(dimIds) {
         if (!map) return;
+        if (!map.getSource('routes')) return; // No routes plotted yet
         multiSelectDimIds = dimIds;
 
         // Remove any single highlight
