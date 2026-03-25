@@ -952,6 +952,7 @@
             var routes = data.routes || [];
             play.routes = routes;
             activePlayData = play;
+            activePlayData._facilityCounts = data.facility_counts || null;
 
             updateUrl(play.play_name);
 
@@ -1131,18 +1132,29 @@
         // Included Traffic summary (with optional region coloring)
         if (routes.length) {
             var origSet = new Set(), destSet = new Set();
-            var travArtccs = new Set(), travTracons = new Set();
-            var travSecLow = new Set(), travSecHigh = new Set(), travSecSuper = new Set();
+            var travArtccs = {}, travTracons = {}, travSecLow = {}, travSecHigh = {}, travSecSuper = {};
+            var routesWithTrav = 0;
             routes.forEach(function(r) {
                 csvSplit(r.origin_airports).forEach(function(a) { if (a) origSet.add(a.toUpperCase()); });
                 csvSplit(r.origin_artccs).forEach(function(a) { if (a) origSet.add(a.toUpperCase()); });
                 csvSplit(r.dest_airports).forEach(function(a) { if (a) destSet.add(a.toUpperCase()); });
                 csvSplit(r.dest_artccs).forEach(function(a) { if (a) destSet.add(a.toUpperCase()); });
-                csvSplit(r.traversed_artccs).forEach(function(a) { if (a) travArtccs.add(a.toUpperCase()); });
-                csvSplit(r.traversed_tracons).forEach(function(a) { if (a) travTracons.add(a.toUpperCase()); });
-                csvSplit(r.traversed_sectors_low).forEach(function(a) { if (a) travSecLow.add(a.toUpperCase()); });
-                csvSplit(r.traversed_sectors_high).forEach(function(a) { if (a) travSecHigh.add(a.toUpperCase()); });
-                csvSplit(r.traversed_sectors_superhigh).forEach(function(a) { if (a) travSecSuper.add(a.toUpperCase()); });
+                var hasTravData = false, seen = {};
+                csvSplit(r.traversed_artccs).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
+                Object.keys(seen).forEach(function(a) { travArtccs[a] = (travArtccs[a] || 0) + 1; });
+                seen = {};
+                csvSplit(r.traversed_tracons).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
+                Object.keys(seen).forEach(function(a) { travTracons[a] = (travTracons[a] || 0) + 1; });
+                seen = {};
+                csvSplit(r.traversed_sectors_low).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
+                Object.keys(seen).forEach(function(a) { travSecLow[a] = (travSecLow[a] || 0) + 1; });
+                seen = {};
+                csvSplit(r.traversed_sectors_high).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
+                Object.keys(seen).forEach(function(a) { travSecHigh[a] = (travSecHigh[a] || 0) + 1; });
+                seen = {};
+                csvSplit(r.traversed_sectors_superhigh).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
+                Object.keys(seen).forEach(function(a) { travSecSuper[a] = (travSecSuper[a] || 0) + 1; });
+                if (hasTravData) routesWithTrav++;
             });
             var origArr = Array.from(origSet).sort();
             var destArr = Array.from(destSet).sort();
@@ -1159,35 +1171,44 @@
                 html += '</div>';
             }
 
-            // Traversed facilities summary (collapsible)
-            // Preserve route-of-flight order: JS Sets maintain insertion order,
-            // so iterating routes in sort_order gives first-seen = traversal order.
-            var travArtccArr = Array.from(travArtccs);
-            var travTraconArr = Array.from(travTracons);
-            var travSecLowArr = Array.from(travSecLow);
-            var travSecHighArr = Array.from(travSecHigh);
-            var travSecSuperArr = Array.from(travSecSuper);
-            var hasTrav = travArtccArr.length || travTraconArr.length || travSecLowArr.length || travSecHighArr.length || travSecSuperArr.length;
+            // Traversed facilities summary with route counts (collapsible, pill-tabbed)
+            var fcTypes = [
+                { key: 'ARTCC', label: t('playbook.tabArtcc'), data: travArtccs, cls: 'artcc' },
+                { key: 'TRACON', label: t('playbook.tabTracon'), data: travTracons, cls: 'tracon' },
+                { key: 'SECTOR_SUPERHIGH', label: t('playbook.tabSectorSH'), data: travSecSuper, cls: 'sector' },
+                { key: 'SECTOR_HIGH', label: t('playbook.tabSectorHigh'), data: travSecHigh, cls: 'sector' },
+                { key: 'SECTOR_LOW', label: t('playbook.tabSectorLow'), data: travSecLow, cls: 'sector' }
+            ];
+            var hasTrav = fcTypes.some(function(ft) { return Object.keys(ft.data).length > 0; });
             if (hasTrav) {
+                var totalRt = routes.length;
+                // Store counts for route analysis panel + coverage
+                window._pbFacilityCounts = {
+                    ARTCC: travArtccs, TRACON: travTracons,
+                    SECTOR_LOW: travSecLow, SECTOR_HIGH: travSecHigh, SECTOR_SUPERHIGH: travSecSuper
+                };
+                window._pbFacilityTotalRoutes = totalRt;
+                window._pbFacilityPlayName = play.play_name || play.display_name || '';
+                window._pbFacilityCoverage = (activePlayData._facilityCounts || {}).coverage || null;
+
                 html += '<div class="pb-play-traversed">';
-                html += '<div class="pb-traversed-header" id="pb_traversed_toggle"><i class="fas fa-chevron-right"></i> <strong>' + t('playbook.traversedFacilities') + '</strong> <span class="text-muted small">(' + travArtccArr.length + ' ' + t('playbook.traversedArtccs');
-                if (travTraconArr.length) html += ', ' + travTraconArr.length + ' ' + t('playbook.traversedTracons');
-                html += ')</span></div>';
+                html += '<div class="pb-traversed-header" id="pb_traversed_toggle"><i class="fas fa-chevron-right"></i> <strong>' + t('playbook.facilityRouteCounts') + '</strong>';
+                html += ' <span class="text-muted small">(' + t('playbook.facilityRouteCountsDesc', { count: totalRt }) + ')</span></div>';
                 html += '<div class="pb-traversed-body" id="pb_traversed_body" style="display:none;">';
-                if (travArtccArr.length) {
-                    html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedArtccs') + ':</span> ' + travArtccArr.map(regionColorWrap).join(', ') + '</div>';
-                }
-                if (travTraconArr.length) {
-                    html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedTracons') + ':</span> ' + travTraconArr.map(function(c) { return '<span class="pb-fac-code">' + escHtml(c) + '</span>'; }).join(', ') + '</div>';
-                }
-                if (travSecSuperArr.length) {
-                    html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedSectorsSuperhigh') + ':</span> ' + travSecSuperArr.map(function(c) { return '<span class="pb-fac-code">' + escHtml(c) + '</span>'; }).join(', ') + '</div>';
-                }
-                if (travSecHighArr.length) {
-                    html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedSectorsHigh') + ':</span> ' + travSecHighArr.map(function(c) { return '<span class="pb-fac-code">' + escHtml(c) + '</span>'; }).join(', ') + '</div>';
-                }
-                if (travSecLowArr.length) {
-                    html += '<div class="pb-trav-row"><span class="pb-trav-label">' + t('playbook.traversedSectorsLow') + ':</span> ' + travSecLowArr.map(function(c) { return '<span class="pb-fac-code">' + escHtml(c) + '</span>'; }).join(', ') + '</div>';
+                // Pill tabs
+                html += '<div class="pb-fc-pills" id="pb_fc_pills">';
+                var firstActive = true;
+                fcTypes.forEach(function(ft) {
+                    var cnt = Object.keys(ft.data).length;
+                    if (cnt === 0) return;
+                    html += '<span class="pb-fc-pill' + (firstActive ? ' active' : '') + '" data-fc-type="' + ft.key + '">' + escHtml(ft.label) + ' (' + cnt + ')</span>';
+                    firstActive = false;
+                });
+                html += '</div>';
+                // Count rows container
+                html += '<div id="pb_fc_rows"></div>';
+                if (routesWithTrav < totalRt) {
+                    html += '<div class="text-muted small mt-1">' + t('playbook.missingTraversalNote', { count: totalRt - routesWithTrav }) + '</div>';
                 }
                 html += '</div></div>';
             }
@@ -3801,6 +3822,113 @@
      * @param {string}      origin    - Origin ICAO
      * @param {string}      dest      - Destination ICAO
      */
+    // =========================================================================
+    // FACILITY COUNT HELPERS (sidebar)
+    // =========================================================================
+
+    function renderFcRows(typeKey) {
+        var container = document.getElementById('pb_fc_rows');
+        if (!container) return;
+        var counts = (window._pbFacilityCounts || {})[typeKey] || {};
+        var totalRt = window._pbFacilityTotalRoutes || 1;
+        var sorted = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
+        var maxCount = sorted.length > 0 ? counts[sorted[0]] : 1;
+        var barCls = 'artcc';
+        if (typeKey === 'TRACON') barCls = 'tracon';
+        else if (typeKey.indexOf('SECTOR') === 0) barCls = 'sector';
+        var html = '';
+        sorted.forEach(function(code) {
+            var cnt = counts[code];
+            var pct = Math.round(cnt / maxCount * 100);
+            html += '<div class="pb-fc-row" data-fc-code="' + escHtml(code) + '" data-fc-type="' + escHtml(typeKey) + '" title="' + escHtml(code) + ': ' + cnt + '/' + totalRt + ' routes">';
+            html += '<span class="pb-fc-code">' + escHtml(code) + '</span>';
+            html += '<span class="pb-fc-count">' + cnt + '/' + totalRt + '</span>';
+            html += '<div class="pb-fc-bar-wrap"><div class="pb-fc-bar ' + barCls + '" style="width:' + pct + '%"></div></div>';
+            html += '</div>';
+        });
+        // If showing ARTCC tab and coverage data exists, show sector coverage per ARTCC
+        if (typeKey === 'ARTCC' && window._pbFacilityCoverage) {
+            var cov = window._pbFacilityCoverage;
+            var playSectors = cov.play_sectors || {};
+            sorted.forEach(function(artcc) {
+                if (!playSectors[artcc]) return;
+                var covHtml = '<div class="pb-fc-coverage" data-fc-artcc="' + escHtml(artcc) + '">';
+                var typeNames = [['SUPERHIGH', 'SH', 'superhigh'], ['HIGH', 'Hi', 'high'], ['LOW', 'Lo', 'low']];
+                typeNames.forEach(function(tn) {
+                    var c = playSectors[artcc][tn[0]];
+                    if (!c) return;
+                    var barPct = c.total > 0 ? Math.round(c.traversed / c.total * 100) : 0;
+                    covHtml += '<div class="pb-fc-cov-row">';
+                    covHtml += '<span class="pb-fc-cov-label">' + tn[1] + '</span>';
+                    covHtml += '<div class="pb-fc-cov-bar-wrap"><div class="pb-fc-cov-bar ' + tn[2] + '" style="width:' + barPct + '%"></div></div>';
+                    covHtml += '<span class="pb-fc-cov-val">' + c.traversed + '/' + c.total + ' (' + c.pct + '%)</span>';
+                    covHtml += '</div>';
+                });
+                covHtml += '</div>';
+                // Insert after the matching ARTCC row
+                var rows = container.querySelectorAll('.pb-fc-row[data-fc-code="' + artcc + '"]');
+                if (rows.length > 0) {
+                    rows[0].insertAdjacentHTML('afterend', covHtml);
+                }
+            });
+        }
+        if (sorted.length === 0) {
+            container.innerHTML = '<div class="text-muted small" style="padding:2px 0;">' + t('playbook.noTraversalData') + '</div>';
+        }
+    }
+
+    function highlightFacilityOnMap(type, code) {
+        if (typeof MapLibreRoute === 'undefined') return;
+        var map = MapLibreRoute.getMap ? MapLibreRoute.getMap() : null;
+        if (!map) return;
+        clearFacilityHighlight();
+        if (type === 'ARTCC') {
+            if (map.getLayer('artcc-play-traversed')) map.setFilter('artcc-play-traversed', ['in', 'ICAOCODE', code]);
+        } else if (type === 'TRACON') {
+            if (map.getLayer('tracon-search-include')) map.setFilter('tracon-search-include', ['in', 'sector', code]);
+        } else if (type === 'SECTOR_HIGH') {
+            if (map.getLayer('high-sector-search-include')) map.setFilter('high-sector-search-include', ['in', 'label', code]);
+        } else if (type === 'SECTOR_LOW') {
+            if (map.getLayer('low-sector-search-include')) map.setFilter('low-sector-search-include', ['in', 'label', code]);
+        } else if (type === 'SECTOR_SUPERHIGH') {
+            if (map.getLayer('superhigh-sector-search-include')) map.setFilter('superhigh-sector-search-include', ['in', 'label', code]);
+        }
+        // Fit bounds to facility if turf is available
+        var sourceId = null, filterProp = null;
+        if (type === 'ARTCC') { sourceId = 'artcc-boundaries'; filterProp = 'ICAOCODE'; }
+        else if (type === 'TRACON') { sourceId = 'tracon-boundaries'; filterProp = 'sector'; }
+        else if (type === 'SECTOR_HIGH') { sourceId = 'high-splits'; filterProp = 'label'; }
+        else if (type === 'SECTOR_LOW') { sourceId = 'low-splits'; filterProp = 'label'; }
+        else if (type === 'SECTOR_SUPERHIGH') { sourceId = 'superhigh-splits'; filterProp = 'label'; }
+        if (sourceId && typeof turf !== 'undefined') {
+            var source = map.getSource(sourceId);
+            if (source && source._data) {
+                var features = (source._data.features || []).filter(function(f) {
+                    return f.properties && f.properties[filterProp] === code;
+                });
+                if (features.length > 0) {
+                    var bbox = turf.bbox(turf.featureCollection(features));
+                    map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 60, duration: 800 });
+                }
+            }
+        }
+    }
+
+    function clearFacilityHighlight() {
+        if (typeof MapLibreRoute === 'undefined') return;
+        var map = MapLibreRoute.getMap ? MapLibreRoute.getMap() : null;
+        if (!map) return;
+        if (map.getLayer('artcc-play-traversed')) map.setFilter('artcc-play-traversed', ['in', 'ICAOCODE', '']);
+        if (map.getLayer('tracon-search-include')) map.setFilter('tracon-search-include', ['in', 'sector', '']);
+        if (map.getLayer('high-sector-search-include')) map.setFilter('high-sector-search-include', ['in', 'label', '']);
+        if (map.getLayer('low-sector-search-include')) map.setFilter('low-sector-search-include', ['in', 'label', '']);
+        if (map.getLayer('superhigh-sector-search-include')) map.setFilter('superhigh-sector-search-include', ['in', 'label', '']);
+    }
+
+    // =========================================================================
+    // ROUTE ANALYSIS BRIDGE
+    // =========================================================================
+
     var PSEUDO_FIXES = { 'UNKN': true, 'VARIOUS': true };
 
     window.showRouteAnalysis = function(routeId, routeStr, origin, dest, routeObj) {
@@ -3871,7 +3999,15 @@
                     RouteAnalysisPanel.showError();
                     return;
                 }
-                RouteAnalysisPanel.show(resp, routeStr, origin, dest, mapRouteId);
+                var fcOpts = window._pbFacilityCounts ? {
+                    facilityCounts: window._pbFacilityCounts,
+                    totalRoutes: window._pbFacilityTotalRoutes || 0,
+                    playName: window._pbFacilityPlayName || '',
+                    coverage: window._pbFacilityCoverage || null,
+                    sectorArtccMap: (window._pbFacilityCoverage || {}).sector_artcc_map || null,
+                    routeObj: routeObj
+                } : undefined;
+                RouteAnalysisPanel.show(resp, routeStr, origin, dest, mapRouteId, fcOpts);
             },
             error: function() {
                 RouteAnalysisPanel.showError();
@@ -5414,6 +5550,31 @@
             } else {
                 body.slideDown(150);
                 $this.addClass('expanded');
+                // Render the first active pill's rows on expand
+                var activeType = $('.pb-fc-pill.active').data('fc-type');
+                if (activeType) renderFcRows(activeType);
+            }
+        });
+
+        // Facility count pill tabs
+        $(document).on('click', '.pb-fc-pill', function() {
+            $('.pb-fc-pill').removeClass('active');
+            $(this).addClass('active');
+            renderFcRows($(this).data('fc-type'));
+        });
+
+        // Facility count row click → highlight on map
+        $(document).on('click', '.pb-fc-row', function() {
+            var code = $(this).data('fc-code');
+            var type = $(this).data('fc-type');
+            if (!code || !type) return;
+            var wasActive = $(this).hasClass('highlighted');
+            $('.pb-fc-row').removeClass('highlighted');
+            if (!wasActive) {
+                $(this).addClass('highlighted');
+                highlightFacilityOnMap(type, code);
+            } else {
+                clearFacilityHighlight();
             }
         });
 
