@@ -46,13 +46,14 @@ window.RoutesMap = (function() {
             },
             center: [-98.35, 39.5],
             zoom: 4,
-            maxBounds: [[-180, -85], [180, 85]],
         });
 
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
         map.on('load', function() {
             mapReady = true;
+            // Ensure map renders correctly after container is visible
+            map.resize();
             if (pendingFeatures) {
                 addRoutesToMap(pendingFeatures);
                 pendingFeatures = null;
