@@ -1,6 +1,7 @@
 /**
  * Historical Routes - Map Module
  * MapLibre route visualization with frequency-based styling
+ * Includes ARTCC/TRACON boundary layers matching route.php
  */
 window.RoutesMap = (function() {
     'use strict';
@@ -52,13 +53,75 @@ window.RoutesMap = (function() {
 
         map.on('load', function() {
             mapReady = true;
-            // Ensure map renders correctly after container is visible
             map.resize();
+            loadBoundaryLayers();
             if (pendingFeatures) {
                 addRoutesToMap(pendingFeatures);
                 pendingFeatures = null;
             }
         });
+    }
+
+    /**
+     * Load ARTCC and TRACON boundary layers (matching route.php style)
+     */
+    function loadBoundaryLayers() {
+        // ARTCC boundaries
+        fetch('assets/geojson/artcc.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                map.addSource('artcc', { type: 'geojson', data: data });
+                map.addLayer({
+                    id: 'artcc-lines', type: 'line', source: 'artcc',
+                    filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
+                    paint: { 'line-color': '#4A90D9', 'line-width': 1.5, 'line-opacity': 0.7 },
+                });
+                map.addLayer({
+                    id: 'artcc-labels', type: 'symbol', source: 'artcc',
+                    filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
+                    layout: {
+                        'text-field': ['get', 'ICAOCODE'],
+                        'text-font': ['Open Sans Regular'],
+                        'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 5, 13, 8, 16],
+                        'text-allow-overlap': false,
+                        'text-ignore-placement': false,
+                        'text-padding': 5,
+                    },
+                    paint: {
+                        'text-color': '#4A90D9',
+                        'text-halo-color': 'rgba(0, 0, 0, 0.8)',
+                        'text-halo-width': 1.5,
+                        'text-opacity': 0.8,
+                    },
+                });
+            })
+            .catch(function(err) { console.warn('[RoutesMap] Failed to load ARTCC boundaries:', err); });
+
+        // TRACON boundaries (hidden by default, shown at higher zoom)
+        fetch('assets/geojson/tracon.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                map.addSource('tracon', { type: 'geojson', data: data });
+                map.addLayer({
+                    id: 'tracon-lines', type: 'line', source: 'tracon',
+                    paint: { 'line-color': '#666', 'line-width': 0.8, 'line-opacity': 0.5 },
+                    minzoom: 6,
+                });
+            })
+            .catch(function(err) { console.warn('[RoutesMap] Failed to load TRACON boundaries:', err); });
+
+        // High altitude sectors (hidden by default)
+        fetch('assets/geojson/high.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                map.addSource('high-sectors', { type: 'geojson', data: data });
+                map.addLayer({
+                    id: 'high-sector-lines', type: 'line', source: 'high-sectors',
+                    paint: { 'line-color': '#555', 'line-width': 0.6, 'line-opacity': 0.4 },
+                    layout: { visibility: 'none' },
+                });
+            })
+            .catch(function() {});
     }
 
     /**
@@ -99,9 +162,9 @@ window.RoutesMap = (function() {
                     dest: route.dest_icao
                 },
                 dataType: 'json',
+                timeout: 15000,
                 success: function(data) {
                     if (data.status === 'ok' && data.waypoints && data.waypoints.length >= 2) {
-                        // Build GeoJSON coordinates from waypoints
                         var coords = data.waypoints.map(function(wp) {
                             return [wp.lon, wp.lat];
                         });
@@ -114,8 +177,8 @@ window.RoutesMap = (function() {
                         if (feature) features.push(feature);
                     }
                 },
-                error: function() {
-                    console.warn('[RoutesMap] Failed to fetch geometry for route', dimId);
+                error: function(xhr, status, err) {
+                    console.warn('[RoutesMap] Geometry fetch failed for route', dimId, status, err);
                 },
                 complete: function() {
                     pendingCount--;
@@ -158,8 +221,8 @@ window.RoutesMap = (function() {
             return;
         }
 
-        // Remove existing layers/sources if present
-        removeMapLayers();
+        // Remove existing route layers/sources (keep boundary layers)
+        removeRouteLayers();
 
         var geojson = {
             type: 'FeatureCollection',
@@ -200,7 +263,6 @@ window.RoutesMap = (function() {
         map.on('click', 'routes-lines', function(e) {
             if (e.features && e.features.length > 0) {
                 var dimId = e.features[0].properties.dim_id;
-                // Notify routes.js of selection
                 if (typeof window.onRouteMapClick === 'function') {
                     window.onRouteMapClick(dimId);
                 }
@@ -221,10 +283,9 @@ window.RoutesMap = (function() {
 
     function highlightRoute(dimId) {
         if (!map) return;
-        if (!map.getSource('routes')) return; // No routes plotted yet
+        if (!map.getSource('routes')) return;
         highlightedDimId = dimId;
 
-        // Add highlight layer
         if (map.getLayer('routes-highlight')) map.removeLayer('routes-highlight');
 
         map.addLayer({
@@ -233,7 +294,7 @@ window.RoutesMap = (function() {
             source: 'routes',
             filter: ['==', ['get', 'dim_id'], dimId],
             paint: {
-                'line-color': '#f59e0b', // Amber highlight
+                'line-color': '#f59e0b',
                 'line-width': 5,
                 'line-opacity': 1
             },
@@ -243,7 +304,6 @@ window.RoutesMap = (function() {
             }
         });
 
-        // Add waypoint markers if geometry is cached
         showWaypoints(dimId);
     }
 
@@ -256,18 +316,15 @@ window.RoutesMap = (function() {
 
     function highlightMultiple(dimIds) {
         if (!map) return;
-        if (!map.getSource('routes')) return; // No routes plotted yet
+        if (!map.getSource('routes')) return;
         multiSelectDimIds = dimIds;
 
-        // Remove any single highlight
         if (map.getLayer('routes-highlight')) map.removeLayer('routes-highlight');
 
-        // Remove existing multi-select layers
         for (var i = 0; i < 6; i++) {
             if (map.getLayer('routes-multi-' + i)) map.removeLayer('routes-multi-' + i);
         }
 
-        // Add colored layers for each selected route
         dimIds.forEach(function(dimId, index) {
             if (index >= 6) return;
             map.addLayer({
@@ -356,16 +413,15 @@ window.RoutesMap = (function() {
     }
 
     function clearRoutes() {
-        removeMapLayers();
+        removeRouteLayers();
         hideWaypoints();
         currentRoutes = [];
         highlightedDimId = null;
         multiSelectDimIds = [];
     }
 
-    function removeMapLayers() {
+    function removeRouteLayers() {
         if (!map) return;
-        // Remove multi-select layers
         for (var i = 0; i < 6; i++) {
             if (map.getLayer('routes-multi-' + i)) map.removeLayer('routes-multi-' + i);
         }

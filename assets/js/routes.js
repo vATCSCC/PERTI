@@ -973,12 +973,8 @@
         $header.append($airports, $stats);
         $item.append($header);
 
-        // Route string (truncated)
-        var routeText = route.normalized_route || '';
-        if (routeText.length > 60) {
-            routeText = routeText.substring(0, 60) + '...';
-        }
-        var $route = $('<div class="routes-item-route"></div>').text(routeText);
+        // Route string (full, CSS handles wrapping)
+        var $route = $('<div class="routes-item-route"></div>').text(route.normalized_route || route.raw_route || '');
         $item.append($route);
 
         // Metadata
