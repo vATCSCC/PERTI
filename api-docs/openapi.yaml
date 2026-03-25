@@ -77,6 +77,8 @@ tags:
     description: CTP NAT track throughput configuration CRUD
   - name: CTP-Planning
     description: CTP planning simulator — scenario management and compute engine
+  - name: SWIM-Playbook
+    description: Playbook route analysis — facility traversal counts and sector coverage
 
 paths:
   # ============================================================================
@@ -3944,6 +3946,57 @@ paths:
           $ref: '#/components/responses/ServerError'
 
   # ============================================================================
+  # PLAYBOOK ENDPOINTS
+  # ============================================================================
+
+  /swim/v1/playbook/facility-counts:
+    get:
+      tags: [SWIM-Playbook]
+      summary: Get per-play facility route counts
+      description: |
+        Returns aggregated facility traversal counts and sector coverage
+        for a single playbook play. Lightweight alternative to fetching
+        full play data with routes. Shows how many routes traverse each
+        ARTCC, TRACON, and sector tier, plus sector coverage percentages
+        per ARTCC computed via PostGIS.
+      security:
+        - swimApiKey: []
+      parameters:
+        - name: play_id
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Playbook play ID
+      responses:
+        '200':
+          description: Facility counts with optional sector coverage
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [success]
+                  data:
+                    type: object
+                    properties:
+                      play_id:
+                        type: integer
+                      play_name:
+                        type: string
+                      facility_counts:
+                        $ref: '#/components/schemas/FacilityCounts'
+        '400':
+          description: Missing or invalid play_id parameter
+        '404':
+          description: Play not found
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================================
   # CTP THROUGHPUT ENDPOINTS
   # ============================================================================
 
@@ -4822,6 +4875,86 @@ paths:
 
 components:
   schemas:
+    FacilityCount:
+      type: object
+      description: A facility code with the number of routes traversing it
+      properties:
+        code:
+          type: string
+          description: Facility identifier (e.g., ZNY, A80, ZNY42)
+        route_count:
+          type: integer
+          description: Number of routes that traverse this facility
+
+    SectorCoverage:
+      type: object
+      description: Sector coverage statistics for one sector type in one ARTCC
+      properties:
+        traversed:
+          type: integer
+          description: Number of unique sectors traversed by routes in the play
+        total:
+          type: integer
+          description: Total sectors of this type in the ARTCC
+        pct:
+          type: number
+          format: float
+          description: Coverage percentage (traversed/total * 100)
+
+    FacilityCounts:
+      type: object
+      description: Aggregated facility route counts with optional sector coverage
+      properties:
+        artccs:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacilityCount'
+        tracons:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacilityCount'
+        sectors_low:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacilityCount'
+        sectors_high:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacilityCount'
+        sectors_superhigh:
+          type: array
+          items:
+            $ref: '#/components/schemas/FacilityCount'
+        total_routes:
+          type: integer
+          description: Total routes in the play
+        routes_with_traversal:
+          type: integer
+          description: Routes that have traversal data populated
+        coverage:
+          type: object
+          description: Sector coverage data from PostGIS (may be absent if PostGIS unavailable)
+          properties:
+            sector_totals:
+              type: object
+              description: Total sectors per ARTCC per type
+              additionalProperties:
+                type: object
+                additionalProperties:
+                  type: integer
+            play_sectors:
+              type: object
+              description: Coverage stats per ARTCC per sector type
+              additionalProperties:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/SectorCoverage'
+            sector_artcc_map:
+              type: object
+              description: Maps sector codes to their parent ARTCC
+              additionalProperties:
+                type: string
+
     FlightFull:
       type: object
       description: Complete flight record with all fields
