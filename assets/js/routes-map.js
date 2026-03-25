@@ -81,7 +81,7 @@ window.RoutesMap = (function() {
                     filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
                     layout: {
                         'text-field': ['get', 'ICAOCODE'],
-                        'text-font': ['Open Sans Regular'],
+                        'text-font': ['Noto Sans Bold'],
                         'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 5, 13, 8, 16],
                         'text-allow-overlap': false,
                         'text-ignore-placement': false,
@@ -384,7 +384,7 @@ window.RoutesMap = (function() {
                 'text-size': 10,
                 'text-offset': [0, -1.2],
                 'text-anchor': 'bottom',
-                'text-font': ['Open Sans Regular']
+                'text-font': ['Noto Sans Bold']
             },
             paint: {
                 'text-color': '#fff',
