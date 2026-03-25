@@ -954,6 +954,12 @@
     function buildRouteItem(route) {
         var $item = $('<div class="routes-item"></div>');
 
+        // Frequency tier class for left border color
+        var pct = parseFloat(route.frequency_pct) || 0;
+        if (pct > 10) $item.addClass('freq-high');
+        else if (pct >= 3) $item.addClass('freq-medium');
+        else $item.addClass('freq-low');
+
         // Multi-select checkbox
         var $checkbox = $('<input type="checkbox" class="routes-multi-check">')
             .prop('checked', state.multiSelected.indexOf(route.route_dim_id) !== -1)
@@ -969,9 +975,9 @@
         var destLabel = route.dest_icao || (state.filters.destinations.length === 1 ? state.filters.destinations[0] : '???');
         var $airports = $('<div class="routes-item-airports"></div>')
             .html(originLabel + ' <span class="arrow">&rarr;</span> ' + destLabel);
-        var $stats = $('<div class="routes-item-stats"></div>')
+        var $count = $('<div class="routes-item-count"></div>')
             .text(route.flight_count.toLocaleString() + ' ' + PERTII18n.t('routes.results.flights'));
-        $header.append($airports, $stats);
+        $header.append($airports, $count);
         $item.append($header);
 
         // Route string (full, CSS handles wrapping)
