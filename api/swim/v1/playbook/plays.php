@@ -279,7 +279,7 @@ function handleGetSingle(int $id): void {
     $all_sector_codes = []; // code => type for coverage
     $swim_to_type = ['sectors_low' => 'LOW', 'sectors_high' => 'HIGH', 'sectors_superhigh' => 'SUPERHIGH'];
 
-    foreach ($routes as $r) {
+    foreach ($formatted['routes'] as $r) {
         $trav = $r['traversal'] ?? [];
         $has = false;
         foreach ($fc as $key => &$counts) {

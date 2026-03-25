@@ -1664,6 +1664,10 @@
         if (typeof RouteAnalysisPanel !== 'undefined') RouteAnalysisPanel.clear();
         throughputEnabled = false;
         throughputData = null;
+        window._pbFacilityCounts = null;
+        window._pbFacilityTotalRoutes = null;
+        window._pbFacilityPlayName = null;
+        window._pbFacilityCoverage = null;
         updateUrl(null);
         $('.pb-play-row').removeClass('active');
         $('#pb_info_overlay').hide();
@@ -3846,6 +3850,7 @@
             html += '<div class="pb-fc-bar-wrap"><div class="pb-fc-bar ' + barCls + '" style="width:' + pct + '%"></div></div>';
             html += '</div>';
         });
+        container.innerHTML = html;
         // If showing ARTCC tab and coverage data exists, show sector coverage per ARTCC
         if (typeKey === 'ARTCC' && window._pbFacilityCoverage) {
             var cov = window._pbFacilityCoverage;

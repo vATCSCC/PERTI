@@ -12,9 +12,8 @@
  * @since 2026-03-24
  */
 
-// Bootstrap: config + connect BEFORE auth so PostGIS getter is available for coverage
-require_once __DIR__ . '/../../../../load/config.php';
-require_once __DIR__ . '/../../../../load/connect.php';
+// Bootstrap: auth.php handles config + connect with PERTI_SWIM_ONLY optimization.
+// PostGIS get_conn_gis() is always available via lazy loading.
 require_once __DIR__ . '/../auth.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -33,7 +32,7 @@ if (!$conn_swim_api) {
     SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
 
-$play_id = swim_get_int_param('play_id', 0, 1, 999999999);
+$play_id = swim_get_int_param('play_id', 0, 0, 999999999);
 if ($play_id <= 0) {
     SwimResponse::error('play_id parameter is required and must be a positive integer', 400, 'MISSING_PARAM');
 }

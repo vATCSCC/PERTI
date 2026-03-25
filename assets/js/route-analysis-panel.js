@@ -939,8 +939,8 @@
             if (map.getLayer('superhigh-sector-search-include')) map.setFilter('superhigh-sector-search-include', ['in', 'label', code]);
         }
         var sourceId = null, filterProp = null;
-        if (type === 'ARTCC') { sourceId = 'artcc-boundaries'; filterProp = 'ICAOCODE'; }
-        else if (type === 'TRACON') { sourceId = 'tracon-boundaries'; filterProp = 'sector'; }
+        if (type === 'ARTCC') { sourceId = 'artcc'; filterProp = 'ICAOCODE'; }
+        else if (type === 'TRACON') { sourceId = 'tracon'; filterProp = 'sector'; }
         else if (type === 'SECTOR_HIGH') { sourceId = 'high-splits'; filterProp = 'label'; }
         else if (type === 'SECTOR_LOW') { sourceId = 'low-splits'; filterProp = 'label'; }
         else if (type === 'SECTOR_SUPERHIGH') { sourceId = 'superhigh-splits'; filterProp = 'label'; }
@@ -1452,8 +1452,11 @@
             });
         });
 
-        // Row click → map highlight
-        container.addEventListener('click', function(e) {
+        // Row click → map highlight (remove old handler to prevent leak)
+        if (container._fcClickHandler) {
+            container.removeEventListener('click', container._fcClickHandler);
+        }
+        container._fcClickHandler = function(e) {
             var row = e.target.closest('tr[data-ra-fc-code]');
             if (!row) return;
             var code = row.getAttribute('data-ra-fc-code');
@@ -1466,7 +1469,8 @@
             } else {
                 clearHighlight();
             }
-        });
+        };
+        container.addEventListener('click', container._fcClickHandler);
 
         // Export
         var exportBtn = container.querySelector('#ra-fc-export');
