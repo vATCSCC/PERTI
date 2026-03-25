@@ -1412,7 +1412,7 @@
         var html = '<div class="ra-fc-section">';
         html += '<div class="ra-fc-header">';
         html += '<span>' + (t('playbook.facilityCountsTitle', { count: totalRoutes, play: playName }) || 'Play Facility Counts') + '</span>';
-        html += '<button class="ra-fc-export-btn" id="ra-fc-export" title="Copy to clipboard"><i class="fas fa-clipboard"></i></button>';
+        html += '<button class="ra-fc-export-btn" id="ra-fc-export" title="' + (t('common.copyToClipboard') || 'Copy to Clipboard') + '"><i class="fas fa-clipboard"></i></button>';
         html += '</div>';
         html += '<div class="ra-fc-pills">';
         types.forEach(function(tp) {
@@ -1535,11 +1535,11 @@
                     covHtml += '<span class="ra-fc-cov-dot ' + tn[2] + '"></span>';
                     covHtml += tn[1] + ': ';
                     if (rc) {
-                        covHtml += '<strong>' + rc.traversed + '/' + rc.total + '</strong> (' + rc.pct + '%) route';
+                        covHtml += '<strong>' + rc.traversed + '/' + rc.total + '</strong> (' + rc.pct + '%) ' + (t('playbook.routeCoverage') || 'route').toLowerCase();
                     }
                     if (rc && pc) covHtml += ' · ';
                     if (pc) {
-                        covHtml += pc.traversed + '/' + pc.total + ' (' + pc.pct + '%) play';
+                        covHtml += pc.traversed + '/' + pc.total + ' (' + pc.pct + '%) ' + (t('playbook.playCoverage') || 'play').toLowerCase();
                     }
                     covHtml += '</span>';
                 });
