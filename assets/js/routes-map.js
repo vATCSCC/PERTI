@@ -238,9 +238,9 @@ window.RoutesMap = (function() {
             source: 'routes',
             paint: {
                 'line-color': ['case',
-                    ['==', ['get', 'tier'], 'high'], '#00b4d8',
-                    ['==', ['get', 'tier'], 'medium'], '#0077b6',
-                    '#023e8a' // low
+                    ['==', ['get', 'tier'], 'high'], '#00e5ff',
+                    ['==', ['get', 'tier'], 'medium'], '#4fc3f7',
+                    '#81d4fa' // low
                 ],
                 'line-width': ['case',
                     ['==', ['get', 'tier'], 'high'], 4,
@@ -248,9 +248,9 @@ window.RoutesMap = (function() {
                     1.5
                 ],
                 'line-opacity': ['case',
-                    ['==', ['get', 'tier'], 'high'], 0.9,
-                    ['==', ['get', 'tier'], 'medium'], 0.6,
-                    0.35
+                    ['==', ['get', 'tier'], 'high'], 1,
+                    ['==', ['get', 'tier'], 'medium'], 0.8,
+                    0.55
                 ]
             },
             layout: {
