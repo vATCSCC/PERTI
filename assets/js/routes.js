@@ -1033,6 +1033,15 @@
     }
 
     function selectRoute(route) {
+        // Toggle: if already selected, deselect
+        if (state.selectedRoute && state.selectedRoute.route_dim_id === route.route_dim_id) {
+            console.log('[Routes] Route deselected:', route.route_dim_id);
+            state.selectedRoute = null;
+            $('.routes-item').removeClass('selected');
+            if (typeof RoutesMap !== 'undefined') RoutesMap.clearHighlight();
+            return;
+        }
+
         console.log('[Routes] Route selected:', route);
         state.selectedRoute = route;
 

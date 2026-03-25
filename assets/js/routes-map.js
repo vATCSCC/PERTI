@@ -319,26 +319,31 @@ window.RoutesMap = (function() {
 
         map.addSource('routes', { type: 'geojson', data: geojson });
 
-        // Route lines with frequency-based styling
+        // Route lines with spectral color ramp: blue (rare) -> yellow -> red (frequent)
         map.addLayer({
             id: 'routes-lines',
             type: 'line',
             source: 'routes',
             paint: {
-                'line-color': ['case',
-                    ['==', ['get', 'tier'], 'high'], '#00e5ff',
-                    ['==', ['get', 'tier'], 'medium'], '#4fc3f7',
-                    '#81d4fa' // low
+                'line-color': ['interpolate', ['linear'], ['get', 'frequency_pct'],
+                    0,  '#4fc3f7',   // light blue (rare)
+                    2,  '#81d4fa',   // cyan
+                    5,  '#66bb6a',   // green
+                    10, '#ffee58',   // yellow
+                    20, '#ffa726',   // orange
+                    35, '#ef5350'    // red (very frequent)
                 ],
-                'line-width': ['case',
-                    ['==', ['get', 'tier'], 'high'], 4,
-                    ['==', ['get', 'tier'], 'medium'], 2.5,
-                    1.5
+                'line-width': ['interpolate', ['linear'], ['get', 'frequency_pct'],
+                    0, 1.5,
+                    5, 2,
+                    15, 3,
+                    35, 5
                 ],
-                'line-opacity': ['case',
-                    ['==', ['get', 'tier'], 'high'], 1,
-                    ['==', ['get', 'tier'], 'medium'], 0.8,
-                    0.55
+                'line-opacity': ['interpolate', ['linear'], ['get', 'frequency_pct'],
+                    0, 0.55,
+                    5, 0.7,
+                    15, 0.85,
+                    35, 1
                 ]
             },
             layout: {
