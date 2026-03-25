@@ -144,6 +144,17 @@
         buildTimeSection();
     }
 
+    /**
+     * Collapse all expanded filter sections after search to maximize route list space.
+     */
+    function collapseFilters() {
+        $('.routes-filter-section .collapse.show').each(function() {
+            $(this).removeClass('show');
+            var $header = $(this).siblings('.routes-filter-header');
+            $header.attr('aria-expanded', 'false');
+        });
+    }
+
     function buildAircraftSection() {
         var $body = $('#filter_aircraft .routes-filter-body');
         $body.empty();
@@ -728,6 +739,9 @@
                     renderRouteList(data);
                     renderFilterChips();
                     updateUrl();
+
+                    // Collapse filter sections to give route list more space
+                    collapseFilters();
 
                     // Plot routes on map
                     if (typeof RoutesMap !== 'undefined' && data.routes) {
