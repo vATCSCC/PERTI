@@ -21,11 +21,11 @@ $results = [];
 switch ($type) {
     case 'aircraft':
         $stmt = $conn_pdo->prepare("
-            SELECT icao_code as id, CONCAT(icao_code, ' - ', COALESCE(manufacturer, ''), ' ', COALESCE(model, '')) as label,
-                   (SELECT COUNT(*) FROM route_history_facts WHERE aircraft_dim_id = dat.aircraft_dim_id) as cnt
+            SELECT dat.icao_code as id,
+                   CONCAT(dat.icao_code, ' - ', COALESCE(dat.manufacturer, ''), ' ', COALESCE(dat.model, '')) as label
             FROM dim_aircraft_type dat
-            WHERE icao_code LIKE ? OR manufacturer LIKE ? OR model LIKE ?
-            ORDER BY cnt DESC
+            WHERE dat.icao_code LIKE ? OR dat.manufacturer LIKE ? OR dat.model LIKE ?
+            ORDER BY dat.icao_code
             LIMIT ?
         ");
         $like = "%$q%";
@@ -35,11 +35,11 @@ switch ($type) {
 
     case 'operator':
         $stmt = $conn_pdo->prepare("
-            SELECT airline_icao as id, CONCAT(airline_icao, ' - ', COALESCE(airline_name, '')) as label,
-                   (SELECT COUNT(*) FROM route_history_facts WHERE operator_dim_id = dop.operator_dim_id) as cnt
+            SELECT dop.airline_icao as id,
+                   CONCAT(dop.airline_icao, ' - ', COALESCE(dop.airline_name, '')) as label
             FROM dim_operator dop
-            WHERE airline_icao LIKE ? OR airline_name LIKE ?
-            ORDER BY cnt DESC
+            WHERE dop.airline_icao LIKE ? OR dop.airline_name LIKE ?
+            ORDER BY dop.airline_icao
             LIMIT ?
         ");
         $like = "%$q%";
