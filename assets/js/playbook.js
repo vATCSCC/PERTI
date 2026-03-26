@@ -27,6 +27,15 @@
     var sessionCid = window.PERTI_PLAYBOOK_CID || null;
     var isAdmin = window.PERTI_PLAYBOOK_ADMIN === true;
 
+    var fcMode = 'all';
+
+    function computeGeometryHash(geom) {
+        if (!geom) return null;
+        var hash = 5381, i = 0, len = geom.length;
+        for (; i < len; i++) hash = ((hash << 5) + hash) + geom.charCodeAt(i);
+        return (hash >>> 0).toString(36);
+    }
+
     // FAA National Playbook category display order
     var FAA_CATEGORY_ORDER = [
         'Airports', 'East to West Transcon', 'Equipment', 'Regional Routes',
@@ -1132,28 +1141,45 @@
         // Included Traffic summary (with optional region coloring)
         if (routes.length) {
             var origSet = new Set(), destSet = new Set();
-            var travArtccs = {}, travTracons = {}, travSecLow = {}, travSecHigh = {}, travSecSuper = {};
+            var travAll = { ARTCC: {}, TRACON: {}, SECTOR_LOW: {}, SECTOR_HIGH: {}, SECTOR_SUPERHIGH: {} };
+            var travUnique = { ARTCC: {}, TRACON: {}, SECTOR_LOW: {}, SECTOR_HIGH: {}, SECTOR_SUPERHIGH: {} };
             var routesWithTrav = 0;
+            var seenGeomHashes = {};
+            var uniqueRouteCount = 0;
+
             routes.forEach(function(r) {
                 csvSplit(r.origin_airports).forEach(function(a) { if (a) origSet.add(a.toUpperCase()); });
                 csvSplit(r.origin_artccs).forEach(function(a) { if (a) origSet.add(a.toUpperCase()); });
                 csvSplit(r.dest_airports).forEach(function(a) { if (a) destSet.add(a.toUpperCase()); });
                 csvSplit(r.dest_artccs).forEach(function(a) { if (a) destSet.add(a.toUpperCase()); });
-                var hasTravData = false, seen = {};
-                csvSplit(r.traversed_artccs).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
-                Object.keys(seen).forEach(function(a) { travArtccs[a] = (travArtccs[a] || 0) + 1; });
-                seen = {};
-                csvSplit(r.traversed_tracons).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
-                Object.keys(seen).forEach(function(a) { travTracons[a] = (travTracons[a] || 0) + 1; });
-                seen = {};
-                csvSplit(r.traversed_sectors_low).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
-                Object.keys(seen).forEach(function(a) { travSecLow[a] = (travSecLow[a] || 0) + 1; });
-                seen = {};
-                csvSplit(r.traversed_sectors_high).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
-                Object.keys(seen).forEach(function(a) { travSecHigh[a] = (travSecHigh[a] || 0) + 1; });
-                seen = {};
-                csvSplit(r.traversed_sectors_superhigh).forEach(function(a) { if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; } });
-                Object.keys(seen).forEach(function(a) { travSecSuper[a] = (travSecSuper[a] || 0) + 1; });
+
+                var geomHash = computeGeometryHash(r.route_geometry) || ('nohash_' + r.route_id);
+                var isUniqueGeom = !seenGeomHashes[geomHash];
+                if (isUniqueGeom) {
+                    seenGeomHashes[geomHash] = true;
+                    uniqueRouteCount++;
+                }
+
+                var hasTravData = false;
+                var traversalCols = [
+                    ['traversed_artccs', 'ARTCC'],
+                    ['traversed_tracons', 'TRACON'],
+                    ['traversed_sectors_low', 'SECTOR_LOW'],
+                    ['traversed_sectors_high', 'SECTOR_HIGH'],
+                    ['traversed_sectors_superhigh', 'SECTOR_SUPERHIGH']
+                ];
+                traversalCols.forEach(function(pair) {
+                    var seen = {};
+                    csvSplit(r[pair[0]]).forEach(function(a) {
+                        if (a) { a = a.toUpperCase(); seen[a] = 1; hasTravData = true; }
+                    });
+                    Object.keys(seen).forEach(function(a) {
+                        travAll[pair[1]][a] = (travAll[pair[1]][a] || 0) + 1;
+                        if (isUniqueGeom) {
+                            travUnique[pair[1]][a] = (travUnique[pair[1]][a] || 0) + 1;
+                        }
+                    });
+                });
                 if (hasTravData) routesWithTrav++;
             });
             var origArr = Array.from(origSet).sort();
@@ -1173,27 +1199,30 @@
 
             // Traversed facilities summary with route counts (collapsible, pill-tabbed)
             var fcTypes = [
-                { key: 'ARTCC', label: t('playbook.tabArtcc'), data: travArtccs, cls: 'artcc' },
-                { key: 'TRACON', label: t('playbook.tabTracon'), data: travTracons, cls: 'tracon' },
-                { key: 'SECTOR_SUPERHIGH', label: t('playbook.tabSectorSH'), data: travSecSuper, cls: 'sector' },
-                { key: 'SECTOR_HIGH', label: t('playbook.tabSectorHigh'), data: travSecHigh, cls: 'sector' },
-                { key: 'SECTOR_LOW', label: t('playbook.tabSectorLow'), data: travSecLow, cls: 'sector' }
+                { key: 'ARTCC', label: t('playbook.tabArtcc'), data: travAll.ARTCC, cls: 'artcc' },
+                { key: 'TRACON', label: t('playbook.tabTracon'), data: travAll.TRACON, cls: 'tracon' },
+                { key: 'SECTOR_SUPERHIGH', label: t('playbook.tabSectorSH'), data: travAll.SECTOR_SUPERHIGH, cls: 'sector' },
+                { key: 'SECTOR_HIGH', label: t('playbook.tabSectorHigh'), data: travAll.SECTOR_HIGH, cls: 'sector' },
+                { key: 'SECTOR_LOW', label: t('playbook.tabSectorLow'), data: travAll.SECTOR_LOW, cls: 'sector' }
             ];
             var hasTrav = fcTypes.some(function(ft) { return Object.keys(ft.data).length > 0; });
             if (hasTrav) {
                 var totalRt = routes.length;
                 // Store counts for route analysis panel + coverage
-                window._pbFacilityCounts = {
-                    ARTCC: travArtccs, TRACON: travTracons,
-                    SECTOR_LOW: travSecLow, SECTOR_HIGH: travSecHigh, SECTOR_SUPERHIGH: travSecSuper
-                };
+                window._pbFacilityCounts = travAll;
+                window._pbFacilityCountsUnique = travUnique;
                 window._pbFacilityTotalRoutes = totalRt;
+                window._pbFacilityUniqueRoutes = uniqueRouteCount;
                 window._pbFacilityPlayName = play.play_name || play.display_name || '';
                 window._pbFacilityCoverage = (activePlayData._facilityCounts || {}).coverage || null;
 
                 html += '<div class="pb-play-traversed">';
                 html += '<div class="pb-traversed-header" id="pb_traversed_toggle"><i class="fas fa-chevron-right"></i> <strong>' + t('playbook.facilityRouteCounts') + '</strong>';
-                html += ' <span class="text-muted small">(' + t('playbook.facilityRouteCountsDesc', { count: totalRt }) + ')</span></div>';
+                html += ' <span class="pb-fc-mode-toggle" id="pb_fc_mode_toggle">';
+                html += '<span class="pb-fc-mode' + (fcMode === 'all' ? ' active' : '') + '" data-mode="all">' + (t('playbook.fcModeAll') || 'All') + '</span>';
+                html += '<span class="pb-fc-mode' + (fcMode === 'unique' ? ' active' : '') + '" data-mode="unique">' + (t('playbook.fcModeUnique') || 'Unique') + '</span>';
+                html += '</span>';
+                html += ' <span class="text-muted small">(' + t('playbook.facilityRouteCountsDesc', { count: fcMode === 'unique' ? uniqueRouteCount : totalRt }) + ')</span></div>';
                 html += '<div class="pb-traversed-body" id="pb_traversed_body" style="display:none;">';
                 // Pill tabs
                 html += '<div class="pb-fc-pills" id="pb_fc_pills">';
@@ -1665,7 +1694,9 @@
         throughputEnabled = false;
         throughputData = null;
         window._pbFacilityCounts = null;
+        window._pbFacilityCountsUnique = null;
         window._pbFacilityTotalRoutes = null;
+        window._pbFacilityUniqueRoutes = null;
         window._pbFacilityPlayName = null;
         window._pbFacilityCoverage = null;
         updateUrl(null);
@@ -3833,8 +3864,9 @@
     function renderFcRows(typeKey) {
         var container = document.getElementById('pb_fc_rows');
         if (!container) return;
-        var counts = (window._pbFacilityCounts || {})[typeKey] || {};
-        var totalRt = window._pbFacilityTotalRoutes || 1;
+        var src = fcMode === 'unique' ? window._pbFacilityCountsUnique : window._pbFacilityCounts;
+        var counts = (src || {})[typeKey] || {};
+        var totalRt = fcMode === 'unique' ? (window._pbFacilityUniqueRoutes || 1) : (window._pbFacilityTotalRoutes || 1);
         var sorted = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
         var maxCount = sorted.length > 0 ? counts[sorted[0]] : 1;
         var barCls = 'artcc';
@@ -4006,7 +4038,9 @@
                 }
                 var fcOpts = window._pbFacilityCounts ? {
                     facilityCounts: window._pbFacilityCounts,
+                    facilityCountsUnique: window._pbFacilityCountsUnique || null,
                     totalRoutes: window._pbFacilityTotalRoutes || 0,
+                    uniqueRoutes: window._pbFacilityUniqueRoutes || 0,
                     playName: window._pbFacilityPlayName || '',
                     coverage: window._pbFacilityCoverage || null,
                     sectorArtccMap: (window._pbFacilityCoverage || {}).sector_artcc_map || null,
@@ -5566,6 +5600,18 @@
             $('.pb-fc-pill').removeClass('active');
             $(this).addClass('active');
             renderFcRows($(this).data('fc-type'));
+        });
+
+        // Facility count mode toggle (All / Unique)
+        $(document).on('click', '.pb-fc-mode', function(e) {
+            e.stopPropagation();
+            var newMode = $(this).data('mode');
+            if (newMode === fcMode) return;
+            fcMode = newMode;
+            $('#pb_fc_mode_toggle .pb-fc-mode').removeClass('active');
+            $(this).addClass('active');
+            var activePill = document.querySelector('.pb-fc-pill.active');
+            if (activePill) renderFcRows(activePill.getAttribute('data-fc-type'));
         });
 
         // Facility count row click → highlight on map
