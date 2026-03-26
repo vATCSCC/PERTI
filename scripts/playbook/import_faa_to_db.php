@@ -27,6 +27,14 @@ try {
     die("DB connection failed: " . $e->getMessage() . "\n");
 }
 
+// Load ArtccNormalizer (supports both scripts/playbook/ and web root locations)
+$lib_paths = [
+    __DIR__ . '/../../lib/ArtccNormalizer.php',
+    __DIR__ . '/lib/ArtccNormalizer.php',
+];
+foreach ($lib_paths as $lp) { if (file_exists($lp)) { require_once $lp; break; } }
+use PERTI\Lib\ArtccNormalizer;
+
 // Find CSV
 $csv_paths = [
     __DIR__ . '/../../assets/data/playbook_routes.csv',
@@ -84,9 +92,6 @@ fclose($handle);
 $play_count = count($plays);
 echo "Parsed: $total_routes routes, $play_count plays\n";
 flush();
-
-require_once __DIR__ . '/../../lib/ArtccNormalizer.php';
-use PERTI\Lib\ArtccNormalizer;
 
 function normPlay($n) { return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $n)); }
 
