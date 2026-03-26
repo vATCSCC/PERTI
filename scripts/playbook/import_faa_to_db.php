@@ -62,16 +62,16 @@ while (($row = fgetcsv($handle)) !== false) {
     $origArtc = ArtccNormalizer::normalizeCsv(trim($row[4]));
     $destArtc = ArtccNormalizer::normalizeCsv(trim($row[7]));
     $cleanRoute = stripRouteEndpoints(
-        normalizeRouteCanadian(trim($rs)),
+        normalizeRouteCanadian(cleanRouteString($rs)),
         $origApts, $origArtc, $destApts, $destArtc
     );
 
     $plays[$pn]['routes'][] = [
         $cleanRoute,
         $origApts, $destApts,
-        $origApts, trim($row[3]),
+        $origApts, ArtccNormalizer::normalizeCsv(trim($row[3])),
         $origArtc,
-        $destApts, trim($row[6]),
+        $destApts, ArtccNormalizer::normalizeCsv(trim($row[6])),
         $destArtc,
     ];
 
@@ -89,6 +89,15 @@ require_once __DIR__ . '/../../lib/ArtccNormalizer.php';
 use PERTI\Lib\ArtccNormalizer;
 
 function normPlay($n) { return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $n)); }
+
+/**
+ * Clean route string: replace transition dots with spaces,
+ * strip >< mandatory indicators, collapse whitespace.
+ */
+function cleanRouteString($rs) {
+    $rs = str_replace(['.', '>', '<'], ' ', $rs);
+    return preg_replace('/\s+/', ' ', trim($rs));
+}
 
 function normalizeRouteCanadian($rs) {
     static $codes = ['CZE','CZU','CZV','CZW','CZY','CZM','CZQ','CZO'];
