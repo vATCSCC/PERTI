@@ -30,7 +30,8 @@
 - Response caching, ETags, gzip compression
 - Python SDK
 - AOC Telemetry Ingest (vertical rate, OOOI times)
-- **NEW:** Full data isolation — all endpoints query SWIM_API only; 3 sync daemons keep data fresh
+- **NEW:** Route Resolution API — resolve route strings to waypoints, distances, and ARTCC traversal (GET + batch POST)
+- Full data isolation — all endpoints query SWIM_API only; 3 sync daemons keep data fresh
 
 ---
 
@@ -169,6 +170,8 @@ curl -X POST "https://perti.vatcscc.org/api/swim/v1/ingest/adl" \
 | `/cdm/metrics` | GET | CDM performance metrics |
 | `/cdm/airport-status` | GET | CDM airport status |
 | `/reference/taxi-times` | GET | Airport taxi reference times |
+| `/routes/resolve` | GET | Resolve a single route string to waypoints, distance, and ARTCCs |
+| `/routes/resolve` | POST | Batch resolve up to 50 route strings in a single request |
 | `/routes/cdrs` | GET | Coded Departure Routes |
 | `/playbook/plays` | GET | Playbook route plays |
 | `/playbook/throughput` | GET | Playbook route throughput |

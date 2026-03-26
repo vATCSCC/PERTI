@@ -26,18 +26,156 @@ This eliminates the need to maintain your own copy of 384K nav fixes, 17K airway
 
 | Endpoint | Auth | Method | What It Returns |
 |----------|------|--------|-----------------|
-| [`/playbook/traversal`](#1-route-traversal-primary-endpoint) | No | POST | Waypoints, geometry, distance, ARTCCs, TRACONs, sectors for **any route string** |
-| [`/routes/cdrs`](#2-coded-departure-routes) | No | GET | Pre-cataloged CDR routes with geometry |
-| [`/playbook/plays`](#3-playbook-plays) | No | GET | FAA playbook routes with frozen geometry |
-| [`/flights`](#4-flight-data) | API Key | GET | Active flight route strings, distances, SID/STAR, progress |
-| [`/positions`](#5-positions) | API Key | GET | GeoJSON Point positions with optional route strings |
-| [`/tmi/routes`](#6-tmi-routes) | No | GET | Active TMI reroute visualizations with geometry |
+| [`/routes/resolve`](#1-route-resolution-primary-endpoint) | API Key | GET/POST | Waypoints, distance, ARTCCs for **any route string** (single or batch up to 50) |
+| [`/playbook/traversal`](#2-route-traversal) | No | POST | Waypoints, geometry, distance, ARTCCs, TRACONs, sectors for **any route string** |
+| [`/routes/cdrs`](#3-coded-departure-routes) | No | GET | Pre-cataloged CDR routes with geometry |
+| [`/playbook/plays`](#4-playbook-plays) | No | GET | FAA playbook routes with frozen geometry |
+| [`/flights`](#5-flight-data) | API Key | GET | Active flight route strings, distances, SID/STAR, progress |
+| [`/positions`](#6-positions) | API Key | GET | GeoJSON Point positions with optional route strings |
+| [`/tmi/routes`](#7-tmi-routes) | No | GET | Active TMI reroute visualizations with geometry |
 
 ---
 
-## 1. Route Traversal (Primary Endpoint)
+## 1. Route Resolution (Primary Endpoint)
 
-**`POST /api/swim/v1/playbook/traversal`** — No auth required
+**`GET /api/swim/v1/routes/resolve`** — API key required
+**`POST /api/swim/v1/routes/resolve`** — API key required (batch up to 50 routes)
+
+The fastest way to resolve route strings into waypoints with coordinates and distances. Uses PostGIS `expand_route()` for airway expansion, oceanic coordinate parsing, fix disambiguation, and distance calculation.
+
+### Single Route (GET)
+
+```bash
+curl -H "Authorization: Bearer YOUR_KEY" \
+  "https://perti.vatcscc.org/api/swim/v1/routes/resolve?route_string=GAYEL+Q818+WOZEE+KENPA+OBSTR+WYNDE3&origin=KJFK&dest=KORD"
+```
+
+### Batch Mode (POST)
+
+```json
+{
+  "routes": [
+    {"route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"},
+    {"route_string": "GREKI JUDDS CAM NOVON KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"}
+  ]
+}
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3",
+    "expanded_route": "KJFK GAYEL MSLIN STOMP BUFFY CFB VIEEW KELIE WOZEE KENPA OBSTR KORD",
+    "origin": "KJFK",
+    "dest": "KORD",
+    "total_distance_nm": 758.6,
+    "waypoint_count": 12,
+    "waypoints": [
+      {"seq": 1, "fix": "KJFK", "lat": 40.639928, "lon": -73.778692, "type": "nav_fix"},
+      {"seq": 2, "fix": "GAYEL", "lat": 41.406692, "lon": -74.357144, "type": "nav_fix"},
+      {"seq": 3, "fix": "MSLIN", "lat": 41.491894, "lon": -74.553967, "type": "airway_Q818"},
+      {"seq": 4, "fix": "STOMP", "lat": 41.596328, "lon": -74.796608, "type": "airway_Q818"},
+      {"seq": 5, "fix": "BUFFY", "lat": 41.941108, "lon": -75.6126, "type": "airway_Q818"},
+      {"seq": 6, "fix": "CFB", "lat": 42.15749, "lon": -76.136472, "type": "airway_Q818"},
+      {"seq": 7, "fix": "VIEEW", "lat": 42.439464, "lon": -77.025917, "type": "airway_Q818"},
+      {"seq": 8, "fix": "KELIE", "lat": 42.660367, "lon": -77.744736, "type": "airway_Q818"},
+      {"seq": 9, "fix": "WOZEE", "lat": 42.933792, "lon": -78.738789, "type": "airway_Q818"},
+      {"seq": 10, "fix": "KENPA", "lat": 44.795, "lon": -82.393333, "type": "nav_fix"},
+      {"seq": 11, "fix": "OBSTR", "lat": 43.695056, "lon": -85.214869, "type": "nav_fix"},
+      {"seq": 12, "fix": "KORD", "lat": 41.9786, "lon": -87.9048, "type": "nav_fix"}
+    ],
+    "artccs_traversed": ["ZNY", "ZOB", "CZYZ", "ZMP", "ZAU"]
+  }
+}
+```
+
+### Usage Example (Python)
+
+```python
+import requests
+
+KEY = "swim_dev_your_key"
+BASE = "https://perti.vatcscc.org/api/swim/v1"
+
+# Single route
+resp = requests.get(
+    f"{BASE}/routes/resolve",
+    headers={"Authorization": f"Bearer {KEY}"},
+    params={"route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"}
+)
+result = resp.json()["data"]
+print(f"{result['total_distance_nm']} nm, {result['waypoint_count']} waypoints")
+print(f"ARTCCs: {', '.join(result['artccs_traversed'])}")
+
+# Batch resolve (up to 50 routes)
+resp = requests.post(
+    f"{BASE}/routes/resolve",
+    headers={"Authorization": f"Bearer {KEY}", "Content-Type": "application/json"},
+    json={
+        "routes": [
+            {"route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"},
+            {"route_string": "GREKI JUDDS CAM NOVON KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"}
+        ]
+    }
+)
+for route in resp.json()["data"]["routes"]:
+    print(f"  {route['expanded_route']}: {route['total_distance_nm']} nm, "
+          f"ARTCCs: {', '.join(route['artccs_traversed'])}")
+# Output:
+#   KJFK GAYEL MSLIN ... OBSTR KORD: 758.6 nm, ARTCCs: ZNY, ZOB, CZYZ, ZMP, ZAU
+#   KJFK GREKI JUDDS CAM NOVON KENPA OBSTR KORD: 852.8 nm, ARTCCs: ZNY, ZBW, CZYZ, ZMP, ZAU
+```
+
+### Usage Example (JavaScript / MapLibre)
+
+```javascript
+const KEY = 'your_api_key';
+const BASE = 'https://perti.vatcscc.org/api/swim/v1';
+
+// Batch resolve
+const resp = await fetch(`${BASE}/routes/resolve`, {
+  method: 'POST',
+  headers: { 'Authorization': `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    routes: [
+      { route_string: 'GAYEL Q818 WOZEE KENPA OBSTR WYNDE3', origin: 'KJFK', dest: 'KORD' }
+    ]
+  })
+});
+const { data } = await resp.json();
+
+// Build GeoJSON from waypoints
+const coordinates = data.routes[0].waypoints.map(wp => [wp.lon, wp.lat]);
+map.addSource('route', {
+  type: 'geojson',
+  data: { type: 'Feature', geometry: { type: 'LineString', coordinates } }
+});
+map.addLayer({
+  id: 'route-line', type: 'line', source: 'route',
+  paint: { 'line-color': '#0080ff', 'line-width': 2 }
+});
+```
+
+### Key Differences from `/playbook/traversal`
+
+| | `/routes/resolve` | `/playbook/traversal` |
+|---|---|---|
+| **Auth** | API key required | API key required |
+| **Batch limit** | 50 routes | 100 routes |
+| **Returns** | Waypoints, distance, ARTCCs | Waypoints, geometry, distance, ARTCCs, TRACONs, sectors |
+| **GeoJSON** | Build from waypoints | Native LineString geometry |
+| **Best for** | Fast waypoint + distance resolution | Full facility traversal analysis |
+
+Use `/routes/resolve` when you need waypoints and distances quickly. Use `/playbook/traversal` when you need GeoJSON geometry, TRACON traversal, or sector-level detail.
+
+---
+
+## 2. Route Traversal
+
+**`POST /api/swim/v1/playbook/traversal`** — API key required
 
 Submit up to 100 route strings and get back resolved waypoints, geometry, and facility traversals. This is the endpoint to use if you have your own route strings and want VATSWIM to process them.
 
@@ -46,8 +184,8 @@ Submit up to 100 route strings and get back resolved waypoints, geometry, and fa
 ```json
 {
   "routes": [
-    "KJFK GREKI JUDDS CAM BUGSY POLTY J9 MLF ANJLL4 KLAX",
-    "KATL FRDMM4 BUURT HOBTT KARIT DCT SPS J86 TBC SUNSS5 KLAS"
+    "KJFK GAYEL Q818 WOZEE KENPA OBSTR WYNDE3 KORD",
+    "KJFK GREKI JUDDS CAM NOVON KENPA OBSTR WYNDE3 KORD"
   ],
   "fields": ["artccs", "tracons", "sectors", "geometry", "distance", "waypoints"]
 }
@@ -64,39 +202,54 @@ Submit up to 100 route strings and get back resolved waypoints, geometry, and fa
 
 ```json
 {
-  "count": 2,
-  "results": [
-    {
-      "route_string": "KJFK GREKI JUDDS CAM BUGSY POLTY J9 MLF ANJLL4 KLAX",
-      "artccs": ["ZNY", "ZBW", "CZUL", "CZYZ", "ZMP", "ZLC", "ZLA"],
-      "tracons": ["N90", "L30"],
-      "sectors": {
-        "low": [],
-        "high": ["ZNY_66", "ZBW_38", "ZMP_21", "ZLC_15", "ZLA_37"],
-        "superhigh": []
-      },
-      "distance_nm": 2615.6,
-      "waypoints": [
-        {"seq": 1, "id": "KJFK", "lat": 40.6399281, "lon": -73.7786922, "type": "airport"},
-        {"seq": 2, "id": "GREKI", "lat": 41.4800083, "lon": -73.3141611, "type": "nav_fix"},
-        {"seq": 3, "id": "JUDDS", "lat": 41.6346722, "lon": -73.1082444, "type": "nav_fix"},
-        {"seq": 4, "id": "CAM", "lat": 42.9942888, "lon": -73.3440189, "type": "nav_fix"},
-        {"seq": 5, "id": "MLF", "lat": 38.3603556, "lon": -113.0132328, "type": "nav_fix"},
-        {"seq": 6, "id": "KLAX", "lat": 33.9425011, "lon": -118.4079971, "type": "airport"}
-      ],
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [
-          [-73.7786922, 40.6399281],
-          [-73.3141611, 41.4800083],
-          [-73.1082444, 41.6346722],
-          [-73.3440189, 42.9942888],
-          [-113.0132328, 38.3603556],
-          [-118.4079971, 33.9425011]
-        ]
+  "success": true,
+  "data": {
+    "count": 1,
+    "results": [
+      {
+        "route_string": "KJFK GAYEL Q818 WOZEE KENPA OBSTR WYNDE3 KORD",
+        "artccs": ["ZNY", "ZOB", "CZYZ", "ZMP", "ZAU"],
+        "tracons": ["LGA", "JFK", "EWR", "N90", "SWF", "AVP", "BGM", "ELM", "ROC", "BUF", "TOR", "APN", "LAN", "AZO", "C90"],
+        "sectors": {
+          "low": ["ZNY56", "ZNY36", "ZBW05", "ZNY35", "ZNY51", "ZNY50", "ZOB31", "ZOB33", "CZYZGR", "CZYZES", "CZYZSD", "CZYZXU", "CZYZKF", "CZYZVV", "ZMP01", "ZMP02", "ZAU22", "ZAU27", "ZAU26", "ZAU82", "ZAU62"],
+          "high": ["ZNY56", "ZNY42", "ZNY34", "ZOB37", "CZYZCE", "CZYZOV", "CZYZMI", "ZMP46", "ZMP12", "ZAU24", "ZAU25", "ZAU60", "ZAU83"],
+          "superhigh": ["ZNY56", "ZNY42", "ZNY34", "ZOB39", "CZYZLU", "CZYZHU", "ZMP46", "ZAU24", "ZAU25", "ZAU60", "ZAU83"]
+        },
+        "distance_nm": 758.6,
+        "waypoints": [
+          {"id": "KJFK", "lat": 40.6399281, "lon": -73.7786922, "seq": 1, "type": "nav_fix"},
+          {"id": "GAYEL", "lat": 41.4066917, "lon": -74.3571444, "seq": 2, "type": "nav_fix"},
+          {"id": "MSLIN", "lat": 41.4918944, "lon": -74.5539667, "seq": 3, "type": "airway_Q818"},
+          {"id": "STOMP", "lat": 41.5963278, "lon": -74.7966083, "seq": 4, "type": "airway_Q818"},
+          {"id": "BUFFY", "lat": 41.9411083, "lon": -75.6126, "seq": 5, "type": "airway_Q818"},
+          {"id": "CFB", "lat": 42.1574904, "lon": -76.1364716, "seq": 6, "type": "airway_Q818"},
+          {"id": "VIEEW", "lat": 42.4394639, "lon": -77.0259167, "seq": 7, "type": "airway_Q818"},
+          {"id": "KELIE", "lat": 42.6603667, "lon": -77.7447361, "seq": 8, "type": "airway_Q818"},
+          {"id": "WOZEE", "lat": 42.9337917, "lon": -78.7387889, "seq": 9, "type": "airway_Q818"},
+          {"id": "KENPA", "lat": 44.795, "lon": -82.3933333, "seq": 10, "type": "nav_fix"},
+          {"id": "OBSTR", "lat": 43.6950556, "lon": -85.2148694, "seq": 11, "type": "nav_fix"},
+          {"id": "KORD", "lat": 41.9786, "lon": -87.9048, "seq": 12, "type": "nav_fix"}
+        ],
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [-73.7786922, 40.6399281],
+            [-74.3571444, 41.4066917],
+            [-74.5539667, 41.4918944],
+            [-74.7966083, 41.5963278],
+            [-75.6126, 41.9411083],
+            [-76.1364716, 42.1574904],
+            [-77.0259167, 42.4394639],
+            [-77.7447361, 42.6603667],
+            [-78.7387889, 42.9337917],
+            [-82.3933333, 44.795],
+            [-85.2148694, 43.6950556],
+            [-87.9048, 41.9786]
+          ]
+        }
       }
-    }
-  ]
+    ]
+  }
 }
 ```
 
@@ -107,17 +260,18 @@ import requests
 
 resp = requests.post(
     "https://perti.vatcscc.org/api/swim/v1/playbook/traversal",
+    headers={"X-API-Key": "YOUR_API_KEY"},
     json={
-        "routes": ["KJFK MERIT J584 RBV J230 WETRO DCT KMCO"],
+        "routes": ["KJFK GAYEL Q818 WOZEE KENPA OBSTR WYNDE3 KORD"],
         "fields": ["geometry", "distance", "waypoints", "artccs"]
     }
 )
-result = resp.json()["results"][0]
+result = resp.json()["data"]["results"][0]
 
 # Plot with any GeoJSON-compatible library
 geojson = result["geometry"]       # {"type": "LineString", "coordinates": [...]}
-distance = result["distance_nm"]   # 894.2
-artccs = result["artccs"]          # ["ZNY", "ZDC", "ZJX"]
+distance = result["distance_nm"]   # 758.6
+artccs = result["artccs"]          # ["ZNY", "ZOB", "CZYZ", "ZMP", "ZAU"]
 waypoints = result["waypoints"]    # [{seq, id, lat, lon, type}, ...]
 ```
 
@@ -126,13 +280,13 @@ waypoints = result["waypoints"]    # [{seq, id, lat, lon, type}, ...]
 ```javascript
 const resp = await fetch('https://perti.vatcscc.org/api/swim/v1/playbook/traversal', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', 'X-API-Key': 'YOUR_API_KEY' },
   body: JSON.stringify({
-    routes: ['KJFK GREKI JUDDS CAM J9 MLF ANJLL4 KLAX'],
+    routes: ['KJFK GAYEL Q818 WOZEE KENPA OBSTR WYNDE3 KORD'],
     fields: ['geometry', 'waypoints', 'distance']
   })
 });
-const { results } = await resp.json();
+const { data: { results } } = await resp.json();
 
 // Add to MapLibre
 map.addSource('route', {
@@ -152,11 +306,11 @@ results[0].waypoints.forEach(wp => {
 
 ---
 
-## 2. Coded Departure Routes
+## 3. Coded Departure Routes
 
 **`GET /api/swim/v1/routes/cdrs`** — No auth required
 
-Query the FAA's ~47K Coded Departure Routes catalog with optional geometry expansion.
+Query the FAA's ~41K Coded Departure Routes catalog with optional geometry expansion.
 
 ### Parameters
 
@@ -218,11 +372,11 @@ GET /api/swim/v1/routes/cdrs?origin=KJFK&dest=KLAX&include=geometry
 
 ---
 
-## 3. Playbook Plays
+## 4. Playbook Plays
 
 **`GET /api/swim/v1/playbook/plays`** — No auth required
 
-FAA playbook routes with pre-computed ("frozen") geometry. ~56K routes organized into plays.
+FAA playbook routes with pre-computed ("frozen") geometry. ~268K routes organized into ~3,800 plays.
 
 ### Parameters
 
@@ -256,7 +410,7 @@ Each playbook route can have a `route_geometry` envelope containing pre-resolved
 
 ---
 
-## 4. Flight Data
+## 5. Flight Data
 
 **`GET /api/swim/v1/flights`** — Requires `X-API-Key` header
 
@@ -290,15 +444,15 @@ Real example — BAW545 (London Heathrow → Hamburg, queried from production AD
 }
 ```
 
-### Combining Flights + Traversal
+### Combining Flights + Route Resolution
 
-To render routes for active flights, fetch route strings from `/flights` then batch-process them through `/playbook/traversal`:
+To resolve routes for active flights, fetch route strings from `/flights` then batch-resolve them through `/routes/resolve`:
 
 ```python
 import requests
 
 API_KEY = "your_key"
-headers = {"X-API-Key": API_KEY}
+headers = {"Authorization": f"Bearer {API_KEY}"}
 
 # 1. Get active flights
 flights = requests.get(
@@ -306,26 +460,40 @@ flights = requests.get(
     headers=headers
 ).json()["data"]
 
-# 2. Extract route strings
-route_strings = [f["flight_plan"]["route_text"] for f in flights if f["flight_plan"]["route_text"]]
+# 2. Build route items with origin/dest
+route_items = []
+for f in flights:
+    route_text = f.get("flight_plan", {}).get("route_text")
+    if route_text:
+        route_items.append({
+            "route_string": route_text,
+            "origin": f["flight_plan"].get("departure_aerodrome"),
+            "dest": f["flight_plan"].get("arrival_aerodrome")
+        })
 
-# 3. Batch resolve geometry (100 routes per request)
-for i in range(0, len(route_strings), 100):
-    batch = route_strings[i:i+100]
+# 3. Batch resolve (50 routes per request)
+for i in range(0, len(route_items), 50):
+    batch = route_items[i:i+50]
     resolved = requests.post(
-        "https://perti.vatcscc.org/api/swim/v1/playbook/traversal",
-        json={"routes": batch, "fields": ["geometry", "distance"]}
-    ).json()["results"]
+        "https://perti.vatcscc.org/api/swim/v1/routes/resolve",
+        headers={**headers, "Content-Type": "application/json"},
+        json={"routes": batch}
+    ).json()["data"]["routes"]
 
     for route in resolved:
-        # route["geometry"] -> GeoJSON LineString
-        # route["distance_nm"] -> total distance
+        if "error" in route:
+            continue
+        # route["waypoints"] -> [{seq, fix, lat, lon, type}, ...]
+        # route["total_distance_nm"] -> total distance
+        # route["artccs_traversed"] -> ["ZNY", "ZOB", ...]
         pass
 ```
 
+> **Tip:** Use `/routes/resolve` for fast waypoint + distance resolution. Use `/playbook/traversal` when you need GeoJSON geometry or TRACON/sector-level traversal detail.
+
 ---
 
-## 5. Positions
+## 6. Positions
 
 **`GET /api/swim/v1/positions`** — Requires `X-API-Key` header
 
@@ -364,7 +532,7 @@ Returns a GeoJSON FeatureCollection of aircraft positions as Point features. Add
 
 ---
 
-## 6. TMI Routes
+## 7. TMI Routes
 
 **`GET /api/swim/v1/tmi/routes`** — No auth required
 
@@ -445,9 +613,10 @@ ws.onmessage = (event) => {
 
 | Tier | Rate Limit | Access |
 |------|-----------|--------|
-| Public (no key) | 60 req/min | CDRs, Playbook, TMI Routes, Traversal |
-| Developer | 120 req/min | + Flights, Positions, WebSocket |
-| Partner | 300 req/min | All endpoints |
+| Public (no key) | — | CDRs, Playbook, TMI Routes, Traversal |
+| Developer | 300 req/min | + Flights, Positions, Route Resolution, WebSocket |
+| Partner | 3,000 req/min | All endpoints including write |
+| System | 30,000 req/min | Core integrations (vNAS, SimTraffic) |
 
 Request an API key at `https://perti.vatcscc.org/swim-keys.php`.
 
@@ -457,10 +626,12 @@ Request an API key at `https://perti.vatcscc.org/swim-keys.php`.
 
 | You have... | You want... | Use this endpoint |
 |-------------|-------------|-------------------|
-| A route string | Geometry + waypoints + distance | `POST /playbook/traversal` |
+| A route string | Waypoints + distance + ARTCCs (fast) | `GET /routes/resolve?route_string=X&origin=Y&dest=Z` |
+| Multiple route strings | Batch waypoints + distances | `POST /routes/resolve` (up to 50) |
+| A route string | Full geometry + TRACONs + sectors | `POST /playbook/traversal` |
 | An O/D pair | Pre-built CDR routes with geometry | `GET /routes/cdrs?origin=X&dest=Y&include=geometry` |
 | Nothing specific | Browse FAA playbook routes | `GET /playbook/plays?include=geometry` |
-| Active flights | Route strings to process | `GET /flights` then `POST /playbook/traversal` |
+| Active flights | Route strings to process | `GET /flights` then `POST /routes/resolve` |
 | Active flights | Current positions on a map | `GET /positions` |
 | TMI situation | Reroute visualizations | `GET /tmi/routes?format=geojson` |
 
