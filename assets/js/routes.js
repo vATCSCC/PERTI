@@ -648,10 +648,13 @@
         var $container = $('#dcc_region_pills');
         if (!$container.length) return;
 
-        // Toggle between origin/dest target
+        // Toggle origin/dest targets (allow multi-select for both)
         $('.routes-region-target').on('click', function() {
-            $('.routes-region-target').removeClass('active');
-            $(this).addClass('active');
+            $(this).toggleClass('active');
+            // Ensure at least one is active
+            if ($('.routes-region-target.active').length === 0) {
+                $(this).addClass('active');
+            }
         });
 
         var regions = [
@@ -666,22 +669,31 @@
         regions.forEach(function(r) {
             var $pill = $('<span class="routes-quick-pill" data-region="' + r.key + '"></span>').text(r.label);
             $pill.on('click', function() {
-                var target = $('.routes-region-target.active').data('target') || 'dest';
-                var codes = DCC_REGIONS[r.key] || [];
-                var filterKey = target === 'origin' ? 'origins' : 'destinations';
-                var modeKey = target === 'origin' ? 'origMode' : 'destMode';
-
-                // Switch mode to ARTCC and add region codes
-                state.filters[modeKey] = 'artcc';
-                $('.routes-mode-pill[data-target="' + target + '"]').removeClass('active');
-                $('.routes-mode-pill[data-target="' + target + '"][data-mode="artcc"]').addClass('active');
-
-                codes.forEach(function(c) {
-                    if (state.filters[filterKey].indexOf(c) === -1) {
-                        state.filters[filterKey].push(c);
-                    }
+                var targets = [];
+                // Check which targets are active (both can be active)
+                $('.routes-region-target.active').each(function() {
+                    targets.push($(this).data('target'));
                 });
-                renderTags(target);
+                if (targets.length === 0) targets = ['dest'];
+
+                var codes = DCC_REGIONS[r.key] || [];
+
+                targets.forEach(function(target) {
+                    var filterKey = target === 'origin' ? 'origins' : 'destinations';
+                    var modeKey = target === 'origin' ? 'origMode' : 'destMode';
+
+                    // Switch mode to ARTCC and add region codes
+                    state.filters[modeKey] = 'artcc';
+                    $('.routes-mode-pill[data-target="' + target + '"]').removeClass('active');
+                    $('.routes-mode-pill[data-target="' + target + '"][data-mode="artcc"]').addClass('active');
+
+                    codes.forEach(function(c) {
+                        if (state.filters[filterKey].indexOf(c) === -1) {
+                            state.filters[filterKey].push(c);
+                        }
+                    });
+                    renderTags(target);
+                });
                 renderFilterChips();
                 updateClearButton();
             });
@@ -1447,6 +1459,16 @@
         var $container = $('#rid_detail_sections');
         if (!$container.length) return;
 
+        // Build sets of active filter values for highlighting
+        var filterMatch = {
+            aircraft: {},
+            airline: {},
+        };
+        (state.filters.aircraft || []).forEach(function(c) { filterMatch.aircraft[c.toUpperCase()] = true; });
+        (state.filters.family || []).forEach(function(c) { filterMatch.aircraft[c.toUpperCase()] = true; });
+        (state.filters.airline || []).forEach(function(c) { filterMatch.airline[c.toUpperCase()] = true; });
+        (state.filters.callsignPrefix || '').length >= 2 && (filterMatch.callsignPrefix = state.filters.callsignPrefix.toUpperCase());
+
         var html = '';
 
         // Variants section with sortable headers and selectable rows
@@ -1482,7 +1504,8 @@
             var maxAc = Math.max.apply(null, aircraft.map(function(a) { return parseInt(a.cnt); }));
             aircraft.slice(0, 8).forEach(function(a) {
                 var pct = maxAc > 0 ? (parseInt(a.cnt) / maxAc * 100) : 0;
-                html += '<div class="rid-bar-row">';
+                var matchClass = filterMatch.aircraft[(a.icao_code || '').toUpperCase()] ? ' rid-filter-match' : '';
+                html += '<div class="rid-bar-row' + matchClass + '">';
                 html += '<span class="rid-bar-label">' + escapeHtml(a.icao_code) + '</span>';
                 html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-cyan" style="width:' + pct + '%"></div></div>';
                 html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
@@ -1500,7 +1523,13 @@
             var maxAl = Math.max.apply(null, airlines.map(function(a) { return parseInt(a.cnt); }));
             airlines.slice(0, 8).forEach(function(a) {
                 var pct = maxAl > 0 ? (parseInt(a.cnt) / maxAl * 100) : 0;
-                html += '<div class="rid-bar-row">';
+                var code = (a.airline_icao || '').toUpperCase();
+                var matchClass = filterMatch.airline[code] ? ' rid-filter-match' : '';
+                // Also match callsign prefix (e.g., filter "JBU" matches airline "JBU")
+                if (!matchClass && filterMatch.callsignPrefix && code.indexOf(filterMatch.callsignPrefix) === 0) {
+                    matchClass = ' rid-filter-match';
+                }
+                html += '<div class="rid-bar-row' + matchClass + '">';
                 html += '<span class="rid-bar-label">' + escapeHtml(a.airline_icao) + '</span>';
                 html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-teal" style="width:' + pct + '%"></div></div>';
                 html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';

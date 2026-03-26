@@ -1461,6 +1461,14 @@ body.routes-resizing .maplibregl-map {
 .rid-bar-orange { background: #FF8C42; }
 .rid-bar-green  { background: #4CAF50; }
 
+/* Filter match highlight in info dialog */
+.rid-bar-row.rid-filter-match {
+    background: rgba(255, 215, 0, 0.15);
+    border-left: 3px solid #ffd700;
+    padding-left: 5px;
+    border-radius: 2px;
+}
+
 .rid-bar-value {
     width: 40px;
     flex-shrink: 0;

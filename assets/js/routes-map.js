@@ -607,6 +607,11 @@ window.RoutesMap = (function() {
         if (!map) return;
         highlightedDimId = null;
         if (map.getLayer('routes-highlight')) map.removeLayer('routes-highlight');
+        // Also remove multi-select color layers
+        for (var i = 0; i < 6; i++) {
+            if (map.getLayer('routes-multi-' + i)) map.removeLayer('routes-multi-' + i);
+        }
+        multiSelectDimIds = [];
         hideWaypoints();
     }
 
