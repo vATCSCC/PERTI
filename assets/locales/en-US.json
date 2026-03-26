@@ -4436,6 +4436,8 @@
       "enginePiston": "Piston",
       "engineElectric": "Electric",
       "callsignPlaceholder": "e.g., AAL",
+      "aircraftPlaceholder": "e.g., B738",
+      "airlinePlaceholder": "e.g., AAL",
       "opLegacy": "Legacy Carrier",
       "opRegional": "Regional",
       "opLcc": "Low Cost",

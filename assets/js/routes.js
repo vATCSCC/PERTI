@@ -201,7 +201,7 @@
         $body.append($engineGroup);
 
         // Initialize Select2
-        initSelect2Ajax('aircraft_type_select', 'aircraft', 'aircraft');
+        initSelect2Ajax('aircraft_type_select', 'aircraft', 'aircraft', 'aircraftPlaceholder');
     }
 
     function buildOperatorSection() {
@@ -246,7 +246,7 @@
         $body.append($groupGroup);
 
         // Initialize Select2
-        initSelect2Ajax('airline_select', 'operator', 'airline');
+        initSelect2Ajax('airline_select', 'operator', 'airline', 'airlinePlaceholder');
     }
 
     function buildTimeSection() {
@@ -378,7 +378,7 @@
         return $item;
     }
 
-    function initSelect2Ajax(selectId, filterType, stateKey) {
+    function initSelect2Ajax(selectId, filterType, stateKey, placeholderKey) {
         $('#' + selectId).select2({
             ajax: {
                 url: 'api/data/route-history/filters.php',
@@ -399,7 +399,7 @@
                 }
             },
             minimumInputLength: 2,
-            placeholder: PERTII18n.t('routes.filters.' + filterType) || filterType,
+            placeholder: PERTII18n.t('routes.filters.' + (placeholderKey || filterType)),
             allowClear: true,
             multiple: true
         }).on('change', function() {

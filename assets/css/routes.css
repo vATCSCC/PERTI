@@ -327,6 +327,17 @@ body.routes-page .cs-footer {
 
 .select2-container .select2-selection--multiple .select2-search__field {
     color: #fff !important;
+    font-size: 0.85rem !important;
+}
+
+.select2-container .select2-selection--multiple .select2-search__field::placeholder {
+    color: #666 !important;
+    font-size: 0.85rem !important;
+}
+
+.select2-container--default .select2-selection--multiple .select2-selection__placeholder {
+    color: #666 !important;
+    font-size: 0.85rem !important;
 }
 
 .select2-container.select2-container--focus .select2-selection--multiple {
