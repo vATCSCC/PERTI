@@ -1454,10 +1454,11 @@
 
         container.style.display = 'block';
         var html = '<div class="ra-fc-section">';
-        html += '<div class="ra-fc-header">';
-        html += '<span>' + (t('playbook.facilityCountsTitle', { count: totalRoutes, play: playName }) || 'Play Facility Counts') + '</span>';
+        html += '<div class="ra-fc-header" id="ra-fc-toggle-header">';
+        html += '<span class="ra-fc-header-left"><i class="fas fa-caret-down ra-fc-toggle"></i> <span class="ra-fc-label">' + (t('playbook.facilityCountsTitle', { count: totalRoutes, play: escHtml(playName) }) || 'Facility Counts') + '</span></span>';
         html += '<button class="ra-fc-export-btn" id="ra-fc-export" title="' + (t('common.copyToClipboard') || 'Copy to Clipboard') + '"><i class="fas fa-clipboard"></i></button>';
         html += '</div>';
+        html += '<div class="ra-fc-collapsible">';
         html += '<div class="ra-fc-pills">';
         types.forEach(function(tp) {
             var cnt = fc[tp.key] ? Object.keys(fc[tp.key]).length : 0;
@@ -1471,6 +1472,7 @@
         html += '<th class="text-right">' + (t('playbook.countPercent') || '% of Play') + '</th>';
         html += '<th class="ra-fc-bar-cell"></th>';
         html += '</tr></thead><tbody id="ra-fc-tbody"></tbody></table></div>';
+        html += '</div>'; // end .ra-fc-collapsible
         html += '</div>';
         container.innerHTML = html;
 
@@ -1516,6 +1518,16 @@
         };
         container.addEventListener('click', container._fcClickHandler);
 
+        // Collapse/expand toggle
+        var toggleHeader = container.querySelector('#ra-fc-toggle-header');
+        if (toggleHeader) {
+            toggleHeader.addEventListener('click', function(e) {
+                if (e.target.closest('.ra-fc-export-btn')) return; // don't toggle on export click
+                var section = container.querySelector('.ra-fc-section');
+                if (section) section.classList.toggle('collapsed');
+            });
+        }
+
         // Export
         var exportBtn = container.querySelector('#ra-fc-export');
         if (exportBtn) {
@@ -1556,7 +1568,7 @@
         });
 
         if (keys.length === 0) {
-            html = '<tr><td colspan="4" class="text-muted text-center" style="padding:8px;">' + (t('playbook.noTraversalData') || 'No traversal data') + '</td></tr>';
+            html = '<tr><td colspan="4" style="padding:12px; text-align:center; color:#6c757d; font-size:0.75rem;">' + (t('playbook.noTraversalData') || 'No traversal data') + '</td></tr>';
         }
         tbody.innerHTML = html;
 
