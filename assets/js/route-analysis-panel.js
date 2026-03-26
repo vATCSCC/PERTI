@@ -234,7 +234,7 @@
     }
 
     // ── Rendering ────────────────────────────────────────────────────
-    function show(data, routeStr, origin, dest, routeId) {
+    function show(data, routeStr, origin, dest, routeId, options) {
         resolveDOM();
         if (!panel) return;
 
@@ -260,6 +260,17 @@
         panel.style.display = 'block';
         if (body) body.style.display = 'block';
         if (chevron) chevron.classList.remove('collapsed');
+
+        // Render play facility counts section if provided
+        var fcContainer = document.getElementById('ra-play-facility-counts');
+        if (fcContainer) {
+            if (options && options.facilityCounts) {
+                renderPlayFacilityCounts(fcContainer, options);
+            } else {
+                fcContainer.innerHTML = '';
+                fcContainer.style.display = 'none';
+            }
+        }
 
         // Set speed/wind from response if available
         if (speedInput && data.speed_profile) {
@@ -956,6 +967,41 @@
         clearHighlightPoint();
     }
 
+    function highlightSingleFacility(type, code) {
+        var map = getMap();
+        if (!map) return;
+        clearHighlight();
+        if (type === 'ARTCC') {
+            if (map.getLayer('artcc-play-traversed')) map.setFilter('artcc-play-traversed', ['in', 'ICAOCODE', code]);
+        } else if (type === 'TRACON') {
+            if (map.getLayer('tracon-search-include')) map.setFilter('tracon-search-include', ['in', 'sector', code]);
+        } else if (type === 'SECTOR_HIGH') {
+            if (map.getLayer('high-sector-search-include')) map.setFilter('high-sector-search-include', ['in', 'label', code]);
+        } else if (type === 'SECTOR_LOW') {
+            if (map.getLayer('low-sector-search-include')) map.setFilter('low-sector-search-include', ['in', 'label', code]);
+        } else if (type === 'SECTOR_SUPERHIGH') {
+            if (map.getLayer('superhigh-sector-search-include')) map.setFilter('superhigh-sector-search-include', ['in', 'label', code]);
+        }
+        var sourceId = null, filterProp = null;
+        if (type === 'ARTCC') { sourceId = 'artcc'; filterProp = 'ICAOCODE'; }
+        else if (type === 'TRACON') { sourceId = 'tracon'; filterProp = 'sector'; }
+        else if (type === 'SECTOR_HIGH') { sourceId = 'high-splits'; filterProp = 'label'; }
+        else if (type === 'SECTOR_LOW') { sourceId = 'low-splits'; filterProp = 'label'; }
+        else if (type === 'SECTOR_SUPERHIGH') { sourceId = 'superhigh-splits'; filterProp = 'label'; }
+        if (sourceId && typeof turf !== 'undefined') {
+            var source = map.getSource(sourceId);
+            if (source && source._data) {
+                var features = (source._data.features || []).filter(function (f) {
+                    return f.properties && f.properties[filterProp] === code;
+                });
+                if (features.length > 0) {
+                    var bbox = turf.bbox(turf.featureCollection(features));
+                    map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 60, duration: 800 });
+                }
+            }
+        }
+    }
+
     // ── Export ────────────────────────────────────────────────────────
     function buildHeaderLine() {
         var label = '';
@@ -1338,6 +1384,258 @@
         renderFixTable(currentData.fix_analysis || [], currentData.total_distance_nm, currentData.total_time_min, depEpoch);
         renderSegmentTable(currentData.fix_analysis || [], depEpoch);
         updateFacilityHighlights();
+    }
+
+    // ── Play Facility Counts (conditional section) ──────────────────
+    var fcActiveType = 'ARTCC';
+    var fcSortCol = 'count';
+    var fcSortAsc = false;
+    var fcCurrentOptions = null;
+
+    function csvSplitRa(str) {
+        if (!str) return [];
+        return str.split(',').map(function(s) { return s.trim().toUpperCase(); }).filter(function(s) { return s !== ''; });
+    }
+
+    function computeRouteCoverage(routeObj, sectorArtccMap, sectorTotals) {
+        if (!routeObj || !sectorArtccMap || !sectorTotals) return null;
+        var result = {};
+        var typeMap = [
+            ['traversed_sectors_superhigh', 'SUPERHIGH'],
+            ['traversed_sectors_high', 'HIGH'],
+            ['traversed_sectors_low', 'LOW']
+        ];
+        typeMap.forEach(function(pair) {
+            var codes = csvSplitRa(routeObj[pair[0]]);
+            var stype = pair[1];
+            var seen = {};
+            codes.forEach(function(code) {
+                if (seen[code]) return;
+                seen[code] = true;
+                var artcc = sectorArtccMap[code];
+                if (!artcc) return;
+                if (!result[artcc]) result[artcc] = {};
+                if (!result[artcc][stype]) result[artcc][stype] = { traversed: 0, total: 0 };
+                result[artcc][stype].traversed++;
+            });
+        });
+        // Fill in totals from sectorTotals
+        Object.keys(result).forEach(function(artcc) {
+            Object.keys(result[artcc]).forEach(function(stype) {
+                result[artcc][stype].total = (sectorTotals[artcc] && sectorTotals[artcc][stype]) || 0;
+                result[artcc][stype].pct = result[artcc][stype].total > 0
+                    ? Math.round(result[artcc][stype].traversed / result[artcc][stype].total * 1000) / 10
+                    : 0;
+            });
+        });
+        return result;
+    }
+
+    function renderPlayFacilityCounts(container, options) {
+        fcCurrentOptions = options;
+        var fc = options.facilityCounts || {};
+        var totalRoutes = options.totalRoutes || 0;
+        var playName = options.playName || '';
+
+        var types = [
+            { key: 'ARTCC', label: t('playbook.tabArtcc') || 'ARTCC', cls: 'artcc' },
+            { key: 'TRACON', label: t('playbook.tabTracon') || 'TRACON', cls: 'tracon' },
+            { key: 'SECTOR_SUPERHIGH', label: t('playbook.tabSectorSH') || 'Sec SH', cls: 'sector' },
+            { key: 'SECTOR_HIGH', label: t('playbook.tabSectorHigh') || 'Sec High', cls: 'sector' },
+            { key: 'SECTOR_LOW', label: t('playbook.tabSectorLow') || 'Sec Low', cls: 'sector' }
+        ];
+
+        var hasData = types.some(function(tp) { return fc[tp.key] && Object.keys(fc[tp.key]).length > 0; });
+        if (!hasData) {
+            container.innerHTML = '';
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+        var html = '<div class="ra-fc-section">';
+        html += '<div class="ra-fc-header">';
+        html += '<span>' + (t('playbook.facilityCountsTitle', { count: totalRoutes, play: playName }) || 'Play Facility Counts') + '</span>';
+        html += '<button class="ra-fc-export-btn" id="ra-fc-export" title="' + (t('common.copyToClipboard') || 'Copy to Clipboard') + '"><i class="fas fa-clipboard"></i></button>';
+        html += '</div>';
+        html += '<div class="ra-fc-pills">';
+        types.forEach(function(tp) {
+            var cnt = fc[tp.key] ? Object.keys(fc[tp.key]).length : 0;
+            if (cnt === 0) return;
+            html += '<span class="ra-fc-pill' + (tp.key === fcActiveType ? ' active' : '') + '" data-ra-fc-type="' + tp.key + '">' + tp.label + ' (' + cnt + ')</span>';
+        });
+        html += '</div>';
+        html += '<div class="ra-fc-body"><table class="ra-fc-table"><thead><tr>';
+        html += '<th data-ra-fc-sort="name">' + (t('routeAnalysis.col.facility') || 'Facility') + '</th>';
+        html += '<th data-ra-fc-sort="count" class="text-right">' + (t('playbook.countRoutes') || 'Routes') + '</th>';
+        html += '<th class="text-right">' + (t('playbook.countPercent') || '% of Play') + '</th>';
+        html += '<th class="ra-fc-bar-cell"></th>';
+        html += '</tr></thead><tbody id="ra-fc-tbody"></tbody></table></div>';
+        html += '</div>';
+        container.innerHTML = html;
+
+        renderFcTableRows(fc, totalRoutes, options);
+
+        // Pill tab clicks
+        container.querySelectorAll('.ra-fc-pill').forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                container.querySelectorAll('.ra-fc-pill').forEach(function(p) { p.classList.remove('active'); });
+                pill.classList.add('active');
+                fcActiveType = pill.getAttribute('data-ra-fc-type');
+                renderFcTableRows(fc, totalRoutes, options);
+            });
+        });
+
+        // Sort header clicks
+        container.querySelectorAll('th[data-ra-fc-sort]').forEach(function(th) {
+            th.addEventListener('click', function() {
+                var col = th.getAttribute('data-ra-fc-sort');
+                if (fcSortCol === col) { fcSortAsc = !fcSortAsc; }
+                else { fcSortCol = col; fcSortAsc = col === 'name'; }
+                renderFcTableRows(fc, totalRoutes, options);
+            });
+        });
+
+        // Row click → map highlight (remove old handler to prevent leak)
+        if (container._fcClickHandler) {
+            container.removeEventListener('click', container._fcClickHandler);
+        }
+        container._fcClickHandler = function(e) {
+            var row = e.target.closest('tr[data-ra-fc-code]');
+            if (!row) return;
+            var code = row.getAttribute('data-ra-fc-code');
+            var type = row.getAttribute('data-ra-fc-type');
+            var wasActive = row.classList.contains('highlighted');
+            container.querySelectorAll('tr.highlighted').forEach(function(r) { r.classList.remove('highlighted'); });
+            if (!wasActive) {
+                row.classList.add('highlighted');
+                highlightSingleFacility(type, code);
+            } else {
+                clearHighlight();
+            }
+        };
+        container.addEventListener('click', container._fcClickHandler);
+
+        // Export
+        var exportBtn = container.querySelector('#ra-fc-export');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function() {
+                exportFacilityCounts(fc, totalRoutes, playName, options);
+            });
+        }
+    }
+
+    function renderFcTableRows(fc, totalRoutes, options) {
+        var tbody = document.getElementById('ra-fc-tbody');
+        if (!tbody) return;
+        var counts = fc[fcActiveType] || {};
+        var keys = Object.keys(counts);
+        var maxCount = 0;
+        keys.forEach(function(k) { if (counts[k] > maxCount) maxCount = counts[k]; });
+
+        keys.sort(function(a, b) {
+            if (fcSortCol === 'name') return fcSortAsc ? a.localeCompare(b) : b.localeCompare(a);
+            return fcSortAsc ? counts[a] - counts[b] : counts[b] - counts[a];
+        });
+
+        var barCls = 'artcc';
+        if (fcActiveType === 'TRACON') barCls = 'tracon';
+        else if (fcActiveType.indexOf('SECTOR') === 0) barCls = 'sector';
+
+        var html = '';
+        keys.forEach(function(code) {
+            var cnt = counts[code];
+            var pct = totalRoutes > 0 ? (cnt / totalRoutes * 100).toFixed(1) : '0.0';
+            var barW = maxCount > 0 ? Math.round(cnt / maxCount * 100) : 0;
+            html += '<tr data-ra-fc-code="' + escHtml(code) + '" data-ra-fc-type="' + escHtml(fcActiveType) + '">';
+            html += '<td>' + escHtml(code) + '</td>';
+            html += '<td class="text-right">' + cnt + '</td>';
+            html += '<td class="text-right">' + pct + '%</td>';
+            html += '<td class="ra-fc-bar-cell"><div class="ra-fc-bar-outer"><div class="ra-fc-bar-inner ' + barCls + '" style="width:' + barW + '%"></div></div></td>';
+            html += '</tr>';
+        });
+
+        if (keys.length === 0) {
+            html = '<tr><td colspan="4" class="text-muted text-center" style="padding:8px;">' + (t('playbook.noTraversalData') || 'No traversal data') + '</td></tr>';
+        }
+        tbody.innerHTML = html;
+
+        // Coverage sub-rows for ARTCC tab
+        if (fcActiveType === 'ARTCC' && options && options.coverage) {
+            var playSectors = (options.coverage.play_sectors) || {};
+            var sectorTotals = (options.coverage.sector_totals) || {};
+            var routeCov = null;
+            if (options.routeObj && options.sectorArtccMap) {
+                routeCov = computeRouteCoverage(options.routeObj, options.sectorArtccMap, sectorTotals);
+            }
+            keys.forEach(function(artcc) {
+                var hasCov = playSectors[artcc] || (routeCov && routeCov[artcc]);
+                if (!hasCov) return;
+                var covHtml = '<tr class="ra-fc-cov-row"><td colspan="4"><div class="ra-fc-cov-summary">';
+                var typeNames = [['SUPERHIGH', 'SH', 'superhigh'], ['HIGH', 'Hi', 'high'], ['LOW', 'Lo', 'low']];
+                typeNames.forEach(function(tn) {
+                    // Play-level coverage
+                    var pc = playSectors[artcc] && playSectors[artcc][tn[0]];
+                    // Route-level coverage
+                    var rc = routeCov && routeCov[artcc] && routeCov[artcc][tn[0]];
+                    if (!pc && !rc) return;
+                    covHtml += '<span class="ra-fc-cov-inline">';
+                    covHtml += '<span class="ra-fc-cov-dot ' + tn[2] + '"></span>';
+                    covHtml += tn[1] + ': ';
+                    if (rc) {
+                        covHtml += '<strong>' + rc.traversed + '/' + rc.total + '</strong> (' + rc.pct + '%) ' + (t('playbook.routeCoverage') || 'route').toLowerCase();
+                    }
+                    if (rc && pc) covHtml += ' · ';
+                    if (pc) {
+                        covHtml += pc.traversed + '/' + pc.total + ' (' + pc.pct + '%) ' + (t('playbook.playCoverage') || 'play').toLowerCase();
+                    }
+                    covHtml += '</span>';
+                });
+                covHtml += '</div></td></tr>';
+                // Insert after the matching ARTCC row
+                var artccRow = tbody.querySelector('tr[data-ra-fc-code="' + artcc + '"]');
+                if (artccRow) {
+                    artccRow.insertAdjacentHTML('afterend', covHtml);
+                }
+            });
+        }
+    }
+
+    function exportFacilityCounts(fc, totalRoutes, playName, options) {
+        var types = ['ARTCC', 'TRACON', 'SECTOR_SUPERHIGH', 'SECTOR_HIGH', 'SECTOR_LOW'];
+        var lines = ['Play: ' + playName, 'Total Routes: ' + totalRoutes, ''];
+        types.forEach(function(type) {
+            var counts = fc[type] || {};
+            var keys = Object.keys(counts);
+            if (keys.length === 0) return;
+            keys.sort(function(a, b) { return counts[b] - counts[a]; });
+            lines.push(type + ':');
+            keys.forEach(function(code) {
+                var pct = totalRoutes > 0 ? (counts[code] / totalRoutes * 100).toFixed(1) : '0.0';
+                lines.push('  ' + code + '\t' + counts[code] + '\t' + pct + '%');
+            });
+            lines.push('');
+        });
+        // Coverage summary
+        if (options && options.coverage && options.coverage.play_sectors) {
+            lines.push('SECTOR COVERAGE (Play):');
+            var ps = options.coverage.play_sectors;
+            Object.keys(ps).sort().forEach(function(artcc) {
+                var stypes = ps[artcc];
+                var parts = [];
+                ['SUPERHIGH', 'HIGH', 'LOW'].forEach(function(st) {
+                    if (stypes[st]) parts.push(st + ' ' + stypes[st].traversed + '/' + stypes[st].total + ' (' + stypes[st].pct + '%)');
+                });
+                if (parts.length) lines.push('  ' + artcc + ': ' + parts.join(', '));
+            });
+            lines.push('');
+        }
+        var text = lines.join('\n');
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function() {
+                if (typeof PERTIDialog !== 'undefined') PERTIDialog.toast(t('routeAnalysis.export.copied'));
+            });
+        }
     }
 
     // ── Lifecycle ────────────────────────────────────────────────────

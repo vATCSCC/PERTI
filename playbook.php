@@ -265,6 +265,7 @@ include("load/nav.php");
                 </div>
                 <div class="ra-picker-matches" id="ra-picker-matches"></div>
             </div>
+            <div id="ra-play-facility-counts"></div>
             <div class="ra-summary" id="ra-summary"></div>
             <div class="ra-table-section ra-table-full">
                 <div class="ra-table-title"><?= __('routeAnalysis.facilityTraversal') ?></div>
