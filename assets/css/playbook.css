@@ -521,17 +521,7 @@
 }
 .pb-fc-pill:hover { background: rgba(0,0,0,0.1); color: #333; }
 .pb-fc-pill.active { background: #3073b7; color: #fff; border-color: #2563a0; }
-/* Facility count mode toggle (All / Unique) */
-.pb-fc-mode-toggle {
-    display: inline-flex; gap: 1px; margin-left: 8px; vertical-align: middle;
-    background: rgba(0,0,0,0.08); border-radius: 10px; overflow: hidden;
-}
-.pb-fc-mode {
-    font-size: 0.6rem; padding: 1px 8px; cursor: pointer;
-    color: #888; user-select: none; transition: all 0.15s;
-}
-.pb-fc-mode:hover { color: #555; }
-.pb-fc-mode.active { background: #3073b7; color: #fff; border-radius: 10px; }
+
 .pb-fc-row {
     display: flex; align-items: center; padding: 1px 0; cursor: pointer;
     border-radius: 2px; transition: background 0.1s;
@@ -579,19 +569,7 @@
 .ra-fc-header-left { display: flex; align-items: center; gap: 6px; }
 .ra-fc-header-left .ra-fc-label { color: #239BCD; }
 .ra-fc-header-right { display: flex; align-items: center; gap: 6px; }
-.ra-fc-mode-toggle {
-    display: inline-flex; gap: 1px; background: rgba(255,255,255,0.06);
-    border-radius: 10px; overflow: hidden;
-}
-.ra-fc-mode {
-    font-size: 0.6rem; padding: 1px 8px; cursor: pointer;
-    color: #868e96; user-select: none; transition: all 0.15s;
-}
-.ra-fc-mode:hover { color: #e9ecef; }
-.ra-fc-mode.active {
-    background: rgba(35,155,205,0.25); color: #239BCD;
-    border-radius: 10px;
-}
+
 .ra-fc-toggle {
     font-size: 0.6rem; color: #6c757d; transition: transform 0.2s ease;
     display: inline-block;
