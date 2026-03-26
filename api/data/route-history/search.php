@@ -9,6 +9,7 @@
 include("../../../load/config.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
+include("../../../load/aircraft_families.php");
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -18,6 +19,7 @@ $dest      = array_filter(array_map('trim', explode(',', get_input('dest') ?? ''
 $origMode  = get_input('orig_mode') ?? 'airport';
 $destMode  = get_input('dest_mode') ?? 'airport';
 $aircraft  = array_filter(array_map('trim', explode(',', get_input('aircraft') ?? '')));
+$families  = array_filter(array_map('trim', explode(',', get_input('family') ?? '')));
 $manufacturer = array_filter(array_map('trim', explode(',', get_input('manufacturer') ?? '')));
 $weight    = array_filter(array_map('trim', explode(',', get_input('weight') ?? '')));
 $wake      = array_filter(array_map('trim', explode(',', get_input('wake') ?? '')));
@@ -38,12 +40,22 @@ $perPage   = min(200, max(1, (int)(get_input('per_page') ?: 50)));
 $sort      = get_input('sort') ?: 'frequency';
 $view      = get_input('view') ?: 'grouped';
 
+// Expand family selections into ICAO codes, merge with explicit aircraft filter
+if (!empty($families)) {
+    foreach ($families as $fKey) {
+        if (isset($AIRCRAFT_FAMILIES[$fKey])) {
+            $aircraft = array_merge($aircraft, $AIRCRAFT_FAMILIES[$fKey]);
+        }
+    }
+    $aircraft = array_unique($aircraft);
+}
+
 // ── Guard: at least one filter required ──
 $hasFilter = !empty($orig) || !empty($dest) || !empty($aircraft) || !empty($manufacturer)
     || !empty($weight) || !empty($wake) || !empty($engine) || !empty($airline)
     || $callsign !== '' || !empty($opGroup) || $dateFrom || $dateTo
     || !empty($months) || !empty($dows) || $hourMin !== null || $hourMax !== null
-    || !empty($seasons) || !empty($years);
+    || !empty($seasons) || !empty($years) || !empty($families);
 
 if (!$hasFilter) {
     echo json_encode(['success' => false, 'error' => 'At least one filter is required']);

@@ -16,6 +16,7 @@
             origMode: 'airport',
             destMode: 'airport',
             // Aircraft filters
+            family: [],          // family keys (a320, b737, etc.)
             aircraft: [],        // ICAO type codes
             manufacturer: [],    // manufacturer names
             weight: [],          // weight classes (S/L/H/J)
@@ -159,6 +160,15 @@
     function buildAircraftSection() {
         var $body = $('#filter_aircraft .routes-filter-body');
         $body.empty();
+
+        // Family select2 (local data from i18n)
+        var $familyGroup = $('<div class="routes-filter-group"></div>');
+        $familyGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.aircraftFamily') + '</label>');
+        var $familySelect = $('<select id="aircraft_family_select" multiple></select>');
+        $familyGroup.append($familySelect);
+        $body.append($familyGroup);
+
+        initFamilySelect2();
 
         // Type select2
         var $typeGroup = $('<div class="routes-filter-group"></div>');
@@ -410,6 +420,35 @@
         });
     }
 
+    function initFamilySelect2() {
+        // Build family options from i18n keys
+        var familyKeys = [
+            'a220','a318','a319','a320','a321',
+            'a300','a310','a330','a340','a350','a380',
+            'b717','b727','b737','b737max','b757',
+            'b747','b767','b777','b787',
+            'dc10','md11','md80','md90',
+            'crj','erj','atr','dash8',
+            'gulfstream','citation','challenger','global','learjet','phenom',
+            'c130','c17'
+        ];
+
+        var familyData = familyKeys.map(function(key) {
+            return { id: key, text: PERTII18n.t('aircraft.families.' + key) || key };
+        });
+
+        $('#aircraft_family_select').select2({
+            data: familyData,
+            placeholder: PERTII18n.t('routes.filters.familyPlaceholder'),
+            allowClear: true,
+            multiple: true
+        }).val(null).trigger('change').on('change', function() {
+            state.filters.family = $(this).val() || [];
+            renderFilterChips();
+            updateClearButton();
+        });
+    }
+
     // ========================================================================
     // FILTER INITIALIZATION
     // ========================================================================
@@ -580,6 +619,18 @@
             $bar.append(buildChip(label, function() {
                 removeTag('dest', code);
                 doSearch();
+            }));
+        });
+
+        // Family chips
+        state.filters.family.forEach(function(key) {
+            var label = PERTII18n.t('aircraft.families.' + key) || key;
+            $bar.append(buildChip(PERTII18n.t('routes.filters.aircraftFamily') + ': ' + label, function() {
+                removeArrayValue('family', key);
+                // Also clear Select2 selection
+                var vals = $('#aircraft_family_select').val() || [];
+                vals = vals.filter(function(v) { return v !== key; });
+                $('#aircraft_family_select').val(vals).trigger('change.select2');
             }));
         });
 
@@ -780,6 +831,9 @@
         }
 
         // Aircraft filters
+        if (state.filters.family.length > 0) {
+            params.push('family=' + state.filters.family.join(','));
+        }
         if (state.filters.aircraft.length > 0) {
             params.push('aircraft=' + state.filters.aircraft.join(','));
         }
@@ -1839,6 +1893,7 @@
         state.filters.destinations = [];
         state.filters.origMode = 'airport';
         state.filters.destMode = 'airport';
+        state.filters.family = [];
         state.filters.aircraft = [];
         state.filters.manufacturer = [];
         state.filters.weight = [];
@@ -1858,6 +1913,7 @@
         state.page = 1;
 
         // Clear Select2
+        $('#aircraft_family_select').val(null).trigger('change');
         $('#aircraft_type_select').val(null).trigger('change');
         $('#airline_select').val(null).trigger('change');
 

@@ -9,6 +9,7 @@
 include("../../../load/config.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
+include("../../../load/aircraft_families.php");
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -19,6 +20,35 @@ $limit = min(50, max(1, (int)(get_input('limit') ?? 20)));
 $results = [];
 
 switch ($type) {
+    case 'family':
+        // Search families by key or display name (i18n name passed from client)
+        $qLower = strtolower($q);
+        foreach ($AIRCRAFT_FAMILIES as $key => $codes) {
+            if (stripos($key, $qLower) !== false) {
+                $results[] = ['id' => $key, 'label' => $key, 'codes' => $codes];
+            }
+        }
+        // Also match by the query as a prefix pattern on codes
+        if (empty($results)) {
+            $qUpper = strtoupper($q);
+            foreach ($AIRCRAFT_FAMILIES as $key => $codes) {
+                foreach ($codes as $code) {
+                    if (strpos($code, $qUpper) === 0) {
+                        $results[] = ['id' => $key, 'label' => $key, 'codes' => $codes];
+                        break;
+                    }
+                }
+            }
+        }
+        // Deduplicate
+        $seen = [];
+        $results = array_values(array_filter($results, function($r) use (&$seen) {
+            if (isset($seen[$r['id']])) return false;
+            $seen[$r['id']] = true;
+            return true;
+        }));
+        break;
+
     case 'aircraft':
         $stmt = $conn_pdo->prepare("
             SELECT dat.icao_code as id,
