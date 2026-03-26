@@ -336,8 +336,8 @@
                     var now = new Date();
                     var from = new Date(now);
                     from.setUTCDate(from.getUTCDate() - p.days);
-                    state.filters.dateFrom = from.toISOString().slice(0, 10);
-                    state.filters.dateTo = now.toISOString().slice(0, 10);
+                    state.filters.dateFrom = from.toISOString().slice(0, 16);
+                    state.filters.dateTo = now.toISOString().slice(0, 16);
                 }
                 $('#date_from_input').val(state.filters.dateFrom);
                 $('#date_to_input').val(state.filters.dateTo);
@@ -353,8 +353,8 @@
         var $dateGroup = $('<div class="routes-filter-group"></div>');
         $dateGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.dateRange') + '</label>');
         var $dateRange = $('<div class="routes-date-range"></div>');
-        var $dateFrom = $('<input type="date" id="date_from_input" class="routes-filter-input" style="flex:1">');
-        var $dateTo = $('<input type="date" id="date_to_input" class="routes-filter-input" style="flex:1">');
+        var $dateFrom = $('<input type="datetime-local" id="date_from_input" class="routes-filter-input" style="flex:1">');
+        var $dateTo = $('<input type="datetime-local" id="date_to_input" class="routes-filter-input" style="flex:1">');
         $dateFrom.on('change', function() {
             state.filters.dateFrom = this.value;
             renderFilterChips();
@@ -648,6 +648,12 @@
         var $container = $('#dcc_region_pills');
         if (!$container.length) return;
 
+        // Toggle between origin/dest target
+        $('.routes-region-target').on('click', function() {
+            $('.routes-region-target').removeClass('active');
+            $(this).addClass('active');
+        });
+
         var regions = [
             { key: 'northeast', label: PERTII18n.t('routes.filters.regionNortheast') },
             { key: 'southeast', label: PERTII18n.t('routes.filters.regionSoutheast') },
@@ -660,18 +666,22 @@
         regions.forEach(function(r) {
             var $pill = $('<span class="routes-quick-pill" data-region="' + r.key + '"></span>').text(r.label);
             $pill.on('click', function() {
+                var target = $('.routes-region-target.active').data('target') || 'dest';
                 var codes = DCC_REGIONS[r.key] || [];
-                // Switch dest mode to ARTCC and add region codes
-                state.filters.destMode = 'artcc';
-                $('.routes-mode-pill[data-target="dest"]').removeClass('active');
-                $('.routes-mode-pill[data-target="dest"][data-mode="artcc"]').addClass('active');
+                var filterKey = target === 'origin' ? 'origins' : 'destinations';
+                var modeKey = target === 'origin' ? 'origMode' : 'destMode';
+
+                // Switch mode to ARTCC and add region codes
+                state.filters[modeKey] = 'artcc';
+                $('.routes-mode-pill[data-target="' + target + '"]').removeClass('active');
+                $('.routes-mode-pill[data-target="' + target + '"][data-mode="artcc"]').addClass('active');
 
                 codes.forEach(function(c) {
-                    if (state.filters.destinations.indexOf(c) === -1) {
-                        state.filters.destinations.push(c);
+                    if (state.filters[filterKey].indexOf(c) === -1) {
+                        state.filters[filterKey].push(c);
                     }
                 });
-                renderTags('dest');
+                renderTags(target);
                 renderFilterChips();
                 updateClearButton();
             });
@@ -826,9 +836,10 @@
             }));
         });
 
-        // Time chips
+        // Time chips (format datetime-local value for display)
         if (state.filters.dateFrom) {
-            $bar.append(buildChip(PERTII18n.t('routes.filters.from') + ': ' + state.filters.dateFrom, function() {
+            var fromLabel = state.filters.dateFrom.replace('T', ' ');
+            $bar.append(buildChip(PERTII18n.t('routes.filters.from') + ': ' + fromLabel, function() {
                 state.filters.dateFrom = '';
                 $('#date_from_input').val('');
                 renderFilterChips();
@@ -837,7 +848,8 @@
         }
 
         if (state.filters.dateTo) {
-            $bar.append(buildChip(PERTII18n.t('routes.filters.to') + ': ' + state.filters.dateTo, function() {
+            var toLabel = state.filters.dateTo.replace('T', ' ');
+            $bar.append(buildChip(PERTII18n.t('routes.filters.to') + ': ' + toLabel, function() {
                 state.filters.dateTo = '';
                 $('#date_to_input').val('');
                 renderFilterChips();
@@ -965,6 +977,21 @@
         RoutesMap.plotRoutes(data.routes, data.total_flights || 0);
     }
 
+    /**
+     * Dim route list items that fall outside the current map limit tier.
+     */
+    function applyMapLimitDimming() {
+        var limit = state.mapLimit || 9999;
+        $('#routes_list .routes-item').each(function() {
+            var idx = parseInt($(this).attr('data-route-idx'));
+            if (limit > 0 && idx >= limit) {
+                $(this).addClass('routes-item-offmap');
+            } else {
+                $(this).removeClass('routes-item-offmap');
+            }
+        });
+    }
+
     function filtersToQueryString() {
         var params = [];
 
@@ -1014,12 +1041,12 @@
             params.push('operator_group=' + state.filters.operatorGroup.join(','));
         }
 
-        // Time filters
+        // Time filters (dateFrom/dateTo may be date-only or datetime-local format)
         if (state.filters.dateFrom) {
-            params.push('date_from=' + state.filters.dateFrom);
+            params.push('date_from=' + encodeURIComponent(state.filters.dateFrom));
         }
         if (state.filters.dateTo) {
-            params.push('date_to=' + state.filters.dateTo);
+            params.push('date_to=' + encodeURIComponent(state.filters.dateTo));
         }
         if (state.filters.month.length > 0) {
             params.push('month=' + state.filters.month.join(','));
@@ -1114,6 +1141,7 @@
                 $tierWrap.find('.routes-tier-btn').removeClass('active');
                 $btn.addClass('active');
                 plotMapRoutes(state.results);
+                applyMapLimitDimming();
             });
             $tierWrap.append($btn);
         });
@@ -1165,10 +1193,12 @@
         $list.append($controls);
 
         // Route items
-        data.routes.forEach(function(route) {
+        data.routes.forEach(function(route, idx) {
             var $item = buildRouteItem(route);
+            $item.attr('data-route-idx', idx);
             $list.append($item);
         });
+        applyMapLimitDimming();
 
         // Load more button
         if (data.page < data.total_pages) {
