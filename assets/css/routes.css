@@ -63,9 +63,49 @@ body.routes-page .cs-footer {
    FILTER SECTION
    ======================================================================== */
 
+/* Filter panel header (collapse toggle) */
+.routes-filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 16px;
+    background: #1a1a2e;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+}
+
+.routes-filters-header h5 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.routes-filters-toggle {
+    background: none;
+    border: none;
+    color: #239BCD;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: background 0.15s;
+}
+
+.routes-filters-toggle:hover {
+    background: rgba(35, 155, 205, 0.2);
+}
+
 .routes-filters {
     background: #1a1a2e;
     padding: 0;
+    flex-shrink: 0;
+}
+
+/* Search row (collapses with filters) */
+.routes-search-row {
     flex-shrink: 0;
 }
 
@@ -482,21 +522,43 @@ body.routes-page .cs-footer {
     display: inline-block;
 }
 
-.routes-show-all-btn {
-    background: rgba(35, 155, 205, 0.2);
-    color: #4fc3f7;
-    border: 1px solid rgba(35, 155, 205, 0.4);
-    border-radius: 3px;
-    padding: 2px 10px;
-    font-size: 0.75rem;
-    cursor: pointer;
-    white-space: nowrap;
+/* Map tier selector */
+.routes-tier-wrap {
+    display: flex;
+    align-items: center;
+    gap: 3px;
     margin-left: auto;
+    flex-shrink: 0;
 }
 
-.routes-show-all-btn:hover {
-    background: rgba(35, 155, 205, 0.35);
+.routes-tier-label {
+    font-size: 0.7rem;
+    color: #888;
+    margin-right: 2px;
+    white-space: nowrap;
+}
+
+.routes-tier-btn {
+    background: rgba(35, 155, 205, 0.1);
+    color: #6ab7d6;
+    border: 1px solid rgba(35, 155, 205, 0.25);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+
+.routes-tier-btn:hover {
+    background: rgba(35, 155, 205, 0.25);
     color: #81d4fa;
+}
+
+.routes-tier-btn.active {
+    background: rgba(35, 155, 205, 0.4);
+    color: #fff;
+    border-color: rgba(35, 155, 205, 0.6);
 }
 
 .routes-controls {

@@ -42,7 +42,8 @@
         page: 1,
         sort: 'frequency',
         view: 'grouped',
-        showAll: false
+        mapLimit: 10,         // Routes shown on map: 10, 25, 100, 250, 500, 1000, or 0=all
+        filtersCollapsed: false
     };
 
     // ========================================================================
@@ -423,12 +424,12 @@
     function initFamilySelect2() {
         // Build family options from i18n keys
         var familyKeys = [
-            'a220','a318','a319','a320','a321',
-            'a300','a310','a330','a340','a350','a380',
-            'b717','b727','b737','b737max','b757',
+            'a220','a320fam',
+            'a300','a330','a340','a350','a380',
+            'b717','b727','b737','b757',
             'b747','b767','b777','b787',
-            'dc10','md11','md80','md90',
-            'crj','erj','atr','dash8',
+            'dc10','md11','md80',
+            'crj','erj','ejet','atr','dash8',
             'gulfstream','citation','challenger','global','learjet','phenom',
             'c130','c17'
         ];
@@ -482,13 +483,31 @@
         // Search button
         $('#routes_search_btn').on('click', function() {
             state.page = 1;
-            state.showAll = false;
             doSearch();
         });
 
         // Clear all button
         $('#routes_clear_btn').on('click', function() {
             clearAllFilters();
+        });
+
+        // Collapse/expand filter panel toggle
+        $('#routes_filters_toggle').on('click', function() {
+            state.filtersCollapsed = !state.filtersCollapsed;
+            var $panel = $('.routes-filters');
+            var $searchRow = $('.routes-search-row');
+            var $icon = $(this).find('i');
+            if (state.filtersCollapsed) {
+                $panel.slideUp(200);
+                $searchRow.slideUp(200);
+                $icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+                $(this).attr('title', PERTII18n.t('common.expand') || 'Expand');
+            } else {
+                $panel.slideDown(200);
+                $searchRow.slideDown(200);
+                $icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+                $(this).attr('title', PERTII18n.t('common.collapse') || 'Collapse');
+            }
         });
     }
 
@@ -796,11 +815,8 @@
                     // Collapse filter sections to give route list more space
                     collapseFilters();
 
-                    // Plot routes on map (cap at 50 for geometry fetch performance)
-                    if (typeof RoutesMap !== 'undefined' && data.routes) {
-                        var mapRoutes = data.routes.length > 50 ? data.routes.slice(0, 50) : data.routes;
-                        RoutesMap.plotRoutes(mapRoutes, data.total_flights || 0);
-                    }
+                    // Plot routes on map, respecting tier limit
+                    plotMapRoutes(data);
                 } else {
                     showError(data.error || PERTII18n.t('error.loadFailed', { resource: 'routes' }));
                 }
@@ -810,6 +826,18 @@
                 showError(PERTII18n.t('error.loadFailed', { resource: 'routes' }));
             }
         });
+    }
+
+    /**
+     * Plot routes on the map, capped to current mapLimit tier.
+     * Updates the route count badge on the map.
+     */
+    function plotMapRoutes(data) {
+        if (typeof RoutesMap === 'undefined' || !data || !data.routes) return;
+        var limit = state.mapLimit;
+        var mapRoutes = (limit === 0) ? data.routes : data.routes.slice(0, limit);
+        RoutesMap.setMaxRoutes(limit === 0 ? 9999 : limit);
+        RoutesMap.plotRoutes(mapRoutes, data.total_flights || 0);
     }
 
     function filtersToQueryString() {
@@ -896,7 +924,7 @@
         params.push('sort=' + state.sort);
         params.push('view=' + state.view);
         params.push('page=' + state.page);
-        params.push('per_page=' + (state.showAll ? 200 : 50));
+        params.push('per_page=200');
 
         return params.join('&');
     }
@@ -904,6 +932,7 @@
     function hasActiveFilters() {
         return state.filters.origins.length > 0 ||
                state.filters.destinations.length > 0 ||
+               state.filters.family.length > 0 ||
                state.filters.aircraft.length > 0 ||
                state.filters.manufacturer.length > 0 ||
                state.filters.weight.length > 0 ||
@@ -935,7 +964,7 @@
             return;
         }
 
-        // Summary bar with Show All toggle
+        // Summary bar with map tier selector
         var $summary = $('<div class="routes-summary"></div>');
         var summaryHtml = '<span><strong>' + data.total_routes.toLocaleString() + '</strong> ' +
             PERTII18n.t('routes.results.totalRoutes') + '</span>' +
@@ -943,19 +972,27 @@
             PERTII18n.t('routes.results.totalFlights') + '</span>';
         $summary.html(summaryHtml);
 
-        // Show All / Show Top toggle
-        if (data.total_routes > 50) {
-            var $showAllBtn = $('<button class="routes-show-all-btn"></button>');
-            $showAllBtn.text(state.showAll
-                ? PERTII18n.t('routes.results.showTop')
-                : PERTII18n.t('routes.results.showAll'));
-            $showAllBtn.on('click', function() {
-                state.showAll = !state.showAll;
-                state.page = 1;
-                doSearch();
+        // Map tier selector
+        var totalRoutes = data.routes ? data.routes.length : 0;
+        var $tierWrap = $('<span class="routes-tier-wrap"></span>');
+        $tierWrap.append('<span class="routes-tier-label">' + PERTII18n.t('routes.results.mapLimit') + '</span>');
+        var tiers = [10, 25, 100, 250, 500, 1000, 0]; // 0 = all
+        tiers.forEach(function(tier) {
+            if (tier !== 0 && totalRoutes < tier) return; // hide tier if fewer results
+            var label = tier === 0
+                ? PERTII18n.t('routes.results.showAll')
+                : PERTII18n.t('routes.results.showTop', { n: tier });
+            var $btn = $('<button class="routes-tier-btn"></button>').text(label);
+            if (state.mapLimit === tier) $btn.addClass('active');
+            $btn.on('click', function() {
+                state.mapLimit = tier;
+                $tierWrap.find('.routes-tier-btn').removeClass('active');
+                $btn.addClass('active');
+                plotMapRoutes(state.results);
             });
-            $summary.append($showAllBtn);
-        }
+            $tierWrap.append($btn);
+        });
+        $summary.append($tierWrap);
         $list.append($summary);
 
         // Controls (sort + view toggle)
@@ -1812,15 +1849,19 @@
         $('.routes-mode-pill[data-target="dest"]').removeClass('active');
         $('.routes-mode-pill[data-target="dest"][data-mode="' + state.filters.destMode + '"]').addClass('active');
 
+        // Family - Select2
+        $('#aircraft_family_select').val(state.filters.family.length > 0 ? state.filters.family : null).trigger('change.select2');
+
         // Aircraft - Select2
+        var $acSelect = $('#aircraft_type_select');
+        $acSelect.val(null).trigger('change.select2'); // clear first
         if (state.filters.aircraft.length > 0) {
-            var $select = $('#aircraft_type_select');
             state.filters.aircraft.forEach(function(val) {
-                if (!$select.find('option[value="' + val + '"]').length) {
-                    $select.append(new Option(val, val, true, true));
+                if (!$acSelect.find('option[value="' + val + '"]').length) {
+                    $acSelect.append(new Option(val, val, true, true));
                 }
             });
-            $select.trigger('change.select2');
+            $acSelect.val(state.filters.aircraft).trigger('change.select2');
         }
 
         // Aircraft - Checkboxes
@@ -1852,14 +1893,15 @@
         });
 
         // Operator - Select2
+        var $airlineSelect = $('#airline_select');
+        $airlineSelect.val(null).trigger('change.select2'); // clear first
         if (state.filters.airline.length > 0) {
-            var $airlineSelect = $('#airline_select');
             state.filters.airline.forEach(function(val) {
                 if (!$airlineSelect.find('option[value="' + val + '"]').length) {
                     $airlineSelect.append(new Option(val, val, true, true));
                 }
             });
-            $airlineSelect.trigger('change.select2');
+            $airlineSelect.val(state.filters.airline).trigger('change.select2');
         }
 
         // Operator - Callsign prefix

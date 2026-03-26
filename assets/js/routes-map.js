@@ -817,10 +817,15 @@ window.RoutesMap = (function() {
         if (map.getSource('airport-markers')) map.removeSource('airport-markers');
     }
 
+    function setMaxRoutes(n) {
+        MAX_MAP_ROUTES = n;
+    }
+
     // Public API
     return {
         init: init,
         plotRoutes: plotRoutes,
+        setMaxRoutes: setMaxRoutes,
         highlightRoute: highlightRoute,
         clearHighlight: clearHighlight,
         highlightMultiple: highlightMultiple,

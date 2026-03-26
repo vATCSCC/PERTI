@@ -26,7 +26,14 @@ include("load/i18n.php");
 <div class="routes-container">
     <!-- Left Panel: Filters + Route List -->
     <div class="routes-left-panel">
-        <!-- Filter Accordion -->
+        <!-- Filter Panel Header (always visible) -->
+        <div class="routes-filters-header">
+            <h5><?= __('routes.filters.title') ?></h5>
+            <button id="routes_filters_toggle" class="routes-filters-toggle" title="<?= __('common.collapse') ?? 'Collapse' ?>">
+                <i class="fas fa-chevron-up"></i>
+            </button>
+        </div>
+        <!-- Filter Accordion (collapsible) -->
         <div class="routes-filters">
             <!-- Location Filter Section -->
             <div class="routes-filter-section">
@@ -126,15 +133,15 @@ include("load/i18n.php");
         <!-- Filter Chips Bar -->
         <div id="routes_filter_chips" class="routes-filter-chips"></div>
 
-        <!-- Search Button -->
-        <button id="routes_search_btn" class="routes-search-btn">
-            <i class="fas fa-search"></i> <?= __('routes.filters.search') ?>
-        </button>
-
-        <!-- Clear All Button -->
-        <button id="routes_clear_btn" class="routes-clear-btn" style="display: none;">
-            <i class="fas fa-times"></i> <?= __('routes.filters.clearAll') ?>
-        </button>
+        <!-- Search Row (collapsible with filters) -->
+        <div class="routes-search-row">
+            <button id="routes_search_btn" class="routes-search-btn">
+                <i class="fas fa-search"></i> <?= __('routes.filters.search') ?>
+            </button>
+            <button id="routes_clear_btn" class="routes-clear-btn" style="display: none;">
+                <i class="fas fa-times"></i> <?= __('routes.filters.clearAll') ?>
+            </button>
+        </div>
 
         <!-- Route List -->
         <div id="routes_list" class="routes-list">
