@@ -80,6 +80,12 @@ include("load/i18n.php");
                                 </div>
                             </div>
                         </div>
+
+                        <!-- DCC Region quick-select pills -->
+                        <div class="routes-filter-group">
+                            <label class="routes-filter-label"><?= __('routes.filters.dccRegion') ?></label>
+                            <div class="routes-region-pills" id="dcc_region_pills"></div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -47,6 +47,27 @@
     };
 
     // ========================================================================
+    // REFERENCE DATA — Alliances & DCC Regions
+    // ========================================================================
+
+    // Airline alliance ICAO codes
+    var ALLIANCES = {
+        star: ['ACA','ANA','ANZ','AUA','AVA','BEL','CCA','CMP','DLH','ETH','EVA','LOT','LZB','MSR','SAS','SAA','SIA','SWR','TAP','TAI','THA','UAL','AIC'],
+        oneworld: ['AAL','BAW','CPA','FIN','IBE','JAL','MAS','QFA','QTR','RJA','SBI','ALK','RAM'],
+        skyteam: ['AEA','AFR','AMX','ARG','CSN','CES','DAL','GAR','KAL','KLM','KQA','MEA','SVA','VIR','VNA']
+    };
+
+    // DCC region → ARTCC codes
+    var DCC_REGIONS = {
+        northeast:   ['ZBW','ZNY','ZDC'],
+        southeast:   ['ZTL','ZJX','ZMA','ZSU'],
+        midwest:     ['ZAU','ZID','ZOB','ZMP'],
+        southCentral:['ZKC','ZME','ZFW','ZHU'],
+        west:        ['ZLA','ZOA','ZSE','ZLC','ZDV','ZAB'],
+        canada:      ['CZEG','CZUL','CZWG','CZVR','CZYZ','CZQX','CZQM']
+    };
+
+    // ========================================================================
     // INITIALIZATION
     // ========================================================================
 
@@ -224,6 +245,36 @@
         $airlineGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.airline') + '</label>');
         var $airlineSelect = $('<select id="airline_select" multiple></select>');
         $airlineGroup.append($airlineSelect);
+
+        // Alliance quick-select pills
+        var $allianceRow = $('<div class="routes-alliance-pills"></div>');
+        $allianceRow.append('<span class="routes-pill-label">' + PERTII18n.t('routes.filters.alliance') + ':</span>');
+        var allianceButtons = [
+            { key: 'star', label: PERTII18n.t('routes.filters.allianceStar') },
+            { key: 'oneworld', label: PERTII18n.t('routes.filters.allianceOneworld') },
+            { key: 'skyteam', label: PERTII18n.t('routes.filters.allianceSkyTeam') }
+        ];
+        allianceButtons.forEach(function(a) {
+            var $pill = $('<span class="routes-quick-pill" data-alliance="' + a.key + '"></span>').text(a.label);
+            $pill.on('click', function() {
+                var codes = ALLIANCES[a.key] || [];
+                // Add each alliance code as a Select2 option and to state
+                var $sel = $('#airline_select');
+                codes.forEach(function(code) {
+                    if (state.filters.airline.indexOf(code) === -1) {
+                        state.filters.airline.push(code);
+                    }
+                    if (!$sel.find('option[value="' + code + '"]').length) {
+                        $sel.append(new Option(code, code, true, true));
+                    }
+                });
+                $sel.val(state.filters.airline).trigger('change.select2');
+                renderFilterChips();
+                updateClearButton();
+            });
+            $allianceRow.append($pill);
+        });
+        $airlineGroup.append($allianceRow);
         $body.append($airlineGroup);
 
         // Callsign prefix input
@@ -263,6 +314,40 @@
     function buildTimeSection() {
         var $body = $('#filter_time .routes-filter-body');
         $body.empty();
+
+        // Time period quick-select pills
+        var $presetGroup = $('<div class="routes-filter-group"></div>');
+        $presetGroup.append('<label class="routes-filter-label">' + PERTII18n.t('routes.filters.timePeriodPresets') + '</label>');
+        var $presetPills = $('<div class="routes-time-presets"></div>');
+        var presets = [
+            { label: PERTII18n.t('routes.filters.timePeriodLastWeek'), days: 7 },
+            { label: PERTII18n.t('routes.filters.timePeriodLastMonth'), days: 30 },
+            { label: PERTII18n.t('routes.filters.timePeriodLast90'), days: 90 },
+            { label: PERTII18n.t('routes.filters.timePeriodLastYear'), days: 365 },
+            { label: PERTII18n.t('routes.filters.timePeriodAll'), days: 0 }
+        ];
+        presets.forEach(function(p) {
+            var $pill = $('<span class="routes-quick-pill"></span>').text(p.label);
+            $pill.on('click', function() {
+                if (p.days === 0) {
+                    state.filters.dateFrom = '';
+                    state.filters.dateTo = '';
+                } else {
+                    var now = new Date();
+                    var from = new Date(now);
+                    from.setUTCDate(from.getUTCDate() - p.days);
+                    state.filters.dateFrom = from.toISOString().slice(0, 10);
+                    state.filters.dateTo = now.toISOString().slice(0, 10);
+                }
+                $('#date_from_input').val(state.filters.dateFrom);
+                $('#date_to_input').val(state.filters.dateTo);
+                renderFilterChips();
+                updateClearButton();
+            });
+            $presetPills.append($pill);
+        });
+        $presetGroup.append($presetPills);
+        $body.append($presetGroup);
 
         // Date range
         var $dateGroup = $('<div class="routes-filter-group"></div>');
@@ -480,6 +565,9 @@
             console.log('[Routes] Mode changed:', target, mode);
         });
 
+        // DCC Region quick-select pills
+        initDccRegionPills();
+
         // Search button
         $('#routes_search_btn').on('click', function() {
             state.page = 1;
@@ -553,6 +641,41 @@
             var pos = this.selectionStart;
             this.value = this.value.toUpperCase();
             this.setSelectionRange(pos, pos);
+        });
+    }
+
+    function initDccRegionPills() {
+        var $container = $('#dcc_region_pills');
+        if (!$container.length) return;
+
+        var regions = [
+            { key: 'northeast', label: PERTII18n.t('routes.filters.regionNortheast') },
+            { key: 'southeast', label: PERTII18n.t('routes.filters.regionSoutheast') },
+            { key: 'midwest', label: PERTII18n.t('routes.filters.regionMidwest') },
+            { key: 'southCentral', label: PERTII18n.t('routes.filters.regionSouthCentral') },
+            { key: 'west', label: PERTII18n.t('routes.filters.regionWest') },
+            { key: 'canada', label: PERTII18n.t('routes.filters.regionCanada') }
+        ];
+
+        regions.forEach(function(r) {
+            var $pill = $('<span class="routes-quick-pill" data-region="' + r.key + '"></span>').text(r.label);
+            $pill.on('click', function() {
+                var codes = DCC_REGIONS[r.key] || [];
+                // Switch dest mode to ARTCC and add region codes
+                state.filters.destMode = 'artcc';
+                $('.routes-mode-pill[data-target="dest"]').removeClass('active');
+                $('.routes-mode-pill[data-target="dest"][data-mode="artcc"]').addClass('active');
+
+                codes.forEach(function(c) {
+                    if (state.filters.destinations.indexOf(c) === -1) {
+                        state.filters.destinations.push(c);
+                    }
+                });
+                renderTags('dest');
+                renderFilterChips();
+                updateClearButton();
+            });
+            $container.append($pill);
         });
     }
 
@@ -1219,7 +1342,7 @@
         }
 
         // Detail sections (populated async)
-        html += '<div id="rid_detail_sections"><div class="rid-loading"><i class="fas fa-spinner fa-spin"></i> Loading details...</div></div>';
+        html += '<div id="rid_detail_sections"><div class="rid-loading"><i class="fas fa-spinner fa-spin"></i> ' + PERTII18n.t('routes.loadingDetails') + '</div></div>';
 
         html += '</div>';
 
