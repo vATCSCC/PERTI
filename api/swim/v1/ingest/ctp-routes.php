@@ -12,9 +12,9 @@
 
 // ── Bootstrap ─────────────────────────────────────────────────────────
 // Load MySQL + PostGIS BEFORE SWIM auth (auth.php would set PERTI_SWIM_ONLY)
-require_once __DIR__ . '/../../../load/config.php';
-require_once __DIR__ . '/../../../load/connect.php';
-require_once __DIR__ . '/../../../load/services/CTPPlaybookSync.php';
+require_once __DIR__ . '/../../../../load/config.php';
+require_once __DIR__ . '/../../../../load/connect.php';
+require_once __DIR__ . '/../../../../load/services/CTPPlaybookSync.php';
 require_once __DIR__ . '/../auth.php';
 
 // ── Auth ──────────────────────────────────────────────────────────────
