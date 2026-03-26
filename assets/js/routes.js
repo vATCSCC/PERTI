@@ -1264,25 +1264,32 @@
 
             var avgDist = group.totalFlights > 0 ? Math.round(group.totalDistance / group.totalFlights) : 0;
             var avgEte = group.totalFlights > 0 ? Math.round(group.totalEte / group.totalFlights) : 0;
-            var eteStr = '';
-            if (avgEte > 0) {
-                eteStr = Math.floor(avgEte / 60) + 'h' + Math.round(avgEte % 60) + 'm';
+            var eteStr = avgEte > 0 ? Math.floor(avgEte / 60) + 'h' + Math.round(avgEte % 60) + 'm' : '';
+            var avgAlt = group.altitudeFlights > 0 ? Math.round(group.totalAltitude / group.altitudeFlights) : 0;
+            var altStr = avgAlt > 0 ? 'FL' + Math.round(avgAlt / 100) : '';
+
+            // Build stats HTML
+            var statsHtml = '<span class="routes-group-stat">' + PERTII18n.t('routes.grouping.flights', { count: group.totalFlights.toLocaleString() }) + '</span>' +
+                '<span class="routes-group-stat">' + (group.routeCount !== 1
+                    ? PERTII18n.t('routes.grouping.routes', { count: group.routeCount })
+                    : PERTII18n.t('routes.grouping.route', { count: group.routeCount })) + '</span>';
+            if (group.totalVariants > group.routeCount) {
+                statsHtml += '<span class="routes-group-stat">' + group.totalVariants + ' ' + PERTII18n.t('routes.results.variants') + '</span>';
             }
+            if (avgDist > 0) statsHtml += '<span class="routes-group-stat">' + avgDist + ' nm</span>';
+            if (eteStr) statsHtml += '<span class="routes-group-stat">' + eteStr + '</span>';
+            if (altStr) statsHtml += '<span class="routes-group-stat">' + altStr + '</span>';
+            if (group.firstFiled && group.lastFiled) {
+                statsHtml += '<span class="routes-group-stat routes-group-stat-date">' + formatDate(group.firstFiled) + ' \u2013 ' + formatDate(group.lastFiled) + '</span>';
+            }
+            statsHtml += '<span class="routes-group-pct">' + groupPct.toFixed(1) + '%</span>';
 
             $header.html(
                 '<div class="routes-group-header-left">' +
                     '<i class="fas fa-chevron-right routes-group-chevron"></i>' +
                     '<span class="routes-group-label">' + headerLabel + '</span>' +
                 '</div>' +
-                '<div class="routes-group-header-right">' +
-                    '<span class="routes-group-stat">' + PERTII18n.t('routes.grouping.flights', { count: group.totalFlights.toLocaleString() }) + '</span>' +
-                    '<span class="routes-group-stat">' + (group.routeCount !== 1
-                        ? PERTII18n.t('routes.grouping.routes', { count: group.routeCount })
-                        : PERTII18n.t('routes.grouping.route', { count: group.routeCount })) + '</span>' +
-                    (avgDist > 0 ? '<span class="routes-group-stat">' + avgDist + ' nm</span>' : '') +
-                    (eteStr ? '<span class="routes-group-stat">' + eteStr + '</span>' : '') +
-                    '<span class="routes-group-pct">' + groupPct.toFixed(1) + '%</span>' +
-                '</div>'
+                '<div class="routes-group-header-right">' + statsHtml + '</div>'
             );
 
             // Routes container (collapsed by default)
@@ -1344,6 +1351,11 @@
                     totalFlights: 0,
                     totalDistance: 0,
                     totalEte: 0,
+                    totalAltitude: 0,
+                    altitudeFlights: 0,
+                    totalVariants: 0,
+                    firstFiled: null,
+                    lastFiled: null,
                     routeCount: 0,
                     origins: {},
                     dests: {},
@@ -1358,7 +1370,19 @@
             g.totalFlights += fc;
             g.totalDistance += (parseFloat(route.avg_distance_nm) || 0) * fc;
             g.totalEte += (parseFloat(route.avg_ete_minutes) || 0) * fc;
+            g.totalVariants += parseInt(route.variant_count) || 1;
             g.routeCount++;
+
+            // Weighted altitude (only count routes with altitude data)
+            var alt = parseInt(route.median_altitude_ft) || 0;
+            if (alt > 0) {
+                g.totalAltitude += alt * fc;
+                g.altitudeFlights += fc;
+            }
+
+            // Date range
+            if (route.first_filed && (!g.firstFiled || route.first_filed < g.firstFiled)) g.firstFiled = route.first_filed;
+            if (route.last_filed && (!g.lastFiled || route.last_filed > g.lastFiled)) g.lastFiled = route.last_filed;
 
             // Track unique origins/dests for origin/dest grouping labels
             if (route.origin_icao) g.origins[route.origin_icao] = true;

@@ -1742,6 +1742,11 @@ body.routes-resizing .maplibregl-map {
     white-space: nowrap;
 }
 
+.routes-group-stat-date {
+    font-size: 0.7rem;
+    color: #777;
+}
+
 .routes-group-pct {
     font-size: 0.75rem;
     color: #888;
