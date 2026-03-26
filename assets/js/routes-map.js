@@ -15,6 +15,7 @@ window.RoutesMap = (function() {
     var multiSelectDimIds = [];
     var routeCount = 0; // routes successfully plotted
     var activePopup = null; // current picker popup
+    var routeEventsRegistered = false; // prevent duplicate map event handlers
     var MAX_MAP_ROUTES = 25;
 
     // Multi-select colors (up to 6)
@@ -487,9 +488,12 @@ window.RoutesMap = (function() {
             }
         });
 
-        // Click handler for route selection — wide hitbox + multi-route picker
+        // Click handler for route selection — registered once only
+        if (!routeEventsRegistered) {
+        routeEventsRegistered = true;
         map.on('click', function(e) {
             if (activePopup) { activePopup.remove(); activePopup = null; }
+            if (!map.getLayer('routes-lines')) return;
 
             var bbox = [[e.point.x - 8, e.point.y - 8], [e.point.x + 8, e.point.y + 8]];
             var features = map.queryRenderedFeatures(bbox, { layers: ['routes-lines'] });
@@ -558,16 +562,19 @@ window.RoutesMap = (function() {
 
         // Cursor change on hover — wide hitbox
         map.on('mousemove', function(e) {
+            if (!map.getLayer('routes-lines')) { map.getCanvas().style.cursor = ''; return; }
             var bbox = [[e.point.x - 8, e.point.y - 8], [e.point.x + 8, e.point.y + 8]];
-            var features = map.queryRenderedFeatures(bbox, { layers: ['routes-lines'] });
-            map.getCanvas().style.cursor = (features && features.length > 0) ? 'pointer' : '';
+            var feats = map.queryRenderedFeatures(bbox, { layers: ['routes-lines'] });
+            map.getCanvas().style.cursor = (feats && feats.length > 0) ? 'pointer' : '';
         });
+        } // end routeEventsRegistered guard
 
         // Fit bounds to show all routes
         fitToRoutes(features);
 
-        // Show airport markers after geometry is loaded
-        showAirportMarkers(currentRoutes);
+        // Show airport markers for routes actually displayed on map
+        var displayedRoutes = currentRoutes.slice(0, MAX_MAP_ROUTES);
+        showAirportMarkers(displayedRoutes);
     }
 
     function highlightRoute(dimId) {

@@ -694,6 +694,10 @@ body.routes-page .cs-footer {
     gap: 6px;
 }
 
+.routes-item.routes-item-offmap {
+    opacity: 0.35;
+}
+
 .routes-item.freq-high {
     border-left-color: #00b4d8;
 }

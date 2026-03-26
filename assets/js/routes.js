@@ -977,6 +977,21 @@
         RoutesMap.plotRoutes(data.routes, data.total_flights || 0);
     }
 
+    /**
+     * Dim route list items that fall outside the current map limit tier.
+     */
+    function applyMapLimitDimming() {
+        var limit = state.mapLimit || 9999;
+        $('#routes_list .routes-item').each(function() {
+            var idx = parseInt($(this).attr('data-route-idx'));
+            if (limit > 0 && idx >= limit) {
+                $(this).addClass('routes-item-offmap');
+            } else {
+                $(this).removeClass('routes-item-offmap');
+            }
+        });
+    }
+
     function filtersToQueryString() {
         var params = [];
 
@@ -1126,6 +1141,7 @@
                 $tierWrap.find('.routes-tier-btn').removeClass('active');
                 $btn.addClass('active');
                 plotMapRoutes(state.results);
+                applyMapLimitDimming();
             });
             $tierWrap.append($btn);
         });
@@ -1177,10 +1193,12 @@
         $list.append($controls);
 
         // Route items
-        data.routes.forEach(function(route) {
+        data.routes.forEach(function(route, idx) {
             var $item = buildRouteItem(route);
+            $item.attr('data-route-idx', idx);
             $list.append($item);
         });
+        applyMapLimitDimming();
 
         // Load more button
         if (data.page < data.total_pages) {
