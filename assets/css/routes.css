@@ -420,12 +420,21 @@ body.routes-page .cs-footer {
     border: 1px solid #239BCD !important;
     color: #fff !important;
     font-size: 0.75rem !important;
-    padding: 1px 6px !important;
+    padding: 1px 20px 1px 6px !important;
     margin: 2px !important;
+    position: relative !important;
 }
 
 .select2-container .select2-selection--multiple .select2-selection__choice__remove {
     color: #fff !important;
+    position: absolute !important;
+    right: 2px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 0.85rem !important;
+    line-height: 1 !important;
+    padding: 0 2px !important;
+    cursor: pointer !important;
 }
 
 .select2-container .select2-selection--multiple .select2-search__field {
