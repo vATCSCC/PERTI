@@ -2,7 +2,7 @@ name: PERTI Site Monitor
 
 on:
   schedule:
-    - cron: '* * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
     inputs:
       force_alert:
@@ -24,29 +24,53 @@ jobs:
       id: checks
       env:
         HEALTH_KEY: ${{ secrets.MONITORING_API_KEY }}
+        SWIM_KEY: ${{ secrets.SWIM_API_KEY }}
       run: |
         check() {
-          local name=$1 url=$2 type=$3 accept=${4:-2xx}
+          local name=$1 url=$2 type=$3 accept=${4:-2xx} auth_mode=${5:-monitor}
           local body="/tmp/body_${name}"
 
+          local -a HDRS
           HDRS=(-H "Accept: application/json")
-          [[ -n "$HEALTH_KEY" ]] && HDRS+=(-H "X-API-Key: $HEALTH_KEY")
-
-          local raw
-          raw=$(curl -sS -w '%{http_code} %{time_starttransfer} %{time_total} %{size_download}' \
-            --max-time "$TIMEOUT" "${HDRS[@]}" -o "$body" "$url" 2>/dev/null) || true
-
-          local code ttfb_s total_s size_raw
-          read -r code ttfb_s total_s size_raw <<< "${raw:-000 0 0 0}"
-          local ms=$(awk "BEGIN{printf \"%d\", ${total_s:-0} * 1000}")
-          local ttfb=$(awk "BEGIN{printf \"%d\", ${ttfb_s:-0} * 1000}")
-
-          local ok=fail
-          case "$accept" in
-            2xx)      [[ "$code" =~ ^2[0-9][0-9]$ ]] && ok=ok ;;
-            2xx+auth) [[ "$code" =~ ^(2[0-9][0-9]|302|401|403)$ ]] && ok=ok ;;
+          case "$auth_mode" in
+            monitor) [[ -n "$HEALTH_KEY" ]] && HDRS+=(-H "X-API-Key: $HEALTH_KEY") ;;
+            swim)    [[ -n "$SWIM_KEY" ]]   && HDRS+=(-H "Authorization: Bearer $SWIM_KEY") ;;
+            none)    ;;
           esac
-          [[ "$type" == api && "$ok" == ok ]] && ! jq -e . "$body" &>/dev/null && ok=fail
+
+          run_once() {
+            curl -sS -w '%{http_code} %{time_starttransfer} %{time_total} %{size_download}' \
+              --max-time "$TIMEOUT" "${HDRS[@]}" -o "$body" "$url" 2>/dev/null || true
+          }
+
+          eval_result() {
+            local code=$1 current_type=$2 current_accept=$3 current_body=$4
+            local state=fail
+            case "$current_accept" in
+              2xx) [[ "$code" =~ ^2[0-9][0-9]$ ]] && state=ok ;;
+              # 2xx+auth treats auth redirects/challenges as healthy for gated pages.
+              2xx+auth) [[ "$code" =~ ^(2[0-9][0-9]|302|401|403)$ ]] && state=ok ;;
+            esac
+            if [[ "$current_type" == api && "$state" == ok ]] && ! jq -e . "$current_body" &>/dev/null; then
+              state=fail
+            fi
+            echo "$state"
+          }
+
+          local raw code ttfb_s total_s size_raw ms ttfb ok
+          raw=$(run_once)
+          read -r code ttfb_s total_s size_raw <<< "${raw:-000 0 0 0}"
+          ok=$(eval_result "$code" "$type" "$accept" "$body")
+
+          if [[ "$ok" != ok ]]; then
+            sleep 3
+            raw=$(run_once)
+            read -r code ttfb_s total_s size_raw <<< "${raw:-000 0 0 0}"
+            ok=$(eval_result "$code" "$type" "$accept" "$body")
+          fi
+
+          ms=$(awk "BEGIN{printf \"%d\", ${total_s:-0} * 1000}")
+          ttfb=$(awk "BEGIN{printf \"%d\", ${ttfb_s:-0} * 1000}")
 
           jq -nc --arg n "$name" --arg s "$ok" --arg c "$code" \
             --argjson ms "$ms" --argjson ttfb "$ttfb" --arg t "$type" \
@@ -54,17 +78,38 @@ jobs:
         }
 
         # All checks in parallel — total wall time = slowest single request
+        # Pages
         check homepage "$SITE_URL/"                              page 2xx      &
         check jatoc    "$SITE_URL/jatoc.php"                     page 2xx      &
         check nod      "$SITE_URL/nod.php"                       page 2xx      &
         check gdt      "$SITE_URL/gdt.php"                       page 2xx+auth &
         check route    "$SITE_URL/route.php"                     page 2xx+auth &
-        check stats    "$SITE_URL/api/adl/stats.php"             api  2xx      &
-        check flights  "$SITE_URL/api/adl/current.php?limit=5"   api  2xx      &
-        check health   "$SITE_URL/api/system/health.php"         api  2xx      &
-        check tmi      "$SITE_URL/api/nod/tmi_active.php"        api  2xx      &
-        check sstatus  "$SITE_URL/api/stats/status.php"          api  2xx      &
-        check realtime "$SITE_URL/api/stats/realtime.php"       api  2xx      &
+        check playbook "$SITE_URL/playbook.php"                  page 2xx+auth &
+        check demand   "$SITE_URL/demand.php"                    page 2xx+auth &
+        check status   "$SITE_URL/status.php"                    page 2xx+auth &
+        check review   "$SITE_URL/review.php"                    page 2xx+auth &
+        check swim     "$SITE_URL/swim.php"                      page 2xx      &
+
+        # APIs
+        check stats        "$SITE_URL/api/adl/stats.php"                  api 2xx &
+        check flights      "$SITE_URL/api/adl/current.php?limit=5"        api 2xx &
+        check health       "$SITE_URL/api/system/health.php"              api 2xx &
+        check tmi          "$SITE_URL/api/nod/tmi_active.php"             api 2xx &
+        check sstatus      "$SITE_URL/api/stats/status.php"               api 2xx &
+        check realtime     "$SITE_URL/api/stats/realtime.php"             api 2xx &
+        check swim_flights "$SITE_URL/api/swim/v1/flights.php?limit=1"    api 2xx swim &
+        check swim_health  "$SITE_URL/api/swim/v1/health.php"             api 2xx swim &
+        check tmi_active   "$SITE_URL/api/tmi/active.php"                 api 2xx &
+        # Demand summary across representative major airports
+        check demand_kjfk  "$SITE_URL/api/demand/summary.php?airport=KJFK" api 2xx &
+        check demand_egll  "$SITE_URL/api/demand/summary.php?airport=EGLL" api 2xx &
+        check demand_omdb  "$SITE_URL/api/demand/summary.php?airport=OMDB" api 2xx &
+        check demand_wsss  "$SITE_URL/api/demand/summary.php?airport=WSSS" api 2xx &
+        check demand_sbgr  "$SITE_URL/api/demand/summary.php?airport=SBGR" api 2xx &
+        check demand_rjaa  "$SITE_URL/api/demand/summary.php?airport=RJAA" api 2xx &
+        check demand_yssy  "$SITE_URL/api/demand/summary.php?airport=YSSY" api 2xx &
+        check gdt_active   "$SITE_URL/api/gdt/programs/active.php"        api 2xx &
+        check playbook_api "$SITE_URL/api/data/playbook/list.php?limit=1" api 2xx &
         wait
 
         jq -s '.' /tmp/r_* > /tmp/results.json
@@ -86,8 +131,8 @@ jobs:
           echo "avg_ttfb=$AVG_TTFB"; echo "max_ttfb=$MAX_TTFB"
         } >> "$GITHUB_OUTPUT"
 
-        if   (( FAILS >= 5 )); then SEV=CRITICAL
-        elif (( FAILS >= 2 )); then SEV=MAJOR
+        if   (( FAILS * 100 >= TOTAL * 40 )); then SEV=CRITICAL
+        elif (( FAILS * 100 >= TOTAL * 20 )); then SEV=MAJOR
         elif (( FAILS >= 1 )); then SEV=WARNING
         elif (( SLOW  >= 1 )); then SEV=SLOW
         else                        SEV=HEALTHY; fi
@@ -108,7 +153,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /tmp/monitor_state
-        key: monitor-state-${{ github.run_id }}
+        key: monitor-state-${{ github.run_number }}
         restore-keys: monitor-state-
 
     - name: Detect State Change
