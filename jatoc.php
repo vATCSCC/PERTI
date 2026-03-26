@@ -28,7 +28,7 @@ $user_name = $logged_in ? trim(($_SESSION['VATSIM_FIRST_NAME'] ?? '') . ' ' . ($
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php $page_title = "JATOC"; include("load/header.php"); ?>
+    <?php $page_title = __('jatoc.pageTitle'); include("load/header.php"); ?>
     <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
     <link rel="stylesheet" href="assets/css/info-bar.css<?= _v('assets/css/info-bar.css') ?>">
     <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>

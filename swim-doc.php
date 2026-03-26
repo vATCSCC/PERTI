@@ -228,7 +228,7 @@ $rendered_html = $error_message ? '' : render_markdown($markdown_content);
 <html lang="en">
 <head>
     <?php
-        $page_title = $file_info['title'] . " - SWIM Documentation";
+        $page_title = $file_info['title'] . " - " . __('swim.docTitleSuffix');
         include("load/header.php");
     ?>
     <style>

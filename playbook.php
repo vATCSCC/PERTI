@@ -38,7 +38,7 @@ include("sessions/handler.php");
 <html lang="en">
 <head>
     <?php
-        $page_title = "Playbook";
+        $page_title = __('playbook.title');
         include("load/header.php");
     ?>
 

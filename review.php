@@ -16,7 +16,7 @@ include("sessions/handler.php");
 
     if (!$id || !is_numeric($id)) {
         http_response_code(400);
-        echo '<h3 class="text-center mt-5">No plan ID specified. Please select a plan from the <a href="index.php">home page</a>.</h3>';
+        echo '<h3 class="text-center mt-5">' . __('review.error.noPlanId') . '</h3>';
         exit;
     }
 
@@ -43,7 +43,7 @@ include("sessions/handler.php");
 
     if (!$plan_info) {
         http_response_code(404);
-        echo '<h3 class="text-center mt-5">Plan not found.</h3>';
+        echo '<h3 class="text-center mt-5">' . __('review.error.planNotFound') . '</h3>';
         exit;
     }
 
@@ -68,7 +68,7 @@ include("sessions/handler.php");
 
 <head>
     <?php
-        $page_title = "TMR";
+        $page_title = __('review.pageTitle');
         include("load/header.php");
     ?>
 

@@ -54,7 +54,7 @@
 
     <!-- Import CSS -->
     <?php
-        $page_title = "Schedule";
+        $page_title = __('schedule.pageTitle');
         include("load/header.php");
     ?>
 

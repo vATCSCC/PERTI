@@ -162,7 +162,7 @@ if ($event && $event['start_utc'] && $event['end_utc']) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php $page_title = "Event AAR"; include("load/header.php"); ?>
+    <?php $page_title = __('eventAar.pageTitle'); include("load/header.php"); ?>
     <style>
         .hourly-grid {
             border: 1px solid #dee2e6;

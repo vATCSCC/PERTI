@@ -53,7 +53,7 @@
 <html lang="en">
 
 <head>
-    <?php $page_title = "SUA"; include("load/header.php"); ?>
+    <?php $page_title = __('sua.pageTitle'); include("load/header.php"); ?>
 
     <style>
         .sua-browser {

@@ -8,9 +8,9 @@ window.AdvisoryConfig = (function() {
 
     const STORAGE_KEY = 'perti_advisory_org';
     const ORG_TYPES = {
-        DCC:   { prefix: 'vATCSCC', facility: 'DCC',   name: 'US DCC' },
-        NOC:   { prefix: 'CANOC',   facility: 'NOC',   name: 'Canadian NOC' },
-        ECFMP: { prefix: 'ECFMP',   facility: 'ECFMP', name: 'ECFMP' },
+        DCC:   { prefix: 'vATCSCC', facility: 'DCC',   nameKey: 'advisoryConfig.usDcc',       fallback: 'US DCC' },
+        NOC:   { prefix: 'CANOC',   facility: 'NOC',   nameKey: 'advisoryConfig.canadianNoc', fallback: 'Canadian NOC' },
+        ECFMP: { prefix: 'ECFMP',   facility: 'ECFMP', nameKey: 'advisoryConfig.ecfmp',       fallback: 'ECFMP' },
     };
     const DEFAULT_ORG = 'DCC';
 
@@ -40,7 +40,12 @@ window.AdvisoryConfig = (function() {
     }
 
     function getOrgName() {
-        return ORG_TYPES[getOrgType()].name;
+        var org = ORG_TYPES[getOrgType()];
+        if (typeof PERTII18n !== 'undefined') {
+            var translated = PERTII18n.t(org.nameKey);
+            if (translated !== org.nameKey) return translated;
+        }
+        return org.fallback;
     }
 
     function showConfigModal() {

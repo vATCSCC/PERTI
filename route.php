@@ -15,7 +15,7 @@ $is_canoc = (get_org_code() === 'canoc');
 
     <!-- Import CSS -->
     <?php
-        $page_title = "Route Plotter";
+        $page_title = __('route.pageTitle');
         include("load/header.php");
     ?>
 

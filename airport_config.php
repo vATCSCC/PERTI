@@ -40,7 +40,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
-        $page_title = "Airport Configuration";
+        $page_title = __('airportConfig.pageTitle');
         include("load/header.php");
     ?>
 

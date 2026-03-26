@@ -49,7 +49,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
-        $page_title = "Plan";
+        $page_title = __('plan.pageTitle');
         include("load/header.php");
     ?>
     <link rel="stylesheet" href="assets/css/initiative_timeline.css<?= _v('assets/css/initiative_timeline.css') ?>">

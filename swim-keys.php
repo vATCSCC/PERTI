@@ -170,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 <html lang="en">
 <head>
     <?php
-        $page_title = "SWIM API Keys";
+        $page_title = __('swim.keysPageTitle');
         include("load/header.php");
     ?>
     <style>

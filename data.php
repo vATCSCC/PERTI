@@ -65,7 +65,7 @@ include("sessions/handler.php");
 
     <!-- Import CSS -->
     <?php
-        $page_title = "Planning Data";
+        $page_title = __('data.pageTitle');
         include("load/header.php");
     ?>
 

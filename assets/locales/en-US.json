@@ -10,6 +10,7 @@
   },
   "advisoryConfig": {
     "canadianNoc": "Canadian NOC",
+    "ecfmp": "ECFMP",
     "usDcc": "US DCC"
   },
   "aircraft": {
@@ -18,9 +19,48 @@
     "legendWeightL": "L (Large)",
     "legendWeightS": "S (Small)",
     "one": "{count} aircraft",
-    "other": "{count} aircraft"
+    "other": "{count} aircraft",
+    "families": {
+      "a220": "Airbus A220",
+      "a318": "Airbus A318",
+      "a319": "Airbus A319",
+      "a320": "Airbus A320",
+      "a321": "Airbus A321",
+      "a300": "Airbus A300",
+      "a310": "Airbus A310",
+      "a330": "Airbus A330",
+      "a340": "Airbus A340",
+      "a350": "Airbus A350",
+      "a380": "Airbus A380",
+      "b717": "Boeing 717",
+      "b727": "Boeing 727",
+      "b737": "Boeing 737 Classic/NG",
+      "b737max": "Boeing 737 MAX",
+      "b757": "Boeing 757",
+      "b747": "Boeing 747",
+      "b767": "Boeing 767",
+      "b777": "Boeing 777",
+      "b787": "Boeing 787",
+      "dc10": "Douglas DC-10",
+      "md11": "McDonnell Douglas MD-11",
+      "md80": "McDonnell Douglas MD-80",
+      "md90": "McDonnell Douglas MD-90",
+      "crj": "Bombardier CRJ",
+      "erj": "Embraer E-Jet",
+      "atr": "ATR",
+      "dash8": "De Havilland Dash 8",
+      "gulfstream": "Gulfstream",
+      "citation": "Cessna Citation",
+      "challenger": "Bombardier Challenger",
+      "global": "Bombardier Global",
+      "learjet": "Learjet",
+      "phenom": "Embraer Phenom",
+      "c130": "Lockheed C-130",
+      "c17": "Boeing C-17"
+    }
   },
   "airportConfig": {
+    "pageTitle": "Airport Configuration",
     "page": {
       "activate": "Activate",
       "addConfig": "Add Config",
@@ -186,6 +226,9 @@
       "subAreas": "Sub-Areas",
       "deepSubAreas": "Deep Sub-Areas"
     }
+  },
+  "data": {
+    "pageTitle": "Planning Data"
   },
   "dccRegion": {
     "canada": "Canada",
@@ -1079,6 +1122,7 @@
     "updateFailed": "Failed to update {resource}"
   },
   "eventAar": {
+    "pageTitle": "Event AAR",
     "page": {
       "actualArr": "Actual Arr",
       "actualDep": "Actual Dep",
@@ -2412,6 +2456,7 @@
     }
   },
   "jatoc": {
+    "pageTitle": "JATOC",
     "actions": {
       "addUpdates": "add updates",
       "changeOpsLevel": "change Ops Level",
@@ -3030,6 +3075,7 @@
     "allAlreadyAdded": "All selected routes are already in the textarea."
   },
   "nod": {
+    "pageTitle": "NAS Operations Dashboard",
     "advisories": {
       "areaLabel": "Area",
       "by": "by",
@@ -4422,6 +4468,8 @@
       "hourRange": "Hour (UTC)",
       "season": "Season",
       "year": "Year",
+      "aircraftFamily": "Aircraft Family",
+      "familyPlaceholder": "e.g., A320, B737",
       "aircraftType": "Aircraft Type",
       "weightSmall": "Small",
       "weightLarge": "Large",
@@ -4710,6 +4758,11 @@
     "updatedToStatus": "Updated to {status}"
   },
   "review": {
+    "error": {
+      "noPlanId": "No plan ID specified. Please select a plan from the <a href=\"index.php\">home page</a>.",
+      "planNotFound": "Plan not found."
+    },
+    "pageTitle": "TMR",
     "comments": {
       "addError": {
         "text": "There was an error in adding these score comments.",
@@ -4892,6 +4945,7 @@
     }
   },
   "route": {
+    "pageTitle": "Route Plotter",
     "addToTextarea": "Add to textarea",
     "addedRoute": "Route added",
     "addedRoutes": "{count} routes added",
@@ -5359,6 +5413,7 @@
     }
   },
   "schedule": {
+    "pageTitle": "Schedule",
     "assignment": {
       "editFailed": "Not Edited",
       "editFailedText": "There was an error in editing this event's team schedule.",
@@ -5503,6 +5558,7 @@
     }
   },
   "simulator": {
+    "pageTitle": "ATFM Simulator",
     "page": {
       "aircraftLabel": "Aircraft:",
       "aircraftList": "Aircraft",
@@ -6307,6 +6363,7 @@
     "zoneTransitions": "Zone Transitions"
   },
   "sua": {
+    "pageTitle": "SUA",
     "activate": "Activate",
     "activationCancelled": "Activation cancelled",
     "activationScheduled": "Activation scheduled",
@@ -6509,6 +6566,10 @@
     }
   },
   "swim": {
+    "docTitleSuffix": "SWIM Documentation",
+    "docsPageTitle": "SWIM Technical Documentation",
+    "keysPageTitle": "SWIM API Keys",
+    "pageTitle": "SWIM API",
     "doc": {
       "allDocumentation": "All Documentation",
       "backToIndex": "Back to Documentation Index",

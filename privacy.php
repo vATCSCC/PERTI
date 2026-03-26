@@ -9,7 +9,7 @@ include("load/i18n.php");
 
         <!-- Import CSS -->
         <?php
-            $page_title = "Privacy Policy";
+            $page_title = __('privacy.title');
             include("load/header.php");
         ?>
 

@@ -23,7 +23,7 @@ include("load/i18n.php");
 <html lang="en">
 <head>
     <?php
-        $page_title = "SWIM API";
+        $page_title = __('swim.pageTitle');
         include("load/header.php");
     ?>
     <style>
