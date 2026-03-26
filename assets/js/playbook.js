@@ -4038,7 +4038,9 @@
                 }
                 var fcOpts = window._pbFacilityCounts ? {
                     facilityCounts: window._pbFacilityCounts,
+                    facilityCountsUnique: window._pbFacilityCountsUnique || null,
                     totalRoutes: window._pbFacilityTotalRoutes || 0,
+                    uniqueRoutes: window._pbFacilityUniqueRoutes || 0,
                     playName: window._pbFacilityPlayName || '',
                     coverage: window._pbFacilityCoverage || null,
                     sectorArtccMap: (window._pbFacilityCoverage || {}).sector_artcc_map || null,
