@@ -1251,7 +1251,7 @@
         var depFixes = data.stats && data.stats.dep_fix_distribution;
         if (depFixes && depFixes.length > 0) {
             html += '<div class="rid-section">';
-            html += '<div class="rid-section-title">Departure Fix</div>';
+            html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.departureProcedure') + '</div>';
             html += '<div class="rid-bar-list">';
             var maxDf = Math.max.apply(null, depFixes.map(function(a) { return parseInt(a.cnt); }));
             depFixes.slice(0, 8).forEach(function(a) {
@@ -1269,7 +1269,7 @@
         var arrFixes = data.stats && data.stats.arr_fix_distribution;
         if (arrFixes && arrFixes.length > 0) {
             html += '<div class="rid-section">';
-            html += '<div class="rid-section-title">Arrival Fix</div>';
+            html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.arrivalProcedure') + '</div>';
             html += '<div class="rid-bar-list">';
             var maxAf = Math.max.apply(null, arrFixes.map(function(a) { return parseInt(a.cnt); }));
             arrFixes.slice(0, 8).forEach(function(a) {

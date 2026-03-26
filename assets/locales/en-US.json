@@ -4495,8 +4495,10 @@
       "airlineMix": "Airline Mix",
       "monthlyTrend": "Monthly Trend",
       "altitudeDistribution": "Altitude Distribution",
+      "departureProcedure": "Departure Procedure",
+      "arrivalProcedure": "Arrival Procedure",
       "rawRoute": "Raw Route",
-      "count": "Count",
+      "count": "#",
       "lastFiled": "Last Filed"
     },
     "map": {
@@ -4506,7 +4508,18 @@
       "low": "Low (<3%)",
       "boundaries": "Boundaries",
       "artcc": "ARTCC",
-      "tracon": "TRACON"
+      "tracon": "TRACON",
+      "overlays": "Overlays",
+      "artccBoundaries": "ARTCC Boundaries",
+      "artccLabels": "ARTCC Labels",
+      "artccHierarchy": "ARTCC Hierarchy",
+      "superCenters": "Super Centers",
+      "subAreas": "Sub Areas",
+      "deepSubAreas": "Deep Sub Areas",
+      "sectors": "Sectors",
+      "highSectors": "High Sectors",
+      "lowSectors": "Low Sectors",
+      "superhighSectors": "Superhigh Sectors"
     }
   },
   "privacy": {

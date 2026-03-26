@@ -217,7 +217,7 @@ window.RoutesMap = (function() {
         // Toggle button
         var toggleBtn = document.createElement('div');
         toggleBtn.className = 'rmap-layer-toggle';
-        toggleBtn.innerHTML = '<i class="fas fa-layer-group"></i> Overlays';
+        toggleBtn.innerHTML = '<i class="fas fa-layer-group"></i> ' + PERTII18n.t('routes.map.overlays');
         toggleBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             var list = panel.querySelector('.rmap-layer-list');
@@ -242,15 +242,15 @@ window.RoutesMap = (function() {
         }
 
         var layers = [
-            { id: 'artcc', label: 'ARTCC Boundaries', layers: ['artcc-lines'], checked: true },
-            { id: 'artcc_labels', label: 'ARTCC Labels', layers: ['artcc-labels'], checked: true },
-            { id: 'artcc_super', label: 'Super Centers', layers: ['artcc-super-lines'], checked: false, separator: 'ARTCC Hierarchy' },
-            { id: 'artcc_sub', label: 'Sub Areas', layers: ['artcc-sub-lines'], checked: false },
-            { id: 'artcc_deep', label: 'Deep Sub Areas', layers: ['artcc-deep-lines'], checked: false },
-            { id: 'tracon', label: 'TRACON', layers: ['tracon-lines'], checked: false, separator: 'Sectors' },
-            { id: 'high', label: 'High Sectors', layers: ['high-sector-lines'], checked: false },
-            { id: 'low', label: 'Low Sectors', layers: ['low-sector-lines'], checked: false },
-            { id: 'superhigh', label: 'Superhigh Sectors', layers: ['superhigh-sector-lines'], checked: false }
+            { id: 'artcc', label: PERTII18n.t('routes.map.artccBoundaries'), layers: ['artcc-lines'], checked: true },
+            { id: 'artcc_labels', label: PERTII18n.t('routes.map.artccLabels'), layers: ['artcc-labels'], checked: true },
+            { id: 'artcc_super', label: PERTII18n.t('routes.map.superCenters'), layers: ['artcc-super-lines'], checked: false, separator: PERTII18n.t('routes.map.artccHierarchy') },
+            { id: 'artcc_sub', label: PERTII18n.t('routes.map.subAreas'), layers: ['artcc-sub-lines'], checked: false },
+            { id: 'artcc_deep', label: PERTII18n.t('routes.map.deepSubAreas'), layers: ['artcc-deep-lines'], checked: false },
+            { id: 'tracon', label: PERTII18n.t('routes.map.tracon'), layers: ['tracon-lines'], checked: false, separator: PERTII18n.t('routes.map.sectors') },
+            { id: 'high', label: PERTII18n.t('routes.map.highSectors'), layers: ['high-sector-lines'], checked: false },
+            { id: 'low', label: PERTII18n.t('routes.map.lowSectors'), layers: ['low-sector-lines'], checked: false },
+            { id: 'superhigh', label: PERTII18n.t('routes.map.superhighSectors'), layers: ['superhigh-sector-lines'], checked: false }
         ];
 
         layers.forEach(function(layer) {
@@ -390,6 +390,26 @@ window.RoutesMap = (function() {
         });
     }
 
+    /**
+     * Unwrap coordinates that cross the antimeridian so MapLibre
+     * draws the short arc instead of wrapping around the globe.
+     * Allows longitudes outside [-180,180].
+     */
+    function unwrapAntimeridian(coords) {
+        if (coords.length < 2) return coords;
+        var result = [coords[0].slice()];
+        var offset = 0;
+        for (var i = 1; i < coords.length; i++) {
+            var prevLon = coords[i - 1][0] + offset;
+            var curLon = coords[i][0] + offset;
+            var diff = curLon - prevLon;
+            if (diff > 180) { offset -= 360; }
+            else if (diff < -180) { offset += 360; }
+            result.push([coords[i][0] + offset, coords[i][1]]);
+        }
+        return result;
+    }
+
     function buildFeature(route, geometry, totalFlights) {
         if (!geometry || !geometry.coordinates || geometry.coordinates.length < 2) return null;
 
@@ -409,7 +429,7 @@ window.RoutesMap = (function() {
             },
             geometry: {
                 type: 'LineString',
-                coordinates: geometry.coordinates
+                coordinates: unwrapAntimeridian(geometry.coordinates)
             }
         };
     }
