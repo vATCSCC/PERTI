@@ -209,6 +209,9 @@ $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 // Increase group_concat_max_len for median calculation
 $conn_pdo->exec("SET SESSION group_concat_max_len = 65536");
 
+// Query timeout: 10 seconds max to prevent runaway queries
+$conn_pdo->exec("SET SESSION max_execution_time = 10000");
+
 // ── Grouped view ──
 if ($view === 'grouped') {
     // Count query

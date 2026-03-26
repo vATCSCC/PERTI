@@ -344,6 +344,43 @@ body.routes-page .cs-footer {
     color: #fff;
 }
 
+/* Quick-select pills (alliance, DCC region, time presets) */
+.routes-alliance-pills,
+.routes-region-pills,
+.routes-time-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+    align-items: center;
+}
+
+.routes-pill-label {
+    font-size: 0.7rem;
+    color: #888;
+    margin-right: 2px;
+}
+
+.routes-quick-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: transparent;
+    border: 1px solid #555;
+    color: #bbb;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.routes-quick-pill:hover {
+    background: #239BCD;
+    border-color: #239BCD;
+    color: #fff;
+}
+
 /* Select2 Dark Theme Overrides */
 .select2-container .select2-selection--multiple {
     background-color: #252540 !important;
