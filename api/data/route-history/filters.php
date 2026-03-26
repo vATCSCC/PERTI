@@ -26,10 +26,10 @@ switch ($type) {
             FROM dim_aircraft_type dat
             WHERE dat.icao_code LIKE ? OR dat.manufacturer LIKE ? OR dat.model LIKE ?
             ORDER BY dat.icao_code
-            LIMIT ?
+            LIMIT $limit
         ");
         $like = "%$q%";
-        $stmt->execute([$like, $like, $like, $limit]);
+        $stmt->execute([$like, $like, $like]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
 
@@ -40,10 +40,10 @@ switch ($type) {
             FROM dim_operator dop
             WHERE dop.airline_icao LIKE ? OR dop.airline_name LIKE ?
             ORDER BY dop.airline_icao
-            LIMIT ?
+            LIMIT $limit
         ");
         $like = "%$q%";
-        $stmt->execute([$like, $like, $limit]);
+        $stmt->execute([$like, $like]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
 
@@ -59,10 +59,10 @@ switch ($type) {
             WHERE dest_icao LIKE ?
             GROUP BY dest_icao
             ORDER BY cnt DESC
-            LIMIT ?
+            LIMIT $limit
         ");
         $like = strtoupper($q) . '%';
-        $stmt->execute([$like, $like, $limit]);
+        $stmt->execute([$like, $like]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
 
@@ -74,10 +74,10 @@ switch ($type) {
                 SELECT dest_tracon as val FROM route_history_facts WHERE dest_tracon LIKE ?
             ) t WHERE val IS NOT NULL
             ORDER BY val
-            LIMIT ?
+            LIMIT $limit
         ");
         $like = strtoupper($q) . '%';
-        $stmt->execute([$like, $like, $limit]);
+        $stmt->execute([$like, $like]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
 
@@ -89,10 +89,10 @@ switch ($type) {
                 SELECT dest_artcc as val FROM route_history_facts WHERE dest_artcc LIKE ?
             ) t WHERE val IS NOT NULL
             ORDER BY val
-            LIMIT ?
+            LIMIT $limit
         ");
         $like = strtoupper($q) . '%';
-        $stmt->execute([$like, $like, $limit]);
+        $stmt->execute([$like, $like]);
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
 
