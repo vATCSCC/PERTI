@@ -5448,7 +5448,58 @@
       "variants": "variantes"
     },
     "subtitle": "Recherche de routes de plans de vol historiques",
-    "title": "Routes historiques"
+    "title": "Routes historiques",
+    "grouping": {
+      "label": "Grouper :",
+      "none": "Aucun",
+      "odPair": "Paire OD",
+      "origin": "Origine",
+      "destination": "Destination",
+      "flights": "{count} vols",
+      "routes": "{count} routes",
+      "route": "{count} route",
+      "dests": "{count} dest.",
+      "dest": "{count} dest.",
+      "origs": "{count} orig.",
+      "orig": "{count} orig.",
+      "pct": "{pct} %"
+    },
+    "toolbar": {
+      "compare": "Comparer ({count})",
+      "compareDisabled": "Sélectionnez max. 3 routes pour la comparaison",
+      "group": "Grouper ({count})",
+      "clear": "Effacer",
+      "selected": "{count} sélectionnées"
+    },
+    "compare": {
+      "title": "Comparaison de routes",
+      "flights": "Vols",
+      "frequency": "Fréquence",
+      "avgDistance": "Dist. moy.",
+      "avgEte": "ETE moy.",
+      "medianAlt": "Alt. médiane",
+      "variants": "Variantes",
+      "firstFiled": "Premier dépôt",
+      "lastFiled": "Dernier dépôt",
+      "na": "S/O",
+      "flightLevel": "FL{level}"
+    },
+    "groupDialog": {
+      "title": "{count} routes groupées",
+      "totalFlights": "Total des vols",
+      "routes": "Routes",
+      "avgDistance": "Dist. moy.",
+      "avgEte": "ETE moy.",
+      "odPairs": "Paires OD :",
+      "first": "Premier :",
+      "last": "Dernier :",
+      "route": "Route",
+      "flights": "Vols",
+      "share": "Part",
+      "dist": "Dist.",
+      "ete": "ETE",
+      "na": "S/O"
+    }
   },
   "schedule": {
     "assignment": {

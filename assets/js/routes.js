@@ -42,6 +42,7 @@
         page: 1,
         sort: 'frequency',
         view: 'grouped',
+        groupBy: 'none',      // 'none', 'od', 'origin', 'dest'
         mapLimit: 10,         // Routes shown on map: 10, 25, 100, 250, 500, 1000, or 0=all
         filtersCollapsed: false
     };
@@ -1202,14 +1203,34 @@
         $viewToggle.append($groupedBtn, $rawBtn);
         $controls.append($viewToggle);
 
+        // Group By dropdown
+        var $groupByGroup = $('<div></div>');
+        $groupByGroup.append('<label style="color: #aaa; font-size: 0.8rem; margin-right: 8px;">' + PERTII18n.t('routes.grouping.label') + '</label>');
+        var $groupBySelect = $('<select class="routes-sort-select"></select>');
+        $groupBySelect.append('<option value="none">' + PERTII18n.t('routes.grouping.none') + '</option>');
+        $groupBySelect.append('<option value="od">' + PERTII18n.t('routes.grouping.odPair') + '</option>');
+        $groupBySelect.append('<option value="origin">' + PERTII18n.t('routes.grouping.origin') + '</option>');
+        $groupBySelect.append('<option value="dest">' + PERTII18n.t('routes.grouping.destination') + '</option>');
+        $groupBySelect.val(state.groupBy);
+        $groupBySelect.on('change', function() {
+            state.groupBy = $(this).val();
+            renderRouteList(state.results);
+        });
+        $groupByGroup.append($groupBySelect);
+        $controls.append($groupByGroup);
+
         $list.append($controls);
 
-        // Route items
-        data.routes.forEach(function(route, idx) {
-            var $item = buildRouteItem(route);
-            $item.attr('data-route-idx', idx);
-            $list.append($item);
-        });
+        // Render route items (with optional grouping)
+        if (state.groupBy !== 'none') {
+            renderGroupedRoutes($list, data);
+        } else {
+            data.routes.forEach(function(route, idx) {
+                var $item = buildRouteItem(route);
+                $item.attr('data-route-idx', idx);
+                $list.append($item);
+            });
+        }
         applyMapLimitDimming();
 
         // Load more button
@@ -1223,6 +1244,159 @@
                 });
             $list.append($more);
         }
+    }
+
+    // ========================================================================
+    // AUTO-GROUPING
+    // ========================================================================
+
+    /**
+     * Group routes by the current groupBy mode and render collapsible sections.
+     */
+    function renderGroupedRoutes($list, data) {
+        var groups = groupResults(data.routes, state.groupBy, data.total_flights);
+
+        groups.forEach(function(group) {
+            var $group = $('<div class="routes-group"></div>');
+
+            // Frequency tier for the group based on its share of total flights
+            var groupPct = data.total_flights > 0
+                ? (group.totalFlights / data.total_flights * 100) : 0;
+            var tierClass = groupPct > 10 ? 'freq-high' : (groupPct >= 3 ? 'freq-medium' : 'freq-low');
+
+            // Group header
+            var $header = $('<div class="routes-group-header ' + tierClass + '"></div>');
+
+            var headerLabel = '';
+            if (state.groupBy === 'od') {
+                headerLabel = group.origin + ' <span class="arrow">&rarr;</span> ' + group.dest;
+            } else if (state.groupBy === 'origin') {
+                var destLabel = group.destCount !== 1
+                    ? PERTII18n.t('routes.grouping.dests', { count: group.destCount })
+                    : PERTII18n.t('routes.grouping.dest', { count: group.destCount });
+                headerLabel = '<i class="fas fa-plane-departure" style="margin-right:4px;font-size:0.75rem;"></i> ' + group.key +
+                    ' <span style="color:#888;font-size:0.8rem;">(' + destLabel + ')</span>';
+            } else {
+                var origLabel = group.origCount !== 1
+                    ? PERTII18n.t('routes.grouping.origs', { count: group.origCount })
+                    : PERTII18n.t('routes.grouping.orig', { count: group.origCount });
+                headerLabel = '<i class="fas fa-plane-arrival" style="margin-right:4px;font-size:0.75rem;"></i> ' + group.key +
+                    ' <span style="color:#888;font-size:0.8rem;">(' + origLabel + ')</span>';
+            }
+
+            var avgDist = group.totalFlights > 0 ? Math.round(group.totalDistance / group.totalFlights) : 0;
+            var avgEte = group.totalFlights > 0 ? Math.round(group.totalEte / group.totalFlights) : 0;
+            var eteStr = '';
+            if (avgEte > 0) {
+                eteStr = Math.floor(avgEte / 60) + 'h' + Math.round(avgEte % 60) + 'm';
+            }
+
+            $header.html(
+                '<div class="routes-group-header-left">' +
+                    '<i class="fas fa-chevron-right routes-group-chevron"></i>' +
+                    '<span class="routes-group-label">' + headerLabel + '</span>' +
+                '</div>' +
+                '<div class="routes-group-header-right">' +
+                    '<span class="routes-group-stat">' + PERTII18n.t('routes.grouping.flights', { count: group.totalFlights.toLocaleString() }) + '</span>' +
+                    '<span class="routes-group-stat">' + (group.routeCount !== 1
+                        ? PERTII18n.t('routes.grouping.routes', { count: group.routeCount })
+                        : PERTII18n.t('routes.grouping.route', { count: group.routeCount })) + '</span>' +
+                    (avgDist > 0 ? '<span class="routes-group-stat">' + avgDist + ' nm</span>' : '') +
+                    (eteStr ? '<span class="routes-group-stat">' + eteStr + '</span>' : '') +
+                    '<span class="routes-group-pct">' + groupPct.toFixed(1) + '%</span>' +
+                '</div>'
+            );
+
+            // Routes container (collapsed by default)
+            var $routesContainer = $('<div class="routes-group-routes" style="display:none;"></div>');
+            group.routes.forEach(function(route) {
+                var $item = buildRouteItem(route);
+                $routesContainer.append($item);
+            });
+
+            // Toggle expand/collapse
+            $header.on('click', function() {
+                var $chevron = $(this).find('.routes-group-chevron');
+                if ($routesContainer.is(':visible')) {
+                    $routesContainer.slideUp(150);
+                    $chevron.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+                    $group.removeClass('routes-group-open');
+                } else {
+                    $routesContainer.slideDown(150);
+                    $chevron.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+                    $group.addClass('routes-group-open');
+                }
+            });
+
+            $group.append($header);
+            $group.append($routesContainer);
+            $list.append($group);
+        });
+    }
+
+    /**
+     * Group routes client-side by the given mode.
+     * Returns array of group objects sorted by totalFlights desc.
+     */
+    function groupResults(routes, groupBy, totalFlights) {
+        var groups = {};
+
+        routes.forEach(function(route) {
+            var key;
+            switch (groupBy) {
+                case 'od':
+                    key = (route.origin_icao || '???') + '-' + (route.dest_icao || '???');
+                    break;
+                case 'origin':
+                    key = route.origin_icao || '???';
+                    break;
+                case 'dest':
+                    key = route.dest_icao || '???';
+                    break;
+                default:
+                    return;
+            }
+
+            if (!groups[key]) {
+                groups[key] = {
+                    key: key,
+                    origin: route.origin_icao || '???',
+                    dest: route.dest_icao || '???',
+                    routes: [],
+                    totalFlights: 0,
+                    totalDistance: 0,
+                    totalEte: 0,
+                    routeCount: 0,
+                    origins: {},
+                    dests: {},
+                    origCount: 0,
+                    destCount: 0
+                };
+            }
+
+            var g = groups[key];
+            g.routes.push(route);
+            var fc = parseInt(route.flight_count) || 0;
+            g.totalFlights += fc;
+            g.totalDistance += (parseFloat(route.avg_distance_nm) || 0) * fc;
+            g.totalEte += (parseFloat(route.avg_ete_minutes) || 0) * fc;
+            g.routeCount++;
+
+            // Track unique origins/dests for origin/dest grouping labels
+            if (route.origin_icao) g.origins[route.origin_icao] = true;
+            if (route.dest_icao) g.dests[route.dest_icao] = true;
+        });
+
+        // Compute unique counts
+        var result = Object.values(groups);
+        result.forEach(function(g) {
+            g.origCount = Object.keys(g.origins).length;
+            g.destCount = Object.keys(g.dests).length;
+        });
+
+        // Sort by total flights descending
+        result.sort(function(a, b) { return b.totalFlights - a.totalFlights; });
+        return result;
     }
 
     function buildRouteItem(route) {
@@ -1917,6 +2091,260 @@
         } else if (typeof RoutesMap !== 'undefined') {
             RoutesMap.clearHighlight();
         }
+
+        // Render multi-select toolbar
+        renderMultiSelectToolbar();
+    }
+
+    /**
+     * Render the floating toolbar when 2+ routes are multi-selected.
+     */
+    function renderMultiSelectToolbar() {
+        // Remove existing toolbar
+        $('.routes-multi-toolbar').remove();
+
+        var count = state.multiSelected.length;
+        if (count < 2) return;
+
+        // Gather selected route data
+        var selectedRoutes = getSelectedRouteData();
+        if (selectedRoutes.length < 2) return;
+
+        var $toolbar = $('<div class="routes-multi-toolbar"></div>');
+
+        // Compare button (max 3)
+        var $compareBtn = $('<button class="routes-multi-btn btn-compare"></button>')
+            .html('<i class="fas fa-columns"></i> ' + PERTII18n.t('routes.toolbar.compare', { count: Math.min(count, 3) }));
+        if (count > 3) {
+            $compareBtn.prop('disabled', true).attr('title', PERTII18n.t('routes.toolbar.compareDisabled'));
+        } else {
+            $compareBtn.on('click', function() {
+                showCompareDialog(selectedRoutes);
+            });
+        }
+        $toolbar.append($compareBtn);
+
+        // Group button (any count)
+        var $groupBtn = $('<button class="routes-multi-btn btn-group"></button>')
+            .html('<i class="fas fa-layer-group"></i> ' + PERTII18n.t('routes.toolbar.group', { count: count }))
+            .on('click', function() {
+                showGroupDialog(selectedRoutes);
+            });
+        $toolbar.append($groupBtn);
+
+        // Clear button
+        var $clearBtn = $('<button class="routes-multi-btn"></button>')
+            .html('<i class="fas fa-times"></i> ' + PERTII18n.t('routes.toolbar.clear'))
+            .on('click', function() {
+                state.multiSelected = [];
+                updateMultiSelectUI();
+            });
+        $toolbar.append($clearBtn);
+
+        // Count label
+        $toolbar.append('<span class="routes-multi-count">' + PERTII18n.t('routes.toolbar.selected', { count: count }) + '</span>');
+
+        // Insert after summary bar
+        var $summary = $('.routes-summary');
+        if ($summary.length) {
+            $summary.after($toolbar);
+        } else {
+            $('#routes_list').prepend($toolbar);
+        }
+    }
+
+    /**
+     * Get route data objects for all multi-selected dim IDs.
+     */
+    function getSelectedRouteData() {
+        if (!state.results || !state.results.routes) return [];
+        var selected = [];
+        state.multiSelected.forEach(function(dimId) {
+            for (var i = 0; i < state.results.routes.length; i++) {
+                if (state.results.routes[i].route_dim_id === dimId) {
+                    selected.push(state.results.routes[i]);
+                    break;
+                }
+            }
+        });
+        return selected;
+    }
+
+    /**
+     * Side-by-side comparison dialog for 2-3 routes.
+     */
+    function showCompareDialog(routes) {
+        if (routes.length < 2 || routes.length > 3) return;
+
+        var metrics = [
+            { key: 'flight_count', label: PERTII18n.t('routes.compare.flights'), format: function(v) { return parseInt(v).toLocaleString(); }, best: 'max' },
+            { key: 'frequency_pct', label: PERTII18n.t('routes.compare.frequency'), format: function(v) { return parseFloat(v).toFixed(1) + '%'; }, best: 'max' },
+            { key: 'avg_distance_nm', label: PERTII18n.t('routes.compare.avgDistance'), format: function(v) { return Math.round(v) + ' nm'; }, best: 'min' },
+            { key: 'avg_ete_minutes', label: PERTII18n.t('routes.compare.avgEte'), format: function(v) {
+                var mins = parseInt(v);
+                return Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm';
+            }, best: 'min' },
+            { key: 'median_altitude_ft', label: PERTII18n.t('routes.compare.medianAlt'), format: function(v) {
+                return v ? PERTII18n.t('routes.compare.flightLevel', { level: Math.round(parseInt(v) / 100) }) : PERTII18n.t('routes.compare.na');
+            }, best: null },
+            { key: 'variant_count', label: PERTII18n.t('routes.compare.variants'), format: function(v) { return parseInt(v || 1).toLocaleString(); }, best: null },
+            { key: 'first_filed', label: PERTII18n.t('routes.compare.firstFiled'), format: function(v) { return formatDate(v); }, best: null },
+            { key: 'last_filed', label: PERTII18n.t('routes.compare.lastFiled'), format: function(v) { return formatDate(v); }, best: null }
+        ];
+
+        // Build header
+        var html = '<table class="route-compare-table"><thead><tr><th></th>';
+        routes.forEach(function(r) {
+            var routeAbbr = (r.normalized_route || r.raw_route || '').substring(0, 30);
+            if ((r.normalized_route || r.raw_route || '').length > 30) routeAbbr += '...';
+            html += '<th>' + (r.origin_icao || '?') + '\u2192' + (r.dest_icao || '?') +
+                '<br><span style="font-weight:400;font-size:0.7rem;color:#666;">' + escapeHtml(routeAbbr) + '</span></th>';
+        });
+        html += '</tr></thead><tbody>';
+
+        // Build rows
+        metrics.forEach(function(metric) {
+            var values = routes.map(function(r) { return r[metric.key]; });
+            var bestIdx = -1;
+            if (metric.best === 'max') {
+                var maxVal = -Infinity;
+                values.forEach(function(v, i) {
+                    var num = parseFloat(v) || 0;
+                    if (num > maxVal) { maxVal = num; bestIdx = i; }
+                });
+            } else if (metric.best === 'min') {
+                var minVal = Infinity;
+                values.forEach(function(v, i) {
+                    var num = parseFloat(v) || 0;
+                    if (num > 0 && num < minVal) { minVal = num; bestIdx = i; }
+                });
+            }
+
+            html += '<tr><td>' + metric.label + '</td>';
+            routes.forEach(function(r, i) {
+                var val = r[metric.key];
+                var cellClass = (bestIdx === i) ? ' class="compare-best"' : '';
+                html += '<td' + cellClass + '>' + metric.format(val) + '</td>';
+            });
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+
+        Swal.fire({
+            title: PERTII18n.t('routes.compare.title'),
+            html: html,
+            width: Math.min(900, 300 + routes.length * 200),
+            showConfirmButton: false,
+            showCloseButton: true,
+            customClass: {
+                popup: 'route-info-popup',
+                title: 'route-info-title',
+                htmlContainer: 'route-info-html'
+            }
+        });
+    }
+
+    /**
+     * Combined/grouped stats dialog for 2+ routes.
+     */
+    function showGroupDialog(routes) {
+        if (routes.length < 2) return;
+
+        // Aggregate stats
+        var totalFlights = 0;
+        var totalDist = 0;
+        var totalEte = 0;
+        var minFirst = null;
+        var maxLast = null;
+        var odPairs = {};
+
+        routes.forEach(function(r) {
+            var fc = parseInt(r.flight_count) || 0;
+            totalFlights += fc;
+            totalDist += (parseFloat(r.avg_distance_nm) || 0) * fc;
+            totalEte += (parseFloat(r.avg_ete_minutes) || 0) * fc;
+
+            var pair = (r.origin_icao || '?') + '\u2192' + (r.dest_icao || '?');
+            odPairs[pair] = true;
+
+            if (r.first_filed && (!minFirst || r.first_filed < minFirst)) minFirst = r.first_filed;
+            if (r.last_filed && (!maxLast || r.last_filed > maxLast)) maxLast = r.last_filed;
+        });
+
+        var avgDist = totalFlights > 0 ? Math.round(totalDist / totalFlights) : 0;
+        var avgEte = totalFlights > 0 ? Math.round(totalEte / totalFlights) : 0;
+        var eteStr = avgEte > 0 ? Math.floor(avgEte / 60) + 'h ' + (avgEte % 60) + 'm' : PERTII18n.t('routes.groupDialog.na');
+
+        // Summary cards
+        var html = '<div class="route-group-summary">';
+        html += '<div class="rgs-stat"><div class="rgs-value">' + totalFlights.toLocaleString() + '</div><div class="rgs-label">' + PERTII18n.t('routes.groupDialog.totalFlights') + '</div></div>';
+        html += '<div class="rgs-stat"><div class="rgs-value">' + routes.length + '</div><div class="rgs-label">' + PERTII18n.t('routes.groupDialog.routes') + '</div></div>';
+        html += '<div class="rgs-stat"><div class="rgs-value">' + avgDist + ' nm</div><div class="rgs-label">' + PERTII18n.t('routes.groupDialog.avgDistance') + '</div></div>';
+        html += '<div class="rgs-stat"><div class="rgs-value">' + eteStr + '</div><div class="rgs-label">' + PERTII18n.t('routes.groupDialog.avgEte') + '</div></div>';
+        html += '</div>';
+
+        // OD pairs list
+        var pairs = Object.keys(odPairs);
+        if (pairs.length > 0) {
+            html += '<div style="color:#888;font-size:0.8rem;margin-bottom:8px;">' + PERTII18n.t('routes.groupDialog.odPairs') + ' ' + pairs.join(', ') + '</div>';
+        }
+
+        // Date range
+        if (minFirst || maxLast) {
+            html += '<div style="color:#888;font-size:0.8rem;margin-bottom:12px;">';
+            if (minFirst) html += PERTII18n.t('routes.groupDialog.first') + ' ' + formatDate(minFirst);
+            if (minFirst && maxLast) html += ' &mdash; ';
+            if (maxLast) html += PERTII18n.t('routes.groupDialog.last') + ' ' + formatDate(maxLast);
+            html += '</div>';
+        }
+
+        // Contribution bar
+        var barColors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#7B68EE', '#FF8C42', '#A8E6CF'];
+        html += '<div class="route-group-bar">';
+        routes.forEach(function(r, i) {
+            var pct = totalFlights > 0 ? (parseInt(r.flight_count) / totalFlights * 100) : 0;
+            html += '<div class="route-group-bar-segment" style="width:' + pct + '%;background:' + barColors[i % barColors.length] + ';"></div>';
+        });
+        html += '</div>';
+
+        // Breakdown table
+        html += '<table class="route-group-breakdown"><thead><tr>';
+        html += '<th>' + PERTII18n.t('routes.groupDialog.route') + '</th><th>' + PERTII18n.t('routes.groupDialog.flights') + '</th><th>' + PERTII18n.t('routes.groupDialog.share') + '</th><th>' + PERTII18n.t('routes.groupDialog.dist') + '</th><th>' + PERTII18n.t('routes.groupDialog.ete') + '</th>';
+        html += '</tr></thead><tbody>';
+        routes.forEach(function(r, i) {
+            var fc = parseInt(r.flight_count) || 0;
+            var share = totalFlights > 0 ? (fc / totalFlights * 100).toFixed(1) : '0.0';
+            var routeAbbr = (r.normalized_route || r.raw_route || '').substring(0, 25);
+            if ((r.normalized_route || r.raw_route || '').length > 25) routeAbbr += '...';
+            var ete = parseInt(r.avg_ete_minutes) || 0;
+            var eteCell = ete > 0 ? Math.floor(ete / 60) + 'h' + (ete % 60) + 'm' : PERTII18n.t('routes.groupDialog.na');
+
+            html += '<tr>';
+            html += '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+                '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + barColors[i % barColors.length] + ';margin-right:6px;"></span>' +
+                (r.origin_icao || '?') + '\u2192' + (r.dest_icao || '?') +
+                '<br><span style="font-size:0.7rem;color:#666;">' + escapeHtml(routeAbbr) + '</span></td>';
+            html += '<td>' + fc.toLocaleString() + '</td>';
+            html += '<td>' + share + '%</td>';
+            html += '<td>' + Math.round(r.avg_distance_nm || 0) + ' nm</td>';
+            html += '<td>' + eteCell + '</td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table>';
+
+        Swal.fire({
+            title: PERTII18n.t('routes.groupDialog.title', { count: routes.length }),
+            html: html,
+            width: 700,
+            showConfirmButton: false,
+            showCloseButton: true,
+            customClass: {
+                popup: 'route-info-popup',
+                title: 'route-info-title',
+                htmlContainer: 'route-info-html'
+            }
+        });
     }
 
     // ========================================================================
@@ -1986,9 +2414,9 @@
     function updateUrl() {
         var qs = filtersToQueryString();
         if (qs) {
-            history.pushState(state, '', 'routes.php?' + qs);
+            history.pushState(state, '', 'historical-routes?' + qs);
         } else {
-            history.pushState(state, '', 'routes.php');
+            history.pushState(state, '', 'historical-routes');
         }
     }
 

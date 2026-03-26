@@ -5449,7 +5449,58 @@
       "variants": "variants"
     },
     "subtitle": "Search historically filed flight plan routes",
-    "title": "Historical Routes"
+    "title": "Historical Routes",
+    "grouping": {
+      "label": "Group:",
+      "none": "None",
+      "odPair": "OD Pair",
+      "origin": "Origin",
+      "destination": "Destination",
+      "flights": "{count} flights",
+      "routes": "{count} routes",
+      "route": "{count} route",
+      "dests": "{count} dests",
+      "dest": "{count} dest",
+      "origs": "{count} origs",
+      "orig": "{count} orig",
+      "pct": "{pct}%"
+    },
+    "toolbar": {
+      "compare": "Compare ({count})",
+      "compareDisabled": "Select max 3 routes for comparison",
+      "group": "Group ({count})",
+      "clear": "Clear",
+      "selected": "{count} selected"
+    },
+    "compare": {
+      "title": "Route Comparison",
+      "flights": "Flights",
+      "frequency": "Frequency",
+      "avgDistance": "Avg Distance",
+      "avgEte": "Avg ETE",
+      "medianAlt": "Median Alt",
+      "variants": "Variants",
+      "firstFiled": "First Filed",
+      "lastFiled": "Last Filed",
+      "na": "N/A",
+      "flightLevel": "FL{level}"
+    },
+    "groupDialog": {
+      "title": "{count} Routes Grouped",
+      "totalFlights": "Total Flights",
+      "routes": "Routes",
+      "avgDistance": "Avg Distance",
+      "avgEte": "Avg ETE",
+      "odPairs": "OD Pairs:",
+      "first": "First:",
+      "last": "Last:",
+      "route": "Route",
+      "flights": "Flights",
+      "share": "Share",
+      "dist": "Dist",
+      "ete": "ETE",
+      "na": "N/A"
+    }
   },
   "schedule": {
     "assignment": {
