@@ -124,7 +124,7 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
         }
         $result[$type][] = ['code' => $code, 'route_count' => (int)$row['route_count']];
         if (isset($swim_to_type[$type])) {
-            $all_sector_codes[$row['code']] = $swim_to_type[$type];
+            $all_sector_codes[$row['code']][$swim_to_type[$type]] = true;
         }
     }
 }
@@ -193,9 +193,13 @@ if (!empty($all_sector_codes)) {
                 }
 
                 $play_sectors = [];
-                foreach ($all_sector_codes as $code => $stype) {
+                foreach ($all_sector_codes as $code => $stypes) {
                     $artcc = $sector_artcc_map[$code] ?? null;
-                    if ($artcc) $play_sectors[$artcc][$stype][$code] = true;
+                    if ($artcc) {
+                        foreach ($stypes as $stype => $_) {
+                            $play_sectors[$artcc][$stype][$code] = true;
+                        }
+                    }
                 }
 
                 $coverage_data = [];
