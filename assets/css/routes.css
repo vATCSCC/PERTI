@@ -659,41 +659,13 @@ body.routes-page .cs-footer {
     gap: 12px;
 }
 
-.routes-sort-select,
-.routes-view-toggle {
+.routes-sort-select {
     background: #252540;
     border: 1px solid #444;
     color: #fff;
     padding: 6px 10px;
     border-radius: 4px;
     font-size: 0.85rem;
-}
-
-.routes-view-toggle {
-    display: flex;
-    gap: 4px;
-}
-
-.routes-view-btn {
-    padding: 6px 12px;
-    background: #252540;
-    border: 1px solid #444;
-    color: #aaa;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.2s;
-}
-
-.routes-view-btn:hover {
-    background: #2d2d4a;
-    border-color: #666;
-}
-
-.routes-view-btn.active {
-    background: #239BCD;
-    border-color: #239BCD;
-    color: #fff;
 }
 
 .routes-item {

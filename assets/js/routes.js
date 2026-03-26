@@ -41,7 +41,6 @@
         multiSelected: [],   // Array of route_dim_ids (max 6)
         page: 1,
         sort: 'frequency',
-        view: 'grouped',
         groupBy: 'none',      // 'none', 'od', 'origin', 'dest'
         mapLimit: 10,         // Routes shown on map: 10, 25, 100, 250, 500, 1000, or 0=all
         filtersCollapsed: false
@@ -1087,7 +1086,7 @@
 
         // Sort, view, and pagination
         params.push('sort=' + state.sort);
-        params.push('view=' + state.view);
+        params.push('view=grouped');
         params.push('page=' + state.page);
         params.push('per_page=200');
 
@@ -1181,27 +1180,6 @@
         });
         $sortGroup.append($sortSelect);
         $controls.append($sortGroup);
-
-        // View toggle
-        var $viewToggle = $('<div class="routes-view-toggle"></div>');
-        var $groupedBtn = $('<button class="routes-view-btn"></button>')
-            .text(PERTII18n.t('routes.results.grouped'))
-            .addClass(state.view === 'grouped' ? 'active' : '')
-            .on('click', function() {
-                state.view = 'grouped';
-                state.page = 1;
-                doSearch();
-            });
-        var $rawBtn = $('<button class="routes-view-btn"></button>')
-            .text(PERTII18n.t('routes.results.raw'))
-            .addClass(state.view === 'raw' ? 'active' : '')
-            .on('click', function() {
-                state.view = 'raw';
-                state.page = 1;
-                doSearch();
-            });
-        $viewToggle.append($groupedBtn, $rawBtn);
-        $controls.append($viewToggle);
 
         // Group By dropdown
         var $groupByGroup = $('<div></div>');
@@ -1400,7 +1378,7 @@
     }
 
     function buildRouteItem(route) {
-        var $item = $('<div class="routes-item"></div>');
+        var $item = $('<div class="routes-item"></div>').attr('data-dim-id', route.route_dim_id);
 
         // Frequency tier class for left border color
         var pct = parseFloat(route.frequency_pct) || 0;
@@ -1410,7 +1388,7 @@
 
         // Multi-select checkbox
         var $checkbox = $('<input type="checkbox" class="routes-multi-check">')
-            .prop('checked', state.multiSelected.indexOf(route.route_dim_id) !== -1)
+            .prop('checked', state.multiSelected.indexOf(String(route.route_dim_id)) !== -1)
             .on('click', function(e) {
                 e.stopPropagation();
                 toggleMultiSelect(route.route_dim_id);
@@ -1469,7 +1447,7 @@
         }
 
         // Mark as multi-selected and apply color
-        var multiIdx = state.multiSelected.indexOf(route.route_dim_id);
+        var multiIdx = state.multiSelected.indexOf(String(route.route_dim_id));
         if (multiIdx !== -1) {
             var colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#7B68EE', '#FF8C42', '#A8E6CF'];
             $item.addClass('multi-selected');
@@ -2040,6 +2018,7 @@
     // ========================================================================
 
     function toggleMultiSelect(dimId) {
+        dimId = String(dimId);
         var idx = state.multiSelected.indexOf(dimId);
         if (idx >= 0) {
             state.multiSelected.splice(idx, 1);
@@ -2060,15 +2039,10 @@
             var $checkbox = $item.find('.routes-multi-check');
             if (!$checkbox.length) return;
 
-            // Find route data for this item
-            var route = null;
-            if (state.results && state.results.routes) {
-                var itemIndex = $('.routes-item').index($item);
-                route = state.results.routes[itemIndex];
-            }
-            if (!route) return;
+            var dimId = $item.attr('data-dim-id');
+            if (!dimId) return;
 
-            var multiIdx = state.multiSelected.indexOf(route.route_dim_id);
+            var multiIdx = state.multiSelected.indexOf(dimId);
             var isMultiSelected = multiIdx !== -1;
 
             // Update checkbox
@@ -2161,7 +2135,7 @@
         var selected = [];
         state.multiSelected.forEach(function(dimId) {
             for (var i = 0; i < state.results.routes.length; i++) {
-                if (state.results.routes[i].route_dim_id === dimId) {
+                if (String(state.results.routes[i].route_dim_id) === String(dimId)) {
                     selected.push(state.results.routes[i]);
                     break;
                 }
@@ -2496,9 +2470,6 @@
         // Sort/view/page
         if (params.get('sort')) {
             state.sort = params.get('sort');
-        }
-        if (params.get('view')) {
-            state.view = params.get('view');
         }
         if (params.get('page')) {
             state.page = parseInt(params.get('page')) || 1;
