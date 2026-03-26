@@ -495,15 +495,18 @@
         $('#routes_filters_toggle').on('click', function() {
             state.filtersCollapsed = !state.filtersCollapsed;
             var $panel = $('.routes-filters');
+            var $chips = $('#routes_filter_chips');
             var $searchRow = $('.routes-search-row');
             var $icon = $(this).find('i');
             if (state.filtersCollapsed) {
                 $panel.slideUp(200);
+                $chips.slideUp(200);
                 $searchRow.slideUp(200);
                 $icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
                 $(this).attr('title', PERTII18n.t('common.expand') || 'Expand');
             } else {
                 $panel.slideDown(200);
+                $chips.slideDown(200);
                 $searchRow.slideDown(200);
                 $icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
                 $(this).attr('title', PERTII18n.t('common.collapse') || 'Collapse');
