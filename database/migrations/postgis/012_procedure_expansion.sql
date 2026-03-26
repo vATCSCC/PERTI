@@ -253,6 +253,12 @@ BEGIN
             LIMIT 1;
 
             IF v_wp.fix_id IS NOT NULL AND v_wp.lat IS NOT NULL THEN
+                -- Skip consecutive duplicate (e.g., procedure ends with BPK then standalone BPK follows)
+                IF v_prev_fix IS NOT NULL AND UPPER(v_part) = UPPER(v_prev_fix) THEN
+                    v_idx := v_idx + 1;
+                    CONTINUE;
+                END IF;
+
                 v_seq := v_seq + 1;
                 waypoint_seq := v_seq;
                 waypoint_id := v_wp.fix_id;
