@@ -486,6 +486,9 @@ window.RoutesMap = (function() {
 
         // Fit bounds to show all routes
         fitToRoutes(features);
+
+        // Show airport markers after geometry is loaded
+        showAirportMarkers(currentRoutes);
     }
 
     function highlightRoute(dimId) {
@@ -622,6 +625,7 @@ window.RoutesMap = (function() {
     function clearRoutes() {
         removeRouteLayers();
         hideWaypoints();
+        hideAirportMarkers();
         currentRoutes = [];
         highlightedDimId = null;
         multiSelectDimIds = [];
@@ -638,6 +642,102 @@ window.RoutesMap = (function() {
         if (map.getSource('routes')) map.removeSource('routes');
     }
 
+    /**
+     * Show airport markers for origin and destination airports.
+     * Derives coordinates from route geometry cache (first/last waypoints).
+     */
+    function showAirportMarkers(routes) {
+        hideAirportMarkers();
+        if (!map || !mapReady || !routes || routes.length === 0) return;
+
+        var airports = {}; // icao -> { lat, lon, type: 'origin'|'dest'|'both' }
+
+        routes.forEach(function(route) {
+            var cached = routeGeometryCache[route.route_dim_id];
+            if (!cached || !cached.coordinates || cached.coordinates.length < 2) return;
+
+            var origCoord = cached.coordinates[0];
+            var destCoord = cached.coordinates[cached.coordinates.length - 1];
+
+            if (route.origin_icao && origCoord) {
+                if (!airports[route.origin_icao]) {
+                    airports[route.origin_icao] = { lon: origCoord[0], lat: origCoord[1], type: 'origin' };
+                } else if (airports[route.origin_icao].type === 'dest') {
+                    airports[route.origin_icao].type = 'both';
+                }
+            }
+            if (route.dest_icao && destCoord) {
+                if (!airports[route.dest_icao]) {
+                    airports[route.dest_icao] = { lon: destCoord[0], lat: destCoord[1], type: 'dest' };
+                } else if (airports[route.dest_icao].type === 'origin') {
+                    airports[route.dest_icao].type = 'both';
+                }
+            }
+        });
+
+        var features = [];
+        Object.keys(airports).forEach(function(icao) {
+            var apt = airports[icao];
+            features.push({
+                type: 'Feature',
+                properties: { icao: icao, apt_type: apt.type },
+                geometry: { type: 'Point', coordinates: [apt.lon, apt.lat] }
+            });
+        });
+
+        if (features.length === 0) return;
+
+        map.addSource('airport-markers', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: features }
+        });
+
+        // Airport dots: origin = green, dest = red, both = yellow
+        map.addLayer({
+            id: 'airport-marker-dots',
+            type: 'circle',
+            source: 'airport-markers',
+            paint: {
+                'circle-radius': 6,
+                'circle-color': ['match', ['get', 'apt_type'],
+                    'origin', '#4CAF50',
+                    'dest', '#ef5350',
+                    'both', '#ffee58',
+                    '#fff'
+                ],
+                'circle-stroke-color': '#000',
+                'circle-stroke-width': 2
+            }
+        });
+
+        // Airport labels
+        map.addLayer({
+            id: 'airport-marker-labels',
+            type: 'symbol',
+            source: 'airport-markers',
+            layout: {
+                'text-field': ['get', 'icao'],
+                'text-size': 12,
+                'text-offset': [0, 1.4],
+                'text-anchor': 'top',
+                'text-font': ['Noto Sans Bold'],
+                'text-allow-overlap': true
+            },
+            paint: {
+                'text-color': '#fff',
+                'text-halo-color': '#000',
+                'text-halo-width': 1.5
+            }
+        });
+    }
+
+    function hideAirportMarkers() {
+        if (!map) return;
+        if (map.getLayer('airport-marker-labels')) map.removeLayer('airport-marker-labels');
+        if (map.getLayer('airport-marker-dots')) map.removeLayer('airport-marker-dots');
+        if (map.getSource('airport-markers')) map.removeSource('airport-markers');
+    }
+
     // Public API
     return {
         init: init,
@@ -645,6 +745,7 @@ window.RoutesMap = (function() {
         highlightRoute: highlightRoute,
         clearHighlight: clearHighlight,
         highlightMultiple: highlightMultiple,
+        showAirportMarkers: showAirportMarkers,
         fitToRoutes: function() { fitToRoutes(/* use existing features */ ); },
         clearRoutes: clearRoutes,
         getMap: function() { return map; }

@@ -1270,9 +1270,11 @@ body.routes-resizing .maplibregl-map {
     transition: width 0.4s ease;
 }
 
-.rid-bar-cyan  { background: #239BCD; }
-.rid-bar-teal  { background: #4ECDC4; }
+.rid-bar-cyan   { background: #239BCD; }
+.rid-bar-teal   { background: #4ECDC4; }
 .rid-bar-purple { background: #7B68EE; }
+.rid-bar-orange { background: #FF8C42; }
+.rid-bar-green  { background: #4CAF50; }
 
 .rid-bar-value {
     width: 40px;

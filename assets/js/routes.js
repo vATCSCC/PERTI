@@ -1005,8 +1005,7 @@
         }
 
         if (route.last_filed) {
-            var lastFiled = formatRelativeDate(route.last_filed);
-            $meta.append('<span><i class="fas fa-calendar"></i> ' + lastFiled + '</span>');
+            $meta.append('<span><i class="fas fa-calendar"></i> ' + formatDate(route.last_filed) + '</span>');
         }
 
         $item.append($meta);
@@ -1242,6 +1241,42 @@
                 html += '<div class="rid-bar-row">';
                 html += '<span class="rid-bar-label">' + escapeHtml(a.airline_icao) + '</span>';
                 html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-teal" style="width:' + pct + '%"></div></div>';
+                html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        // Departure fix distribution
+        var depFixes = data.stats && data.stats.dep_fix_distribution;
+        if (depFixes && depFixes.length > 0) {
+            html += '<div class="rid-section">';
+            html += '<div class="rid-section-title">Departure Fix</div>';
+            html += '<div class="rid-bar-list">';
+            var maxDf = Math.max.apply(null, depFixes.map(function(a) { return parseInt(a.cnt); }));
+            depFixes.slice(0, 8).forEach(function(a) {
+                var pct = maxDf > 0 ? (parseInt(a.cnt) / maxDf * 100) : 0;
+                html += '<div class="rid-bar-row">';
+                html += '<span class="rid-bar-label">' + escapeHtml(a.fix_name) + '</span>';
+                html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-orange" style="width:' + pct + '%"></div></div>';
+                html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        // Arrival fix distribution
+        var arrFixes = data.stats && data.stats.arr_fix_distribution;
+        if (arrFixes && arrFixes.length > 0) {
+            html += '<div class="rid-section">';
+            html += '<div class="rid-section-title">Arrival Fix</div>';
+            html += '<div class="rid-bar-list">';
+            var maxAf = Math.max.apply(null, arrFixes.map(function(a) { return parseInt(a.cnt); }));
+            arrFixes.slice(0, 8).forEach(function(a) {
+                var pct = maxAf > 0 ? (parseInt(a.cnt) / maxAf * 100) : 0;
+                html += '<div class="rid-bar-row">';
+                html += '<span class="rid-bar-label">' + escapeHtml(a.fix_name) + '</span>';
+                html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-green" style="width:' + pct + '%"></div></div>';
                 html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
                 html += '</div>';
             });
@@ -1538,6 +1573,41 @@
     // MAP INTEGRATION
     // ========================================================================
 
+    // Variant filter callback — called from info dialog "Filter to selected"
+    window.filterRoutesByVariants = function(selectedRawRoutes) {
+        if (!selectedRawRoutes || selectedRawRoutes.length === 0) return;
+        console.log('[Routes] Filtering to variants:', selectedRawRoutes);
+
+        // Switch to raw view and search for these specific raw routes
+        // For now, highlight matching routes in the current list via visual feedback
+        var matchSet = {};
+        selectedRawRoutes.forEach(function(r) { matchSet[r] = true; });
+
+        // Visually highlight matching items in the route list
+        var matchCount = 0;
+        $('.routes-item').each(function(idx) {
+            var route = state.results && state.results.routes && state.results.routes[idx];
+            if (!route) return;
+            var rawMatch = matchSet[route.normalized_route] || matchSet[route.raw_route];
+            if (rawMatch) {
+                $(this).css('opacity', '1');
+                matchCount++;
+            } else {
+                $(this).css('opacity', '0.25');
+            }
+        });
+
+        Swal.fire({
+            icon: 'info',
+            title: matchCount + ' matching route' + (matchCount !== 1 ? 's' : '') + ' highlighted',
+            text: selectedRawRoutes.length + ' variant' + (selectedRawRoutes.length !== 1 ? 's' : '') + ' selected',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000
+        });
+    };
+
     // Map click callback
     window.onRouteMapClick = function(dimId) {
         // Find the route in results
@@ -1830,7 +1900,10 @@
     function formatDate(dateStr) {
         if (!dateStr) return 'N/A';
         var d = new Date(dateStr);
-        return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        var y = d.getFullYear();
+        var m = String(d.getMonth() + 1).padStart(2, '0');
+        var day = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + day;
     }
 
     function formatRelativeDate(dateStr) {

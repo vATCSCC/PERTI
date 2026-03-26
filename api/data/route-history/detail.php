@@ -102,6 +102,30 @@ $altStmt = $conn_pdo->prepare("
 $altStmt->execute([$routeDimId]);
 $altDist = $altStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Departure fix distribution (first token of raw_route)
+$depFixStmt = $conn_pdo->prepare("
+    SELECT SUBSTRING_INDEX(raw_route, ' ', 1) as fix_name, COUNT(*) as cnt
+    FROM route_history_facts
+    WHERE route_dim_id = ? AND raw_route IS NOT NULL AND raw_route != ''
+    GROUP BY fix_name
+    ORDER BY cnt DESC
+    LIMIT 15
+");
+$depFixStmt->execute([$routeDimId]);
+$depFixDist = $depFixStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Arrival fix distribution (last token of raw_route)
+$arrFixStmt = $conn_pdo->prepare("
+    SELECT SUBSTRING_INDEX(raw_route, ' ', -1) as fix_name, COUNT(*) as cnt
+    FROM route_history_facts
+    WHERE route_dim_id = ? AND raw_route IS NOT NULL AND raw_route != ''
+    GROUP BY fix_name
+    ORDER BY cnt DESC
+    LIMIT 15
+");
+$arrFixStmt->execute([$routeDimId]);
+$arrFixDist = $arrFixStmt->fetchAll(PDO::FETCH_ASSOC);
+
 echo json_encode([
     'success'  => true,
     'route'    => $route,
@@ -111,5 +135,7 @@ echo json_encode([
         'airline_mix'          => $airlineMix,
         'monthly_trend'        => $monthlyTrend,
         'altitude_distribution' => $altDist,
+        'dep_fix_distribution' => $depFixDist,
+        'arr_fix_distribution' => $arrFixDist,
     ],
 ], JSON_UNESCAPED_UNICODE);
