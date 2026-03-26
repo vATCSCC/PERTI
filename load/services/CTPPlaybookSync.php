@@ -222,7 +222,7 @@ class CTPPlaybookSync
             (play_name, play_name_norm, display_name, description, category, source, status,
              visibility, org_code, ctp_scope, ctp_session_id, created_by, updated_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $ins->bind_param('sssssssssisis',
+        $ins->bind_param('ssssssssssiss',
             $name, $name_norm, $name, $description, $cat, $src, $status,
             $vis, $org, $ctp_scope, $session_id, $cb, $cb);
         $ins->execute();
@@ -384,7 +384,7 @@ class CTPPlaybookSync
             $et      = trim($r['tags'] ?? '');
             $geom    = $tf['route_geometry'];
 
-            $stmt->bind_param('isssssssssssssssssssisss',
+            $stmt->bind_param('issssssssssssssssssisssss',
                 $play_id, $rs, $origin, $o_filt, $dest, $d_filt,
                 $empty, $empty, $empty,
                 $empty, $empty, $empty,
@@ -561,7 +561,7 @@ class CTPPlaybookSync
                     peak_rate_hr = VALUES(peak_rate_hr), avg_rate_hr = VALUES(avg_rate_hr),
                     period_start = VALUES(period_start), period_end = VALUES(period_end),
                     metadata_json = VALUES(metadata_json), updated_by = VALUES(updated_by)");
-            $st->bind_param('iisiiidsssss',
+            $st->bind_param('iisiiidssss',
                 $rid, $play_id, $src, $pc, $sc, $pr, $ar,
                 $ps_val, $pe_val, $meta, $updby);
             $st->execute();
