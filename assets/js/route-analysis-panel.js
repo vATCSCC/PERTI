@@ -1390,7 +1390,6 @@
     var fcActiveType = 'ARTCC';
     var fcSortCol = 'count';
     var fcSortAsc = false;
-    var fcCountMode = 'all';
     var fcCurrentOptions = null;
 
     function csvSplitRa(str) {
@@ -1458,10 +1457,6 @@
         html += '<div class="ra-fc-header" id="ra-fc-toggle-header">';
         html += '<span class="ra-fc-header-left"><i class="fas fa-caret-down ra-fc-toggle"></i> <span class="ra-fc-label">' + (t('playbook.facilityCountsTitle', { count: totalRoutes, play: escHtml(playName) }) || 'Facility Counts') + '</span></span>';
         html += '<span class="ra-fc-header-right">';
-        html += '<span class="ra-fc-mode-toggle" id="ra-fc-mode-toggle">';
-        html += '<span class="ra-fc-mode' + (fcCountMode === 'all' ? ' active' : '') + '" data-mode="all">' + (t('playbook.fcModeAll') || 'All') + '</span>';
-        html += '<span class="ra-fc-mode' + (fcCountMode === 'unique' ? ' active' : '') + '" data-mode="unique">' + (t('playbook.fcModeUnique') || 'Unique') + '</span>';
-        html += '</span>';
         html += '<button class="ra-fc-export-btn" id="ra-fc-export" title="' + (t('common.copyToClipboard') || 'Copy to Clipboard') + '"><i class="fas fa-clipboard"></i></button>';
         html += '</span>';
         html += '</div>';
@@ -1529,25 +1524,9 @@
         var toggleHeader = container.querySelector('#ra-fc-toggle-header');
         if (toggleHeader) {
             toggleHeader.addEventListener('click', function(e) {
-                if (e.target.closest('.ra-fc-export-btn') || e.target.closest('.ra-fc-mode-toggle')) return; // don't toggle on export or mode click
+                if (e.target.closest('.ra-fc-export-btn')) return; // don't toggle on export click
                 var section = container.querySelector('.ra-fc-section');
                 if (section) section.classList.toggle('collapsed');
-            });
-        }
-
-        // Mode toggle (All / Unique)
-        var modeToggle = container.querySelector('#ra-fc-mode-toggle');
-        if (modeToggle) {
-            modeToggle.addEventListener('click', function(e) {
-                var btn = e.target.closest('.ra-fc-mode');
-                if (!btn) return;
-                e.stopPropagation();
-                var newMode = btn.getAttribute('data-mode');
-                if (newMode === fcCountMode) return;
-                fcCountMode = newMode;
-                modeToggle.querySelectorAll('.ra-fc-mode').forEach(function(b) { b.classList.remove('active'); });
-                btn.classList.add('active');
-                renderFcTableRows(fc, totalRoutes, options);
             });
         }
 
@@ -1563,10 +1542,7 @@
     function renderFcTableRows(fc, totalRoutes, options) {
         var tbody = document.getElementById('ra-fc-tbody');
         if (!tbody) return;
-        var activeFc = fcCountMode === 'unique' && options && options.facilityCountsUnique
-            ? options.facilityCountsUnique : fc;
-        var activeTotal = fcCountMode === 'unique' && options ? (options.uniqueRoutes || totalRoutes) : totalRoutes;
-        var counts = activeFc[fcActiveType] || {};
+        var counts = fc[fcActiveType] || {};
         var keys = Object.keys(counts);
         var maxCount = 0;
         keys.forEach(function(k) { if (counts[k] > maxCount) maxCount = counts[k]; });
@@ -1583,7 +1559,7 @@
         var html = '';
         keys.forEach(function(code) {
             var cnt = counts[code];
-            var pct = activeTotal > 0 ? (cnt / activeTotal * 100).toFixed(1) : '0.0';
+            var pct = totalRoutes > 0 ? (cnt / totalRoutes * 100).toFixed(1) : '0.0';
             var barW = maxCount > 0 ? Math.round(cnt / maxCount * 100) : 0;
             html += '<tr data-ra-fc-code="' + escHtml(code) + '" data-ra-fc-type="' + escHtml(fcActiveType) + '">';
             html += '<td>' + escHtml(code) + '</td>';

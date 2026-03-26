@@ -22,6 +22,23 @@ set_time_limit(90);
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
+// Catch fatal errors and output as JSON
+register_shutdown_function(function () {
+    $err = error_get_last();
+    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+            http_response_code(500);
+        }
+        echo json_encode([
+            'status' => 'fatal',
+            'error' => $err['message'],
+            'file' => basename($err['file']),
+            'line' => $err['line'],
+        ]);
+    }
+});
+
 include(__DIR__ . "/../../load/config.php");
 define('PERTI_MYSQL_ONLY', true);
 include(__DIR__ . "/../../load/connect.php");
@@ -55,10 +72,21 @@ if ($action !== 'run') {
     exit;
 }
 
-// Get ADL connection
-$conn_adl = get_conn_adl();
-if (!$conn_adl) {
-    echo json_encode(['status' => 'error', 'message' => 'ADL connection unavailable']);
+// Get ADL connection via PDO sqlsrv (NOT sqlsrv extension)
+// The sqlsrv extension segfaults on Azure Linux with 4+ char() columns (HY090 bug)
+if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE')) {
+    echo json_encode(['status' => 'error', 'message' => 'ADL config not defined']);
+    exit;
+}
+try {
+    $adlPdo = new PDO(
+        "sqlsrv:Server=" . ADL_SQL_HOST . ";Database=" . ADL_SQL_DATABASE . ";Encrypt=true;TrustServerCertificate=false;LoginTimeout=10;ConnectionPooling=1",
+        ADL_SQL_USERNAME,
+        ADL_SQL_PASSWORD,
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    );
+} catch (PDOException $e) {
+    echo json_encode(['status' => 'error', 'message' => 'ADL PDO connect failed: ' . $e->getMessage()]);
     exit;
 }
 
@@ -72,7 +100,8 @@ $stmt = $conn_pdo->prepare(
      ORDER BY flight_uid ASC
      LIMIT ?"
 );
-$stmt->execute([$batchSize]);
+$stmt->bindValue(1, $batchSize, PDO::PARAM_INT);
+$stmt->execute();
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if (empty($rows)) {
@@ -88,7 +117,6 @@ foreach ($rows as $r) {
 }
 
 // 3. Query ADL for flight details (batch via IN clause)
-// sqlsrv doesn't support array binding, so we interpolate safe integer values
 $uidList = implode(',', array_map('intval', $uids));
 
 $sql = "SELECT
@@ -102,22 +130,18 @@ $sql = "SELECT
         LEFT JOIN dbo.adl_flight_plan p ON p.flight_uid = c.flight_uid
         WHERE c.flight_uid IN ($uidList)";
 
-$adlResult = sqlsrv_query($conn_adl, $sql);
-if ($adlResult === false) {
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'ADL query failed',
-        'errors' => sqlsrv_errors()
-    ]);
+$adlStmt = $adlPdo->query($sql);
+if (!$adlStmt) {
+    echo json_encode(['status' => 'error', 'message' => 'ADL query failed']);
     exit;
 }
 
 // 4. Build update data
 $adlData = [];
-while ($row = sqlsrv_fetch_array($adlResult, SQLSRV_FETCH_ASSOC)) {
+while ($row = $adlStmt->fetch(PDO::FETCH_ASSOC)) {
     $adlData[$row['flight_uid']] = $row;
 }
-sqlsrv_free_stmt($adlResult);
+$adlStmt->closeCursor();
 
 // 5. Batch UPDATE MySQL rows
 $updateStmt = $conn_pdo->prepare(
@@ -134,6 +158,7 @@ $updateStmt = $conn_pdo->prepare(
 $updated = 0;
 $notFound = 0;
 
+$conn_pdo->beginTransaction();
 foreach ($rows as $r) {
     $uid = $r['flight_uid'];
     $adl = $adlData[$uid] ?? null;
@@ -165,6 +190,7 @@ foreach ($rows as $r) {
         $notFound++;
     }
 }
+$conn_pdo->commit();
 
 $elapsed = round(microtime(true) - $startTime, 1);
 
