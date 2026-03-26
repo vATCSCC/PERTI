@@ -916,7 +916,7 @@
 
     function buildChip(label, onRemove) {
         var $chip = $('<span class="routes-filter-chip"></span>')
-            .text(label)
+            .append($('<span class="routes-chip-label"></span>').text(label))
             .append('<i class="fas fa-times routes-chip-remove"></i>');
 
         $chip.find('.routes-chip-remove').on('click', onRemove);

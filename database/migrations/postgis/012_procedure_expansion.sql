@@ -271,17 +271,77 @@ BEGIN
                 v_prev_lon := v_wp.lon;
             ELSE
                 -- Fix not found — check if this is a standalone procedure name
-                -- (e.g., "PARCH4" without dot notation, common in space-separated routes)
-                -- Look for any STAR/DP matching this procedure_name
+                -- (e.g., "SNAPR2" without dot notation, space-separated routes)
+                --
+                -- NASR stores transitions under BASE procedure_name:
+                --   DP: computer_code = 'SNAPR2.SNAPR', procedure_name = 'SNAPR'
+                --   STAR: computer_code = 'BEANO.BEANO3', procedure_name = 'BEANO'
+                -- So we search by computer_code LIKE pattern, not procedure_name.
+                --
+                -- The adjacent token is used as transition context:
+                --   DP: next token is transition fix (SNAPR2 SUMAC → route ending at SUMAC)
+                --   STAR: prev token is transition fix (BEANO BEANO3 → route starting from BEANO)
+                --
+                -- Exclude raw CIFP source — its full_route concatenates all transition
+                -- legs producing garbled zigzag waypoints.
                 v_proc_route := NULL;
+
+                -- Use adjacent token as transition hint
+                v_next_fix := NULL;
+                IF v_idx < array_length(v_parts, 1) THEN
+                    v_next_fix := UPPER(v_parts[v_idx + 1]);
+                END IF;
+
+                -- Try DP lookup: computer_code LIKE 'SNAPR2.%'
+                -- Prefer route containing the next token (transition fix)
                 SELECT np.full_route INTO v_proc_route
                 FROM nav_procedures np
-                WHERE np.procedure_name = UPPER(v_part)
+                WHERE np.computer_code LIKE UPPER(v_part) || '.%'
+                  AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base')
                   AND np.is_active = true
                   AND (np.is_superseded IS NULL OR np.is_superseded = false)
-                  -- Prefer the base transition (no transition prefix, shortest route)
-                ORDER BY length(np.full_route) ASC
+                  AND np.full_route IS NOT NULL
+                  AND np.full_route != ''
+                ORDER BY
+                  CASE WHEN v_next_fix IS NOT NULL
+                       AND (np.full_route LIKE '% ' || v_next_fix
+                            OR np.full_route LIKE '% ' || v_next_fix || ' %')
+                       THEN 0 ELSE 1 END,
+                  length(np.full_route) ASC
                 LIMIT 1;
+
+                -- Try STAR lookup: computer_code LIKE '%.BEANO3'
+                IF v_proc_route IS NULL THEN
+                    SELECT np.full_route INTO v_proc_route
+                    FROM nav_procedures np
+                    WHERE np.computer_code LIKE '%.' || UPPER(v_part)
+                      AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base')
+                      AND np.is_active = true
+                      AND (np.is_superseded IS NULL OR np.is_superseded = false)
+                      AND np.full_route IS NOT NULL
+                      AND np.full_route != ''
+                    ORDER BY
+                      CASE WHEN v_prev_fix IS NOT NULL
+                           AND (np.full_route LIKE v_prev_fix || ' %'
+                                OR np.full_route LIKE '% ' || v_prev_fix || ' %')
+                           THEN 0 ELSE 1 END,
+                      length(np.full_route) ASC
+                    LIMIT 1;
+                END IF;
+
+                -- Fallback: exact procedure_name match (catches PARCH4 etc.)
+                IF v_proc_route IS NULL THEN
+                    SELECT np.full_route INTO v_proc_route
+                    FROM nav_procedures np
+                    WHERE np.procedure_name = UPPER(v_part)
+                      AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base')
+                      AND np.is_active = true
+                      AND (np.is_superseded IS NULL OR np.is_superseded = false)
+                      AND np.full_route IS NOT NULL
+                      AND np.full_route != ''
+                    ORDER BY length(np.full_route) ASC
+                    LIMIT 1;
+                END IF;
 
                 IF v_proc_route IS NOT NULL AND v_proc_route != '' THEN
                     v_proc_parts := regexp_split_to_array(TRIM(v_proc_route), '\s+');
