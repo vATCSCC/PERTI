@@ -276,7 +276,7 @@ function handleGetSingle(int $id): void {
     $fc = ['artccs' => [], 'tracons' => [], 'sectors_low' => [],
            'sectors_high' => [], 'sectors_superhigh' => []];
     $with_traversal = 0;
-    $all_sector_codes = []; // code => type for coverage
+    $all_sector_codes = []; // code => [type => true, ...] for coverage
     $swim_to_type = ['sectors_low' => 'LOW', 'sectors_high' => 'HIGH', 'sectors_superhigh' => 'SUPERHIGH'];
 
     foreach ($formatted['routes'] as $r) {
@@ -290,8 +290,9 @@ function handleGetSingle(int $id): void {
                 $counts[$code] = ($counts[$code] ?? 0) + 1;
             }
             if (isset($swim_to_type[$key])) {
+                $stype = $swim_to_type[$key];
                 foreach ($codes as $code) {
-                    if ($code !== '') $all_sector_codes[$code] = $swim_to_type[$key];
+                    if ($code !== '') $all_sector_codes[$code][$stype] = true;
                 }
             }
         }
@@ -339,9 +340,13 @@ function handleGetSingle(int $id): void {
                     }
 
                     $play_sectors = [];
-                    foreach ($all_sector_codes as $code => $stype) {
+                    foreach ($all_sector_codes as $code => $stypes) {
                         $artcc = $sector_artcc_map[$code] ?? null;
-                        if ($artcc) $play_sectors[$artcc][$stype][$code] = true;
+                        if ($artcc) {
+                            foreach ($stypes as $stype => $_) {
+                                $play_sectors[$artcc][$stype][$code] = true;
+                            }
+                        }
                     }
 
                     $coverage_data = [];

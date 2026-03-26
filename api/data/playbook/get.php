@@ -93,7 +93,7 @@ $sector_type_lookup = [
     'traversed_sectors_high'      => 'HIGH',
     'traversed_sectors_superhigh' => 'SUPERHIGH',
 ];
-$all_sector_codes = []; // code => sector_type for PostGIS coverage lookup
+$all_sector_codes = []; // code => [type1, type2, ...] for PostGIS coverage lookup
 
 foreach ($routes as $r) {
     $has_data = false;
@@ -111,8 +111,9 @@ foreach ($routes as $r) {
             $facility_counts[$type][$code] = ($facility_counts[$type][$code] ?? 0) + 1;
         }
         if (isset($sector_type_lookup[$col])) {
+            $stype = $sector_type_lookup[$col];
             foreach ($codes as $code) {
-                if ($code !== '') $all_sector_codes[$code] = $sector_type_lookup[$col];
+                if ($code !== '') $all_sector_codes[$code][$stype] = true;
             }
         }
     }
@@ -170,11 +171,14 @@ if (!empty($all_sector_codes)) {
                 }
 
                 // Play-level: unique sectors per ARTCC per type
+                // A sector can appear in multiple strata (e.g., ZNY42 in both HIGH and SUPERHIGH)
                 $play_sectors = [];
-                foreach ($all_sector_codes as $code => $stype) {
+                foreach ($all_sector_codes as $code => $stypes) {
                     $artcc = $sector_artcc_map[$code] ?? null;
                     if ($artcc) {
-                        $play_sectors[$artcc][$stype][$code] = true;
+                        foreach ($stypes as $stype => $_) {
+                            $play_sectors[$artcc][$stype][$code] = true;
+                        }
                     }
                 }
 
