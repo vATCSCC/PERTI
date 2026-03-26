@@ -1174,7 +1174,7 @@
 
         var html = '<h6 class="text-info"><i class="fas fa-project-diagram"></i> ' + PERTII18n.t('tmr.opsPlan.initiatives') + '</h6>' +
             '<div class="table-responsive"><table class="table table-sm table-bordered" style="font-size: 0.8rem;">' +
-            '<thead><tr><th>Facility</th><th>Type</th><th>Cause</th><th>Start</th><th>End</th><th>Level</th><th>Notes</th></tr></thead><tbody>';
+            '<thead><tr><th>' + PERTII18n.t('tmr.opsPlan.table.facility') + '</th><th>' + PERTII18n.t('tmr.opsPlan.table.type') + '</th><th>' + PERTII18n.t('tmr.opsPlan.table.cause') + '</th><th>' + PERTII18n.t('tmr.opsPlan.table.start') + '</th><th>' + PERTII18n.t('tmr.opsPlan.table.end') + '</th><th>' + PERTII18n.t('tmr.opsPlan.table.level') + '</th><th>' + PERTII18n.t('tmr.opsPlan.table.notes') + '</th></tr></thead><tbody>';
 
         allInit.forEach(function(init) {
             html += '<tr>' +
@@ -1574,8 +1574,8 @@
             block.id = 'demand_block_' + airport;
             var rateStr = (aar || '?') + ' / ' + (adr || '?');
             block.innerHTML = '<h6 class="text-warning">' + escapeHtml(airport) +
-                ' <span class="text-muted small">AAR: ' + escapeHtml(String(aar || '?')) +
-                ' | ADR: ' + escapeHtml(String(adr || '?')) + '</span></h6>' +
+                ' <span class="text-muted small">' + PERTII18n.t('tmr.demandChart.aar') + ': ' + escapeHtml(String(aar || '?')) +
+                ' | ' + PERTII18n.t('tmr.demandChart.adr') + ': ' + escapeHtml(String(adr || '?')) + '</span></h6>' +
                 '<div class="demand-chart-container" id="' + containerId + '"></div>';
             wrapper.appendChild(block);
             el = document.getElementById(containerId);

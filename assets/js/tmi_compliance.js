@@ -1640,7 +1640,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <span class="tmi-fix-name">${displayName}</span>
                         <span class="tmi-type-badge ml-2">${required}${unitLabel} ${tmiType}</span>
                         <span class="text-muted ml-2">| ${r.tmi_start || ''} - ${r.tmi_end || ''}</span>
-                        ${r.cancelled ? '<span class="badge badge-warning ml-2">CANCELLED</span>' : ''}
+                        ${r.cancelled ? '<span class="badge badge-warning ml-2">' + PERTII18n.t('tmiCompliance.badge.cancelled') + '</span>' : ''}
                         ${gapBadge}
                         ${measurementBadge}
                     </div>
@@ -1757,10 +1757,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const rowClass = p.spacing_category === 'UNDER' ? 'table-danger' :
             p.spacing_category === 'WITHIN' ? 'table-success' :
                 p.spacing_category === 'GAP' ? 'table-warning' : '';
-        const statusBadge = p.spacing_category === 'UNDER' ? '<span class="badge badge-danger">UNDER</span>' :
-            p.spacing_category === 'WITHIN' ? '<span class="badge badge-success">WITHIN</span>' :
-                p.spacing_category === 'OVER' ? '<span class="badge badge-info">OVER</span>' :
-                    '<span class="badge badge-warning">GAP</span>';
+        const statusBadge = p.spacing_category === 'UNDER' ? '<span class="badge badge-danger">' + PERTII18n.t('tmiCompliance.badge.under') + '</span>' :
+            p.spacing_category === 'WITHIN' ? '<span class="badge badge-success">' + PERTII18n.t('tmiCompliance.badge.within') + '</span>' :
+                p.spacing_category === 'OVER' ? '<span class="badge badge-info">' + PERTII18n.t('tmiCompliance.badge.over') + '</span>' :
+                    '<span class="badge badge-warning">' + PERTII18n.t('tmiCompliance.badge.gap') + '</span>';
         const marginAmt = this.calcMarginAmount(p.spacing, required);
         const marginSign = parseFloat(marginAmt) >= 0 ? '+' : '';
         return `
@@ -1951,9 +1951,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Ended-by badge
         let endedBadge = '';
         if (r.ended_by === 'CNX' || r.cancelled) {
-            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+            endedBadge = '<span class="gs-ended-badge cnx">' + PERTII18n.t('tmiCompliance.badge.cnx') + '</span>';
         } else if (r.ended_by === 'EXPIRATION') {
-            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+            endedBadge = '<span class="gs-ended-badge expired">' + PERTII18n.t('tmiCompliance.badge.expired') + '</span>';
         }
 
         let html = `
@@ -2002,10 +2002,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             const typeClass = adv.type === 'INITIAL' ? 'danger' : adv.type === 'CNX' ? 'success' : 'warning';
                             return `<div class="advisory-detail-card${adv.type === 'CNX' ? ' cnx' : ''}">
                                 <div class="advisory-detail-header">
-                                    <span class="badge badge-${typeClass}">ADVZY ${adv.advzy || '?'}</span>
+                                    <span class="badge badge-${typeClass}">${PERTII18n.t('tmiCompliance.badge.advzy')} ${adv.advzy || '?'}</span>
                                     <span class="advisory-type">${adv.type || ''}</span>
                                     ${adv.start ? `<span class="text-muted">${adv.start} - ${adv.end || '?'}</span>` : ''}
-                                    <span class="text-muted small">Issued: ${adv.issued || 'N/A'}</span>
+                                    <span class="text-muted small">${PERTII18n.t('tmiCompliance.label.issued')}: ${adv.issued || PERTII18n.t('common.na')}</span>
                                 </div>
                                 ${adv.impacting_condition ? `<div class="advisory-meta"><i class="fas fa-cloud"></i> ${this.escapeHtml(adv.impacting_condition)}</div>` : ''}
                                 ${adv.dep_facilities && adv.dep_facilities.length ? `<div class="advisory-meta"><i class="fas fa-building"></i> DEP: ${adv.dep_facilities.join(', ')}${adv.dep_facility_tier ? ' (' + adv.dep_facility_tier + ')' : ''}</div>` : ''}
@@ -2106,14 +2106,14 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                         <table class="table table-sm table-striped sortable-table" id="gs_origin_tbl_${this.detailIdCounter}">
                             <thead class="thead-dark">
                                 <tr>
-                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',0,false)" style="cursor:pointer;">Origin</th>
-                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',1,true)" style="cursor:pointer;">Total</th>
-                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',2,true)" style="cursor:pointer;">Compliant</th>
-                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',3,true)" style="cursor:pointer;">Non-Comp</th>
-                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',4,true)" style="cursor:pointer;">Exempt</th>
-                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',5,true)" style="cursor:pointer;">Rate</th>
-                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',6,true)" style="cursor:pointer;">Avg Hold</th>
-                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',7,true)" style="cursor:pointer;">Avg Delay</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',0,false)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.origin')}</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',1,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.total')}</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',2,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.compliant')}</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',3,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.nonComp')}</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',4,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.exempt')}</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',5,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.rate')}</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',6,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.avgHold')}</th>
+                                    <th onclick="TMICompliance.sortTable('gs_origin_tbl_${this.detailIdCounter}',7,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.avgDelay')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2163,11 +2163,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const hasGsDelay = nonCompliantFlights.some(f => f.gs_delay_min !== undefined);
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-danger"><i class="fas fa-times-circle"></i> Violations (${nonCompliantFlights.length})</h6>
+                        <h6 class="text-danger"><i class="fas fa-times-circle"></i> ${PERTII18n.t('tmiCompliance.heading.violations')} (${nonCompliantFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-dark sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>Phase</th>' : ''}${hasGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Into GS</th>${hasPhase ? '<th>' + PERTII18n.t('tmiCompliance.table.phase') + '</th>' : ''}${hasGsDelay ? '<th>' + PERTII18n.t('tmiCompliance.table.gsDelay') + '</th>' : ''}<th>${PERTII18n.t('tmiCompliance.table.source')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${nonCompliantFlights.map(f => `
@@ -2192,11 +2192,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (exemptFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-info"><i class="fas fa-check-circle"></i> Exempt (${exemptFlights.length})</h6>
+                        <h6 class="text-info"><i class="fas fa-check-circle"></i> ${PERTII18n.t('tmiCompliance.heading.exempt')} (${exemptFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Reason</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.table.callsign')}</th><th>${PERTII18n.t('tmiCompliance.table.origin')}</th><th>${PERTII18n.t('tmiCompliance.table.deptTime')}</th><th>${PERTII18n.t('tmiCompliance.table.reason')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${exemptFlights.map(f => `
@@ -2219,11 +2219,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const hasCompGsDelay = compliantFlights.some(f => f.gs_delay_min !== undefined);
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-success"><i class="fas fa-check"></i> Compliant (${compliantFlights.length})</h6>
+                        <h6 class="text-success"><i class="fas fa-check"></i> ${PERTII18n.t('tmiCompliance.heading.compliant')} (${compliantFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th>${hasCompGsDelay ? '<th>GS Delay</th>' : ''}<th>Source</th></tr>
+                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th><th>Hold</th>${hasCompGsDelay ? '<th>' + PERTII18n.t('tmiCompliance.table.gsDelay') + '</th>' : ''}<th>${PERTII18n.t('tmiCompliance.table.source')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${compliantFlights.map(f => `
@@ -2492,9 +2492,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Ended-by badge
         let endedBadge = '';
         if (r.ended_by === 'CNX') {
-            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+            endedBadge = '<span class="gs-ended-badge cnx">' + PERTII18n.t('tmiCompliance.badge.cnx') + '</span>';
         } else if (r.ended_by === 'EXPIRATION') {
-            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+            endedBadge = '<span class="gs-ended-badge expired">' + PERTII18n.t('tmiCompliance.badge.expired') + '</span>';
         }
 
         let html = `
@@ -2607,7 +2607,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     <div class="table-responsive">
                         <table class="table table-sm table-striped route-table">
                             <thead class="thead-dark">
-                                <tr><th>Origin</th><th>Dest</th><th>Route</th></tr>
+                                <tr><th>${PERTII18n.t('tmiCompliance.table.origin')}</th><th>${PERTII18n.t('tmiCompliance.table.dest')}</th><th>${PERTII18n.t('tmiCompliance.table.route')}</th></tr>
                             </thead>
                             <tbody>
                                 ${requiredRoutes.map(rt => {
@@ -2647,12 +2647,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                             <thead class="thead-dark sticky-top">
                                 <tr>
                                     <th style="width:20px;"></th>
-                                    <th>Callsign</th>
-                                    <th>Origin</th>
-                                    <th>Dest</th>
-                                    <th>Filed %</th>
-                                    <th>Flown %</th>
-                                    <th>Status</th>
+                                    <th>${PERTII18n.t('tmiCompliance.table.callsign')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.table.origin')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.table.dest')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.table.filedPct')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.table.flownPct')}</th>
+                                    <th>${PERTII18n.t('tmiCompliance.table.status')}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2716,9 +2716,9 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Ended-by badge
         let endedBadge = '';
         if (data.ended_by === 'CNX') {
-            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+            endedBadge = '<span class="gs-ended-badge cnx">' + PERTII18n.t('tmiCompliance.badge.cnx') + '</span>';
         } else if (data.ended_by === 'EXPIRATION') {
-            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+            endedBadge = '<span class="gs-ended-badge expired">' + PERTII18n.t('tmiCompliance.badge.expired') + '</span>';
         }
 
         let html = `
@@ -2802,7 +2802,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     ? `<div class="route-legend"><span class="required-segment">${reqFixes[0]}</span> = required fix that flights must traverse</div>`
                     : '';
                 let tbl = legend + `<div class="table-responsive"><table class="table table-sm table-striped route-table">
-                    <thead><tr><th>Origin</th><th>Dest</th><th>Route</th></tr></thead><tbody>`;
+                    <thead><tr><th>${PERTII18n.t('tmiCompliance.table.origin')}</th><th>${PERTII18n.t('tmiCompliance.table.dest')}</th><th>${PERTII18n.t('tmiCompliance.table.route')}</th></tr></thead><tbody>`;
                 requiredRoutes.forEach(rt => {
                     let routeStr = rt.route || '';
                     const reqFixes = data.required_fixes || [];
@@ -2905,7 +2905,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 let tbl = `<div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
                     <table class="table table-sm table-striped" id="${v2FlightTblId}">
                         <thead class="thead-dark sticky-top">
-                            <tr><th style="width:20px;"></th><th>Callsign</th><th>Origin</th><th>Dest</th><th>Filed %</th><th>Flown %</th><th>Status</th></tr>
+                            <tr><th style="width:20px;"></th><th>${PERTII18n.t('tmiCompliance.table.callsign')}</th><th>${PERTII18n.t('tmiCompliance.table.origin')}</th><th>${PERTII18n.t('tmiCompliance.table.dest')}</th><th>${PERTII18n.t('tmiCompliance.table.filedPct')}</th><th>${PERTII18n.t('tmiCompliance.table.flownPct')}</th><th>${PERTII18n.t('tmiCompliance.table.status')}</th></tr>
                         </thead><tbody>`;
                 allFlights.forEach((f, idx) => {
                     const fStatus = (f.final_status || f.filed_status || '').toUpperCase();
@@ -2971,7 +2971,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             <div class="tmi-card apreq-card${gapBadge ? ' has-data-gap' : ''}">
                 <div class="tmi-header">
                     <div>
-                        <span class="tmi-fix-name">APREQ/CFR: ${displayName}</span>
+                        <span class="tmi-fix-name">${PERTII18n.t('tmiCompliance.label.apreqCfr')}: ${displayName}</span>
                         <span class="text-muted ml-2">
                             ${isRealFix ? dests + ' | ' : ''}${r.tmi_start || ''} - ${r.tmi_end || ''}
                         </span>
@@ -3026,11 +3026,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (affectedFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-warning"><i class="fas fa-phone"></i> Need Release (${affectedFlights.length})</h6>
+                        <h6 class="text-warning"><i class="fas fa-phone"></i> ${PERTII18n.t('tmiCompliance.heading.needRelease')} (${affectedFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-dark sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dest</th><th>Dept Time</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.table.callsign')}</th><th>${PERTII18n.t('tmiCompliance.table.origin')}</th><th>${PERTII18n.t('tmiCompliance.table.dest')}</th><th>${PERTII18n.t('tmiCompliance.table.deptTime')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${affectedFlights.map(f => `
@@ -3052,11 +3052,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (exemptFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-info"><i class="fas fa-check-circle"></i> Exempt (${exemptFlights.length})</h6>
+                        <h6 class="text-info"><i class="fas fa-check-circle"></i> ${PERTII18n.t('tmiCompliance.heading.exempt')} (${exemptFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.table.callsign')}</th><th>${PERTII18n.t('tmiCompliance.table.origin')}</th><th>${PERTII18n.t('tmiCompliance.table.deptTime')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${exemptFlights.map(f => `
@@ -3077,11 +3077,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             if (postTmiFlights.length > 0) {
                 html += `
                     <div class="col-md-4">
-                        <h6 class="text-muted"><i class="fas fa-hourglass-end"></i> Post TMI (${postTmiFlights.length})</h6>
+                        <h6 class="text-muted"><i class="fas fa-hourglass-end"></i> ${PERTII18n.t('tmiCompliance.heading.postTmi')} (${postTmiFlights.length})</h6>
                         <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
                             <table class="table table-sm table-striped">
                                 <thead class="thead-light sticky-top">
-                                    <tr><th>Callsign</th><th>Origin</th><th>Dept Time</th></tr>
+                                    <tr><th>${PERTII18n.t('tmiCompliance.table.callsign')}</th><th>${PERTII18n.t('tmiCompliance.table.origin')}</th><th>${PERTII18n.t('tmiCompliance.table.deptTime')}</th></tr>
                                 </thead>
                                 <tbody>
                                     ${postTmiFlights.map(f => `
@@ -3226,7 +3226,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                     : '';
 
         const holdingBadge = d.holding_status === 'HOLDING'
-            ? `<span class="badge badge-warning ml-1"><i class="fas fa-sync"></i> Holding${d.holding_fix ? ' @ ' + d.holding_fix : ''}${d.aircraft_holding ? ' (' + d.aircraft_holding + ' ACFT)' : ''}</span>`
+            ? `<span class="badge badge-warning ml-1"><i class="fas fa-sync"></i> ${PERTII18n.t('tmiCompliance.badge.holding')}${d.holding_fix ? ' @ ' + d.holding_fix : ''}${d.aircraft_holding ? ' (' + d.aircraft_holding + ' ACFT)' : ''}</span>`
             : '';
 
         const delayDisplay = d.delay_minutes > 0 ? `+${d.delay_minutes}min` : (d.holding_status === 'HOLDING' ? PERTII18n.t('tmiCompliance.holdingLabel') : '-');
@@ -6980,10 +6980,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // NTML Entries summary
         let ntmlLines = '';
         if (mitCount > 0) {
-            ntmlLines += `<div class="tmi-summary-line"><strong>MIT/MINIT:</strong> ${mitPairs} pairs analyzed, ${mitNonCompliant} non-compliant</div>`;
+            ntmlLines += `<div class="tmi-summary-line"><strong>MIT/MINIT:</strong> ${PERTII18n.t('tmiCompliance.summary.mitSummary', {pairs: mitPairs, nc: mitNonCompliant})}</div>`;
         }
         if (apreqCount > 0) {
-            ntmlLines += `<div class="tmi-summary-line"><strong>APREQ/CFR:</strong> ${apreqCount} tracked</div>`;
+            ntmlLines += `<div class="tmi-summary-line"><strong>APREQ/CFR:</strong> ${PERTII18n.t('tmiCompliance.summary.apreqSummary', {count: apreqCount})}</div>`;
         }
         if (gsCount > 0) {
             ntmlLines += `<div class="tmi-summary-line"><strong>STOP:</strong> ${gsCount} stop${gsCount > 1 ? 's' : ''}, ${stopViolations} departure${stopViolations !== 1 ? 's' : ''} during restriction</div>`;
@@ -7011,22 +7011,22 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 const end = (g.end_hour + 1).toString().padStart(2, '0') + ':00Z';
                 return `${start}–${end}`;
             }).join(', ');
-            gapInfo = ` | <span class="gap-warning">Gaps: ${gapTimes}</span>`;
+            gapInfo = ` | <span class="gap-warning">${PERTII18n.t('tmiCompliance.summary.gaps')}: ${gapTimes}</span>`;
         }
 
         return `
             <div class="tmi-summary-header">
-                <div class="event-identity">Plan ${r.plan_id || this.planId || '?'} — TMI Analysis</div>
+                <div class="event-identity">${PERTII18n.t('tmiCompliance.summary.planTitle', {id: r.plan_id || this.planId || '?'})}</div>
                 <div class="event-window">${eventWindow}</div>
 
                 <div class="tmi-summary-entries">
                     <div class="tmi-summary-group">
-                        <h4>NTML Entries</h4>
+                        <h4>${PERTII18n.t('tmiCompliance.summary.ntmlEntries')}</h4>
                         ${ntmlLines || '<div class="tmi-summary-line text-muted">None configured</div>'}
                     </div>
                     ${advisoryLines ? `
                     <div class="tmi-summary-group">
-                        <h4>Advisories</h4>
+                        <h4>${PERTII18n.t('tmiCompliance.summary.advisories')}</h4>
                         ${advisoryLines}
                     </div>
                     ` : ''}
@@ -7071,7 +7071,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const allTmis = this.getAllTmisForList();
 
         if (allTmis.length === 0) {
-            return `<div class="tmi-list-empty">No TMIs to display</div>`;
+            return `<div class="tmi-list-empty">${PERTII18n.t('tmiCompliance.list.empty')}</div>`;
         }
 
         // Group by type
@@ -7082,10 +7082,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             <div class="tmi-list-header">
                 <div class="tmi-list-controls">
                     <select id="tmi-list-ordering" title="Sort order">
-                        <option value="chronological" ${this.listOrdering === 'chronological' ? 'selected' : ''}>Chronological</option>
-                        <option value="volume" ${this.listOrdering === 'volume' ? 'selected' : ''}>By Volume</option>
-                        <option value="noncompliant" ${this.listOrdering === 'noncompliant' ? 'selected' : ''}>Non-compliant First</option>
-                        <option value="alpha" ${this.listOrdering === 'alpha' ? 'selected' : ''}>Alphabetical</option>
+                        <option value="chronological" ${this.listOrdering === 'chronological' ? 'selected' : ''}>${PERTII18n.t('tmiCompliance.sort.chronological')}</option>
+                        <option value="volume" ${this.listOrdering === 'volume' ? 'selected' : ''}>${PERTII18n.t('tmiCompliance.sort.volume')}</option>
+                        <option value="noncompliant" ${this.listOrdering === 'noncompliant' ? 'selected' : ''}>${PERTII18n.t('tmiCompliance.sort.nonCompliantFirst')}</option>
+                        <option value="alpha" ${this.listOrdering === 'alpha' ? 'selected' : ''}>${PERTII18n.t('tmiCompliance.sort.alphabetical')}</option>
                     </select>
                 </div>
             </div>
@@ -7098,7 +7098,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // NTML Entries section
         if (sortedNtml.length > 0) {
             html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('ntml')">
-                <span class="section-chevron">&#9662;</span>NTML Entries<span class="section-badge">${sortedNtml.length}</span></div>`;
+                <span class="section-chevron">&#9662;</span>${PERTII18n.t('tmiCompliance.summary.ntmlEntries')}<span class="section-badge">${sortedNtml.length}</span></div>`;
             html += '<div class="tmi-list-section-items" data-section="ntml">';
             sortedNtml.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
@@ -7109,7 +7109,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Advisories section
         if (sortedAdvisories.length > 0) {
             html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('advisories')">
-                <span class="section-chevron">&#9662;</span>Advisories<span class="section-badge">${sortedAdvisories.length}</span></div>`;
+                <span class="section-chevron">&#9662;</span>${PERTII18n.t('tmiCompliance.summary.advisories')}<span class="section-badge">${sortedAdvisories.length}</span></div>`;
             html += '<div class="tmi-list-section-items" data-section="advisories">';
             sortedAdvisories.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
@@ -7395,23 +7395,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             <div class="tmi-detail-overview">
                 <div class="stat">
                     <div class="stat-value">${data.crossings || data.total_crossings || 0}</div>
-                    <div class="stat-label">Crossings</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.crossings')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${pairs}</div>
-                    <div class="stat-label">Pairs Analyzed</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.pairsAnalyzed')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${nonCompliant.length}</div>
-                    <div class="stat-label">Non-compliant</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.nonCompliant')}</div>
                 </div>
                 <div class="stat">
                     <div class="spacing-range">${minSpacing.toFixed(1)}–${maxSpacing.toFixed(1)}${unitLabel}</div>
-                    <div class="stat-label">Spacing Range</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.spacingRange')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${avgSpacing.toFixed(1)}${unitLabel}</div>
-                    <div class="stat-label">Avg Spacing</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.avgSpacing')}</div>
                 </div>
             </div>
         `;
@@ -7420,18 +7420,18 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const diagramId = `diagram_${data.fix || 'mit'}_${Date.now()}`;
 
         // Spacing Diagram section
-        html += this.renderExpandableSectionV2('spacing-diagram', 'Spacing Diagram', '', () => {
+        html += this.renderExpandableSectionV2('spacing-diagram', PERTII18n.t('tmiCompliance.section.spacingDiagram'), '', () => {
             return this.renderSpacingDiagramV2(allPairs, required, data.unit);
         });
 
         // All Pairs section
-        html += this.renderExpandableSectionV2('all-pairs', 'All Pairs', `(${pairs})`, () => {
+        html += this.renderExpandableSectionV2('all-pairs', PERTII18n.t('tmiCompliance.section.allPairs'), `(${pairs})`, () => {
             return this.renderPairsTableV2(allPairs, required, unitLabel);
         });
 
         // Non-Compliant section (if any)
         if (nonCompliant.length > 0) {
-            html += this.renderExpandableSectionV2('non-compliant', 'Non-Compliant', `(${nonCompliant.length})`, () => {
+            html += this.renderExpandableSectionV2('non-compliant', PERTII18n.t('tmiCompliance.section.nonCompliant'), `(${nonCompliant.length})`, () => {
                 return this.renderPairsTableV2(nonCompliant, required, unitLabel);
             });
         }
@@ -7459,32 +7459,32 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Ended-by badge
         let endedBadge = '';
         if (data.ended_by === 'CNX' || data.cancelled) {
-            endedBadge = '<span class="gs-ended-badge cnx">CNX</span>';
+            endedBadge = '<span class="gs-ended-badge cnx">' + PERTII18n.t('tmiCompliance.badge.cnx') + '</span>';
         } else if (data.ended_by === 'EXPIRATION') {
-            endedBadge = '<span class="gs-ended-badge expired">EXPIRED</span>';
+            endedBadge = '<span class="gs-ended-badge expired">' + PERTII18n.t('tmiCompliance.badge.expired') + '</span>';
         }
 
         let html = `
             <div class="tmi-detail-overview">
                 <div class="stat">
                     <div class="stat-value">${data.gs_start || '?'} - ${data.gs_end || '?'} ${endedBadge}</div>
-                    <div class="stat-label">Stop Window</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.stopWindow')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${totalFlights}</div>
-                    <div class="stat-label">Flights Tracked</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.flightsTracked')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${compliant}</div>
-                    <div class="stat-label">Compliant</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.compliant')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${nonCompliant}</div>
-                    <div class="stat-label">Non-compliant</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.nonCompliant')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${exempt}</div>
-                    <div class="stat-label">Exempt</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.exempt')}</div>
                 </div>
         `;
 
@@ -7492,7 +7492,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `
                 <div class="stat">
                     <div class="stat-value">${notInScope}</div>
-                    <div class="stat-label">Not In Scope</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.notInScope')}</div>
                 </div>
             `;
         }
@@ -7503,7 +7503,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `
                 <div class="stat" ${tooltip ? `title="${tooltip}"` : ''}>
                     <div class="stat-value">${this.formatDuration(data.avg_hold_time_min)}</div>
-                    <div class="stat-label">Avg Hold</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.avgHold')}</div>
                 </div>
             `;
         }
@@ -7515,7 +7515,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `
                 <div class="stat" title="${delayTooltip}">
                     <div class="stat-value">${this.formatDuration(v2GsDelay.avg_delay_min)}</div>
-                    <div class="stat-label">Avg GS Delay</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.avgGsDelay')}</div>
                 </div>
             `;
         }
@@ -7527,10 +7527,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const v2TsTotal = (v2Tsb['off_utc'] || 0) + (v2Tsb['out_utc+taxi'] || 0) + (v2Tsb['first_seen'] || 0);
         if (v2TsTotal > 0) {
             html += `<div class="text-muted small mt-1" style="font-size:0.72rem;">
-                <i class="fas fa-stopwatch"></i> Time sources:
-                ${v2Tsb['off_utc'] ? `<span class="badge badge-success mr-1" style="font-size:0.68rem;">${v2Tsb['off_utc']} wheels-off</span>` : ''}
-                ${v2Tsb['out_utc+taxi'] ? `<span class="badge badge-info mr-1" style="font-size:0.68rem;">${v2Tsb['out_utc+taxi']} gate+taxi</span>` : ''}
-                ${v2Tsb['first_seen'] ? `<span class="badge badge-warning mr-1" style="font-size:0.68rem;">${v2Tsb['first_seen']} first-seen</span>` : ''}
+                <i class="fas fa-stopwatch"></i> ${PERTII18n.t('tmiCompliance.gs.timeSources')}
+                ${v2Tsb['off_utc'] ? `<span class="badge badge-success mr-1" style="font-size:0.68rem;">${PERTII18n.t('tmiCompliance.gs.wheelsOff', {count: v2Tsb['off_utc']})}</span>` : ''}
+                ${v2Tsb['out_utc+taxi'] ? `<span class="badge badge-info mr-1" style="font-size:0.68rem;">${PERTII18n.t('tmiCompliance.gs.gateTaxi', {count: v2Tsb['out_utc+taxi']})}</span>` : ''}
+                ${v2Tsb['first_seen'] ? `<span class="badge badge-warning mr-1" style="font-size:0.68rem;">${PERTII18n.t('tmiCompliance.gs.firstSeen', {count: v2Tsb['first_seen']})}</span>` : ''}
             </div>`;
         }
 
@@ -7542,7 +7542,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += `<span class="badge badge-outline-secondary mr-1" style="font-size:0.7rem;">${this.escapeHtml(data.dep_facility_tier)}</span>`;
         }
         if (data.prob_extension) {
-            html += `<div class="text-muted small mt-1"><i class="fas fa-clock"></i> Prob Extension: ${this.escapeHtml(data.prob_extension)}</div>`;
+            html += `<div class="text-muted small mt-1"><i class="fas fa-clock"></i> ${PERTII18n.t('tmiCompliance.label.probExtension')}: ${this.escapeHtml(data.prob_extension)}</div>`;
         }
 
         // Program timeline bar
@@ -7550,16 +7550,16 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             html += this.renderGsTimelineBar(data.program_timeline, data.gs_start, data.gs_end);
 
             // Advisory detail section (expandable V2)
-            html += this.renderExpandableSectionV2('gs-advisory-chain', 'Advisory History', `(${data.program_timeline.length})`, () => {
+            html += this.renderExpandableSectionV2('gs-advisory-chain', PERTII18n.t('tmiCompliance.section.advisoryHistory'), `(${data.program_timeline.length})`, () => {
                 return `<div class="advisory-chain">
                     ${data.program_timeline.map(adv => {
                         const typeClass = adv.type === 'INITIAL' ? 'danger' : adv.type === 'CNX' ? 'success' : 'warning';
                         return `<div class="advisory-detail-card${adv.type === 'CNX' ? ' cnx' : ''}">
                             <div class="advisory-detail-header">
-                                <span class="badge badge-${typeClass}">ADVZY ${adv.advzy || '?'}</span>
+                                <span class="badge badge-${typeClass}">${PERTII18n.t('tmiCompliance.badge.advzy')} ${adv.advzy || '?'}</span>
                                 <span class="advisory-type">${adv.type || ''}</span>
                                 ${adv.start ? `<span class="text-muted">${adv.start} - ${adv.end || '?'}</span>` : ''}
-                                <span class="text-muted small">Issued: ${adv.issued || 'N/A'}</span>
+                                <span class="text-muted small">${PERTII18n.t('tmiCompliance.label.issued')}: ${adv.issued || PERTII18n.t('common.na')}</span>
                             </div>
                             ${adv.impacting_condition ? `<div class="advisory-meta"><i class="fas fa-cloud"></i> ${this.escapeHtml(adv.impacting_condition)}</div>` : ''}
                             ${adv.dep_facilities && adv.dep_facilities.length ? `<div class="advisory-meta"><i class="fas fa-building"></i> DEP: ${adv.dep_facilities.join(', ')}${adv.dep_facility_tier ? ' (' + adv.dep_facility_tier + ')' : ''}</div>` : ''}
@@ -7580,17 +7580,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const perOrigin = data.per_origin_breakdown || [];
         if (perOrigin.length > 0) {
             const v2OriginTblId = `gs_origin_v2_tbl_${++this.detailIdCounter}`;
-            html += this.renderExpandableSectionV2('gs-per-origin', 'Per-Origin Breakdown', `(${perOrigin.length})`, () => {
+            html += this.renderExpandableSectionV2('gs-per-origin', PERTII18n.t('tmiCompliance.section.perOriginBreakdown'), `(${perOrigin.length})`, () => {
                 let tbl = `<div class="gs-per-origin"><div class="table-responsive"><table class="table table-sm table-striped sortable-table" id="${v2OriginTblId}">
                     <thead><tr>
-                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',0,false)" style="cursor:pointer;">Origin</th>
-                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',1,true)" style="cursor:pointer;">Total</th>
-                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',2,true)" style="cursor:pointer;">Compliant</th>
-                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',3,true)" style="cursor:pointer;">Non-Comp</th>
-                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',4,true)" style="cursor:pointer;">Exempt</th>
-                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',5,true)" style="cursor:pointer;">Rate</th>
-                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',6,true)" style="cursor:pointer;">Avg Hold</th>
-                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',7,true)" style="cursor:pointer;">Avg Delay</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',0,false)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.origin')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',1,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.total')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',2,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.compliant')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',3,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.nonComp')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',4,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.exempt')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',5,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.rate')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',6,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.avgHold')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2OriginTblId}',7,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.avgDelay')}</th>
                     </tr></thead><tbody>`;
                 perOrigin.forEach(o => {
                     const oPct = o.compliance_pct || 0;
@@ -7620,17 +7620,17 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const perCarrier = data.per_carrier_breakdown || [];
         if (perCarrier.length > 0) {
             const v2CarrierTblId = `gs_carrier_v2_tbl_${++this.detailIdCounter}`;
-            html += this.renderExpandableSectionV2('gs-per-carrier', 'Per-Carrier Breakdown', `(${perCarrier.length})`, () => {
+            html += this.renderExpandableSectionV2('gs-per-carrier', PERTII18n.t('tmiCompliance.section.perCarrierBreakdown'), `(${perCarrier.length})`, () => {
                 let tbl = `<div class="gs-per-origin"><div class="table-responsive"><table class="table table-sm table-striped sortable-table" id="${v2CarrierTblId}">
                     <thead><tr>
-                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',0,false)" style="cursor:pointer;">Carrier</th>
-                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',1,true)" style="cursor:pointer;">Total</th>
-                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',2,true)" style="cursor:pointer;">Compliant</th>
-                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',3,true)" style="cursor:pointer;">Non-Comp</th>
-                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',4,true)" style="cursor:pointer;">Exempt</th>
-                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',5,true)" style="cursor:pointer;">Rate</th>
-                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',6,true)" style="cursor:pointer;">Avg Hold</th>
-                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',7,true)" style="cursor:pointer;">Avg Delay</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',0,false)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.carrier')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',1,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.total')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',2,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.compliant')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',3,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.nonComp')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',4,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.exempt')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',5,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.rate')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',6,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.avgHold')}</th>
+                        <th onclick="TMICompliance.sortTable('${v2CarrierTblId}',7,true)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.avgDelay')}</th>
                     </tr></thead><tbody>`;
                 perCarrier.forEach(c => {
                     const cPct = c.compliance_pct || 0;
@@ -7665,27 +7665,27 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             const hasAnyPhase = allFlights.some(f => f.phase);
             const hasAnyGsDelay = allFlights.some(f => f.gs_delay_min !== undefined);
 
-            html += this.renderExpandableSectionV2('gs-flight-catalog', 'Flight Catalog', `(${allFlights.length})`, () => {
+            html += this.renderExpandableSectionV2('gs-flight-catalog', PERTII18n.t('tmiCompliance.section.flightCatalog'), `(${allFlights.length})`, () => {
                 let tbl = `<div class="table-responsive" style="max-height:500px; overflow-y:auto;">
                     <table class="table table-sm sortable-table" id="${catalogTblId}" style="font-family:'SFMono-Regular',Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace; font-size:0.8rem;">
                     <thead class="thead-dark sticky-top"><tr>
-                        <th onclick="TMICompliance.sortTable('${catalogTblId}',0,false)" style="cursor:pointer;">Status</th>
-                        <th onclick="TMICompliance.sortTable('${catalogTblId}',1,false)" style="cursor:pointer;">Callsign</th>
-                        <th onclick="TMICompliance.sortTable('${catalogTblId}',2,false)" style="cursor:pointer;">Carrier</th>
-                        <th onclick="TMICompliance.sortTable('${catalogTblId}',3,false)" style="cursor:pointer;">Origin</th>
-                        <th onclick="TMICompliance.sortTable('${catalogTblId}',4,false)" style="cursor:pointer;">Dept Time</th>
-                        <th>Into GS / Hold</th>
-                        ${hasAnyGsDelay ? '<th>GS Delay</th>' : ''}
-                        ${hasAnyPhase ? '<th>Phase</th>' : ''}
-                        <th>Source</th>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',0,false)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.status')}</th>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',1,false)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.callsign')}</th>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',2,false)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.carrier')}</th>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',3,false)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.origin')}</th>
+                        <th onclick="TMICompliance.sortTable('${catalogTblId}',4,false)" style="cursor:pointer;">${PERTII18n.t('tmiCompliance.table.deptTime')}</th>
+                        <th>${PERTII18n.t('tmiCompliance.table.intoGsHold')}</th>
+                        ${hasAnyGsDelay ? '<th>' + PERTII18n.t('tmiCompliance.table.gsDelay') + '</th>' : ''}
+                        ${hasAnyPhase ? '<th>' + PERTII18n.t('tmiCompliance.table.phase') + '</th>' : ''}
+                        <th>${PERTII18n.t('tmiCompliance.table.source')}</th>
                     </tr></thead><tbody>`;
 
                 allFlights.forEach((f, idx) => {
                     const statusBadge = f.status === 'NON-COMPLIANT'
-                        ? '<span class="badge badge-danger" style="font-size:0.7rem;">VIOLATION</span>'
+                        ? '<span class="badge badge-danger" style="font-size:0.7rem;">' + PERTII18n.t('tmiCompliance.badge.violation') + '</span>'
                         : f.status === 'COMPLIANT'
-                            ? '<span class="badge badge-success" style="font-size:0.7rem;">COMPLIANT</span>'
-                            : '<span class="badge badge-info" style="font-size:0.7rem;">EXEMPT</span>';
+                            ? '<span class="badge badge-success" style="font-size:0.7rem;">' + PERTII18n.t('tmiCompliance.badge.compliant') + '</span>'
+                            : '<span class="badge badge-info" style="font-size:0.7rem;">' + PERTII18n.t('tmiCompliance.badge.exempt') + '</span>';
                     const rowClass = f.status === 'NON-COMPLIANT' ? 'table-danger' : '';
                     const detailRowId = `gs_catalog_detail_${catalogTblId}_${idx}`;
 
@@ -7746,21 +7746,21 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
                         // Right: computed metrics
                         tbl += `<div style="display:flex; flex-wrap:wrap; gap:12px 24px; align-items:flex-start;">`;
-                        if (f.gate_wait_min) tbl += `<div><span class="text-muted">Gate Wait:</span> <strong>${TMICompliance.formatDuration(f.gate_wait_min)}</strong></div>`;
-                        if (f.actual_taxi_min !== undefined) tbl += `<div><span class="text-muted">Taxi:</span> <strong>${TMICompliance.formatDuration(f.actual_taxi_min)}</strong></div>`;
-                        if (f.unimpeded_taxi_min !== undefined) tbl += `<div><span class="text-muted">Unimpeded:</span> <strong>${TMICompliance.formatDuration(f.unimpeded_taxi_min)}</strong></div>`;
-                        if (f.gs_delay_min !== undefined) tbl += `<div><span class="text-muted">GS Delay:</span> <strong>${TMICompliance.formatDuration(f.gs_delay_min)}</strong></div>`;
-                        if (f.hold_time_min) tbl += `<div><span class="text-muted">Hold Time:</span> <strong>${TMICompliance.formatDuration(f.hold_time_min)}</strong></div>`;
-                        if (f.into_gs_min !== undefined) tbl += `<div><span class="text-muted">Into GS:</span> <strong>${TMICompliance.formatDuration(f.into_gs_min)} (${f.pct_into_gs}%)</strong></div>`;
-                        if (f.phase) tbl += `<div><span class="text-muted">Phase:</span> <strong>${TMICompliance.formatPhase(f.phase, f.phase_type)}</strong></div>`;
-                        tbl += `<div><span class="text-muted">Reason:</span> ${f.reason || ''}</div>`;
+                        if (f.gate_wait_min) tbl += `<div><span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.gateWait')}:</span> <strong>${TMICompliance.formatDuration(f.gate_wait_min)}</strong></div>`;
+                        if (f.actual_taxi_min !== undefined) tbl += `<div><span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.taxi')}:</span> <strong>${TMICompliance.formatDuration(f.actual_taxi_min)}</strong></div>`;
+                        if (f.unimpeded_taxi_min !== undefined) tbl += `<div><span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.unimpeded')}:</span> <strong>${TMICompliance.formatDuration(f.unimpeded_taxi_min)}</strong></div>`;
+                        if (f.gs_delay_min !== undefined) tbl += `<div><span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.gsDelay')}:</span> <strong>${TMICompliance.formatDuration(f.gs_delay_min)}</strong></div>`;
+                        if (f.hold_time_min) tbl += `<div><span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.holdTime')}:</span> <strong>${TMICompliance.formatDuration(f.hold_time_min)}</strong></div>`;
+                        if (f.into_gs_min !== undefined) tbl += `<div><span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.intoGs')}:</span> <strong>${TMICompliance.formatDuration(f.into_gs_min)} (${f.pct_into_gs}%)</strong></div>`;
+                        if (f.phase) tbl += `<div><span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.phase')}:</span> <strong>${TMICompliance.formatPhase(f.phase, f.phase_type)}</strong></div>`;
+                        tbl += `<div><span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.reason')}:</span> ${f.reason || ''}</div>`;
                         tbl += `</div>`;
 
                         tbl += `</div>`;
                     } else {
                         // No OOOI data - show simple reason
-                        tbl += `<span class="text-muted">Reason:</span> ${f.reason || ''}`;
-                        if (f.phase) tbl += ` &nbsp;|&nbsp; <span class="text-muted">Phase:</span> ${TMICompliance.formatPhase(f.phase, f.phase_type)}`;
+                        tbl += `<span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.reason')}:</span> ${f.reason || ''}`;
+                        if (f.phase) tbl += ` &nbsp;|&nbsp; <span class="text-muted">${PERTII18n.t('tmiCompliance.flightDetail.phase')}:</span> ${TMICompliance.formatPhase(f.phase, f.phase_type)}`;
                     }
 
                     tbl += `</div></td></tr>`;
@@ -7791,23 +7791,23 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             <div class="tmi-detail-overview">
                 <div class="stat">
                     <div class="stat-value">${data.tmi_start || '?'} - ${data.tmi_end || '?'}</div>
-                    <div class="stat-label">Active Window</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.activeWindow')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${totalFlights}</div>
-                    <div class="stat-label">Flights Tracked</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.flightsTracked')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${affectedCount}</div>
-                    <div class="stat-label">Affected</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.affected')}</div>
                 </div>
                 <div class="stat">
                     <div class="stat-value">${exemptCount}</div>
-                    <div class="stat-label">Exempt</div>
+                    <div class="stat-label">${PERTII18n.t('tmiCompliance.stat.exempt')}</div>
                 </div>
             </div>
             <div class="text-muted small mt-3">
-                <i class="fas fa-info-circle"></i> APREQ/CFR is tracked for awareness only. Compliance is determined by coordination between facilities.
+                <i class="fas fa-info-circle"></i> ${PERTII18n.t('tmiCompliance.apreq.disclaimer')}
             </div>
         `;
 
@@ -7914,12 +7914,12 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         let html = '';
 
         // Back link for mobile
-        html += '<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">\u2190 Back to list</a>';
+        html += '<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">\u2190 ${PERTII18n.t('tmiCompliance.backToList')}</a>';
 
         // Header
         html += `<div class="tmi-detail-header">
-            <div class="tmi-identity"><span class="tmi-type-badge holding">HPT</span> Holding at ${fix.fix_name || 'Unknown'}</div>
-            <div class="tmi-standardized">${fix.flight_count} flights, ${fix.total_orbits} total orbits</div>
+            <div class="tmi-identity"><span class="tmi-type-badge holding">HPT</span> ${PERTII18n.t('tmiCompliance.holding.holdingAt', {fix: fix.fix_name || PERTII18n.t('common.unknown')})}</div>
+            <div class="tmi-standardized">${PERTII18n.t('tmiCompliance.holding.flightsSummary', {flights: fix.flight_count, orbits: fix.total_orbits})}</div>
         </div>`;
 
         // Overview stats
@@ -7928,24 +7928,24 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         const altDisplay = fix.avg_altitude_ft ? (fix.avg_altitude_ft >= 18000 ? `FL${Math.round(fix.avg_altitude_ft / 100)}` : `${Math.round(fix.avg_altitude_ft).toLocaleString()}ft`) : '-';
         const distDisplay = fix.avg_dist_to_dest_nm != null ? `${fix.avg_dist_to_dest_nm}nm` : '-';
         html += `<div class="tmi-detail-overview">
-            <div class="stat"><div class="stat-value">${fix.flight_count}</div><div class="stat-label">Flights</div></div>
-            <div class="stat"><div class="stat-value">${fix.total_orbits}</div><div class="stat-label">Total Orbits</div></div>
-            <div class="stat"><div class="stat-value">${totalDurMin}m</div><div class="stat-label">Total Duration</div></div>
-            <div class="stat"><div class="stat-value">${avgDurMin}m</div><div class="stat-label">Avg Duration</div></div>
-            <div class="stat"><div class="stat-value">${fix.peak_concurrent}</div><div class="stat-label">Peak Concurrent</div></div>
-            <div class="stat"><div class="stat-value">${altDisplay}</div><div class="stat-label">Avg Altitude</div></div>
-            <div class="stat"><div class="stat-value">${distDisplay}</div><div class="stat-label">Avg Dist to Dest</div></div>
+            <div class="stat"><div class="stat-value">${fix.flight_count}</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.flights')}</div></div>
+            <div class="stat"><div class="stat-value">${fix.total_orbits}</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.totalOrbits')}</div></div>
+            <div class="stat"><div class="stat-value">${totalDurMin}m</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.totalDuration')}</div></div>
+            <div class="stat"><div class="stat-value">${avgDurMin}m</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.avgDuration')}</div></div>
+            <div class="stat"><div class="stat-value">${fix.peak_concurrent}</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.peakConcurrent')}</div></div>
+            <div class="stat"><div class="stat-value">${altDisplay}</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.avgAltitude')}</div></div>
+            <div class="stat"><div class="stat-value">${distDisplay}</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.avgDistToDest')}</div></div>
         </div>`;
 
         // NTML badge
         if (fix.ntml_corroborated) {
-            html += '<div class="holding-ntml-badge"><i class="fas fa-check-circle"></i> NTML Corroborated</div>';
+            html += '<div class="holding-ntml-badge"><i class="fas fa-check-circle"></i>${PERTII18n.t('tmiCompliance.holding.ntmlCorroborated')}</div>';
         }
 
         // Flight list expandable section
-        html += this.renderExpandableSectionV2('holding-flights-' + fixIdx, 'Flights', events.length, () => {
+        html += this.renderExpandableSectionV2('holding-flights-' + fixIdx, PERTII18n.t('tmiCompliance.stat.flights'), events.length, () => {
             let tableHtml = '<table class="tmi-pairs-table"><thead><tr>';
-            tableHtml += '<th>Callsign</th><th>Dep</th><th>Dest</th><th>Start</th><th>Duration</th><th>Alt</th><th>Dist</th><th>GS</th><th>Orbits</th><th>Dir</th><th></th>';
+            tableHtml += '<th>' + PERTII18n.t('tmiCompliance.table.callsign') + '</th><th>' + PERTII18n.t('tmiCompliance.table.dep') + '</th><th>' + PERTII18n.t('tmiCompliance.table.dest') + '</th><th>' + PERTII18n.t('tmiCompliance.table.start') + '</th><th>' + PERTII18n.t('tmiCompliance.table.duration') + '</th><th>' + PERTII18n.t('tmiCompliance.table.alt') + '</th><th>' + PERTII18n.t('tmiCompliance.table.dist') + '</th><th>' + PERTII18n.t('tmiCompliance.table.gs') + '</th><th>' + PERTII18n.t('tmiCompliance.table.orbits') + '</th><th>' + PERTII18n.t('tmiCompliance.table.dir') + '</th><th></th>';
             tableHtml += '</tr></thead><tbody>';
             events.forEach(e => {
                 const startTime = e.hold_start_utc ? e.hold_start_utc.substring(11, 16) : '-';
@@ -7976,18 +7976,18 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Delay attribution expandable section
         const attr = holding.summary.delay_attribution;
         if (attr && attr.total_hold_delay_sec > 0) {
-            html += this.renderExpandableSectionV2('holding-delay-' + fixIdx, 'Delay Attribution', '', () => {
+            html += this.renderExpandableSectionV2('holding-delay-' + fixIdx, PERTII18n.t('tmiCompliance.section.delayAttribution'), '', () => {
                 const totalMin = Math.round(attr.total_hold_delay_sec / 60);
                 let dhtml = '<div class="holding-delay-summary">';
-                dhtml += `<div class="stat"><div class="stat-value">${totalMin}m</div><div class="stat-label">Total Hold Delay</div></div>`;
+                dhtml += `<div class="stat"><div class="stat-value">${totalMin}m</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.totalHoldDelay')}</div></div>`;
                 if (attr.attributed.gs && attr.attributed.gs.flights > 0) {
-                    dhtml += `<div class="stat"><div class="stat-value">${attr.attributed.gs.flights}</div><div class="stat-label">GS-Attributed</div></div>`;
+                    dhtml += `<div class="stat"><div class="stat-value">${attr.attributed.gs.flights}</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.gsAttributed')}</div></div>`;
                 }
                 if (attr.attributed.mit && attr.attributed.mit.flights > 0) {
-                    dhtml += `<div class="stat"><div class="stat-value">${attr.attributed.mit.flights}</div><div class="stat-label">MIT-Attributed</div></div>`;
+                    dhtml += `<div class="stat"><div class="stat-value">${attr.attributed.mit.flights}</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.mitAttributed')}</div></div>`;
                 }
                 if (attr.unattributed && attr.unattributed.flights > 0) {
-                    dhtml += `<div class="stat"><div class="stat-value">${attr.unattributed.flights}</div><div class="stat-label">Unattributed</div></div>`;
+                    dhtml += `<div class="stat"><div class="stat-value">${attr.unattributed.flights}</div><div class="stat-label">${PERTII18n.t('tmiCompliance.stat.unattributed')}</div></div>`;
                 }
                 dhtml += '</div>';
                 return dhtml;
@@ -8588,10 +8588,10 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             <table class="tmi-pairs-table">
                 <thead>
                     <tr>
-                        <th>Lead</th>
-                        <th>Trail</th>
-                        <th>Gap (mm:ss)</th>
-                        <th>Spacing</th>
+                        <th>${PERTII18n.t('tmiCompliance.table.lead')}</th>
+                        <th>${PERTII18n.t('tmiCompliance.table.trail')}</th>
+                        <th>${PERTII18n.t('tmiCompliance.table.gapMmss')}</th>
+                        <th>${PERTII18n.t('tmiCompliance.table.spacing')}</th>
                         <th class="spacing-bar-cell">
                             <span class="visual-header">
                                 <span class="required-label">${required}${unitLabel} req</span>
@@ -8695,7 +8695,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // NTML Entries section
         if (sortedNtml.length > 0) {
             html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('ntml')">
-                <span class="section-chevron">&#9662;</span>NTML Entries<span class="section-badge">${sortedNtml.length}</span></div>`;
+                <span class="section-chevron">&#9662;</span>${PERTII18n.t('tmiCompliance.summary.ntmlEntries')}<span class="section-badge">${sortedNtml.length}</span></div>`;
             html += '<div class="tmi-list-section-items" data-section="ntml">';
             sortedNtml.forEach(tmi => {
                 html += this.renderListItemV2(tmi);
@@ -8706,7 +8706,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // Advisories section
         if (sortedAdvisories.length > 0) {
             html += `<div class="tmi-list-section-label" onclick="TMICompliance.toggleListSection('advisories')">
-                <span class="section-chevron">&#9662;</span>Advisories<span class="section-badge">${sortedAdvisories.length}</span></div>`;
+                <span class="section-chevron">&#9662;</span>${PERTII18n.t('tmiCompliance.summary.advisories')}<span class="section-badge">${sortedAdvisories.length}</span></div>`;
             html += '<div class="tmi-list-section-items" data-section="advisories">';
             sortedAdvisories.forEach(tmi => {
                 html += this.renderListItemV2(tmi);

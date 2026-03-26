@@ -729,7 +729,7 @@
         cats.forEach(function(c) {
             $sel.append('<option value="' + escHtml(c) + '">' + escHtml(c) + '</option>');
         });
-        $sel.append('<option value="__custom__">Custom...</option>');
+        $sel.append('<option value="__custom__">' + t('playbook.customCategory') + '</option>');
 
         if (current) $sel.val(current);
     }
@@ -1014,9 +1014,9 @@
         var artccs = Array.from(facilitySet.artccs).sort();
         var tracons = Array.from(facilitySet.tracons).sort();
         var airports = Array.from(facilitySet.airports).sort();
-        if (artccs.length) groups['ARTCCs'] = artccs.map(function(c) { return 'artcc:' + c; });
-        if (tracons.length) groups['TRACONs'] = tracons.map(function(c) { return 'tracon:' + c; });
-        if (airports.length) groups['Airports'] = airports.map(function(c) { return 'airport:' + c; });
+        if (artccs.length) groups[t('playbook.facilityGroups.artccs')] = artccs.map(function(c) { return 'artcc:' + c; });
+        if (tracons.length) groups[t('playbook.facilityGroups.tracons')] = tracons.map(function(c) { return 'tracon:' + c; });
+        if (airports.length) groups[t('playbook.facilityGroups.airports')] = airports.map(function(c) { return 'airport:' + c; });
 
         var html = '<div class="pb-cb-dropdown" id="' + id + '">';
         html += '<button type="button" class="pb-cb-trigger">';
@@ -1065,10 +1065,10 @@
         // Action buttons — use per-play can_edit from API
         var playEditable = canEditPlay(play);
         html += '<div class="pb-actions mb-1" style="flex-wrap:wrap;">';
-        html += '<button class="btn btn-outline-info btn-sm" id="pb_copy_link_btn"><i class="fas fa-link mr-1"></i>Copy Link</button>';
+        html += '<button class="btn btn-outline-info btn-sm" id="pb_copy_link_btn"><i class="fas fa-link mr-1"></i>' + t('playbook.copyLink') + '</button>';
         html += '<button class="btn btn-warning btn-sm" id="pb_activate_btn"><i class="fas fa-paper-plane mr-1"></i>' + t('playbook.activateReroute') + '</button>';
         if (hasPerm) {
-            html += '<button class="btn btn-outline-primary btn-sm" id="pb_duplicate_btn"><i class="fas fa-copy mr-1"></i>Duplicate</button>';
+            html += '<button class="btn btn-outline-primary btn-sm" id="pb_duplicate_btn"><i class="fas fa-copy mr-1"></i>' + t('playbook.duplicate') + '</button>';
         }
         if (playEditable && play.source !== 'FAA' && play.source !== 'FAA_HISTORICAL') {
             html += '<button class="btn btn-outline-secondary btn-sm" id="pb_edit_btn"><i class="fas fa-edit mr-1"></i>' + t('common.edit') + '</button>';
@@ -1325,15 +1325,15 @@
         html += '<table class="pb-route-table"><thead><tr>';
         html += '<th class="pb-route-check" style="width:24px"><input type="checkbox" id="pb_check_all"></th>';
         if (hasGroups) html += '<th style="width:8px;padding:0;"></th>';
-        html += '<th style="width:8%">Origin</th>';
-        html += '<th style="width:3.5%">TRACON</th>';
-        html += '<th style="width:3.5%">ARTCC</th>';
+        html += '<th style="width:8%">' + t('playbook.table.origin') + '</th>';
+        html += '<th style="width:3.5%">' + t('playbook.table.tracon') + '</th>';
+        html += '<th style="width:3.5%">' + t('playbook.table.artcc') + '</th>';
         html += '<th>' + t('playbook.routeString') + '</th>';
-        html += '<th style="width:8%">Dest</th>';
-        html += '<th style="width:3.5%">TRACON</th>';
-        html += '<th style="width:3.5%">ARTCC</th>';
-        html += '<th style="width:7%">Traversed</th>';
-        html += '<th style="width:3%">Remarks</th>';
+        html += '<th style="width:8%">' + t('playbook.table.dest') + '</th>';
+        html += '<th style="width:3.5%">' + t('playbook.table.tracon') + '</th>';
+        html += '<th style="width:3.5%">' + t('playbook.table.artcc') + '</th>';
+        html += '<th style="width:7%">' + t('playbook.table.traversed') + '</th>';
+        html += '<th style="width:3%">' + t('playbook.table.remarks') + '</th>';
         html += '</tr></thead><tbody>';
 
         sortedRoutes.forEach(function(r) {
@@ -1430,12 +1430,12 @@
         html += '<div class="pb-route-table-wrap">';
         html += '<table class="pb-route-table"><thead><tr>';
         html += '<th class="pb-route-check" style="width:24px"><input type="checkbox" id="pb_check_all"></th>';
-        html += '<th style="width:10%">Origin</th>';
-        html += '<th style="width:5%">ARTCC</th>';
+        html += '<th style="width:10%">' + t('playbook.table.origin') + '</th>';
+        html += '<th style="width:5%">' + t('playbook.table.artcc') + '</th>';
         html += '<th>' + t('playbook.routeString') + '</th>';
-        html += '<th style="width:10%">Dest</th>';
-        html += '<th style="width:5%">ARTCC</th>';
-        html += '<th style="width:7%">Traversed</th>';
+        html += '<th style="width:10%">' + t('playbook.table.dest') + '</th>';
+        html += '<th style="width:5%">' + t('playbook.table.artcc') + '</th>';
+        html += '<th style="width:7%">' + t('playbook.table.traversed') + '</th>';
         html += '</tr></thead><tbody>';
 
         groups.forEach(function(g) {
@@ -1577,7 +1577,7 @@
 
             html += '<div class="pb-compact-section-label">' + t('playbook.fromRoutes') + ':</div>';
             html += '<table class="pb-compact-table"><thead><tr>';
-            html += '<th style="width:30%;">Origin</th>';
+            html += '<th style="width:30%;">' + t('playbook.table.origin') + '</th>';
             html += '<th>' + t('playbook.routeString') + '</th>';
             html += '</tr></thead><tbody>';
             Object.values(fromGroups).forEach(function(fg) {
@@ -1603,7 +1603,7 @@
 
             html += '<div class="pb-compact-section-label">' + t('playbook.toRoutes') + ':</div>';
             html += '<table class="pb-compact-table"><thead><tr>';
-            html += '<th style="width:30%;">Dest</th>';
+            html += '<th style="width:30%;">' + t('playbook.table.dest') + '</th>';
             html += '<th>' + t('playbook.routeString') + '</th>';
             html += '</tr></thead><tbody>';
             Object.values(toGroups).forEach(function(tg) {
@@ -1623,9 +1623,9 @@
             html += '<div class="pb-compact-unmatched">';
             html += '<div class="pb-compact-section-label" style="color:#666;">' + t('playbook.groups.other') + ' (' + unmatched.length + ')</div>';
             html += '<table class="pb-compact-table"><thead><tr>';
-            html += '<th style="width:20%;">Origin</th>';
+            html += '<th style="width:20%;">' + t('playbook.table.origin') + '</th>';
             html += '<th>' + t('playbook.routeString') + '</th>';
-            html += '<th style="width:20%;">Dest</th>';
+            html += '<th style="width:20%;">' + t('playbook.table.dest') + '</th>';
             html += '</tr></thead><tbody>';
             unmatched.forEach(function(r) {
                 var umActive = activeAnalysisRouteId != null && r.route_id === activeAnalysisRouteId;
@@ -4748,24 +4748,24 @@
                 'route_updated': { label: 'Route \u0394', cls: 'badge-warning' },
                 'route_deleted': { label: 'Route \u2212', cls: 'badge-danger' },
                 'create':        { label: 'Created',  cls: 'badge-success' },
-                'add':           { label: 'Added',    cls: 'badge-success' },
-                'update':        { label: 'Updated',  cls: 'badge-info' },
-                'edit':          { label: 'Updated',  cls: 'badge-info' },
-                'delete':        { label: 'Deleted',  cls: 'badge-danger' },
-                'remove':        { label: 'Removed',  cls: 'badge-danger' }
+                'add':           { label: t('playbook.changelog.added'),   cls: 'badge-success' },
+                'update':        { label: t('playbook.changelog.updated'), cls: 'badge-info' },
+                'edit':          { label: t('playbook.changelog.updated'), cls: 'badge-info' },
+                'delete':        { label: t('playbook.changelog.deleted'), cls: 'badge-danger' },
+                'remove':        { label: t('playbook.changelog.removed'), cls: 'badge-danger' }
             };
 
             // Human-readable field labels
             var fieldMap = {
-                'route_string': 'Route', 'play_name': 'Name', 'display_name': 'Display Name',
-                'description': 'Desc', 'category': 'Category', 'scenario_type': 'Scenario',
-                'route_format': 'Format', 'status': 'Status', 'facilities_involved': 'Facilities',
-                'impacted_area': 'Area', 'remarks': 'Remarks', 'visibility': 'Visibility',
-                'origin': 'Origin', 'dest': 'Dest', 'origin_filter': 'Orig Filter',
-                'dest_filter': 'Dest Filter', 'origin_artccs': 'Orig ARTCCs',
-                'dest_artccs': 'Dest ARTCCs', 'origin_airports': 'Orig Apts',
-                'dest_airports': 'Dest Apts', 'origin_tracons': 'Orig TRACONs',
-                'dest_tracons': 'Dest TRACONs'
+                'route_string': t('playbook.fields.route'), 'play_name': t('playbook.fields.name'), 'display_name': t('playbook.fields.displayName'),
+                'description': t('playbook.fields.desc'), 'category': t('playbook.fields.category'), 'scenario_type': t('playbook.fields.scenario'),
+                'route_format': t('playbook.fields.format'), 'status': t('playbook.fields.status'), 'facilities_involved': t('playbook.fields.facilities'),
+                'impacted_area': t('playbook.fields.area'), 'remarks': t('playbook.fields.remarks'), 'visibility': t('playbook.fields.visibility'),
+                'origin': t('playbook.fields.origin'), 'dest': t('playbook.fields.dest'), 'origin_filter': t('playbook.fields.origFilter'),
+                'dest_filter': t('playbook.fields.destFilter'), 'origin_artccs': t('playbook.fields.origArtccs'),
+                'dest_artccs': t('playbook.fields.destArtccs'), 'origin_airports': t('playbook.fields.origApts'),
+                'dest_airports': t('playbook.fields.destApts'), 'origin_tracons': t('playbook.fields.origTracons'),
+                'dest_tracons': t('playbook.fields.destTracons')
             };
 
             html += '<div class="pb-changelog-table-wrap">';
