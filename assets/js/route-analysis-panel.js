@@ -1503,8 +1503,8 @@
             var cnt = counts[code];
             var pct = totalRoutes > 0 ? (cnt / totalRoutes * 100).toFixed(1) : '0.0';
             var barW = maxCount > 0 ? Math.round(cnt / maxCount * 100) : 0;
-            html += '<tr data-ra-fc-code="' + code + '" data-ra-fc-type="' + fcActiveType + '">';
-            html += '<td>' + code + '</td>';
+            html += '<tr data-ra-fc-code="' + escHtml(code) + '" data-ra-fc-type="' + escHtml(fcActiveType) + '">';
+            html += '<td>' + escHtml(code) + '</td>';
             html += '<td class="text-right">' + cnt + '</td>';
             html += '<td class="text-right">' + pct + '%</td>';
             html += '<td class="ra-fc-bar-cell"><div class="ra-fc-bar-outer"><div class="ra-fc-bar-inner ' + barCls + '" style="width:' + barW + '%"></div></div></td>';

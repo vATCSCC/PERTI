@@ -15,6 +15,8 @@
 // Bootstrap: auth.php handles config + connect with PERTI_SWIM_ONLY optimization.
 // PostGIS get_conn_gis() is always available via lazy loading.
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../../../../lib/ArtccNormalizer.php';
+use PERTI\Lib\ArtccNormalizer;
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     SwimResponse::handlePreflight();
@@ -115,13 +117,30 @@ $swim_to_type = ['sectors_low' => 'LOW', 'sectors_high' => 'HIGH', 'sectors_supe
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $type = $row['facility_type'];
     if (isset($result[$type])) {
-        $result[$type][] = ['code' => $row['code'], 'route_count' => (int)$row['route_count']];
+        $code = $row['code'];
+        // Normalize ARTCC codes to L1 (strip sub-sector suffixes like BIRD-E → BIRD)
+        if ($type === 'artccs') {
+            $code = ArtccNormalizer::normalize($code);
+        }
+        $result[$type][] = ['code' => $code, 'route_count' => (int)$row['route_count']];
         if (isset($swim_to_type[$type])) {
             $all_sector_codes[$row['code']] = $swim_to_type[$type];
         }
     }
 }
 sqlsrv_free_stmt($stmt);
+
+// Re-aggregate ARTCC counts after normalization (multiple sub-sectors may map to same L1)
+$merged = [];
+foreach ($result['artccs'] as $entry) {
+    $c = $entry['code'];
+    $merged[$c] = ($merged[$c] ?? 0) + $entry['route_count'];
+}
+$result['artccs'] = [];
+foreach ($merged as $code => $count) {
+    $result['artccs'][] = ['code' => $code, 'route_count' => $count];
+}
+usort($result['artccs'], function($a, $b) { return $b['route_count'] - $a['route_count']; });
 
 // Routes with any traversal data
 $count_sql = "SELECT COUNT(DISTINCT route_id) AS cnt FROM dbo.swim_playbook_routes

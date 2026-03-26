@@ -15,7 +15,6 @@ if (session_status() == PHP_SESSION_NONE) {
 
 include("../../../load/config.php");
 include("../../../load/input.php");
-define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 include("../../../load/playbook_visibility.php");
 perti_set_cors();

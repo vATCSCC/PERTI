@@ -3900,8 +3900,8 @@
         }
         // Fit bounds to facility if turf is available
         var sourceId = null, filterProp = null;
-        if (type === 'ARTCC') { sourceId = 'artcc-boundaries'; filterProp = 'ICAOCODE'; }
-        else if (type === 'TRACON') { sourceId = 'tracon-boundaries'; filterProp = 'sector'; }
+        if (type === 'ARTCC') { sourceId = 'artcc'; filterProp = 'ICAOCODE'; }
+        else if (type === 'TRACON') { sourceId = 'tracon'; filterProp = 'sector'; }
         else if (type === 'SECTOR_HIGH') { sourceId = 'high-splits'; filterProp = 'label'; }
         else if (type === 'SECTOR_LOW') { sourceId = 'low-splits'; filterProp = 'label'; }
         else if (type === 'SECTOR_SUPERHIGH') { sourceId = 'superhigh-splits'; filterProp = 'label'; }
