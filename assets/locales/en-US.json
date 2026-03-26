@@ -4224,6 +4224,8 @@
     },
     "facilityRouteCounts": "Facility Route Counts",
     "facilityRouteCountsDesc": "{count} routes",
+    "fcModeAll": "All",
+    "fcModeUnique": "Unique",
     "fields": {
       "area": "Area",
       "category": "Category",
