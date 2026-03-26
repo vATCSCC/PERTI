@@ -154,20 +154,69 @@ $starStmt = $conn_pdo->prepare("
 $starStmt->execute([$routeDimId]);
 $starDist = $starStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Callsign/flight number distribution
-// ?normalize_callsign=1 groups by flight_number (UAE5), otherwise by raw callsign (UAE5NM)
-$normalizeCs = (int)(get_input('normalize_callsign') ?? 0);
-$csCol = $normalizeCs ? 'COALESCE(NULLIF(flight_number, \'\'), callsign)' : 'callsign';
-$csStmt = $conn_pdo->prepare("
-    SELECT $csCol as callsign, COUNT(*) as cnt
+// Departure runway distribution
+$depRwyStmt = $conn_pdo->prepare("
+    SELECT dep_rwy, COUNT(*) as cnt
+    FROM route_history_facts
+    WHERE route_dim_id = ? AND dep_rwy IS NOT NULL AND dep_rwy != ''
+    GROUP BY dep_rwy
+    ORDER BY cnt DESC
+    LIMIT 15
+");
+$depRwyStmt->execute([$routeDimId]);
+$depRwyDist = $depRwyStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Arrival runway distribution
+$arrRwyStmt = $conn_pdo->prepare("
+    SELECT arr_rwy, COUNT(*) as cnt
+    FROM route_history_facts
+    WHERE route_dim_id = ? AND arr_rwy IS NOT NULL AND arr_rwy != ''
+    GROUP BY arr_rwy
+    ORDER BY cnt DESC
+    LIMIT 15
+");
+$arrRwyStmt->execute([$routeDimId]);
+$arrRwyDist = $arrRwyStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Callsign distribution grouped by airline prefix
+// Groups like UAL, DAL, AAL with expandable per-callsign detail
+$csPrefixStmt = $conn_pdo->prepare("
+    SELECT
+        CASE WHEN callsign REGEXP '^[A-Z]{2,3}[0-9]'
+             THEN REGEXP_SUBSTR(callsign, '^[A-Z]{2,3}')
+             ELSE callsign
+        END as prefix,
+        COUNT(*) as cnt
     FROM route_history_facts
     WHERE route_dim_id = ? AND callsign IS NOT NULL AND callsign != ''
-    GROUP BY callsign
+    GROUP BY prefix
     ORDER BY cnt DESC
-    LIMIT 30
+    LIMIT 20
 ");
-$csStmt->execute([$routeDimId]);
-$callsignDist = $csStmt->fetchAll(PDO::FETCH_ASSOC);
+$csPrefixStmt->execute([$routeDimId]);
+$csPrefixes = $csPrefixStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// For each prefix, get top callsigns
+$callsignByAirline = [];
+foreach ($csPrefixes as $pf) {
+    $csDetailStmt = $conn_pdo->prepare("
+        SELECT callsign as cs, COUNT(*) as cnt
+        FROM route_history_facts
+        WHERE route_dim_id = ?
+          AND callsign IS NOT NULL AND callsign != ''
+          AND callsign LIKE ?
+        GROUP BY callsign
+        ORDER BY cnt DESC
+        LIMIT 15
+    ");
+    $likePattern = $pf['prefix'] . '%';
+    $csDetailStmt->execute([$routeDimId, $likePattern]);
+    $callsignByAirline[] = [
+        'prefix' => $pf['prefix'],
+        'cnt' => (int)$pf['cnt'],
+        'callsigns' => $csDetailStmt->fetchAll(PDO::FETCH_ASSOC),
+    ];
+}
 
 echo json_encode([
     'success'  => true,
@@ -182,6 +231,8 @@ echo json_encode([
         'arr_fix_distribution'  => $arrFixDist,
         'dp_distribution'       => $dpDist,
         'star_distribution'     => $starDist,
-        'callsign_distribution' => $callsignDist,
+        'dep_rwy_distribution'  => $depRwyDist,
+        'arr_rwy_distribution'  => $arrRwyDist,
+        'callsign_by_airline'   => $callsignByAirline,
     ],
 ], JSON_UNESCAPED_UNICODE);

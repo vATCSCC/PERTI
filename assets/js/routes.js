@@ -1538,41 +1538,48 @@
             html += '</div></div>';
         }
 
-        // Departure fix distribution
-        var depFixes = data.stats && data.stats.dep_fix_distribution;
-        if (depFixes && depFixes.length > 0) {
-            html += '<div class="rid-section">';
-            html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.departureProcedure') + '</div>';
-            html += '<div class="rid-bar-list">';
-            var maxDf = Math.max.apply(null, depFixes.map(function(a) { return parseInt(a.cnt); }));
-            depFixes.slice(0, 8).forEach(function(a) {
-                var pct = maxDf > 0 ? (parseInt(a.cnt) / maxDf * 100) : 0;
-                html += '<div class="rid-bar-row">';
-                html += '<span class="rid-bar-label">' + escapeHtml(a.fix_name) + '</span>';
-                html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-orange" style="width:' + pct + '%"></div></div>';
-                html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
-                html += '</div>';
+        // Helper to render a bar-list section
+        function renderBarList(items, title, colorClass, labelKey, limit) {
+            if (!items || !items.length) return '';
+            var h = '<div class="rid-section">';
+            h += '<div class="rid-section-title">' + title + '</div>';
+            h += '<div class="rid-bar-list">';
+            var maxVal = Math.max.apply(null, items.map(function(a) { return parseInt(a.cnt); }));
+            items.slice(0, limit || 8).forEach(function(a) {
+                var pct = maxVal > 0 ? (parseInt(a.cnt) / maxVal * 100) : 0;
+                h += '<div class="rid-bar-row">';
+                h += '<span class="rid-bar-label">' + escapeHtml(a[labelKey]) + '</span>';
+                h += '<div class="rid-bar-track"><div class="rid-bar-fill ' + colorClass + '" style="width:' + pct + '%"></div></div>';
+                h += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
+                h += '</div>';
             });
-            html += '</div></div>';
+            h += '</div></div>';
+            return h;
         }
 
+        // Departure fix distribution
+        html += renderBarList(data.stats && data.stats.dep_fix_distribution,
+            PERTII18n.t('routes.detail.departureFix'), 'rid-bar-orange', 'fix_name', 8);
+
         // Arrival fix distribution
-        var arrFixes = data.stats && data.stats.arr_fix_distribution;
-        if (arrFixes && arrFixes.length > 0) {
-            html += '<div class="rid-section">';
-            html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.arrivalProcedure') + '</div>';
-            html += '<div class="rid-bar-list">';
-            var maxAf = Math.max.apply(null, arrFixes.map(function(a) { return parseInt(a.cnt); }));
-            arrFixes.slice(0, 8).forEach(function(a) {
-                var pct = maxAf > 0 ? (parseInt(a.cnt) / maxAf * 100) : 0;
-                html += '<div class="rid-bar-row">';
-                html += '<span class="rid-bar-label">' + escapeHtml(a.fix_name) + '</span>';
-                html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-green" style="width:' + pct + '%"></div></div>';
-                html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
-                html += '</div>';
-            });
-            html += '</div></div>';
-        }
+        html += renderBarList(data.stats && data.stats.arr_fix_distribution,
+            PERTII18n.t('routes.detail.arrivalFix'), 'rid-bar-green', 'fix_name', 8);
+
+        // SID/DP distribution
+        html += renderBarList(data.stats && data.stats.dp_distribution,
+            PERTII18n.t('routes.detail.sidDp'), 'rid-bar-orange-light', 'dp_name', 8);
+
+        // STAR distribution
+        html += renderBarList(data.stats && data.stats.star_distribution,
+            PERTII18n.t('routes.detail.star'), 'rid-bar-green-light', 'star_name', 8);
+
+        // Departure runway distribution
+        html += renderBarList(data.stats && data.stats.dep_rwy_distribution,
+            PERTII18n.t('routes.detail.departureRunway'), 'rid-bar-slate', 'dep_rwy', 8);
+
+        // Arrival runway distribution
+        html += renderBarList(data.stats && data.stats.arr_rwy_distribution,
+            PERTII18n.t('routes.detail.arrivalRunway'), 'rid-bar-slate', 'arr_rwy', 8);
 
         // Altitude distribution
         var altitudes = data.stats && data.stats.altitude_distribution;
@@ -1592,11 +1599,63 @@
             html += '</div></div>';
         }
 
+        // Callsign distribution (progressive disclosure by airline prefix)
+        var csByAirline = data.stats && data.stats.callsign_by_airline;
+        if (csByAirline && csByAirline.length > 0) {
+            html += '<div class="rid-section">';
+            html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.callsignDistribution') + '</div>';
+            html += '<div class="rid-bar-list">';
+            var maxCs = Math.max.apply(null, csByAirline.map(function(a) { return a.cnt; }));
+            csByAirline.forEach(function(airline, idx) {
+                var pct = maxCs > 0 ? (airline.cnt / maxCs * 100) : 0;
+                var matchClass = filterMatch.airline[(airline.prefix || '').toUpperCase()] ? ' rid-filter-match' : '';
+                if (!matchClass && filterMatch.callsignPrefix && (airline.prefix || '').toUpperCase().indexOf(filterMatch.callsignPrefix) === 0) {
+                    matchClass = ' rid-filter-match';
+                }
+                html += '<div class="rid-cs-expandable' + matchClass + '" data-cs-idx="' + idx + '">';
+                html += '<div class="rid-bar-row">';
+                html += '<span class="rid-cs-chevron">&#9654;</span>';
+                html += '<span class="rid-bar-label">' + escapeHtml(airline.prefix) + '</span>';
+                html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-yellow" style="width:' + pct + '%"></div></div>';
+                html += '<span class="rid-bar-value">' + airline.cnt.toLocaleString() + '</span>';
+                html += '</div>';
+                // Sub-detail (hidden by default)
+                html += '<div class="rid-cs-detail" data-cs-detail="' + idx + '" style="display:none;">';
+                if (airline.callsigns && airline.callsigns.length > 0) {
+                    var maxSub = Math.max.apply(null, airline.callsigns.map(function(c) { return parseInt(c.cnt); }));
+                    airline.callsigns.forEach(function(c) {
+                        var subPct = maxSub > 0 ? (parseInt(c.cnt) / maxSub * 100) : 0;
+                        html += '<div class="rid-bar-row rid-cs-sub">';
+                        html += '<span class="rid-bar-label">' + escapeHtml(c.cs) + '</span>';
+                        html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-yellow-light" style="width:' + subPct + '%"></div></div>';
+                        html += '<span class="rid-bar-value">' + parseInt(c.cnt).toLocaleString() + '</span>';
+                        html += '</div>';
+                    });
+                }
+                html += '</div></div>';
+            });
+            html += '</div></div>';
+        }
+
         if (!html) {
             html = '<div class="rid-empty">' + PERTII18n.t('routes.detail.noAdditionalDetails') + '</div>';
         }
 
         $container.html(html);
+
+        // Wire up callsign progressive disclosure
+        $container.off('click.ridCs').on('click.ridCs', '.rid-cs-expandable', function(e) {
+            // Don't toggle if clicking inside sub-detail
+            if ($(e.target).closest('.rid-cs-detail').length) return;
+            var idx = $(this).data('cs-idx');
+            var $detail = $container.find('[data-cs-detail="' + idx + '"]');
+            $(this).toggleClass('rid-cs-open');
+            if ($detail.is(':visible')) {
+                $detail.slideUp(150);
+            } else {
+                $detail.slideDown(150);
+            }
+        });
 
         // Wire up sortable column headers
         var $table = $('#rid_variants_table');

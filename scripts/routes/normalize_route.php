@@ -6,19 +6,26 @@
  * bare slashes, and other non-routing tokens while preserving SID/STAR
  * names and runway suffixes.
  *
+ * Extracts runway designators from /{RWY} tokens (SimBrief format):
+ *   AMLUH2G/33  → dep_rwy=33,  procedure kept as AMLUH2G
+ *   BK83A/16L   → arr_rwy=16L, procedure kept as BK83A
+ *   /09R        → standalone runway token stripped
+ *
  * Usage:
  *   require_once __DIR__ . '/normalize_route.php';
- *   $result = normalize_route('DEEZZ5 CANDR J60 DJB CPONE JOT J60 IOW/N0459F340 J60 DBL/N0459F360 J60 HVE');
- *   // $result['normalized'] => 'DEEZZ5 CANDR J60 DJB CPONE JOT J60 IOW J60 DBL J60 HVE'
- *   // $result['hash']       => binary MD5
- *   // $result['waypoint_count'] => 11
+ *   $result = normalize_route('DEEZZ5/28 CANDR J60 DJB J60 HVE SPESA5C/07R');
+ *   // $result['normalized']     => 'DEEZZ5 CANDR J60 DJB J60 HVE SPESA5C'
+ *   // $result['hash']           => binary MD5
+ *   // $result['waypoint_count'] => 6
+ *   // $result['dep_rwy']        => '28'
+ *   // $result['arr_rwy']        => '07R'
  */
 
 /**
  * Normalize a filed route string into a canonical skeleton for grouping.
  *
  * @param string $raw Raw filed route string
- * @return array{normalized: string, hash: string, waypoint_count: int}
+ * @return array{normalized: string, hash: string, waypoint_count: int, dep_rwy: ?string, arr_rwy: ?string}
  */
 function normalize_route(string $raw): array
 {
@@ -30,11 +37,14 @@ function normalize_route(string $raw): array
             'normalized'     => 'DCT',
             'hash'           => md5('DCT', true),
             'waypoint_count' => 0,
+            'dep_rwy'        => null,
+            'arr_rwy'        => null,
         ];
     }
 
     $tokens = preg_split('/\s+/', $route);
     $out = [];
+    $runways = [];  // collect all runway designators in order
 
     foreach ($tokens as $i => $token) {
         if ($token === '') {
@@ -67,14 +77,20 @@ function normalize_route(string $raw): array
             continue;
         }
 
+        // Step 5b: Strip standalone runway tokens (/09R, /27L, /18, etc.)
+        if (preg_match('/^\/(\d{2}[LCR]?)$/', $token, $rwyMatch)) {
+            $runways[] = $rwyMatch[1];
+            continue;
+        }
+
         // Step 2: Strip mid-route speed/level appended to waypoints
         // e.g. BAYLI/N0460F360 → BAYLI, ADONI/K0898F320 → ADONI
-        // But preserve SID/STAR+runway: AVBO1A/01L, LAM94D/34L
+        // SID/STAR+runway: AVBO1A/01L → keep AVBO1A, capture runway 01L
         if (strpos($token, '/') !== false) {
             // Check if this is a SID/STAR+runway suffix (/01L, /34R, /18, etc.)
-            if (preg_match('/\/\d{2}[LRC]?$/', $token)) {
-                // Keep the whole token — this is a runway reference
-                $out[] = $token;
+            if (preg_match('/^(.+)\/(\d{2}[LRC]?)$/', $token, $rwyMatch)) {
+                $out[] = $rwyMatch[1];       // keep procedure name
+                $runways[] = $rwyMatch[2];   // capture runway
                 continue;
             }
 
@@ -111,9 +127,15 @@ function normalize_route(string $raw): array
         $normalized = $route;
     }
 
+    // First runway found = departure, last = arrival (if different)
+    $depRwy = !empty($runways) ? $runways[0] : null;
+    $arrRwy = count($runways) > 1 ? $runways[count($runways) - 1] : null;
+
     return [
         'normalized'     => $normalized,
         'hash'           => md5($normalized, true),  // raw 16-byte binary
         'waypoint_count' => count($out),
+        'dep_rwy'        => $depRwy,
+        'arr_rwy'        => $arrRwy,
     ];
 }
