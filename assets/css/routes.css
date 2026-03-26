@@ -1464,11 +1464,26 @@ body.routes-resizing .maplibregl-map {
     transition: width 0.4s ease;
 }
 
-.rid-bar-cyan   { background: #239BCD; }
-.rid-bar-teal   { background: #4ECDC4; }
-.rid-bar-purple { background: #7B68EE; }
-.rid-bar-orange { background: #FF8C42; }
-.rid-bar-green  { background: #4CAF50; }
+.rid-bar-cyan         { background: #239BCD; }
+.rid-bar-teal         { background: #4ECDC4; }
+.rid-bar-purple       { background: #7B68EE; }
+.rid-bar-orange       { background: #FF8C42; }
+.rid-bar-green        { background: #4CAF50; }
+.rid-bar-orange-light { background: #FFAB76; }
+.rid-bar-green-light  { background: #81C784; }
+.rid-bar-yellow       { background: #FFB300; }
+.rid-bar-yellow-light { background: #FFD54F; }
+.rid-bar-slate        { background: #78909C; }
+
+/* Callsign progressive disclosure */
+.rid-cs-expandable { cursor: pointer; transition: background 0.15s; }
+.rid-cs-expandable:hover { background: rgba(255, 179, 0, 0.1); }
+.rid-cs-chevron { display: inline-block; width: 14px; font-size: 0.65rem; color: #888; transition: transform 0.15s; }
+.rid-cs-expandable.rid-cs-open .rid-cs-chevron { transform: rotate(90deg); }
+.rid-cs-detail { padding-left: 20px; border-left: 2px solid rgba(255, 179, 0, 0.3); margin-left: 8px; }
+.rid-cs-sub .rid-bar-label { width: 90px; font-size: 0.72rem; color: #aaa; }
+.rid-cs-sub .rid-bar-track { height: 6px; }
+.rid-cs-sub .rid-bar-value { font-size: 0.68rem; }
 
 /* Filter match highlight in info dialog */
 .rid-bar-row.rid-filter-match {
