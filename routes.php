@@ -84,6 +84,10 @@ include("load/i18n.php");
                         <!-- DCC Region quick-select pills -->
                         <div class="routes-filter-group">
                             <label class="routes-filter-label"><?= __('routes.filters.dccRegion') ?></label>
+                            <div class="routes-region-target-toggle">
+                                <span class="routes-region-target" data-target="origin"><?= __('routes.filters.regionTargetOrigin') ?></span>
+                                <span class="routes-region-target active" data-target="dest"><?= __('routes.filters.regionTargetDest') ?></span>
+                            </div>
                             <div class="routes-region-pills" id="dcc_region_pills"></div>
                         </div>
                     </div>

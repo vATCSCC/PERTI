@@ -5364,6 +5364,8 @@
       "regionNortheast": "Northeast",
       "regionSouthCentral": "South Central",
       "regionSoutheast": "Southeast",
+      "regionTargetDest": "Dest",
+      "regionTargetOrigin": "Origin",
       "regionWest": "West",
       "search": "Search",
       "season": "Season",

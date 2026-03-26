@@ -102,40 +102,86 @@ $altStmt = $conn_pdo->prepare("
 $altStmt->execute([$routeDimId]);
 $altDist = $altStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Departure fix distribution (first token of raw_route)
+// Departure fix distribution (from dfix column, fallback to first route token)
 $depFixStmt = $conn_pdo->prepare("
-    SELECT SUBSTRING_INDEX(raw_route, ' ', 1) as fix_name, COUNT(*) as cnt
+    SELECT COALESCE(NULLIF(dfix, ''), SUBSTRING_INDEX(raw_route, ' ', 1)) as fix_name,
+           COUNT(*) as cnt
     FROM route_history_facts
-    WHERE route_dim_id = ? AND raw_route IS NOT NULL AND raw_route != ''
+    WHERE route_dim_id = ? AND (dfix IS NOT NULL OR (raw_route IS NOT NULL AND raw_route != ''))
     GROUP BY fix_name
+    HAVING fix_name IS NOT NULL AND fix_name != ''
     ORDER BY cnt DESC
     LIMIT 15
 ");
 $depFixStmt->execute([$routeDimId]);
 $depFixDist = $depFixStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Arrival fix distribution (last token of raw_route)
+// Arrival fix distribution (from afix column, fallback to last route token)
 $arrFixStmt = $conn_pdo->prepare("
-    SELECT SUBSTRING_INDEX(raw_route, ' ', -1) as fix_name, COUNT(*) as cnt
+    SELECT COALESCE(NULLIF(afix, ''), SUBSTRING_INDEX(raw_route, ' ', -1)) as fix_name,
+           COUNT(*) as cnt
     FROM route_history_facts
-    WHERE route_dim_id = ? AND raw_route IS NOT NULL AND raw_route != ''
+    WHERE route_dim_id = ? AND (afix IS NOT NULL OR (raw_route IS NOT NULL AND raw_route != ''))
     GROUP BY fix_name
+    HAVING fix_name IS NOT NULL AND fix_name != ''
     ORDER BY cnt DESC
     LIMIT 15
 ");
 $arrFixStmt->execute([$routeDimId]);
 $arrFixDist = $arrFixStmt->fetchAll(PDO::FETCH_ASSOC);
 
+// SID/DP distribution
+$dpStmt = $conn_pdo->prepare("
+    SELECT dp_name, COUNT(*) as cnt
+    FROM route_history_facts
+    WHERE route_dim_id = ? AND dp_name IS NOT NULL AND dp_name != ''
+    GROUP BY dp_name
+    ORDER BY cnt DESC
+    LIMIT 15
+");
+$dpStmt->execute([$routeDimId]);
+$dpDist = $dpStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// STAR distribution
+$starStmt = $conn_pdo->prepare("
+    SELECT star_name, COUNT(*) as cnt
+    FROM route_history_facts
+    WHERE route_dim_id = ? AND star_name IS NOT NULL AND star_name != ''
+    GROUP BY star_name
+    ORDER BY cnt DESC
+    LIMIT 15
+");
+$starStmt->execute([$routeDimId]);
+$starDist = $starStmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Callsign/flight number distribution
+// ?normalize_callsign=1 groups by flight_number (UAE5), otherwise by raw callsign (UAE5NM)
+$normalizeCs = (int)(get_input('normalize_callsign') ?? 0);
+$csCol = $normalizeCs ? 'COALESCE(NULLIF(flight_number, \'\'), callsign)' : 'callsign';
+$csStmt = $conn_pdo->prepare("
+    SELECT $csCol as callsign, COUNT(*) as cnt
+    FROM route_history_facts
+    WHERE route_dim_id = ? AND callsign IS NOT NULL AND callsign != ''
+    GROUP BY callsign
+    ORDER BY cnt DESC
+    LIMIT 30
+");
+$csStmt->execute([$routeDimId]);
+$callsignDist = $csStmt->fetchAll(PDO::FETCH_ASSOC);
+
 echo json_encode([
     'success'  => true,
     'route'    => $route,
     'variants' => $variants,
     'stats'    => [
-        'aircraft_mix'         => $aircraftMix,
-        'airline_mix'          => $airlineMix,
-        'monthly_trend'        => $monthlyTrend,
+        'aircraft_mix'          => $aircraftMix,
+        'airline_mix'           => $airlineMix,
+        'monthly_trend'         => $monthlyTrend,
         'altitude_distribution' => $altDist,
-        'dep_fix_distribution' => $depFixDist,
-        'arr_fix_distribution' => $arrFixDist,
+        'dep_fix_distribution'  => $depFixDist,
+        'arr_fix_distribution'  => $arrFixDist,
+        'dp_distribution'       => $dpDist,
+        'star_distribution'     => $starDist,
+        'callsign_distribution' => $callsignDist,
     ],
 ], JSON_UNESCAPED_UNICODE);
