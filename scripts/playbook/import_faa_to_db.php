@@ -45,11 +45,15 @@ $header = fgetcsv($handle);
 $plays = [];
 $total_routes = 0;
 
+// FAA Playbook section headers that got scraped as play names
+$skip_names = ['SNOWBIRD','SPACE OPS','SPECIAL OPS','SUA ACTIVITY'];
+
 while (($row = fgetcsv($handle)) !== false) {
     if (count($row) < 8) continue;
     $pn = trim($row[0]);
     $rs = trim($row[1]);
     if (empty($pn) || empty($rs)) continue;
+    if (in_array($pn, $skip_names)) continue;
 
     if (!isset($plays[$pn])) $plays[$pn] = ['routes' => [], 'artccs' => [], 'dest_artccs' => []];
 
@@ -58,16 +62,16 @@ while (($row = fgetcsv($handle)) !== false) {
     $origArtc = ArtccNormalizer::normalizeCsv(trim($row[4]));
     $destArtc = ArtccNormalizer::normalizeCsv(trim($row[7]));
     $cleanRoute = stripRouteEndpoints(
-        normalizeRouteCanadian(trim($rs)),
+        normalizeRouteCanadian(cleanRouteString($rs)),
         $origApts, $origArtc, $destApts, $destArtc
     );
 
     $plays[$pn]['routes'][] = [
         $cleanRoute,
         $origApts, $destApts,
-        $origApts, trim($row[3]),
+        $origApts, ArtccNormalizer::normalizeCsv(trim($row[3])),
         $origArtc,
-        $destApts, trim($row[6]),
+        $destApts, ArtccNormalizer::normalizeCsv(trim($row[6])),
         $destArtc,
     ];
 
@@ -85,6 +89,15 @@ require_once __DIR__ . '/../../lib/ArtccNormalizer.php';
 use PERTI\Lib\ArtccNormalizer;
 
 function normPlay($n) { return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $n)); }
+
+/**
+ * Clean route string: replace transition dots with spaces,
+ * strip >< mandatory indicators, collapse whitespace.
+ */
+function cleanRouteString($rs) {
+    $rs = str_replace(['.', '>', '<'], ' ', $rs);
+    return preg_replace('/\s+/', ' ', trim($rs));
+}
 
 function normalizeRouteCanadian($rs) {
     static $codes = ['CZE','CZU','CZV','CZW','CZY','CZM','CZQ','CZO'];
@@ -177,12 +190,13 @@ function getFaaCategoryMap() {
         'MEM BLUZZ','MEM BRBBQ','MEM MIDNIGHT',
         'MSP BAINY','MSP BLUEM','MSP EAST','MSP KKILR','MSP NORTH WEST','MSP SOUTH','MSP SOUTH EAST','MSP TORGY',
         'ORD EAST 1','ORD EAST 2','ORD EAST 3','ORD FWA','ORD JVL 1','ORD JVL 2',
-        'ORD NO BENKY 1','ORD NO BENKY 2','ORD NO BENKY CHPMN','ORD NO BENKY FYTTE',
+        'ORD NO BENKY 1','ORD NO BENKY 2','ORD NO BENKY CHMPN','ORD NO BENKY CHPMN','ORD NO BENKY FYTTE',
         'ORD NO VEECK','ORD NO VEECK WATSN 1','ORD NO VEECK WATSN 2',
         'ORD OXI ROYKO 1','ORD OXI ROYKO 2','ORD PAITN WATSN',
         'PHX EAGUL NO ZUN','PHX NO EAGUL','PHX NO HYDRR','PHX NO J11 EAST','PHX NO J11 WEST','PHX NO J92',
         'SFO RNAV 1',
         'YYZ NO LINNG',
+        'BNA NO SWFFT',
     ];
     foreach ($airports as $p) $map[$p] = 'Airports';
 
@@ -203,7 +217,7 @@ function getFaaCategoryMap() {
         'MEX MRF WEST','NO EWM ELP','ONL',
         'PNH 1','PNH 2',
         'ROCKIES NORTH 1','ROCKIES NORTH 2','ROCKIES SOUTH 1','ROCKIES SOUTH 2',
-        'SAN ANDREAS 1','SAN ANDREAS 2','SLN','STL','TUL 1',
+        'SAN ANDREAS 1','SAN ANDREAS 2','SLN','STL','TUL','TUL 1',
     ];
     foreach ($e2w as $p) $map[$p] = 'East to West Transcon';
 
@@ -284,13 +298,13 @@ function getFaaCategoryMap() {
         'GA LIGHT JETS TO MIA AND SATS','GA PROPS TO MIA AND SATS','GA TO BCT AREA',
         'GA TO EWR AND SATS','GA TO MIA AND SATS VIA MOGAE','GA TO SUA',
         'MIA AND SATS VIA DEEP WATER','MIA VIA MOGAE',
-        'PHL TO ZBW CZU ZEU','SOUTH TO ZBW','WEST TO ZBW','ZBW CZU TO ZDC',
+        'PHL TO ZBW CZU ZEU','SOUTH TO ZBW','WEST TO ZBW','ZBW CZU TO ZDC','ZBW TO ZDC VIA ATR',
     ];
     foreach ($specialOps as $p) $map[$p] = 'Special Ops';
 
     // --- SUA Activity (11 plays) ---
     $sua = [
-        'DC METROS TO ZBW','SENTRY MAYHEM SOUTHBOUND',
+        'DC METROS TO ZBW','PLACID AVOIDANCE','SENTRY MAYHEM SOUTHBOUND',
         'STAVE 1','STAVE 2 FLORIDA ARVLS',
         'WATRS ROUTES TO AVOID SENTRY',
         'YANKEE DC METS TO ZBW','YANKEE NO GA VIA LENDY','YANKEE PHL DEPT TO ZBW CZU',
