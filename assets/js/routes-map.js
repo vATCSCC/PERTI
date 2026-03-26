@@ -14,6 +14,7 @@ window.RoutesMap = (function() {
     var highlightedDimId = null;
     var multiSelectDimIds = [];
     var routeCount = 0; // routes successfully plotted
+    var activePopup = null; // current picker popup
     var MAX_MAP_ROUTES = 25;
 
     // Multi-select colors (up to 6)
@@ -486,22 +487,80 @@ window.RoutesMap = (function() {
             }
         });
 
-        // Click handler for route selection
-        map.on('click', 'routes-lines', function(e) {
-            if (e.features && e.features.length > 0) {
-                var dimId = e.features[0].properties.dim_id;
-                if (typeof window.onRouteMapClick === 'function') {
-                    window.onRouteMapClick(dimId);
+        // Click handler for route selection — wide hitbox + multi-route picker
+        map.on('click', function(e) {
+            if (activePopup) { activePopup.remove(); activePopup = null; }
+
+            var bbox = [[e.point.x - 8, e.point.y - 8], [e.point.x + 8, e.point.y + 8]];
+            var features = map.queryRenderedFeatures(bbox, { layers: ['routes-lines'] });
+            if (!features || features.length === 0) return;
+
+            // Deduplicate by dim_id
+            var seen = {};
+            var unique = [];
+            features.forEach(function(f) {
+                var id = f.properties.dim_id;
+                if (!seen[id]) {
+                    seen[id] = true;
+                    unique.push(f.properties);
                 }
+            });
+
+            if (unique.length === 1) {
+                // Single route — select directly
+                if (typeof window.onRouteMapClick === 'function') {
+                    window.onRouteMapClick(unique[0].dim_id);
+                }
+                return;
             }
+
+            // Multiple overlapping routes — show picker popup
+            var options = unique.map(function(props) {
+                var route = (props.normalized_route || '');
+                var label = route.length > 35 ? route.substring(0, 32) + '...' : route;
+                var od = (props.origin || '?') + '\u2192' + (props.dest || '?');
+                return '<div class="rmap-picker-option" data-dim-id="' + props.dim_id + '"'
+                    + ' style="padding:5px 8px;cursor:pointer;border-bottom:1px solid #eee;display:flex;align-items:center;gap:6px;"'
+                    + ' onmouseover="this.style.background=\'#f0f0f0\'" onmouseout="this.style.background=\'white\'">'
+                    + '<span style="font-size:10px;font-weight:700;color:#495057;white-space:nowrap;">' + od + '</span>'
+                    + '<span style="flex:1;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#6c757d;" title="' + route.replace(/"/g, '&quot;') + '">' + label + '</span>'
+                    + '<span style="font-size:9px;color:#868e96;">' + (props.flight_count || '') + '</span>'
+                    + '</div>';
+            }).join('');
+
+            var content = '<div style="font-family:\'Inconsolata\',monospace;min-width:200px;">'
+                + '<div style="font-weight:bold;font-size:10px;color:#6c757d;padding:5px 8px;border-bottom:2px solid #ddd;text-transform:uppercase;">'
+                + PERTII18n.t('route.routePicker.overlappingRoutes', { count: unique.length })
+                + '</div>'
+                + options
+                + '<div style="font-size:8px;color:#adb5bd;padding:3px 8px;text-align:center;">'
+                + PERTII18n.t('route.routePicker.clickToSelect')
+                + '</div></div>';
+
+            activePopup = new maplibregl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '320px' })
+                .setLngLat(e.lngLat)
+                .setHTML(content)
+                .addTo(map);
+            activePopup.on('close', function() { activePopup = null; });
+
+            setTimeout(function() {
+                document.querySelectorAll('.rmap-picker-option').forEach(function(el) {
+                    el.addEventListener('click', function() {
+                        var dimId = parseInt(this.dataset.dimId);
+                        if (activePopup) { activePopup.remove(); activePopup = null; }
+                        if (typeof window.onRouteMapClick === 'function') {
+                            window.onRouteMapClick(dimId);
+                        }
+                    });
+                });
+            }, 50);
         });
 
-        // Cursor change on hover
-        map.on('mouseenter', 'routes-lines', function() {
-            map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', 'routes-lines', function() {
-            map.getCanvas().style.cursor = '';
+        // Cursor change on hover — wide hitbox
+        map.on('mousemove', function(e) {
+            var bbox = [[e.point.x - 8, e.point.y - 8], [e.point.x + 8, e.point.y + 8]];
+            var features = map.queryRenderedFeatures(bbox, { layers: ['routes-lines'] });
+            map.getCanvas().style.cursor = (features && features.length > 0) ? 'pointer' : '';
         });
 
         // Fit bounds to show all routes

@@ -197,7 +197,7 @@ $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 // ── Grouped view ──
 if ($view === 'grouped') {
     // Count query
-    $countSql = "SELECT COUNT(DISTINCT f.route_dim_id) as total_routes, COUNT(*) as total_flights
+    $countSql = "SELECT COUNT(DISTINCT CONCAT(f.route_dim_id, ':', f.origin_icao, ':', f.dest_icao)) as total_routes, COUNT(*) as total_flights
                  FROM route_history_facts f $joins $whereClause";
     $countStmt = $conn_pdo->prepare($countSql);
     $countStmt->execute($params);
@@ -217,20 +217,20 @@ if ($view === 'grouped') {
             f.route_dim_id,
             dr.normalized_route,
             dr.sample_raw_route,
+            f.origin_icao,
+            f.dest_icao,
             COUNT(*) as flight_count,
             COUNT(DISTINCT f.raw_route) as variant_count,
             ROUND(AVG(f.gcd_nm), 1) as avg_distance_nm,
             ROUND(AVG(f.ete_minutes)) as avg_ete_minutes,
             ROUND(AVG(f.altitude_ft)) as avg_altitude_ft,
             MIN(dr.first_seen) as first_filed,
-            MAX(dr.last_seen) as last_filed,
-            MAX(f.origin_icao) as origin_icao,
-            MAX(f.dest_icao) as dest_icao
+            MAX(dr.last_seen) as last_filed
         FROM route_history_facts f
         JOIN dim_route dr ON dr.route_dim_id = f.route_dim_id
         $joins
         $whereClause
-        GROUP BY f.route_dim_id, dr.normalized_route, dr.sample_raw_route
+        GROUP BY f.route_dim_id, f.origin_icao, f.dest_icao, dr.normalized_route, dr.sample_raw_route
         ORDER BY $orderBy
         LIMIT $perPage OFFSET $offset
     ";
@@ -268,19 +268,19 @@ if ($view === 'grouped') {
         SELECT
             f.raw_route,
             f.route_dim_id,
+            f.origin_icao,
+            f.dest_icao,
             COUNT(*) as flight_count,
             ROUND(AVG(f.gcd_nm), 1) as avg_distance_nm,
             ROUND(AVG(f.ete_minutes)) as avg_ete_minutes,
             ROUND(AVG(f.altitude_ft)) as avg_altitude_ft,
             MIN(dtm2.flight_date) as first_filed,
-            MAX(dtm2.flight_date) as last_filed,
-            MAX(f.origin_icao) as origin_icao,
-            MAX(f.dest_icao) as dest_icao
+            MAX(dtm2.flight_date) as last_filed
         FROM route_history_facts f
         JOIN dim_time dtm2 ON dtm2.time_dim_id = f.time_dim_id
         $joins
         $whereClause
-        GROUP BY f.raw_route, f.route_dim_id
+        GROUP BY f.raw_route, f.route_dim_id, f.origin_icao, f.dest_icao
         ORDER BY flight_count DESC
         LIMIT $perPage OFFSET $offset
     ";

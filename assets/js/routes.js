@@ -391,8 +391,8 @@
                     return {
                         results: (data.results || []).map(function(item) {
                             return {
-                                id: item.code || item.icao_code,
-                                text: (item.code || item.icao_code) + ' - ' + item.name
+                                id: item.id,
+                                text: item.label
                             };
                         })
                     };
