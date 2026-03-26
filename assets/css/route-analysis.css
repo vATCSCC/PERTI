@@ -365,6 +365,21 @@
     background: rgba(35, 155, 205, 0.2);
 }
 
+/* Facility type section header rows */
+.ra-section-header td {
+    padding: 6px 8px 3px !important;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #2d3238 !important;
+    cursor: default !important;
+}
+.ra-table tbody tr.ra-section-header:hover {
+    background: transparent;
+}
+
 /* Row index column */
 .ra-table .ra-idx {
     color: #495057;

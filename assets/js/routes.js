@@ -1202,8 +1202,8 @@
         if (eteStr) {
             html += '<div class="rid-stat"><div class="rid-stat-value">' + eteStr + '</div><div class="rid-stat-label">' + PERTII18n.t('routes.results.avgEte') + '</div></div>';
         }
-        if (route.avg_altitude_ft) {
-            html += '<div class="rid-stat"><div class="rid-stat-value">FL' + Math.round(route.avg_altitude_ft / 100) + '</div><div class="rid-stat-label">Avg Alt</div></div>';
+        if (route.median_altitude_ft) {
+            html += '<div class="rid-stat"><div class="rid-stat-value">FL' + Math.round(route.median_altitude_ft / 100) + '</div><div class="rid-stat-label">Med Alt</div></div>';
         }
         if (route.variant_count > 1) {
             html += '<div class="rid-stat"><div class="rid-stat-value">' + route.variant_count + '</div><div class="rid-stat-label">' + PERTII18n.t('routes.results.variants') + '</div></div>';

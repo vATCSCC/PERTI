@@ -206,6 +206,9 @@ if (!empty($years) || ($dateFrom && $dateTo)) {
 
 $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
+// Increase group_concat_max_len for median calculation
+$conn_pdo->exec("SET SESSION group_concat_max_len = 65536");
+
 // ── Grouped view ──
 if ($view === 'grouped') {
     // Count query
@@ -235,7 +238,7 @@ if ($view === 'grouped') {
             COUNT(DISTINCT f.raw_route) as variant_count,
             ROUND(AVG(f.gcd_nm), 1) as avg_distance_nm,
             ROUND(AVG(f.ete_minutes)) as avg_ete_minutes,
-            ROUND(AVG(f.altitude_ft)) as avg_altitude_ft,
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(GROUP_CONCAT(f.altitude_ft ORDER BY f.altitude_ft SEPARATOR ','), ',', CEIL(COUNT(*)/2)), ',', -1) AS UNSIGNED) as median_altitude_ft,
             MIN(dr.first_seen) as first_filed,
             MAX(dr.last_seen) as last_filed
         FROM route_history_facts f
@@ -285,7 +288,7 @@ if ($view === 'grouped') {
             COUNT(*) as flight_count,
             ROUND(AVG(f.gcd_nm), 1) as avg_distance_nm,
             ROUND(AVG(f.ete_minutes)) as avg_ete_minutes,
-            ROUND(AVG(f.altitude_ft)) as avg_altitude_ft,
+            CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(GROUP_CONCAT(f.altitude_ft ORDER BY f.altitude_ft SEPARATOR ','), ',', CEIL(COUNT(*)/2)), ',', -1) AS UNSIGNED) as median_altitude_ft,
             MIN(dtm2.flight_date) as first_filed,
             MAX(dtm2.flight_date) as last_filed
         FROM route_history_facts f

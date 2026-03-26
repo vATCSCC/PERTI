@@ -364,28 +364,72 @@
             facTbody.innerHTML = '<tr><td colspan="8" class="ra-empty">' + t('routeAnalysis.noData') + '</td></tr>';
             return;
         }
-        var html = '';
+
+        // Group by facility type in standard order
+        var typeOrder = ['ARTCC', 'FIR', 'SECTOR_SUPERHIGH', 'SECTOR_HIGH', 'SECTOR_LOW', 'TRACON'];
+        var grouped = {};
         for (var i = 0; i < traversal.length; i++) {
             var f = traversal[i];
-            html += '<tr data-idx="' + i + '">' +
-                '<td class="ra-idx">' + (i + 1) + '</td>' +
-                '<td>' + escHtml(f.name || f.id || '') + '</td>' +
-                '<td><span class="ra-type-badge ' + typeBadgeClass(f.type) + '">' + typeLabel(f.type) + '</span></td>' +
-                '<td class="text-right">' + formatDist(f.distance_within_nm) + '</td>' +
-                '<td class="text-right">' + formatTime(f.time_within_min) + '</td>' +
-                '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, f.entry_time_min) + '</td>' +
-                '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, f.exit_time_min) + '</td>' +
-                '<td class="text-right ra-seg-delta">' + (f.entry_fix || '') + ' \u2192 ' + (f.exit_fix || '') + '</td>' +
-                '</tr>';
+            var typ = f.type || 'ARTCC';
+            if (!grouped[typ]) grouped[typ] = [];
+            grouped[typ].push({ item: f, origIdx: i });
         }
+
+        var html = '';
+        var rowNum = 1;
+        // Render each type group with a section header
+        for (var o = 0; o < typeOrder.length; o++) {
+            var typ = typeOrder[o];
+            if (!grouped[typ] || grouped[typ].length === 0) continue;
+            // Section header row
+            html += '<tr class="ra-section-header"><td colspan="8">' + typeLabel(typ) + '</td></tr>';
+            // Sort entries within group by entry distance (geographic order)
+            grouped[typ].sort(function (a, b) { return (a.item.entry_dist_nm || 0) - (b.item.entry_dist_nm || 0); });
+            for (var j = 0; j < grouped[typ].length; j++) {
+                var entry = grouped[typ][j];
+                var f = entry.item;
+                html += '<tr data-idx="' + entry.origIdx + '">' +
+                    '<td class="ra-idx">' + rowNum + '</td>' +
+                    '<td>' + escHtml(f.name || f.id || '') + '</td>' +
+                    '<td><span class="ra-type-badge ' + typeBadgeClass(f.type) + '">' + typeLabel(f.type) + '</span></td>' +
+                    '<td class="text-right">' + formatDist(f.distance_within_nm) + '</td>' +
+                    '<td class="text-right">' + formatTime(f.time_within_min) + '</td>' +
+                    '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, f.entry_time_min) + '</td>' +
+                    '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, f.exit_time_min) + '</td>' +
+                    '<td class="text-right ra-seg-delta">' + (f.entry_fix || '') + ' \u2192 ' + (f.exit_fix || '') + '</td>' +
+                    '</tr>';
+                rowNum++;
+            }
+        }
+        // Any types not in typeOrder
+        Object.keys(grouped).forEach(function (typ) {
+            if (typeOrder.indexOf(typ) >= 0) return;
+            html += '<tr class="ra-section-header"><td colspan="8">' + typeLabel(typ) + '</td></tr>';
+            for (var j = 0; j < grouped[typ].length; j++) {
+                var entry = grouped[typ][j];
+                var f = entry.item;
+                html += '<tr data-idx="' + entry.origIdx + '">' +
+                    '<td class="ra-idx">' + rowNum + '</td>' +
+                    '<td>' + escHtml(f.name || f.id || '') + '</td>' +
+                    '<td><span class="ra-type-badge ' + typeBadgeClass(f.type) + '">' + typeLabel(f.type) + '</span></td>' +
+                    '<td class="text-right">' + formatDist(f.distance_within_nm) + '</td>' +
+                    '<td class="text-right">' + formatTime(f.time_within_min) + '</td>' +
+                    '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, f.entry_time_min) + '</td>' +
+                    '<td class="text-right ra-utc">' + minutesToUtcStr(depEpoch, f.exit_time_min) + '</td>' +
+                    '<td class="text-right ra-seg-delta">' + (f.entry_fix || '') + ' \u2192 ' + (f.exit_fix || '') + '</td>' +
+                    '</tr>';
+                rowNum++;
+            }
+        });
         facTbody.innerHTML = html;
 
-        // Attach click handlers
-        var rows = facTbody.querySelectorAll('tr');
+        // Attach click handlers (only on data rows, not section headers)
+        var rows = facTbody.querySelectorAll('tr[data-idx]');
         for (var r = 0; r < rows.length; r++) {
-            rows[r].addEventListener('click', (function (idx) {
-                return function () { zoomToFacility(traversal[idx], idx); };
-            })(r));
+            var idx = parseInt(rows[r].getAttribute('data-idx'), 10);
+            rows[r].addEventListener('click', (function (i) {
+                return function () { zoomToFacility(traversal[i], i); };
+            })(idx));
         }
     }
 
