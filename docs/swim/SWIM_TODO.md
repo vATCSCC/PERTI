@@ -1,6 +1,6 @@
 # VATSWIM Implementation Tracker
 
-**Last Updated:** 2026-03-14
+**Last Updated:** 2026-03-25
 **Status:** Phase 4 COMPLETE ✅ (Data Isolation)
 **Repository:** `VATSIM PERTI/PERTI/`
 
@@ -287,6 +287,8 @@ PERTI/
 | `/api/swim/v1/playbook/plays` | GET | ✅ |
 | `/api/swim/v1/playbook/throughput` | GET | ✅ |
 | `/api/swim/v1/reference/taxi-times` | GET | ✅ |
+| `/api/swim/v1/routes/resolve` | GET | ✅ |
+| `/api/swim/v1/routes/resolve` | POST | ✅ |
 | `/api/swim/v1/routes/cdrs` | GET | ✅ |
 | `/api/swim/v1/tmi/programs` | GET | ✅ |
 | `/api/swim/v1/tmi/controlled` | GET | ✅ |
@@ -320,6 +322,15 @@ PERTI/
 ---
 
 ## 📝 Change Log
+
+### 2026-03-25 Route Resolution API
+
+- ✅ `GET /routes/resolve` — single route resolution via PostGIS `expand_route()`
+- ✅ `POST /routes/resolve` — batch resolution (up to 50 routes) via `expand_routes_batch()`
+- ✅ Origin/destination bookend auto-prepend/append logic
+- ✅ Per-route independent error handling in batch mode
+- ✅ ARTCC traversal with K-prefix normalization (KZNY → ZNY)
+- ✅ Shared helpers: `_build_full_route()`, `_format_result()`
 
 ### 2026-03-14 Data Isolation (Phase 4 Complete)
 - ✅ Migration 026 — swim_flights expansion (+34 cols, row_hash, 14 index drops)

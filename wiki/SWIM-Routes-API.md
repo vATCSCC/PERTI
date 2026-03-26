@@ -1,6 +1,6 @@
 # SWIM Routes API
 
-The SWIM Routes API provides access to reference route data: **Coded Departure Routes (CDRs)**, **National Playbook plays**, and **route analysis tools**. CDR and playbook data are served from the isolated `SWIM_API` database (mirrored from internal sources daily). Analysis and throughput endpoints require API key authentication.
+The SWIM Routes API provides access to reference route data: **Coded Departure Routes (CDRs)**, **National Playbook plays**, **route resolution**, and **route analysis tools**. CDR and playbook data are served from the isolated `SWIM_API` database (mirrored from internal sources daily). Route resolution, analysis, and throughput endpoints require API key authentication.
 
 **Base URL**: `https://perti.vatcscc.org/api/swim/v1`
 
@@ -9,6 +9,225 @@ The SWIM Routes API provides access to reference route data: **Coded Departure R
 **CORS**: `Access-Control-Allow-Origin: *` -- callable from any origin.
 
 **Format**: JSON only.
+
+---
+
+## Route Resolution
+
+### GET /api/swim/v1/routes/resolve
+
+Resolves a route string into fully processed waypoints with lat/lon coordinates using PostGIS `expand_route_with_artccs()`. Performs airway expansion, oceanic coordinate parsing, fix disambiguation, FBD projection, distance validation, and duplicate filtering.
+
+**Auth**: Required (API key with read access)
+
+**Parameters:**
+
+| Name | Type | Required | Description | Example |
+|------|------|----------|-------------|---------|
+| `route_string` | string | Yes | Route string to resolve | `GAYEL Q818 WOZEE KENPA OBSTR WYNDE3` |
+| `origin` | string | No | Origin airport ICAO code — auto-prepended if not the first token | `KJFK` |
+| `dest` | string | No | Destination airport ICAO code — auto-appended if not the last token | `KORD` |
+
+**Example Request:**
+
+```
+GET /api/swim/v1/routes/resolve?route_string=GAYEL+Q818+WOZEE+KENPA+OBSTR+WYNDE3&origin=KJFK&dest=KORD
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3",
+    "expanded_route": "KJFK GAYEL MSLIN STOMP BUFFY CFB VIEEW KELIE WOZEE KENPA OBSTR KORD",
+    "origin": "KJFK",
+    "dest": "KORD",
+    "total_distance_nm": 758.6,
+    "waypoint_count": 12,
+    "waypoints": [
+      {"seq": 1, "fix": "KJFK", "lat": 40.639928, "lon": -73.778692, "type": "nav_fix"},
+      {"seq": 2, "fix": "GAYEL", "lat": 41.406692, "lon": -74.357144, "type": "nav_fix"},
+      {"seq": 3, "fix": "MSLIN", "lat": 41.491894, "lon": -74.553967, "type": "airway_Q818"},
+      {"seq": 4, "fix": "STOMP", "lat": 41.596328, "lon": -74.796608, "type": "airway_Q818"},
+      {"seq": 5, "fix": "BUFFY", "lat": 41.941108, "lon": -75.6126, "type": "airway_Q818"},
+      {"seq": 6, "fix": "CFB", "lat": 42.15749, "lon": -76.136472, "type": "airway_Q818"},
+      {"seq": 7, "fix": "VIEEW", "lat": 42.439464, "lon": -77.025917, "type": "airway_Q818"},
+      {"seq": 8, "fix": "KELIE", "lat": 42.660367, "lon": -77.744736, "type": "airway_Q818"},
+      {"seq": 9, "fix": "WOZEE", "lat": 42.933792, "lon": -78.738789, "type": "airway_Q818"},
+      {"seq": 10, "fix": "KENPA", "lat": 44.795, "lon": -82.393333, "type": "nav_fix"},
+      {"seq": 11, "fix": "OBSTR", "lat": 43.695056, "lon": -85.214869, "type": "nav_fix"},
+      {"seq": 12, "fix": "KORD", "lat": 41.9786, "lon": -87.9048, "type": "nav_fix"}
+    ],
+    "artccs_traversed": ["ZNY", "ZOB", "CZYZ", "ZMP", "ZAU"]
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `route_string` | string | The original route string as submitted |
+| `expanded_route` | string | Space-separated resolved fix names (after airway expansion) |
+| `origin` | string | Origin airport ICAO (if provided) |
+| `dest` | string | Destination airport ICAO (if provided) |
+| `total_distance_nm` | float | Total route distance in nautical miles |
+| `waypoint_count` | int | Number of resolved waypoints |
+| `waypoints` | array | Ordered waypoints (see Waypoint Fields below) |
+| `artccs_traversed` | array | ARTCC codes traversed (K-prefix stripped: KZNY → ZNY) |
+
+**Waypoint Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `seq` | int | 1-based sequence number |
+| `fix` | string | Fix/waypoint identifier |
+| `lat` | float | Latitude (6 decimal places) |
+| `lon` | float | Longitude (6 decimal places) |
+| `type` | string | Waypoint type: `nav_fix`, `airway_{name}` (e.g., `airway_Q818`), `coordinate` |
+
+### POST /api/swim/v1/routes/resolve (Batch)
+
+Resolves up to 50 route strings in a single request. Uses a single PostGIS `expand_routes_batch()` call for efficiency. Each route is resolved independently — a failure in one route does not affect others.
+
+**Auth**: Required (API key with read access)
+
+**Maximum batch size:** 50 routes per request
+
+**Request Body:**
+
+```json
+{
+  "routes": [
+    {
+      "route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3",
+      "origin": "KJFK",
+      "dest": "KORD"
+    },
+    {
+      "route_string": "BADROUTE INVALID",
+      "origin": "KJFK",
+      "dest": "KLAX"
+    }
+  ]
+}
+```
+
+**Route Item Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `route_string` | string | Yes | Route string to resolve |
+| `origin` | string | No | Origin airport — auto-prepended if missing from route |
+| `dest` | string | No | Destination airport — auto-appended if missing from route |
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": {
+    "count": 2,
+    "routes": [
+      {
+        "route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3",
+        "expanded_route": "KJFK GAYEL MSLIN STOMP BUFFY CFB VIEEW KELIE WOZEE KENPA OBSTR KORD",
+        "origin": "KJFK",
+        "dest": "KORD",
+        "total_distance_nm": 758.6,
+        "waypoint_count": 12,
+        "waypoints": [
+          {"seq": 1, "fix": "KJFK", "lat": 40.639928, "lon": -73.778692, "type": "nav_fix"},
+          {"seq": 2, "fix": "GAYEL", "lat": 41.406692, "lon": -74.357144, "type": "nav_fix"}
+        ],
+        "artccs_traversed": ["ZNY", "ZOB", "CZYZ", "ZMP", "ZAU"]
+      },
+      {
+        "route_string": "BADROUTE INVALID",
+        "expanded_route": "KJFK KLAX",
+        "origin": "KJFK",
+        "dest": "KLAX",
+        "total_distance_nm": 2150.6,
+        "waypoint_count": 2,
+        "waypoints": [
+          {"seq": 1, "fix": "KJFK", "lat": 40.639928, "lon": -73.778692, "type": "nav_fix"},
+          {"seq": 2, "fix": "KLAX", "lat": 33.942501, "lon": -118.407997, "type": "nav_fix"}
+        ],
+        "artccs_traversed": ["ZNY", "ZOB", "ZID", "ZKC", "ZAB", "ZLA"]
+      }
+    ]
+  }
+}
+```
+
+**Notes:**
+- Unresolvable route tokens are silently skipped — routes with no valid fixes still return origin/dest bookends with a straight-line distance
+- The `origin` and `dest` bookends are only prepended/appended if the route string doesn't already start/end with that token
+- ARTCC codes are normalized (K-prefix stripped: `KZNY` → `ZNY`)
+- Waypoint `type` values include `nav_fix` (named fixes and airports), `airway_{name}` (fixes expanded from an airway, e.g., `airway_Q818`), and `coordinate` (oceanic lat/lon points)
+- Batch mode is significantly faster than N individual GET requests due to the single PostGIS round-trip
+
+**Error Responses:**
+
+| Code | When |
+|------|------|
+| 400 | Missing `route_string`, empty routes array, or exceeds 50-route limit |
+| 401 | Invalid or missing API key |
+| 405 | Non-GET/POST method used |
+| 503 | PostGIS service unavailable |
+
+### Common Use Cases
+
+#### Resolve a single filed route
+
+```bash
+curl -H "Authorization: Bearer YOUR_KEY" \
+  "https://perti.vatcscc.org/api/swim/v1/routes/resolve?route_string=GAYEL+Q818+WOZEE+KENPA+OBSTR+WYNDE3&origin=KJFK&dest=KORD"
+```
+
+#### Batch-resolve routes for active flights
+
+```bash
+curl -X POST "https://perti.vatcscc.org/api/swim/v1/routes/resolve" \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "routes": [
+      {"route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"},
+      {"route_string": "DOTSS5 KAYOH J146 ABQ J80 HVE J100 STL J24 JHW LENDY5", "origin": "KLAX", "dest": "KJFK"}
+    ]
+  }'
+```
+
+#### Python: resolve and plot on a map
+
+```python
+import requests
+
+KEY = "swim_dev_your_key"
+BASE = "https://perti.vatcscc.org/api/swim/v1"
+
+resp = requests.post(
+    f"{BASE}/routes/resolve",
+    headers={"Authorization": f"Bearer {KEY}", "Content-Type": "application/json"},
+    json={
+        "routes": [
+            {"route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"},
+            {"route_string": "GREKI JUDDS CAM NOVON KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"}
+        ]
+    }
+)
+data = resp.json()["data"]
+
+for route in data["routes"]:
+    print(f"{route['origin']} → {route.get('dest', '?')}: {route['total_distance_nm']} nm, "
+          f"{route['waypoint_count']} waypoints, ARTCCs: {', '.join(route['artccs_traversed'])}")
+# Output:
+#   KJFK → KORD: 758.6 nm, 12 waypoints, ARTCCs: ZNY, ZOB, CZYZ, ZMP, ZAU
+#   KJFK → KORD: 852.8 nm, 8 waypoints, ARTCCs: ZNY, ZBW, CZYZ, ZMP, ZAU
+```
 
 ---
 

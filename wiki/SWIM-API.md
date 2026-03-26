@@ -508,9 +508,45 @@ curl -H "Authorization: Bearer YOUR_KEY" \
 
 ### Routes & Playbook
 
-Reference route data served from SWIM mirror tables (`swim_coded_departure_routes`, `swim_playbook_route_throughput`), synced daily at 06:00Z by `refdata_sync_daemon.php`. CDR and playbook list/detail endpoints are **public**; analysis and throughput require an API key.
+Reference route data served from SWIM mirror tables (`swim_coded_departure_routes`, `swim_playbook_route_throughput`), synced daily at 06:00Z by `refdata_sync_daemon.php`. CDR and playbook list/detail endpoints are **public**; analysis, throughput, and route resolution require an API key.
 
 For full documentation, parameters, response schemas, geometry support, and use cases, see **[[SWIM Routes API]]**.
+
+#### GET /routes/resolve
+
+Resolve a route string into waypoints with lat/lon coordinates, total distance, and ARTCC traversal using PostGIS spatial analysis. Handles airway expansion, oceanic coordinate parsing, and fix disambiguation.
+
+**Auth**: Required (read-only)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `route_string` | string | Route string to resolve (required) |
+| `origin` | string | Origin airport ICAO — auto-prepended if not first token |
+| `dest` | string | Destination airport ICAO — auto-appended if not last token |
+
+Returns: `waypoints[]` (seq, fix, lat, lon, type), `expanded_route`, `total_distance_nm`, `artccs_traversed[]`.
+
+```bash
+curl -H "Authorization: Bearer YOUR_KEY" \
+  "https://perti.vatcscc.org/api/swim/v1/routes/resolve?route_string=GAYEL+Q818+WOZEE+KENPA+OBSTR+WYNDE3&origin=KJFK&dest=KORD"
+```
+
+#### POST /routes/resolve (Batch)
+
+Batch-resolve up to 50 route strings in a single request. Uses a single PostGIS `expand_routes_batch()` round-trip. Each route succeeds or fails independently.
+
+**Auth**: Required (read-only)
+
+```json
+{
+  "routes": [
+    {"route_string": "GAYEL Q818 WOZEE KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"},
+    {"route_string": "GREKI JUDDS CAM NOVON KENPA OBSTR WYNDE3", "origin": "KJFK", "dest": "KORD"}
+  ]
+}
+```
+
+Returns `count` and `routes[]` with the same shape as GET. Failed routes include an `error` field instead of waypoint data.
 
 #### GET /routes/cdrs
 
