@@ -2746,7 +2746,7 @@
                                 Swal.fire({ icon: 'success', title: t('ctp.throughput.saved'), timer: 1500, showConfirmButton: false });
                                 self.refresh();
                             } else {
-                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                                Swal.fire({ icon: 'error', title: resp.message || t('common.error') });
                             }
                         }
                     });
@@ -2795,7 +2795,7 @@
                                 Swal.fire({ icon: 'success', title: t('ctp.throughput.updated'), timer: 1500, showConfirmButton: false });
                                 self.refresh();
                             } else {
-                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                                Swal.fire({ icon: 'error', title: resp.message || t('common.error') });
                             }
                         },
                         error: function(xhr) {
@@ -2803,7 +2803,7 @@
                                 Swal.fire({ icon: 'warning', title: t('ctp.throughput.conflictDetected') || 'Conflict detected — config was modified. Refreshing.' });
                                 self.refresh();
                             } else {
-                                var msg = xhr.responseJSON ? xhr.responseJSON.message : 'Error';
+                                var msg = xhr.responseJSON ? xhr.responseJSON.message : t('common.error');
                                 Swal.fire({ icon: 'error', title: msg });
                             }
                         }
@@ -2957,7 +2957,7 @@
             var script = document.createElement('script');
             script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.mini.min.js';
             script.onload = callback;
-            script.onerror = function() { Swal.fire({ icon: 'error', title: 'Failed to load XLSX library' }); };
+            script.onerror = function() { Swal.fire({ icon: 'error', title: t('ctp.error.xlsxLoadFailed') }); };
             document.head.appendChild(script);
         },
 
@@ -3808,7 +3808,7 @@
                                 Swal.fire({ icon: 'success', title: t('common.saved'), timer: 1500, showConfirmButton: false });
                                 self.loadScenarios();
                             } else {
-                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                                Swal.fire({ icon: 'error', title: resp.message || t('common.error') });
                             }
                         }
                     });
@@ -3961,7 +3961,7 @@
                             if (resp.status === 'ok') {
                                 self.loadBlocks(scenarioId, $panel.closest('.ps-blocks-panel'));
                             } else {
-                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                                Swal.fire({ icon: 'error', title: resp.message || t('common.error') });
                             }
                         }
                     });
@@ -4006,7 +4006,7 @@
                             if (resp.status === 'ok') {
                                 self.loadBlocks(scenarioId, $container.closest('.ps-blocks-panel'));
                             } else {
-                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                                Swal.fire({ icon: 'error', title: resp.message || t('common.error') });
                             }
                         }
                     });
@@ -4071,7 +4071,7 @@
                             if (resp.status === 'ok') {
                                 self.loadBlocks(scenarioId, $container.closest('.ps-blocks-panel'));
                             } else {
-                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                                Swal.fire({ icon: 'error', title: resp.message || t('common.error') });
                             }
                         }
                     });
@@ -4123,7 +4123,7 @@
                             if (resp.status === 'ok') {
                                 self.loadBlocks(scenarioId, $container.closest('.ps-blocks-panel'));
                             } else {
-                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                                Swal.fire({ icon: 'error', title: resp.message || t('common.error') });
                             }
                         }
                     });
@@ -4194,12 +4194,12 @@
                     if (resp.status === 'ok' && resp.data) {
                         self.renderResults(resp.data, scenarioId);
                     } else {
-                        Swal.fire({ icon: 'error', title: resp.message || 'Compute failed' });
+                        Swal.fire({ icon: 'error', title: resp.message || t('ctp.error.computeFailed') });
                     }
                 },
                 error: function() {
                     Swal.close();
-                    Swal.fire({ icon: 'error', title: 'Compute request failed' });
+                    Swal.fire({ icon: 'error', title: t('ctp.error.computeRequestFailed') });
                 }
             });
         },
@@ -4684,7 +4684,7 @@
                                 Swal.fire({ icon: 'success', title: t('common.saved'), timer: 1500, showConfirmButton: false });
                                 self.refresh();
                             } else {
-                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                                Swal.fire({ icon: 'error', title: resp.message || t('common.error') });
                             }
                         }
                     });
@@ -4730,7 +4730,7 @@
                                 Swal.fire({ icon: 'success', title: t('common.saved'), timer: 1500, showConfirmButton: false });
                                 self.refresh();
                             } else {
-                                Swal.fire({ icon: 'error', title: resp.message || 'Error' });
+                                Swal.fire({ icon: 'error', title: resp.message || t('common.error') });
                             }
                         }
                     });

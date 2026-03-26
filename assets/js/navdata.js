@@ -42,7 +42,7 @@
         var $sel = $('#cycle-selector');
         $sel.empty();
         if (state.availableCycles.length === 0) {
-            $sel.append('<option value="">No changelogs available</option>');
+            $sel.append('<option value="">' + PERTII18n.t('navdata.empty.noCycles') + '</option>');
             showEmpty(PERTII18n.t('navdata.empty.noCycles'));
             return;
         }

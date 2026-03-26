@@ -1652,7 +1652,7 @@ class InitiativeTimeline {
             this.loadData();
         } else if (successCount > 0) {
             $(`#${this.modalId}`).modal('hide');
-            this.alert('warning', `${successCount}/${ids.length} updated` + (lastError ? ': ' + lastError : ''));
+            this.alert('warning', PERTII18n.t('initiative.partialUpdate', { success: successCount, total: ids.length }) + (lastError ? ': ' + lastError : ''));
             this.loadData();
         } else {
             this.alert('error', lastError || PERTII18n.t('initiative.error.saveFailed'));

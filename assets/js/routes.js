@@ -1534,7 +1534,7 @@
         }
 
         if (!html) {
-            html = '<div class="rid-empty">No additional details available</div>';
+            html = '<div class="rid-empty">' + PERTII18n.t('routes.detail.noAdditionalDetails') + '</div>';
         }
 
         $container.html(html);
@@ -1664,15 +1664,15 @@
                             console.error('[Routes] Clipboard write failed:', err);
                             Swal.fire({
                                 icon: 'error',
-                                title: 'Failed to copy to clipboard',
-                                text: 'Please use CSV download instead.'
+                                title: PERTII18n.t('routes.export.clipboardFailed'),
+                                text: PERTII18n.t('routes.export.useCsvInstead')
                             });
                         });
                     } else {
                         Swal.fire({
                             icon: 'warning',
-                            title: 'Clipboard not available',
-                            text: 'Please use CSV download instead.'
+                            title: PERTII18n.t('routes.export.clipboardUnavailable'),
+                            text: PERTII18n.t('routes.export.useCsvInstead')
                         });
                     }
                 },
@@ -1680,7 +1680,7 @@
                     console.error('[Routes] Export failed:', status, error);
                     Swal.fire({
                         icon: 'error',
-                        title: 'Export failed',
+                        title: PERTII18n.t('routes.export.failed'),
                         text: error
                     });
                 }

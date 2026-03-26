@@ -294,6 +294,11 @@
       "removedSuccess": "EDCT removed.",
       "selectFlights": "Select flights first using checkboxes."
     },
+    "error": {
+      "computeFailed": "Compute failed",
+      "computeRequestFailed": "Compute request failed",
+      "xlsxLoadFailed": "Failed to load XLSX library"
+    },
     "exclude": {
       "exclude": "Exclude",
       "excludeTooltip": "Exclude selected flights from management",
@@ -2428,6 +2433,7 @@
       "specialOperations": "Special Operations",
       "trafficManagement": "Traffic Management"
     },
+    "partialUpdate": "{success}/{total} updated",
     "range": "Range",
     "section": {
       "cdw": "Critical Decision Window Details",
@@ -5290,9 +5296,16 @@
       },
       "lastFiled": "Last Filed",
       "monthlyTrend": "Monthly Trend",
+      "noAdditionalDetails": "No additional details available",
       "rawRoute": "Raw Route",
       "statistics": "Statistics",
       "variants": "Variants"
+    },
+    "export": {
+      "clipboardFailed": "Failed to copy to clipboard",
+      "clipboardUnavailable": "Clipboard not available",
+      "failed": "Export failed",
+      "useCsvInstead": "Please use CSV download instead."
     },
     "filters": {
       "aircraft": "Aircraft",

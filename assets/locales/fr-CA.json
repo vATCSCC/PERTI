@@ -294,6 +294,11 @@
       "removedSuccess": "EDCT retiré.",
       "selectFlights": "Sélectionnez d’abord des vols avec les cases à cocher."
     },
+    "error": {
+      "computeFailed": "Échec du calcul",
+      "computeRequestFailed": "Échec de la requête de calcul",
+      "xlsxLoadFailed": "Impossible de charger la bibliothèque XLSX"
+    },
     "exclude": {
       "exclude": "Exclure",
       "excludeTooltip": "Exclure les vols sélectionnés de la gestion",
@@ -2428,6 +2433,7 @@
       "specialOperations": "Opérations spéciales",
       "trafficManagement": "Gestion du trafic"
     },
+    "partialUpdate": "{success}/{total} mis à jour",
     "range": "Plage",
     "section": {
       "cdw": "Détails fenêtre de décision critique",
@@ -5290,9 +5296,16 @@
       },
       "lastFiled": "Dernier dépôt",
       "monthlyTrend": "Tendance mensuelle",
+      "noAdditionalDetails": "Aucun détail supplémentaire disponible",
       "rawRoute": "Route brute",
       "statistics": "Statistiques",
       "variants": "Variantes"
+    },
+    "export": {
+      "clipboardFailed": "Impossible de copier dans le presse-papiers",
+      "clipboardUnavailable": "Presse-papiers non disponible",
+      "failed": "Échec de l'exportation",
+      "useCsvInstead": "Veuillez utiliser le téléchargement CSV."
     },
     "filters": {
       "aircraft": "Aéronef",
