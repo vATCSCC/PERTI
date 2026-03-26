@@ -4466,6 +4466,8 @@
       "grouped": "Grouped",
       "raw": "Raw",
       "loadMore": "Load More",
+      "showAll": "Show All",
+      "showTop": "Show Top 50",
       "sortBy": "Sort by",
       "sortFrequency": "Frequency",
       "sortDistance": "Distance",

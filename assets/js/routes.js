@@ -40,7 +40,8 @@
         multiSelected: [],   // Array of route_dim_ids (max 6)
         page: 1,
         sort: 'frequency',
-        view: 'grouped'
+        view: 'grouped',
+        showAll: false
     };
 
     // ========================================================================
@@ -441,7 +442,8 @@
 
         // Search button
         $('#routes_search_btn').on('click', function() {
-            state.page = 1; // Reset to page 1
+            state.page = 1;
+            state.showAll = false;
             doSearch();
         });
 
@@ -743,9 +745,10 @@
                     // Collapse filter sections to give route list more space
                     collapseFilters();
 
-                    // Plot routes on map
+                    // Plot routes on map (cap at 50 for geometry fetch performance)
                     if (typeof RoutesMap !== 'undefined' && data.routes) {
-                        RoutesMap.plotRoutes(data.routes, data.total_flights || 0);
+                        var mapRoutes = data.routes.length > 50 ? data.routes.slice(0, 50) : data.routes;
+                        RoutesMap.plotRoutes(mapRoutes, data.total_flights || 0);
                     }
                 } else {
                     showError(data.error || PERTII18n.t('error.loadFailed', { resource: 'routes' }));
@@ -839,7 +842,7 @@
         params.push('sort=' + state.sort);
         params.push('view=' + state.view);
         params.push('page=' + state.page);
-        params.push('per_page=50');
+        params.push('per_page=' + (state.showAll ? 200 : 50));
 
         return params.join('&');
     }
@@ -878,14 +881,27 @@
             return;
         }
 
-        // Summary bar
+        // Summary bar with Show All toggle
         var $summary = $('<div class="routes-summary"></div>');
-        $summary.html(
-            '<span><strong>' + data.total_routes.toLocaleString() + '</strong> ' +
+        var summaryHtml = '<span><strong>' + data.total_routes.toLocaleString() + '</strong> ' +
             PERTII18n.t('routes.results.totalRoutes') + '</span>' +
             '<span><strong>' + data.total_flights.toLocaleString() + '</strong> ' +
-            PERTII18n.t('routes.results.totalFlights') + '</span>'
-        );
+            PERTII18n.t('routes.results.totalFlights') + '</span>';
+        $summary.html(summaryHtml);
+
+        // Show All / Show Top toggle
+        if (data.total_routes > 50) {
+            var $showAllBtn = $('<button class="routes-show-all-btn"></button>');
+            $showAllBtn.text(state.showAll
+                ? PERTII18n.t('routes.results.showTop')
+                : PERTII18n.t('routes.results.showAll'));
+            $showAllBtn.on('click', function() {
+                state.showAll = !state.showAll;
+                state.page = 1;
+                doSearch();
+            });
+            $summary.append($showAllBtn);
+        }
         $list.append($summary);
 
         // Controls (sort + view toggle)
