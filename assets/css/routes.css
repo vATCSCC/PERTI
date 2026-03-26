@@ -381,6 +381,33 @@ body.routes-page .cs-footer {
     color: #fff;
 }
 
+/* DCC Region origin/dest toggle */
+.routes-region-target-toggle {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.routes-region-target {
+    font-size: 0.7rem;
+    color: #777;
+    cursor: pointer;
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+}
+
+.routes-region-target:hover {
+    color: #bbb;
+}
+
+.routes-region-target.active {
+    color: #239BCD;
+    border-color: #239BCD;
+    font-weight: 600;
+}
+
 /* Select2 Dark Theme Overrides */
 .select2-container .select2-selection--multiple {
     background-color: #252540 !important;
@@ -392,6 +419,9 @@ body.routes-page .cs-footer {
     background-color: #239BCD !important;
     border: 1px solid #239BCD !important;
     color: #fff !important;
+    font-size: 0.75rem !important;
+    padding: 1px 6px !important;
+    margin: 2px !important;
 }
 
 .select2-container .select2-selection--multiple .select2-selection__choice__remove {
@@ -426,6 +456,8 @@ body.routes-page .cs-footer {
 .select2-container .select2-results__option {
     color: #fff !important;
     background-color: #252540 !important;
+    font-size: 0.8rem !important;
+    padding: 4px 8px !important;
 }
 
 .select2-container .select2-results__option--highlighted {

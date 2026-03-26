@@ -27,8 +27,32 @@ $engine    = array_filter(array_map('trim', explode(',', get_input('engine') ?? 
 $airline   = array_filter(array_map('trim', explode(',', get_input('airline') ?? '')));
 $callsign  = trim(get_input('callsign') ?? '');
 $opGroup   = array_filter(array_map('trim', explode(',', get_input('op_group') ?? '')));
-$dateFrom  = get_input('date_from');
-$dateTo    = get_input('date_to');
+$dateFromRaw = get_input('date_from') ?? '';
+$dateToRaw   = get_input('date_to') ?? '';
+
+// Parse datetime values: "2026-03-15" or "2026-03-15T14:00"
+$dateFrom = ''; $dateFromHour = null;
+$dateTo   = ''; $dateToHour   = null;
+if ($dateFromRaw) {
+    if (str_contains($dateFromRaw, 'T')) {
+        $parts = explode('T', $dateFromRaw);
+        $dateFrom = $parts[0];
+        $hm = explode(':', $parts[1] ?? '');
+        $dateFromHour = (int)$hm[0];
+    } else {
+        $dateFrom = $dateFromRaw;
+    }
+}
+if ($dateToRaw) {
+    if (str_contains($dateToRaw, 'T')) {
+        $parts = explode('T', $dateToRaw);
+        $dateTo = $parts[0];
+        $hm = explode(':', $parts[1] ?? '');
+        $dateToHour = (int)$hm[0];
+    } else {
+        $dateTo = $dateToRaw;
+    }
+}
 $months    = array_filter(array_map('intval', explode(',', get_input('month') ?? '')));
 $dows      = array_filter(array_map('intval', explode(',', get_input('dow') ?? '')));
 $hourMin   = get_input('hour_min') !== '' ? (int)get_input('hour_min') : null;
@@ -144,11 +168,23 @@ if ($needOperatorJoin) {
 
 // Time filters (need JOIN to dim_time)
 $needTimeJoin = $dateFrom || $dateTo || !empty($months) || !empty($dows)
-    || $hourMin !== null || $hourMax !== null || !empty($seasons) || !empty($years);
+    || $hourMin !== null || $hourMax !== null || !empty($seasons) || !empty($years)
+    || $dateFromHour !== null || $dateToHour !== null;
 if ($needTimeJoin) {
     $joins .= ' JOIN dim_time dtm ON dtm.time_dim_id = f.time_dim_id';
-    if ($dateFrom) { $where[] = "dtm.flight_date >= ?"; $params[] = $dateFrom; }
-    if ($dateTo)   { $where[] = "dtm.flight_date <= ?"; $params[] = $dateTo; }
+    // Date+time range: composite WHERE for proper datetime filtering
+    if ($dateFrom && $dateFromHour !== null) {
+        $where[] = "(dtm.flight_date > ? OR (dtm.flight_date = ? AND dtm.hour_utc >= ?))";
+        $params[] = $dateFrom; $params[] = $dateFrom; $params[] = $dateFromHour;
+    } elseif ($dateFrom) {
+        $where[] = "dtm.flight_date >= ?"; $params[] = $dateFrom;
+    }
+    if ($dateTo && $dateToHour !== null) {
+        $where[] = "(dtm.flight_date < ? OR (dtm.flight_date = ? AND dtm.hour_utc <= ?))";
+        $params[] = $dateTo; $params[] = $dateTo; $params[] = $dateToHour;
+    } elseif ($dateTo) {
+        $where[] = "dtm.flight_date <= ?"; $params[] = $dateTo;
+    }
     if (!empty($months)) {
         $ph = [];
         foreach ($months as $v) { $ph[] = '?'; $params[] = $v; }

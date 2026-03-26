@@ -248,10 +248,10 @@ window.RoutesMap = (function() {
             { id: 'artcc_super', label: PERTII18n.t('routes.map.superCenters'), layers: ['artcc-super-lines'], checked: false, separator: PERTII18n.t('routes.map.artccHierarchy') },
             { id: 'artcc_sub', label: PERTII18n.t('routes.map.subAreas'), layers: ['artcc-sub-lines'], checked: false },
             { id: 'artcc_deep', label: PERTII18n.t('routes.map.deepSubAreas'), layers: ['artcc-deep-lines'], checked: false },
-            { id: 'tracon', label: PERTII18n.t('routes.map.tracon'), layers: ['tracon-lines'], checked: false, separator: PERTII18n.t('routes.map.sectors') },
+            { id: 'tracon', label: PERTII18n.t('routes.map.tracon'), layers: ['tracon-lines'], checked: false, separator: PERTII18n.t('routes.map.terminal') },
+            { id: 'superhigh', label: PERTII18n.t('routes.map.superhighSectors'), layers: ['superhigh-sector-lines'], checked: false, separator: PERTII18n.t('routes.map.sectors') },
             { id: 'high', label: PERTII18n.t('routes.map.highSectors'), layers: ['high-sector-lines'], checked: false },
-            { id: 'low', label: PERTII18n.t('routes.map.lowSectors'), layers: ['low-sector-lines'], checked: false },
-            { id: 'superhigh', label: PERTII18n.t('routes.map.superhighSectors'), layers: ['superhigh-sector-lines'], checked: false }
+            { id: 'low', label: PERTII18n.t('routes.map.lowSectors'), layers: ['low-sector-lines'], checked: false }
         ];
 
         layers.forEach(function(layer) {
