@@ -19,6 +19,61 @@ require_once __DIR__ . '/../../../load/connect.php';
 require_once __DIR__ . '/../../../load/swim_config.php';
 
 /**
+ * SWIM Audit Logger
+ *
+ * Captures response_code and response_time_ms via shutdown function.
+ * The audit row is INSERTed at auth time with OUTPUT INSERTED.id,
+ * then UPDATEd on shutdown with final response code and elapsed time.
+ */
+class SwimAudit {
+    private static $start_time;
+    private static $audit_id = null;
+    private static $conn = null;
+    private static $registered = false;
+
+    public static function startTimer() {
+        self::$start_time = microtime(true);
+    }
+
+    public static function logRequest($conn, $key_id) {
+        if (!$conn) return;
+        self::$conn = $conn;
+
+        $stmt = @sqlsrv_query($conn,
+            "INSERT INTO dbo.swim_audit_log (api_key_id, endpoint, method, ip_address, user_agent, request_time)
+             OUTPUT INSERTED.id
+             VALUES (?, ?, ?, ?, ?, GETUTCDATE())",
+            [$key_id, $_SERVER['REQUEST_URI'] ?? '', $_SERVER['REQUEST_METHOD'] ?? 'GET',
+             $_SERVER['REMOTE_ADDR'] ?? '', $_SERVER['HTTP_USER_AGENT'] ?? '']);
+
+        if ($stmt) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            self::$audit_id = $row ? $row['id'] : null;
+            sqlsrv_free_stmt($stmt);
+        }
+
+        if (!self::$registered) {
+            register_shutdown_function([self::class, 'finalize']);
+            self::$registered = true;
+        }
+    }
+
+    public static function finalize() {
+        if (!self::$audit_id || !self::$conn) return;
+        $response_code = http_response_code() ?: null;
+        $elapsed_ms = self::$start_time
+            ? (int) round((microtime(true) - self::$start_time) * 1000)
+            : null;
+        @sqlsrv_query(self::$conn,
+            "UPDATE dbo.swim_audit_log SET response_code = ?, response_time_ms = ? WHERE id = ?",
+            [$response_code, $elapsed_ms, self::$audit_id]);
+    }
+}
+
+// Start timing as early as possible
+SwimAudit::startTimer();
+
+/**
  * SWIM Authentication Class
  */
 class SwimAuth {
@@ -164,14 +219,10 @@ class SwimAuth {
     
     private function logAccess() {
         if (!$this->key_info || !$this->conn_swim) return;
-        @sqlsrv_query($this->conn_swim, 
+        @sqlsrv_query($this->conn_swim,
             "UPDATE dbo.swim_api_keys SET last_used_at = GETUTCDATE() WHERE id = ?",
             [$this->key_info['id']]);
-        @sqlsrv_query($this->conn_swim,
-            "INSERT INTO dbo.swim_audit_log (api_key_id, endpoint, method, ip_address, user_agent, request_time)
-             VALUES (?, ?, ?, ?, ?, GETUTCDATE())",
-            [$this->key_info['id'], $_SERVER['REQUEST_URI'] ?? '', $_SERVER['REQUEST_METHOD'] ?? 'GET',
-             $_SERVER['REMOTE_ADDR'] ?? '', $_SERVER['HTTP_USER_AGENT'] ?? '']);
+        SwimAudit::logRequest($this->conn_swim, $this->key_info['id']);
     }
     
     public function getError() { return $this->error; }
@@ -492,6 +543,8 @@ function swim_init_auth($require_auth = true, $require_write = false) {
 
     $auth = new SwimAuth($conn_swim);
     if (!$auth->authenticate()) {
+        // Log failed auth attempts (null key_id) so we capture 401s
+        SwimAudit::logRequest($conn_swim, null);
         SwimResponse::error($auth->getError(), 401, 'UNAUTHORIZED');
     }
     if ($require_write && !$auth->canWrite()) {

@@ -242,7 +242,7 @@ function logProvisionEvent($conn, $cid, $client_name, $api_key) {
     $masked_key = substr($api_key, 0, 12) . '****';
 
     $sql = "INSERT INTO dbo.swim_audit_log
-            (api_key_id, endpoint, method, ip_address, user_agent, request_time, details)
+            (api_key_id, endpoint, method, ip_address, user_agent, request_time, request_params)
             VALUES (NULL, '/keys/provision', 'POST', ?, ?, GETUTCDATE(), ?)";
 
     $details = json_encode([

@@ -151,7 +151,7 @@ function validateVatsimToken($access_token) {
  */
 function logRevocationEvent($conn, $cid, $target_key, $client_name, $count) {
     $sql = "INSERT INTO dbo.swim_audit_log
-            (api_key_id, endpoint, method, ip_address, user_agent, request_time, details)
+            (api_key_id, endpoint, method, ip_address, user_agent, request_time, request_params)
             VALUES (NULL, '/keys/revoke', 'POST', ?, ?, GETUTCDATE(), ?)";
 
     $details = json_encode([
