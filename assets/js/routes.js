@@ -835,9 +835,8 @@
     function plotMapRoutes(data) {
         if (typeof RoutesMap === 'undefined' || !data || !data.routes) return;
         var limit = state.mapLimit;
-        var mapRoutes = (limit === 0) ? data.routes : data.routes.slice(0, limit);
         RoutesMap.setMaxRoutes(limit === 0 ? 9999 : limit);
-        RoutesMap.plotRoutes(mapRoutes, data.total_flights || 0);
+        RoutesMap.plotRoutes(data.routes, data.total_flights || 0);
     }
 
     function filtersToQueryString() {
