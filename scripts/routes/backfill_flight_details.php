@@ -19,8 +19,11 @@
  */
 
 set_time_limit(90);
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
 
 include(__DIR__ . "/../../load/config.php");
+define('PERTI_MYSQL_ONLY', true);
 include(__DIR__ . "/../../load/connect.php");
 require_once(__DIR__ . "/normalize_callsign.php");
 
