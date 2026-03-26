@@ -81,19 +81,99 @@ window.RoutesMap = (function() {
     }
 
     /**
-     * Load all boundary layers matching route.php
-     * Sector colors match route-maplibre.js sectorLineDark (#1a1a1a)
+     * Load all boundary layers in deterministic order matching route-maplibre.js.
+     * Order (bottom to top): sectors -> TRACON -> ARTCC hierarchy -> ARTCC lines/labels
      */
     function loadBoundaryLayers() {
         var sectorColor = '#555';
         var sectorWidth = 1;
         var sectorOpacity = 0.5;
 
-        // ARTCC boundaries (L1 FIR lines)
-        fetch('assets/geojson/artcc.json')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                map.addSource('artcc', { type: 'geojson', data: data });
+        // Helper: fetch JSON, return null on failure
+        function fetchJson(url) {
+            return fetch(url).then(function(r) { return r.json(); }).catch(function() { return null; });
+        }
+
+        // Load all GeoJSON in parallel, add layers in deterministic order
+        Promise.all([
+            fetchJson('assets/geojson/superhigh.json'),  // [0]
+            fetchJson('assets/geojson/high.json'),        // [1]
+            fetchJson('assets/geojson/low.json'),         // [2]
+            fetchJson('assets/geojson/tracon.json'),      // [3]
+            fetchJson('assets/geojson/artcc_area.json'),  // [4]
+            fetchJson('assets/geojson/supercenter.json'), // [5]
+            fetchJson('assets/geojson/artcc.json')        // [6]
+        ]).then(function(results) {
+            // 1. Superhigh sectors (bottom, hidden)
+            if (results[0]) {
+                map.addSource('superhigh-sectors', { type: 'geojson', data: results[0] });
+                map.addLayer({
+                    id: 'superhigh-sector-lines', type: 'line', source: 'superhigh-sectors',
+                    paint: { 'line-color': sectorColor, 'line-width': sectorWidth, 'line-opacity': sectorOpacity },
+                    layout: { visibility: 'none' },
+                });
+            }
+
+            // 2. High sectors (hidden)
+            if (results[1]) {
+                map.addSource('high-sectors', { type: 'geojson', data: results[1] });
+                map.addLayer({
+                    id: 'high-sector-lines', type: 'line', source: 'high-sectors',
+                    paint: { 'line-color': sectorColor, 'line-width': sectorWidth, 'line-opacity': sectorOpacity },
+                    layout: { visibility: 'none' },
+                });
+            }
+
+            // 3. Low sectors (hidden)
+            if (results[2]) {
+                map.addSource('low-sectors', { type: 'geojson', data: results[2] });
+                map.addLayer({
+                    id: 'low-sector-lines', type: 'line', source: 'low-sectors',
+                    paint: { 'line-color': sectorColor, 'line-width': sectorWidth, 'line-opacity': sectorOpacity },
+                    layout: { visibility: 'none' },
+                });
+            }
+
+            // 4. TRACON (hidden)
+            if (results[3]) {
+                map.addSource('tracon', { type: 'geojson', data: results[3] });
+                map.addLayer({
+                    id: 'tracon-lines', type: 'line', source: 'tracon',
+                    paint: { 'line-color': '#666', 'line-width': 0.8, 'line-opacity': 0.5 },
+                    layout: { visibility: 'none' },
+                });
+            }
+
+            // 5. ARTCC deep sub-areas (hidden)
+            if (results[4]) {
+                map.addSource('artcc-area-source', { type: 'geojson', data: results[4] });
+                map.addLayer({
+                    id: 'artcc-deep-lines', type: 'line', source: 'artcc-area-source',
+                    filter: ['>=', ['get', 'hierarchy_level'], 3],
+                    paint: { 'line-color': '#1E4A7A', 'line-width': 0.8, 'line-opacity': 0.8, 'line-dasharray': [4, 3] },
+                    layout: { visibility: 'none' },
+                });
+                map.addLayer({
+                    id: 'artcc-sub-lines', type: 'line', source: 'artcc-area-source',
+                    filter: ['==', ['get', 'hierarchy_level'], 2],
+                    paint: { 'line-color': '#2E6AAD', 'line-width': 1.2, 'line-opacity': 0.8, 'line-dasharray': [4, 3] },
+                    layout: { visibility: 'none' },
+                });
+            }
+
+            // 6. ARTCC super centers (hidden)
+            if (results[5]) {
+                map.addSource('artcc-super-source', { type: 'geojson', data: results[5] });
+                map.addLayer({
+                    id: 'artcc-super-lines', type: 'line', source: 'artcc-super-source',
+                    paint: { 'line-color': '#F0C946', 'line-width': 2.5, 'line-opacity': 0.8 },
+                    layout: { visibility: 'none' },
+                });
+            }
+
+            // 7. ARTCC boundaries + labels (top of boundary stack)
+            if (results[6]) {
+                map.addSource('artcc', { type: 'geojson', data: results[6] });
                 map.addLayer({
                     id: 'artcc-lines', type: 'line', source: 'artcc',
                     filter: ['any', ['==', ['get', 'hierarchy_level'], 1], ['!', ['has', 'hierarchy_level']]],
@@ -117,92 +197,12 @@ window.RoutesMap = (function() {
                         'text-opacity': 0.8,
                     },
                 });
-            })
-            .catch(function(err) { console.warn('[RoutesMap] Failed to load ARTCC boundaries:', err); });
+            }
 
-        // ARTCC hierarchy layers
-        fetch('assets/geojson/supercenter.json')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                map.addSource('artcc-super-source', { type: 'geojson', data: data });
-                map.addLayer({
-                    id: 'artcc-super-lines', type: 'line', source: 'artcc-super-source',
-                    paint: { 'line-color': '#F0C946', 'line-width': 2.5, 'line-opacity': 0.8 },
-                    layout: { visibility: 'none' },
-                });
-            })
-            .catch(function() {});
-
-        fetch('assets/geojson/artcc_area.json')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                map.addSource('artcc-area-source', { type: 'geojson', data: data });
-                map.addLayer({
-                    id: 'artcc-sub-lines', type: 'line', source: 'artcc-area-source',
-                    filter: ['==', ['get', 'hierarchy_level'], 2],
-                    paint: { 'line-color': '#2E6AAD', 'line-width': 1.2, 'line-opacity': 0.8, 'line-dasharray': [4, 3] },
-                    layout: { visibility: 'none' },
-                });
-                map.addLayer({
-                    id: 'artcc-deep-lines', type: 'line', source: 'artcc-area-source',
-                    filter: ['>=', ['get', 'hierarchy_level'], 3],
-                    paint: { 'line-color': '#1E4A7A', 'line-width': 0.8, 'line-opacity': 0.8, 'line-dasharray': [4, 3] },
-                    layout: { visibility: 'none' },
-                });
-            })
-            .catch(function() {});
-
-        // TRACON boundaries (hidden by default)
-        fetch('assets/geojson/tracon.json')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                map.addSource('tracon', { type: 'geojson', data: data });
-                map.addLayer({
-                    id: 'tracon-lines', type: 'line', source: 'tracon',
-                    paint: { 'line-color': '#666', 'line-width': 0.8, 'line-opacity': 0.5 },
-                    layout: { visibility: 'none' },
-                });
-            })
-            .catch(function(err) { console.warn('[RoutesMap] Failed to load TRACON boundaries:', err); });
-
-        // High altitude sectors (hidden by default)
-        fetch('assets/geojson/high.json')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                map.addSource('high-sectors', { type: 'geojson', data: data });
-                map.addLayer({
-                    id: 'high-sector-lines', type: 'line', source: 'high-sectors',
-                    paint: { 'line-color': sectorColor, 'line-width': sectorWidth, 'line-opacity': sectorOpacity },
-                    layout: { visibility: 'none' },
-                });
-            })
-            .catch(function() {});
-
-        // Low altitude sectors (hidden by default)
-        fetch('assets/geojson/low.json')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                map.addSource('low-sectors', { type: 'geojson', data: data });
-                map.addLayer({
-                    id: 'low-sector-lines', type: 'line', source: 'low-sectors',
-                    paint: { 'line-color': sectorColor, 'line-width': sectorWidth, 'line-opacity': sectorOpacity },
-                    layout: { visibility: 'none' },
-                });
-            })
-            .catch(function() {});
-
-        // Superhigh altitude sectors (hidden by default)
-        fetch('assets/geojson/superhigh.json')
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                map.addSource('superhigh-sectors', { type: 'geojson', data: data });
-                map.addLayer({
-                    id: 'superhigh-sector-lines', type: 'line', source: 'superhigh-sectors',
-                    paint: { 'line-color': sectorColor, 'line-width': sectorWidth, 'line-opacity': sectorOpacity },
-                    layout: { visibility: 'none' },
-                });
-            })
-            .catch(function() {});
+            console.log('[RoutesMap] Boundary layers loaded in order');
+        }).catch(function(err) {
+            console.warn('[RoutesMap] Failed to load boundary layers:', err);
+        });
     }
 
     /**
@@ -455,18 +455,18 @@ window.RoutesMap = (function() {
 
         map.addSource('routes', { type: 'geojson', data: geojson });
 
-        // Route lines with spectral color ramp: blue (rare) -> yellow -> red (frequent)
+        // Route lines with green -> yellow -> red ramp (green = infrequent, red = frequent)
         map.addLayer({
             id: 'routes-lines',
             type: 'line',
             source: 'routes',
             paint: {
                 'line-color': ['interpolate', ['linear'], ['get', 'frequency_pct'],
-                    0,  '#4fc3f7',   // light blue (rare)
-                    2,  '#81d4fa',   // cyan
-                    5,  '#66bb6a',   // green
-                    10, '#ffee58',   // yellow
-                    20, '#ffa726',   // orange
+                    0,  '#66bb6a',   // green (rare)
+                    2,  '#a5d6a7',   // light green
+                    5,  '#fff176',   // yellow
+                    10, '#ffb300',   // amber
+                    20, '#ff7043',   // deep orange
                     35, '#ef5350'    // red (very frequent)
                 ],
                 'line-width': ['interpolate', ['linear'], ['get', 'frequency_pct'],
