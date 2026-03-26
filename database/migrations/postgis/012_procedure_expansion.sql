@@ -101,37 +101,55 @@ BEGIN
 
         -- =====================================================================
         -- Procedure detection: dot-notation tokens like "ENE.PARCH4"
-        -- Format: TRANSITION.PROCEDURE (STAR) or PROCEDURE.TRANSITION (DP)
+        -- NASR uses TRANSITION.PROCEDURE (ENE.PARCH4)
+        -- CIFP uses PROCEDURE.TRANSITION (PARCH4.ENE)
+        -- Try both orientations; prefer non-CIFP sources (cleaner full_route)
         -- =====================================================================
         IF v_part LIKE '%.%' AND v_part !~ '^\d' THEN
             v_dot_left := split_part(v_part, '.', 1);
             v_dot_right := split_part(v_part, '.', 2);
 
-            -- Strip runway suffixes from right side (e.g., "PARCH4" stays, but airport codes with runways get cleaned)
-            -- Try STAR lookup first: computer_code = 'LEFT.RIGHT' (e.g., ENE.PARCH4)
             v_proc_route := NULL;
+
+            -- Look up procedure full_route from nav_procedures.
+            -- Filed routes use TRANSITION.PROCEDURE (STARs: ENE.PARCH4)
+            --   or PROCEDURE.TRANSITION (DPs: DEEZZ6.CANDR)
+            -- NASR computer_code: STAR=BASE.VERSION (PARCH.PARCH4),
+            --   DP=VERSION.BASE (DEEZZ6.DEEZZ)
+            -- CIFP full_routes are garbled — exclude CIFP source.
+            -- Strategy: match by computer_code pattern + transition in full_route.
             SELECT np.full_route INTO v_proc_route
             FROM nav_procedures np
-            WHERE np.computer_code = UPPER(v_part)
-              AND np.procedure_type = 'STAR'
+            WHERE np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base')
               AND np.is_active = true
               AND (np.is_superseded IS NULL OR np.is_superseded = false)
+              AND np.full_route IS NOT NULL
+              AND np.full_route != ''
+              AND (
+                -- STAR: TRANSITION.PROCEDURE (ENE.PARCH4)
+                -- computer_code ends with .PARCH4, route starts with ENE
+                (np.computer_code LIKE '%.' || UPPER(v_dot_right)
+                 AND np.full_route LIKE UPPER(v_dot_left) || ' %')
+                -- DP: PROCEDURE.TRANSITION (DEEZZ6.CANDR)
+                -- computer_code starts with DEEZZ6., route contains CANDR
+                OR (np.computer_code LIKE UPPER(v_dot_left) || '.%'
+                    AND np.full_route LIKE '% ' || UPPER(v_dot_right) || '%')
+                -- Reversed orientations (less common)
+                OR (np.computer_code LIKE '%.' || UPPER(v_dot_left)
+                    AND np.full_route LIKE UPPER(v_dot_right) || ' %')
+                OR (np.computer_code LIKE UPPER(v_dot_right) || '.%'
+                    AND np.full_route LIKE '% ' || UPPER(v_dot_left) || '%')
+                -- Exact computer_code match
+                OR np.computer_code = UPPER(v_part)
+                OR np.computer_code = UPPER(v_dot_right || '.' || v_dot_left)
+              )
+            ORDER BY
+              CASE WHEN np.full_route LIKE UPPER(v_dot_left) || ' %' THEN 0 ELSE 1 END,
+              length(np.full_route) DESC
             LIMIT 1;
-
-            -- If not found as STAR, try DP: computer_code = 'LEFT.RIGHT' (e.g., RNGRR5.JFK)
-            IF v_proc_route IS NULL THEN
-                SELECT np.full_route INTO v_proc_route
-                FROM nav_procedures np
-                WHERE np.computer_code = UPPER(v_part)
-                  AND np.procedure_type = 'DP'
-                  AND np.is_active = true
-                  AND (np.is_superseded IS NULL OR np.is_superseded = false)
-                LIMIT 1;
-            END IF;
 
             -- If we found a procedure, expand its full_route waypoints
             IF v_proc_route IS NOT NULL AND v_proc_route != '' THEN
-                -- Strip runway suffixes from full_route (e.g., "ENE ASPEN PVD ... JFK/22L|22R" -> remove runway part)
                 v_proc_parts := regexp_split_to_array(TRIM(v_proc_route), '\s+');
                 FOR v_proc_idx IN 1..array_length(v_proc_parts, 1) LOOP
                     v_proc_part := v_proc_parts[v_proc_idx];
@@ -143,7 +161,7 @@ BEGIN
                         CONTINUE;
                     END IF;
 
-                    -- Skip if same as previous fix (avoid duplicates at procedure boundaries)
+                    -- Skip if same as previous fix (dedup consecutive duplicates from CIFP data)
                     IF v_prev_fix IS NOT NULL AND UPPER(v_proc_part) = UPPER(v_prev_fix) THEN
                         CONTINUE;
                     END IF;
