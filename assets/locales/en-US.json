@@ -5470,7 +5470,10 @@
       "compareDisabled": "Select max 3 routes for comparison",
       "group": "Group ({count})",
       "clear": "Clear",
-      "selected": "{count} selected"
+      "selected": "{count} selected",
+      "selectAll": "Select All",
+      "selectNone": "Select None",
+      "selectAllMax": "Selected first 6 (maximum)"
     },
     "compare": {
       "title": "Route Comparison",
