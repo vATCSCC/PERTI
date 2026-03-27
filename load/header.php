@@ -49,7 +49,16 @@ function _v($path) {
 #perti-loader-overlay{position:fixed;top:0;left:0;width:100%;height:100%;z-index:99998;cursor:wait}
 </style>
 
-<!-- Load Initial Bootstrap Source --> 
+<!-- DNS Prefetch + Preconnect for CDN origins (reduces connection latency ~100-300ms each) -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://code.jquery.com" crossorigin>
+<link rel="preconnect" href="https://ajax.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://stackpath.bootstrapcdn.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<!-- Load Initial Bootstrap Source -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-select@1.13.14/dist/css/bootstrap-select.min.css">
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote-bs4.min.css">

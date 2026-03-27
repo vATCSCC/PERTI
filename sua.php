@@ -8,6 +8,7 @@
     }
 
     include("load/config.php");
+    define('PERTI_MYSQL_ONLY', true);
     include("load/connect.php");
 
     // Check Perms

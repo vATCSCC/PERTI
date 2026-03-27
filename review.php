@@ -9,6 +9,7 @@ include("sessions/handler.php");
     // Session Start (E)
 
     include("load/config.php");
+    define('PERTI_MYSQL_ONLY', true);
     include("load/connect.php");
 
     $uri = explode('?', $_SERVER['REQUEST_URI']);
