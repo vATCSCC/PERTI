@@ -9,6 +9,9 @@
  * @date 2026-01-06
  */
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 

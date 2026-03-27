@@ -14,24 +14,6 @@
  * @date 2026-01-27
  */
 
-header('Content-Type: application/json');
-header('Cache-Control: no-cache, no-store, must-revalidate');
-perti_set_cors();
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-// Handle CORS preflight
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
-
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
-    exit;
-}
-
 // Debug logging
 function tmi_debug_log($message, $data = null) {
     $logFile = '/home/LogFiles/tmi_publish_debug.log';
@@ -96,25 +78,43 @@ function splitMessageForDiscord(string $message, int $maxLen = 1980): array {
 
 tmi_debug_log('=== TMI Publish Request Started (v2.0) ===');
 
-// Load dependencies
+// Load dependencies early (defines perti_set_cors and constants)
 try {
     require_once __DIR__ . '/../../../load/config.php';
     require_once __DIR__ . '/../../../load/perti_constants.php';
     require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
     require_once __DIR__ . '/../../../load/coordination_log.php';
     require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
-    
+
     // Check if MultiDiscordAPI exists
     $multiDiscordPath = __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
     if (file_exists($multiDiscordPath)) {
         require_once $multiDiscordPath;
     }
-    
+
     tmi_debug_log('Dependencies loaded');
 } catch (Exception $e) {
     tmi_debug_log('ERROR loading dependencies', ['error' => $e->getMessage()]);
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Dependency load error: ' . $e->getMessage()]);
+    exit;
+}
+
+header('Content-Type: application/json');
+header('Cache-Control: no-cache, no-store, must-revalidate');
+perti_set_cors();
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+// Handle CORS preflight
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['success' => false, 'error' => 'Method not allowed']);
     exit;
 }
 

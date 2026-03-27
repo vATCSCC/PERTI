@@ -14,6 +14,16 @@
  * @date 2026-01-27
  */
 
+// Load dependencies early (defines perti_set_cors and constants)
+try {
+    require_once __DIR__ . '/../../../load/config.php';
+    require_once __DIR__ . '/../../../load/connect.php';
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Config load error']);
+    exit;
+}
+
 header('Content-Type: application/json');
 header('Cache-Control: max-age=300'); // Cache for 5 minutes
 perti_set_cors();
@@ -30,16 +40,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
     echo json_encode(['success' => false, 'error' => 'Method not allowed']);
-    exit;
-}
-
-// Load dependencies
-try {
-    require_once __DIR__ . '/../../../load/config.php';
-    require_once __DIR__ . '/../../../load/connect.php';
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Config load error']);
     exit;
 }
 

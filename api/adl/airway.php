@@ -24,6 +24,8 @@
  * @version 1.0.0
  */
 
+require_once __DIR__ . '/../../load/connect.php';
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -33,8 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
-
-require_once __DIR__ . '/../../load/connect.php';
 
 /**
  * Detect airway type from name using global patterns

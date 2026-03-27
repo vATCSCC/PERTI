@@ -12,7 +12,7 @@ on:
 
 env:
   SITE_URL: https://perti.vatcscc.org
-  TIMEOUT: 10
+  TIMEOUT: 15
   SLOW_MS: 2000
 
 jobs:
@@ -48,10 +48,12 @@ jobs:
             local state=fail
             case "$current_accept" in
               2xx) [[ "$code" =~ ^2[0-9][0-9]$ ]] && state=ok ;;
-              # 2xx+auth treats auth redirects/challenges as healthy for gated pages.
-              2xx+auth) [[ "$code" =~ ^(2[0-9][0-9]|302|401|403)$ ]] && state=ok ;;
+              # 2xx+auth treats auth redirects/challenges/missing-params as healthy.
+              2xx+auth) [[ "$code" =~ ^(2[0-9][0-9]|302|400|401|403)$ ]] && state=ok ;;
             esac
-            if [[ "$current_type" == api && "$state" == ok ]] && ! jq -e . "$current_body" &>/dev/null; then
+            # Validate JSON body only for 2xx API responses (not auth/redirect codes)
+            if [[ "$current_type" == api && "$state" == ok && "$code" =~ ^2[0-9][0-9]$ ]] \
+               && ! jq -e . "$current_body" &>/dev/null; then
               state=fail
             fi
             echo "$state"
@@ -81,7 +83,7 @@ jobs:
         # Pages
         check homepage "$SITE_URL/"                              page 2xx      &
         check jatoc    "$SITE_URL/jatoc.php"                     page 2xx      &
-        check nod      "$SITE_URL/nod.php"                       page 2xx      &
+        check nod      "$SITE_URL/nod.php"                       page 2xx+auth &
         check gdt      "$SITE_URL/gdt.php"                       page 2xx+auth &
         check route    "$SITE_URL/route.php"                     page 2xx+auth &
         check playbook "$SITE_URL/playbook.php"                  page 2xx+auth &
@@ -97,8 +99,8 @@ jobs:
         check tmi          "$SITE_URL/api/nod/tmi_active.php"             api 2xx &
         check sstatus      "$SITE_URL/api/stats/status.php"               api 2xx &
         check realtime     "$SITE_URL/api/stats/realtime.php"             api 2xx &
-        check swim_flights "$SITE_URL/api/swim/v1/flights.php?limit=1"    api 2xx swim &
-        check swim_health  "$SITE_URL/api/swim/v1/health.php"             api 2xx swim &
+        check swim_flights "$SITE_URL/api/swim/v1/flights.php?limit=1"    api 2xx+auth swim &
+        check swim_health  "$SITE_URL/api/swim/v1/health.php"             api 2xx+auth swim &
         check tmi_active   "$SITE_URL/api/tmi/active.php"                 api 2xx &
         # Demand summary across representative major airports
         check demand_kjfk  "$SITE_URL/api/demand/summary.php?airport=KJFK" api 2xx &

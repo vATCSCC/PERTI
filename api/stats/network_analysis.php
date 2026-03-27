@@ -6,9 +6,9 @@
  * Queries VATSIM_STATS database for historical trends, seasonality, and growth metrics.
  *
  * CACHING: Static sections (all, overview, growth, seasonality, regional, events,
- * distribution, heatmap) are served from a pre-computed cache file that's regenerated
- * every 5 minutes by generate_cache.php. Dynamic sections (drilldown, timeseries,
- * compare, anomalies) still query the database directly.
+ * distribution, heatmap) are served from a pre-computed cache file. Dynamic sections
+ * (drilldown, timeseries, compare, anomalies) are cached per-parameter set.
+ * Cache cadence/TTL are controlled by config_stats.php environment knobs.
  *
  * Usage:
  *   GET /api/stats/network_analysis.php
@@ -29,36 +29,85 @@
  *   GET ?section=anomalies                        - Unusual traffic days
  */
 
+require_once __DIR__ . '/config_stats.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
-header('Cache-Control: public, max-age=300'); // Cache for 5 minutes
 
-require_once __DIR__ . '/config_stats.php';
+$httpCacheMaxAge = defined('STATS_OPTIMIZE_FOR_FREE') && STATS_OPTIMIZE_FOR_FREE ? 900 : 300;
+header('Cache-Control: public, max-age=' . $httpCacheMaxAge);
 
 // ============================================================================
 // CACHE CONFIGURATION
 // ============================================================================
 define('CACHE_DIR', sys_get_temp_dir() . '/vatsim_stats_cache');
-define('CACHE_TTL', 300); // 5 minutes
+define('CACHE_TTL', defined('STATS_STATIC_CACHE_TTL_SEC') ? (int)STATS_STATIC_CACHE_TTL_SEC : 300);
+define('DYNAMIC_CACHE_TTL', defined('STATS_DYNAMIC_CACHE_TTL_SEC') ? (int)STATS_DYNAMIC_CACHE_TTL_SEC : 300);
+define('SERVE_STALE_CACHE', defined('STATS_SERVE_STALE_CACHE') ? (bool)STATS_SERVE_STALE_CACHE : true);
+
+if (!is_dir(CACHE_DIR)) {
+    @mkdir(CACHE_DIR, 0755, true);
+}
+
+if (!function_exists('stats_cache_read')) {
+    function stats_cache_read($file) {
+        if (!file_exists($file)) {
+            return null;
+        }
+        $raw = @file_get_contents($file);
+        if ($raw === false || $raw === '') {
+            return null;
+        }
+        $decoded = json_decode($raw, true);
+        return is_array($decoded) ? $decoded : null;
+    }
+}
+
+if (!function_exists('stats_cache_write')) {
+    function stats_cache_write($file, array $payload) {
+        $tmp = $file . '.tmp';
+        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
+        if ($json === false) {
+            return false;
+        }
+        if (@file_put_contents($tmp, $json, LOCK_EX) === false) {
+            return false;
+        }
+        return @rename($tmp, $file);
+    }
+}
 
 // Sections that can be served from cache (no dynamic parameters)
 $cachedSections = ['all', 'overview', 'growth', 'seasonality', 'regional', 'events', 'distribution', 'heatmap'];
+$dynamicSections = ['drilldown', 'timeseries', 'compare', 'anomalies'];
 
 $section = isset($_GET['section']) ? $_GET['section'] : 'all';
+$forceFresh = isset($_GET['refresh']) && $_GET['refresh'] === '1';
+
+// Drill-down parameters
+$year = isset($_GET['year']) ? (int)$_GET['year'] : null;
+$month = isset($_GET['month']) ? (int)$_GET['month'] : null;
+$day = isset($_GET['day']) ? (int)$_GET['day'] : null;
+$level = isset($_GET['level']) ? $_GET['level'] : 'year';
+$year1 = isset($_GET['year1']) ? (int)$_GET['year1'] : null;
+$year2 = isset($_GET['year2']) ? (int)$_GET['year2'] : null;
 
 // Check if this section can be served from cache
-if (in_array($section, $cachedSections)) {
+if (in_array($section, $cachedSections, true) && !$forceFresh) {
     $cacheFile = CACHE_DIR . '/network_analysis_all.json';
+    $cacheExists = file_exists($cacheFile);
+    $cacheAge = $cacheExists ? (time() - filemtime($cacheFile)) : null;
 
-    // Check if cache exists and is fresh
-    if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < CACHE_TTL) {
-        $cachedData = json_decode(file_get_contents($cacheFile), true);
+    // Prefer cache for free-tier mode, including stale cache when configured.
+    if ($cacheExists && ($cacheAge < CACHE_TTL || SERVE_STALE_CACHE)) {
+        $cachedData = stats_cache_read($cacheFile);
 
         if ($cachedData) {
             // For 'all' section, return everything
             if ($section === 'all') {
                 $cachedData['served_from'] = 'cache';
-                $cachedData['cache_age_seconds'] = time() - filemtime($cacheFile);
+                $cachedData['cache_age_seconds'] = $cacheAge;
                 echo json_encode($cachedData, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
                 exit;
             }
@@ -69,6 +118,7 @@ if (in_array($section, $cachedSections)) {
                     'generated_at' => $cachedData['generated_at'],
                     'data_source' => 'VATSIM_STATS',
                     'served_from' => 'cache',
+                    'cache_age_seconds' => $cacheAge,
                     'heatmap' => $cachedData['heatmap']
                 ], JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
                 exit;
@@ -79,6 +129,7 @@ if (in_array($section, $cachedSections)) {
                     'generated_at' => $cachedData['generated_at'],
                     'data_source' => 'VATSIM_STATS',
                     'served_from' => 'cache',
+                    'cache_age_seconds' => $cacheAge,
                     $section => $cachedData[$section]
                 ], JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
                 exit;
@@ -88,6 +139,33 @@ if (in_array($section, $cachedSections)) {
 
     // Cache miss or stale - try to regenerate in background (non-blocking)
     // Fall through to database queries below
+}
+
+$dynamicCacheFile = null;
+if (in_array($section, $dynamicSections, true)) {
+    $dynamicCacheKey = md5(json_encode([
+        'section' => $section,
+        'year' => $year,
+        'month' => $month,
+        'day' => $day,
+        'level' => $level,
+        'year1' => $year1,
+        'year2' => $year2
+    ]));
+    $dynamicCacheFile = CACHE_DIR . '/network_analysis_dynamic_' . $dynamicCacheKey . '.json';
+
+    if (!$forceFresh && file_exists($dynamicCacheFile)) {
+        $dynamicAge = time() - filemtime($dynamicCacheFile);
+        if ($dynamicAge < DYNAMIC_CACHE_TTL || SERVE_STALE_CACHE) {
+            $cachedDynamic = stats_cache_read($dynamicCacheFile);
+            if ($cachedDynamic) {
+                $cachedDynamic['served_from'] = 'dynamic_cache';
+                $cachedDynamic['cache_age_seconds'] = $dynamicAge;
+                echo json_encode($cachedDynamic, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
+                exit;
+            }
+        }
+    }
 }
 
 // ============================================================================
@@ -103,23 +181,19 @@ $connectionInfo = [
     "Database" => STATS_SQL_DATABASE,
     "UID"      => STATS_SQL_USERNAME,
     "PWD"      => STATS_SQL_PASSWORD,
-    "ConnectionPooling" => 1
+    "ConnectionPooling" => 1,
+    "LoginTimeout" => 5
 ];
 
 $conn = sqlsrv_connect(STATS_SQL_HOST, $connectionInfo);
 if ($conn === false) {
     http_response_code(500);
-    echo json_encode(['error' => 'Database connection failed']);
+    echo json_encode([
+        'error' => 'Database connection failed',
+        'hint' => 'If using free-tier mode, wait for monthly quota reset or rely on cached sections.'
+    ]);
     exit;
 }
-
-// Drill-down parameters
-$year = isset($_GET['year']) ? (int)$_GET['year'] : null;
-$month = isset($_GET['month']) ? (int)$_GET['month'] : null;
-$day = isset($_GET['day']) ? (int)$_GET['day'] : null;
-$level = isset($_GET['level']) ? $_GET['level'] : 'year';
-$year1 = isset($_GET['year1']) ? (int)$_GET['year1'] : null;
-$year2 = isset($_GET['year2']) ? (int)$_GET['year2'] : null;
 
 $response = [
     'generated_at' => gmdate('Y-m-d\TH:i:s\Z'),
@@ -753,19 +827,12 @@ sqlsrv_close($conn);
 // CACHE WRITE (if we just computed full data and cache was stale)
 // ============================================================================
 if ($section === 'all' && isset($response['overview']) && isset($response['growth'])) {
-    // Ensure cache directory exists
-    if (!is_dir(CACHE_DIR)) {
-        @mkdir(CACHE_DIR, 0755, true);
-    }
-
-    // Write cache atomically
     $cacheFile = CACHE_DIR . '/network_analysis_all.json';
-    $tempFile = $cacheFile . '.tmp';
-    $json = json_encode($response, JSON_PRETTY_PRINT | JSON_NUMERIC_CHECK);
+    stats_cache_write($cacheFile, $response);
+}
 
-    if (@file_put_contents($tempFile, $json, LOCK_EX) !== false) {
-        @rename($tempFile, $cacheFile);
-    }
+if ($dynamicCacheFile !== null && in_array($section, $dynamicSections, true) && isset($response[$section])) {
+    stats_cache_write($dynamicCacheFile, $response);
 }
 
 // Mark response as fresh from database

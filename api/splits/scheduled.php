@@ -5,6 +5,9 @@
  * Returns configurations with status = 'scheduled' or configs with start_time_utc in the future
  * Supports GET (list), PUT (update), DELETE operations
  */
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET, PUT, DELETE, OPTIONS');

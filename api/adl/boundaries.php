@@ -7,6 +7,9 @@
  * Updated: Multi-sector support with overlap detection
  */
 
+require_once(__DIR__ . "/../../load/config.php");
+require_once(__DIR__ . "/../../load/perti_constants.php");
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -17,7 +20,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     exit;
 }
 
-require_once(__DIR__ . "/../../load/config.php");
 require_once(__DIR__ . "/../../load/input.php");
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||

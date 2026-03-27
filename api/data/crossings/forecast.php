@@ -12,6 +12,10 @@
  *   GET ?type=boundary_flights&boundary=ZDC - Flights crossing a boundary
  */
 
+include(__DIR__ . "/../../../load/config.php");
+include(__DIR__ . "/../../../load/perti_constants.php");
+include(__DIR__ . "/../../../load/input.php");
+
 header('Content-Type: application/json');
 perti_set_cors();
 
@@ -20,9 +24,6 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
     ob_start();
 }
-
-include("../../../load/config.php");
-include("../../../load/input.php");
 
 // Use ADL database connection
 try {

@@ -12,10 +12,10 @@
  * Returns GeoJSON FeatureCollection with LineString features for each flight track
  */
 
+require_once __DIR__ . '/../../load/connect.php';
+
 header('Content-Type: application/json');
 perti_set_cors();
-
-require_once __DIR__ . '/../../load/connect.php';
 
 try {
     // Parse parameters

@@ -17,6 +17,9 @@
  * - active: Only show currently active (default: true)
  */
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Cache-Control: max-age=300'); // Cache for 5 minutes

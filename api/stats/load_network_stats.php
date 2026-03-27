@@ -3,13 +3,14 @@
  * VATSIM Network Stats Loader
  *
  * Fetches current network statistics from VATSIM API and stores in VATSIM_STATS database.
- * Designed to run every 5 minutes via cron or Azure WebJob.
+ * Designed to be called frequently (e.g. every minute) but self-throttles
+ * based on STATS_SNAPSHOT_MIN_INTERVAL_SEC.
  *
  * Usage:
  *   curl -s https://perti.vatcscc.org/api/stats/load_network_stats.php
  *
- * Cron (every 5 minutes):
- *   0,5,10,15,20,25,30,35,40,45,50,55 * * * * curl -s https://perti.vatcscc.org/api/stats/load_network_stats.php
+ * Cron (recommended every minute; script enforces its own min interval):
+ *   * * * * * curl -s https://perti.vatcscc.org/api/stats/load_network_stats.php
  */
 
 // Enable error reporting for debugging
@@ -69,14 +70,18 @@ function stats_sql_error_message()
     return implode(" | ", $msgs);
 }
 
-// Prevent duplicate runs within 4 minutes (bypass with ?force=1 for testing)
+// Prevent duplicate runs within configured interval (bypass with ?force=1 for testing)
 $lockFile = sys_get_temp_dir() . '/vatsim_stats_loader.lock';
 $forceRun = isset($_GET['force']) && $_GET['force'] === '1';
-if (!$forceRun && file_exists($lockFile) && (time() - filemtime($lockFile)) < 240) {
+$snapshotMinInterval = defined('STATS_SNAPSHOT_MIN_INTERVAL_SEC')
+    ? (int)STATS_SNAPSHOT_MIN_INTERVAL_SEC
+    : 240;
+if (!$forceRun && file_exists($lockFile) && (time() - filemtime($lockFile)) < $snapshotMinInterval) {
     echo json_encode([
         'success' => false,
-        'error' => 'Another instance ran recently',
-        'last_run' => date('Y-m-d H:i:s', filemtime($lockFile))
+        'error' => 'Snapshot run throttled by min interval',
+        'last_run' => gmdate('Y-m-d\TH:i:s\Z', filemtime($lockFile)),
+        'min_interval_seconds' => $snapshotMinInterval
     ]);
     exit;
 }
@@ -116,7 +121,8 @@ try {
         "Database" => STATS_SQL_DATABASE,
         "UID"      => STATS_SQL_USERNAME,
         "PWD"      => STATS_SQL_PASSWORD,
-        "ConnectionPooling" => 1
+        "ConnectionPooling" => 1,
+        "LoginTimeout" => 5
     ];
 
     $conn = sqlsrv_connect(STATS_SQL_HOST, $connectionInfo);
@@ -136,40 +142,85 @@ try {
     }
     sqlsrv_free_stmt($stmt);
 
-    // Get the inserted row to verify
-    $verifySql = "SELECT TOP 1 snapshot_time, total_pilots, total_controllers, traffic_level
-                  FROM fact_network_5min
-                  ORDER BY snapshot_time DESC";
-    $verifyStmt = sqlsrv_query($conn, $verifySql);
-
-    $lastRow = null;
-    if ($verifyStmt !== false) {
-        $lastRow = sqlsrv_fetch_array($verifyStmt, SQLSRV_FETCH_ASSOC);
-        // Convert DateTime object to string if needed
-        if ($lastRow && isset($lastRow['snapshot_time']) && $lastRow['snapshot_time'] instanceof DateTime) {
-            $lastRow['snapshot_time'] = $lastRow['snapshot_time']->format('Y-m-d H:i:s');
-        }
-        sqlsrv_free_stmt($verifyStmt);
-    }
+    // Avoid extra verification query each run; use known inserted values.
+    $lastRow = [
+        'snapshot_time' => $snapshotTime,
+        'total_pilots' => $totalPilots,
+        'total_controllers' => $totalControllers
+    ];
 
     sqlsrv_close($conn);
 
-    // Regenerate the analytics cache after successful data load
-    $cacheResult = null;
-    $cacheGeneratorPath = __DIR__ . '/generate_cache.php';
-    if (file_exists($cacheGeneratorPath)) {
-        // Include the cache generator (runs synchronously)
-        ob_start();
-        $_GET['internal'] = '1'; // Mark as internal call
-        include $cacheGeneratorPath;
-        $cacheOutput = ob_get_clean();
-        $cacheResult = json_decode($cacheOutput, true);
-        unset($_GET['internal']);
+    // Regenerate analytics cache on a slower cadence (critical for free-tier CPU budget).
+    $cacheResult = [
+        'success' => false,
+        'status' => 'skipped',
+        'reason' => 'disabled'
+    ];
+    $cacheEnabled = defined('STATS_ENABLE_CACHE_REGEN') ? (bool)STATS_ENABLE_CACHE_REGEN : true;
+    $cacheMinInterval = defined('STATS_CACHE_REFRESH_INTERVAL_SEC')
+        ? (int)STATS_CACHE_REFRESH_INTERVAL_SEC
+        : 300;
+    $cacheLockFile = sys_get_temp_dir() . '/vatsim_stats_cache_refresh.lock';
+    $forceCache = isset($_GET['force_cache']) && $_GET['force_cache'] === '1';
+
+    if ($cacheEnabled) {
+        $cacheGeneratorPath = __DIR__ . '/generate_cache.php';
+        if (file_exists($cacheGeneratorPath)) {
+            $cacheStale = !file_exists($cacheLockFile) || (time() - filemtime($cacheLockFile)) >= $cacheMinInterval;
+            if ($forceCache || $cacheStale) {
+                $previousInternal = $_GET['internal'] ?? null;
+                try {
+                    ob_start();
+                    $_GET['internal'] = '1'; // Mark as internal call
+                    include $cacheGeneratorPath;
+                    $cacheOutput = ob_get_clean();
+                    $decoded = json_decode($cacheOutput, true);
+                    $cacheResult = is_array($decoded)
+                        ? $decoded
+                        : ['success' => false, 'status' => 'error', 'reason' => 'invalid_json'];
+                    if (!empty($cacheResult['success'])) {
+                        @touch($cacheLockFile);
+                    }
+                } catch (Throwable $cacheEx) {
+                    if (ob_get_level() > 0) {
+                        ob_end_clean();
+                    }
+                    $cacheResult = [
+                        'success' => false,
+                        'status' => 'error',
+                        'reason' => 'exception',
+                        'message' => $cacheEx->getMessage()
+                    ];
+                } finally {
+                    if ($previousInternal === null) {
+                        unset($_GET['internal']);
+                    } else {
+                        $_GET['internal'] = $previousInternal;
+                    }
+                }
+            } else {
+                $cacheResult = [
+                    'success' => false,
+                    'status' => 'skipped',
+                    'reason' => 'refresh_interval',
+                    'min_interval_seconds' => $cacheMinInterval,
+                    'last_refresh_utc' => gmdate('Y-m-d\TH:i:s\Z', filemtime($cacheLockFile))
+                ];
+            }
+        } else {
+            $cacheResult = [
+                'success' => false,
+                'status' => 'skipped',
+                'reason' => 'generator_missing'
+            ];
+        }
     }
 
     $response = [
         'success' => true,
         'timestamp' => $snapshotTime,
+        'snapshot_min_interval_seconds' => $snapshotMinInterval,
         'data' => [
             'pilots' => $totalPilots,
             'controllers' => $totalControllers,
@@ -177,7 +228,8 @@ try {
         ],
         'inserted' => $lastRow,
         'source' => 'vatsim_api_v3',
-        'cache_regenerated' => $cacheResult ? ($cacheResult['success'] ?? false) : false
+        'cache_regenerated' => !empty($cacheResult['success']),
+        'cache' => $cacheResult
     ];
 
     echo json_encode($response, JSON_PRETTY_PRINT);

@@ -8,15 +8,11 @@
  * GET - Returns current TMU OpLevel (1-4)
  */
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/connect.php';
+
 header('Content-Type: application/json');
 perti_set_cors();
-
-// Include database connections
-$config_path = realpath(__DIR__ . '/../../load/config.php');
-$connect_path = realpath(__DIR__ . '/../../load/connect.php');
-
-if ($config_path) include($config_path);
-if ($connect_path) include($connect_path);
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') {
     http_response_code(405);

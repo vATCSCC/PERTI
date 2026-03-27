@@ -12,6 +12,9 @@
  *   GET /api/data/weather.php?action=timestamps  - Recent frame timestamps
  */
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json');
 header('Cache-Control: public, max-age=60'); // 1-minute cache
 perti_set_cors();

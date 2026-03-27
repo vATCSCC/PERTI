@@ -10,12 +10,13 @@
  * Cost: FREE - uses built-in metrics only
  */
 
+// Load config and constants first
+require_once(__DIR__ . '/../../load/config.php');
+require_once(__DIR__ . '/../../load/perti_constants.php');
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 header('Cache-Control: no-cache, no-store, must-revalidate');
-
-// Load config first to get MONITORING_API_KEY
-require_once(__DIR__ . '/../../load/config.php');
 
 // Simple auth check - allow localhost or require API key
 $isLocalhost = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1', 'localhost']);

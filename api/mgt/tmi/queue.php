@@ -10,6 +10,10 @@
  * @subpackage API/TMI
  */
 
+// Load dependencies early (defines perti_set_cors and constants)
+require_once __DIR__ . '/../../../load/config.php';
+require_once __DIR__ . '/../../../load/perti_constants.php';
+
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 perti_set_cors();
@@ -20,8 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-
-require_once __DIR__ . '/../../../load/config.php';
 
 // Connect to TMI database
 $tmiConn = null;

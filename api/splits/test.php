@@ -3,6 +3,9 @@
  * api/splits/test.php - Debug endpoint to check database connectivity and schema
  */
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 

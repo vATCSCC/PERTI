@@ -15,6 +15,9 @@
  * @date 2026-01-29
  */
 
+require_once __DIR__ . '/../../load/connect.php';
+require_once __DIR__ . '/../../load/services/GISService.php';
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -25,9 +28,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
-
-require_once __DIR__ . '/../../load/connect.php';
-require_once __DIR__ . '/../../load/services/GISService.php';
 
 // Get action from query string (early for diagnostic)
 $action = $_GET['action'] ?? 'help';

@@ -13,6 +13,13 @@
  * @date 2026-01-28
  */
 
+// Load dependencies early (defines perti_set_cors and constants)
+require_once __DIR__ . '/../../../load/config.php';
+require_once __DIR__ . '/../../../load/perti_constants.php';
+require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
+require_once __DIR__ . '/../../../load/discord/TMIDiscord.php';
+require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-cache, must-revalidate');
 perti_set_cors();
@@ -24,12 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-
-require_once __DIR__ . '/../../../load/config.php';
-require_once __DIR__ . '/../../../load/perti_constants.php';
-require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
-require_once __DIR__ . '/../../../load/discord/TMIDiscord.php';
-require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
 
 // =============================================================================
 // CONSTANTS

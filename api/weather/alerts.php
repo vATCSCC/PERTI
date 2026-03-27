@@ -19,6 +19,10 @@ if (session_status() == PHP_SESSION_NONE) {
     ob_start();
 }
 
+require_once("../../load/config.php");
+require_once("../../load/perti_constants.php");
+require_once("../../load/input.php");
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 header('Cache-Control: max-age=60'); // Cache for 1 minute
@@ -26,9 +30,6 @@ header('Cache-Control: max-age=60'); // Cache for 1 minute
 // ---------------------------------------------------------------------------
 // 1) Database connection
 // ---------------------------------------------------------------------------
-
-require_once("../../load/config.php");
-require_once("../../load/input.php");
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
     !defined("ADL_SQL_USERNAME") || !defined("ADL_SQL_PASSWORD")) {

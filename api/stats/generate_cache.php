@@ -9,7 +9,7 @@
  *   php generate_cache.php                  - CLI mode
  *   curl .../generate_cache.php?internal=1  - HTTP (internal only)
  *
- * Cache files are stored in system temp directory with 5-minute TTL.
+ * Cache files are stored in system temp directory.
  */
 
 // Only allow CLI or internal calls
@@ -28,7 +28,7 @@ require_once __DIR__ . '/config_stats.php';
 
 // Cache configuration
 define('CACHE_DIR', sys_get_temp_dir() . '/vatsim_stats_cache');
-define('CACHE_TTL', 300); // 5 minutes
+define('CACHE_TTL', defined('STATS_STATIC_CACHE_TTL_SEC') ? (int)STATS_STATIC_CACHE_TTL_SEC : 300);
 
 // Ensure cache directory exists
 if (!is_dir(CACHE_DIR)) {
@@ -69,6 +69,21 @@ function readCache($section) {
     return $content ? json_decode($content, true) : null;
 }
 
+// Skip rebuild when cache is still fresh unless explicitly forced.
+$forceRegenerate = (isset($_GET['force']) && $_GET['force'] === '1')
+    || (isset($_GET['refresh']) && $_GET['refresh'] === '1');
+if (!$forceRegenerate && isCacheFresh('all')) {
+    $cacheFile = getCacheFile('all');
+    echo json_encode([
+        'success' => true,
+        'cache_reused' => true,
+        'cache_file' => basename($cacheFile),
+        'cache_age_seconds' => time() - filemtime($cacheFile),
+        'ttl_seconds' => CACHE_TTL
+    ], JSON_PRETTY_PRINT);
+    exit(0);
+}
+
 // Connect to database
 if (!function_exists('sqlsrv_connect')) {
     echo json_encode(['error' => 'sqlsrv extension not loaded']);
@@ -79,7 +94,8 @@ $connectionInfo = [
     "Database" => STATS_SQL_DATABASE,
     "UID"      => STATS_SQL_USERNAME,
     "PWD"      => STATS_SQL_PASSWORD,
-    "ConnectionPooling" => 1
+    "ConnectionPooling" => 1,
+    "LoginTimeout" => 5
 ];
 
 $conn = sqlsrv_connect(STATS_SQL_HOST, $connectionInfo);

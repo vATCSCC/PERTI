@@ -42,6 +42,9 @@ if (session_status() == PHP_SESSION_NONE) {
     ob_start();
 }
 
+require_once(__DIR__ . '/../../../load/config.php');
+require_once(__DIR__ . '/../../../load/perti_constants.php');
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
@@ -52,8 +55,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-
-require_once(__DIR__ . '/../../../load/config.php');
 
 // Validate config
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||

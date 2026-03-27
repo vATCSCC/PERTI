@@ -19,11 +19,12 @@
  *   ?include=demand
  */
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Cache-Control: public, max-age=3600'); // Cache for 1 hour
-
-require_once __DIR__ . '/../../load/config.php';
 
 // Event parameters
 $EVENT_START = '2026-01-17 22:00:00';

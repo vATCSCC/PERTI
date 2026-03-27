@@ -21,6 +21,9 @@
  *   - delete: Delete simulation
  */
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');

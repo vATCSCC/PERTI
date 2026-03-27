@@ -18,6 +18,20 @@
  * @date 2026-01-28
  */
 
+// Load dependencies early (defines perti_set_cors and constants)
+try {
+    require_once __DIR__ . '/../../../load/config.php';
+    require_once __DIR__ . '/../../../load/connect.php';
+} catch (Exception $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Config load error: ' . $e->getMessage()]);
+    exit;
+} catch (Error $e) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Config error: ' . $e->getMessage()]);
+    exit;
+}
+
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 perti_set_cors();
@@ -61,20 +75,6 @@ register_shutdown_function(function() {
         ]);
     }
 });
-
-// Load dependencies
-try {
-    require_once __DIR__ . '/../../../load/config.php';
-    require_once __DIR__ . '/../../../load/connect.php';
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Config load error: ' . $e->getMessage()]);
-    exit;
-} catch (Error $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Config error: ' . $e->getMessage()]);
-    exit;
-}
 
 // Check MySQL connection
 if (!isset($conn_sqli) || !$conn_sqli) {

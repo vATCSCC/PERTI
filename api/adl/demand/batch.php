@@ -79,6 +79,15 @@ if (session_status() == PHP_SESSION_NONE) {
     ob_start();
 }
 
+// Define PERTI_LOADED for swim_config.php access control
+if (!defined('PERTI_LOADED')) {
+    define('PERTI_LOADED', true);
+}
+
+require_once(__DIR__ . '/../../../load/config.php');
+require_once(__DIR__ . '/../../../load/perti_constants.php');
+require_once(__DIR__ . '/../../../load/swim_config.php');
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -90,14 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(204);
     exit;
 }
-
-// Define PERTI_LOADED for swim_config.php access control
-if (!defined('PERTI_LOADED')) {
-    define('PERTI_LOADED', true);
-}
-
-require_once(__DIR__ . '/../../../load/config.php');
-require_once(__DIR__ . '/../../../load/swim_config.php');
 
 // Validate config
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||

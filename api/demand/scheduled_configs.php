@@ -4,6 +4,10 @@
 // Returns all TMI CONFIG entries overlapping a given time range for an airport
 // Used by demand page to show time-bounded rate lines on the chart
 
+require_once(__DIR__ . "/../../load/config.php");
+require_once(__DIR__ . "/../../load/perti_constants.php");
+require_once(__DIR__ . "/../../load/cache.php");
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-cache, must-revalidate');
 perti_set_cors();
@@ -15,9 +19,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-
-require_once(__DIR__ . "/../../load/config.php");
-require_once(__DIR__ . "/../../load/cache.php");
 
 // Check TMI database configuration
 if (!defined("TMI_SQL_HOST") || !defined("TMI_SQL_DATABASE") ||

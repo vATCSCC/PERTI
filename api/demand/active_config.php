@@ -4,6 +4,9 @@
 // Returns the currently active TMI-published CONFIG entry for an airport
 // Used by demand page to show active configuration from NTML
 
+require_once(__DIR__ . "/../../load/config.php");
+require_once(__DIR__ . "/../../load/perti_constants.php");
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-cache, must-revalidate');
 perti_set_cors();
@@ -16,7 +19,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-require_once(__DIR__ . "/../../load/config.php");
 require_once(__DIR__ . "/../../load/cache.php");
 
 // Check TMI database configuration

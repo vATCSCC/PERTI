@@ -19,6 +19,9 @@
  * - region: Filter by region
  */
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Cache-Control: max-age=600'); // Cache for 10 minutes

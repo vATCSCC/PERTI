@@ -7,6 +7,8 @@
  *   filter = active (default) | future | past | all
  */
 
+require_once __DIR__ . '/../../load/connect.php';
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET, OPTIONS');
@@ -16,8 +18,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
-
-require_once __DIR__ . '/../../load/connect.php';
 
 try {
     if (!isset($conn_adl)) {

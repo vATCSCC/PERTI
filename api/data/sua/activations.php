@@ -12,12 +12,12 @@
  * - active_only: Only return currently active (start <= now <= end)
  */
 
+include(__DIR__ . "/../../../load/config.php");
+include(__DIR__ . "/../../../load/connect.php");
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Cache-Control: max-age=60'); // Cache for 1 minute
-
-include(__DIR__ . "/../../../load/config.php");
-include(__DIR__ . "/../../../load/connect.php");
 
 // Check ADL connection
 if (!$conn_adl) {

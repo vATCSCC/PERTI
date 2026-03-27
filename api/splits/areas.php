@@ -12,6 +12,9 @@
 // Absolute first: suppress any stray output
 ob_start();
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/perti_constants.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 perti_set_cors();

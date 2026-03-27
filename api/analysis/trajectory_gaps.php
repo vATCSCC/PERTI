@@ -11,11 +11,12 @@
  *   GET ?start=...&end=...&include_counts=true - Also return hourly trajectory counts
  */
 
+include("../../load/config.php");
+include("../../load/perti_constants.php");
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET');
-
-include("../../load/config.php");
 
 // ADL Database connection
 $adl_server = ADL_SQL_HOST;

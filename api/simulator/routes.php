@@ -12,6 +12,9 @@
  *   common      - Get common routes for major city pairs
  */
 
+require_once __DIR__ . '/../../load/config.php';
+require_once __DIR__ . '/../../load/connect.php';
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -20,9 +23,6 @@ header('Access-Control-Allow-Headers: Content-Type');
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
     exit(0);
 }
-
-require_once __DIR__ . '/../../load/config.php';
-require_once __DIR__ . '/../../load/connect.php';
 
 try {
     $action = $_GET['action'] ?? $_POST['action'] ?? '';

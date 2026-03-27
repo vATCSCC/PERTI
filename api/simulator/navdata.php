@@ -11,12 +11,12 @@
  *   icao   - Airport ICAO code (for action=airport)
  */
 
-header('Content-Type: application/json');
-perti_set_cors();
-
 // Include database connection
 require_once __DIR__ . '/../../load/config.php';
 require_once __DIR__ . '/../../load/connect.php';
+
+header('Content-Type: application/json');
+perti_set_cors();
 
 try {
     $action = $_GET['action'] ?? '';

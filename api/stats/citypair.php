@@ -16,12 +16,13 @@ if (session_status() == PHP_SESSION_NONE) {
     ob_start();
 }
 
-header('Content-Type: application/json; charset=utf-8');
-perti_set_cors();
-
 require_once("../../load/config.php");
+require_once(__DIR__ . '/../../load/perti_constants.php');
 require_once("../../load/input.php");
 require_once(__DIR__ . '/StatsHelper.php');
+
+header('Content-Type: application/json; charset=utf-8');
+perti_set_cors();
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
     !defined("ADL_SQL_USERNAME") || !defined("ADL_SQL_PASSWORD")) {

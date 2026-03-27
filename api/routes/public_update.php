@@ -5,6 +5,8 @@
  * Fetches existing route, merges updates, calls sp_UpsertPublicRoute
  */
 
+require_once __DIR__ . '/../../load/connect.php';
+
 header('Content-Type: application/json');
 perti_set_cors();
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -20,8 +22,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     echo json_encode(['success' => false, 'error' => 'Method not allowed']);
     exit;
 }
-
-require_once __DIR__ . '/../../load/connect.php';
 
 perti_require_auth();
 
