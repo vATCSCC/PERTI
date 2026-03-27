@@ -1709,9 +1709,7 @@ body.routes-resizing .maplibregl-map {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-width: 0;
-    flex-shrink: 1;
-    overflow: hidden;
+    flex-shrink: 0;
 }
 
 .routes-group-chevron {
@@ -1727,8 +1725,6 @@ body.routes-resizing .maplibregl-map {
     font-size: 0.9rem;
     color: #e0e0e0;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 .routes-group-label .arrow {
