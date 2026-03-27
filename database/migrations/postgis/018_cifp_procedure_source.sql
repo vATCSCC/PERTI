@@ -1,24 +1,21 @@
 -- =============================================================================
--- Migration 012: Add STAR/DP procedure expansion to expand_route()
+-- Migration 018: Include CIFP source in procedure expansion
 -- =============================================================================
 -- Database: VATSIM_GIS (PostgreSQL/PostGIS)
 --
--- Problem: expand_route() cannot resolve STAR/DP procedure tokens.
--- When a route contains "ENE.PARCH4" (dot notation) or "ENE PARCH4"
--- (space-separated), the procedure name "PARCH4" is either silently
--- dropped (dot case) or fails to resolve as a fix (space case).
+-- Problem: expand_route() filters nav_procedures by source IN ('NASR', 'nasr',
+-- 'cifp_base', 'synthetic_base'), excluding 71,795 international procedures
+-- imported with source = 'CIFP' (deployed 2026-03-21). International airports
+-- have ZERO non-CIFP procedures, so 100% of their STARs/DPs are invisible
+-- to route expansion.
 --
--- Fix: Add procedure resolution logic that:
--- 1. Detects dot-notation procedure tokens (e.g., "ENE.PARCH4")
--- 2. Looks up the transition's full_route in nav_procedures
--- 3. Expands the procedure waypoints inline
--- 4. Falls back to resolving standalone procedure names as fixes
+-- Fix: Add 'CIFP' to all source filter clauses (4 locations) and add NASR
+-- preference in ORDER BY to prevent US regression when both NASR and CIFP
+-- procedures exist for the same airport.
 --
--- The nav_procedures table has ~100K rows with computer_code, full_route,
--- airport_icao, and procedure_type columns. STAR computer_codes use
--- format "TRANSITION.PROCEDURE" (e.g., "ENE.PARCH4").
+-- Data quality: 99.94% of CIFP STAR fix references resolve in nav_fixes.
 --
--- Base: migration 010's expand_route with procedure expansion added.
+-- Safe to re-run: uses CREATE OR REPLACE FUNCTION.
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.expand_route(p_route_string text)
