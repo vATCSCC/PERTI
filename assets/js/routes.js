@@ -1197,6 +1197,22 @@
         $groupByGroup.append($groupBySelect);
         $controls.append($groupByGroup);
 
+        // Select All / Select None buttons
+        var $selectBtnGroup = $('<div class="routes-select-btns"></div>');
+        var $selectAllBtn = $('<button class="routes-select-btn" title="' + PERTII18n.t('routes.toolbar.selectAll') + '"></button>')
+            .html('<i class="fas fa-check-double"></i> ' + PERTII18n.t('routes.toolbar.selectAll'))
+            .on('click', function() {
+                selectAllVisible();
+            });
+        var $selectNoneBtn = $('<button class="routes-select-btn" title="' + PERTII18n.t('routes.toolbar.selectNone') + '"></button>')
+            .html('<i class="fas fa-square"></i> ' + PERTII18n.t('routes.toolbar.selectNone'))
+            .on('click', function() {
+                state.multiSelected = [];
+                updateMultiSelectUI();
+            });
+        $selectBtnGroup.append($selectAllBtn, $selectNoneBtn);
+        $controls.append($selectBtnGroup);
+
         $list.append($controls);
 
         // Render route items (with optional grouping)
@@ -1898,6 +1914,224 @@
         });
     }
 
+    /**
+     * Build HTML for stats detail sections (aircraft mix, airline mix, fixes, runways, altitude, callsigns).
+     * Shared between individual route info dialog and group/compare dialogs.
+     * @param {Object} stats - Stats object from API (aircraft_mix, airline_mix, etc.)
+     * @param {Object} [filterMatch] - Optional filter match lookup for highlighting
+     * @returns {string} HTML string
+     */
+    function buildStatsDetailHtml(stats, filterMatch) {
+        if (!stats) return '';
+        filterMatch = filterMatch || { aircraft: {}, airline: {} };
+
+        function renderBarList(items, title, colorClass, labelKey, limit) {
+            if (!items || !items.length) return '';
+            var h = '<div class="rid-section">';
+            h += '<div class="rid-section-title">' + title + '</div>';
+            h += '<div class="rid-bar-list">';
+            var maxVal = Math.max.apply(null, items.map(function(a) { return parseInt(a.cnt); }));
+            items.slice(0, limit || 8).forEach(function(a) {
+                var pct = maxVal > 0 ? (parseInt(a.cnt) / maxVal * 100) : 0;
+                h += '<div class="rid-bar-row">';
+                h += '<span class="rid-bar-label">' + escapeHtml(a[labelKey]) + '</span>';
+                h += '<div class="rid-bar-track"><div class="rid-bar-fill ' + colorClass + '" style="width:' + pct + '%"></div></div>';
+                h += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
+                h += '</div>';
+            });
+            h += '</div></div>';
+            return h;
+        }
+
+        var html = '';
+
+        // Aircraft mix
+        var aircraft = stats.aircraft_mix;
+        if (aircraft && aircraft.length > 0) {
+            html += '<div class="rid-section">';
+            html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.aircraftMix') + '</div>';
+            html += '<div class="rid-bar-list">';
+            var maxAc = Math.max.apply(null, aircraft.map(function(a) { return parseInt(a.cnt); }));
+            aircraft.slice(0, 8).forEach(function(a) {
+                var pct = maxAc > 0 ? (parseInt(a.cnt) / maxAc * 100) : 0;
+                var matchClass = filterMatch.aircraft[(a.icao_code || '').toUpperCase()] ? ' rid-filter-match' : '';
+                html += '<div class="rid-bar-row' + matchClass + '">';
+                html += '<span class="rid-bar-label">' + escapeHtml(a.icao_code) + '</span>';
+                html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-cyan" style="width:' + pct + '%"></div></div>';
+                html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        // Airline mix
+        var airlines = stats.airline_mix;
+        if (airlines && airlines.length > 0) {
+            html += '<div class="rid-section">';
+            html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.airlineMix') + '</div>';
+            html += '<div class="rid-bar-list">';
+            var maxAl = Math.max.apply(null, airlines.map(function(a) { return parseInt(a.cnt); }));
+            airlines.slice(0, 8).forEach(function(a) {
+                var pct = maxAl > 0 ? (parseInt(a.cnt) / maxAl * 100) : 0;
+                var code = (a.airline_icao || '').toUpperCase();
+                var matchClass = filterMatch.airline[code] ? ' rid-filter-match' : '';
+                if (!matchClass && filterMatch.callsignPrefix && code.indexOf(filterMatch.callsignPrefix) === 0) {
+                    matchClass = ' rid-filter-match';
+                }
+                html += '<div class="rid-bar-row' + matchClass + '">';
+                html += '<span class="rid-bar-label">' + escapeHtml(a.airline_icao) + '</span>';
+                html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-teal" style="width:' + pct + '%"></div></div>';
+                html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        // Departure fix distribution
+        html += renderBarList(stats.dep_fix_distribution,
+            PERTII18n.t('routes.detail.departureFix'), 'rid-bar-orange', 'fix_name', 8);
+
+        // Arrival fix distribution
+        html += renderBarList(stats.arr_fix_distribution,
+            PERTII18n.t('routes.detail.arrivalFix'), 'rid-bar-green', 'fix_name', 8);
+
+        // SID/DP distribution
+        html += renderBarList(stats.dp_distribution,
+            PERTII18n.t('routes.detail.sidDp'), 'rid-bar-orange-light', 'dp_name', 8);
+
+        // STAR distribution
+        html += renderBarList(stats.star_distribution,
+            PERTII18n.t('routes.detail.star'), 'rid-bar-green-light', 'star_name', 8);
+
+        // Departure runway distribution
+        html += renderBarList(stats.dep_rwy_distribution,
+            PERTII18n.t('routes.detail.departureRunway'), 'rid-bar-slate', 'dep_rwy', 8);
+
+        // Arrival runway distribution
+        html += renderBarList(stats.arr_rwy_distribution,
+            PERTII18n.t('routes.detail.arrivalRunway'), 'rid-bar-slate', 'arr_rwy', 8);
+
+        // Altitude distribution
+        var altitudes = stats.altitude_distribution;
+        if (altitudes && altitudes.length > 0) {
+            html += '<div class="rid-section">';
+            html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.altitudeDistribution') + '</div>';
+            html += '<div class="rid-bar-list">';
+            var maxAlt = Math.max.apply(null, altitudes.map(function(a) { return parseInt(a.cnt); }));
+            altitudes.slice(0, 8).forEach(function(a) {
+                var pct = maxAlt > 0 ? (parseInt(a.cnt) / maxAlt * 100) : 0;
+                html += '<div class="rid-bar-row">';
+                html += '<span class="rid-bar-label">FL' + Math.round(parseInt(a.altitude_ft) / 100) + '</span>';
+                html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-purple" style="width:' + pct + '%"></div></div>';
+                html += '<span class="rid-bar-value">' + parseInt(a.cnt).toLocaleString() + '</span>';
+                html += '</div>';
+            });
+            html += '</div></div>';
+        }
+
+        // Callsign distribution (progressive disclosure by airline prefix)
+        var csByAirline = stats.callsign_by_airline;
+        if (csByAirline && csByAirline.length > 0) {
+            html += '<div class="rid-section">';
+            html += '<div class="rid-section-title">' + PERTII18n.t('routes.detail.callsignDistribution') + '</div>';
+            html += '<div class="rid-bar-list">';
+            var maxCs = Math.max.apply(null, csByAirline.map(function(a) { return a.cnt; }));
+            csByAirline.forEach(function(airline, idx) {
+                var pct = maxCs > 0 ? (airline.cnt / maxCs * 100) : 0;
+                var matchClass = filterMatch.airline[(airline.prefix || '').toUpperCase()] ? ' rid-filter-match' : '';
+                if (!matchClass && filterMatch.callsignPrefix && (airline.prefix || '').toUpperCase().indexOf(filterMatch.callsignPrefix) === 0) {
+                    matchClass = ' rid-filter-match';
+                }
+                html += '<div class="rid-cs-expandable' + matchClass + '" data-cs-idx="' + idx + '">';
+                html += '<div class="rid-bar-row">';
+                html += '<span class="rid-cs-chevron">&#9654;</span>';
+                html += '<span class="rid-bar-label">' + escapeHtml(airline.prefix) + '</span>';
+                html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-yellow" style="width:' + pct + '%"></div></div>';
+                html += '<span class="rid-bar-value">' + airline.cnt.toLocaleString() + '</span>';
+                html += '</div>';
+                html += '<div class="rid-cs-detail" data-cs-detail="' + idx + '" style="display:none;">';
+                if (airline.callsigns && airline.callsigns.length > 0) {
+                    var maxSub = Math.max.apply(null, airline.callsigns.map(function(c) { return parseInt(c.cnt); }));
+                    airline.callsigns.forEach(function(c) {
+                        var subPct = maxSub > 0 ? (parseInt(c.cnt) / maxSub * 100) : 0;
+                        html += '<div class="rid-bar-row rid-cs-sub">';
+                        html += '<span class="rid-bar-label">' + escapeHtml(c.cs) + '</span>';
+                        html += '<div class="rid-bar-track"><div class="rid-bar-fill rid-bar-yellow-light" style="width:' + subPct + '%"></div></div>';
+                        html += '<span class="rid-bar-value">' + parseInt(c.cnt).toLocaleString() + '</span>';
+                        html += '</div>';
+                    });
+                }
+                html += '</div></div>';
+            });
+            html += '</div></div>';
+        }
+
+        return html;
+    }
+
+    /**
+     * Wire up callsign progressive disclosure (expand/collapse) within a container.
+     */
+    function wireCallsignExpanders($container) {
+        $container.off('click.ridCs').on('click.ridCs', '.rid-cs-expandable', function(e) {
+            if ($(e.target).closest('.rid-cs-detail').length) return;
+            var idx = $(this).data('cs-idx');
+            var $detail = $container.find('[data-cs-detail="' + idx + '"]');
+            $(this).toggleClass('rid-cs-open');
+            if ($detail.is(':visible')) {
+                $detail.slideUp(150);
+            } else {
+                $detail.slideDown(150);
+            }
+        });
+    }
+
+    /**
+     * Build the filter match object from current state for highlighting.
+     */
+    function buildFilterMatch() {
+        var filterMatch = { aircraft: {}, airline: {} };
+        (state.filters.aircraft || []).forEach(function(c) { filterMatch.aircraft[c.toUpperCase()] = true; });
+        (state.filters.family || []).forEach(function(c) { filterMatch.aircraft[c.toUpperCase()] = true; });
+        (state.filters.airline || []).forEach(function(c) { filterMatch.airline[c.toUpperCase()] = true; });
+        if ((state.filters.callsignPrefix || '').length >= 2) {
+            filterMatch.callsignPrefix = state.filters.callsignPrefix.toUpperCase();
+        }
+        return filterMatch;
+    }
+
+    /**
+     * Fetch multi-route detail stats and render into a container element.
+     * @param {Array} dimIds - Array of route_dim_id strings
+     * @param {jQuery} $container - Container element to render into
+     */
+    function fetchAndRenderMultiDetail(dimIds, $container) {
+        $container.html('<div class="rid-loading"><i class="fas fa-spinner fa-spin"></i> ' + PERTII18n.t('routes.loadingDetails') + '</div>');
+
+        $.ajax({
+            url: 'api/data/route-history/detail_multi.php?route_dim_ids=' + dimIds.join(','),
+            method: 'GET',
+            dataType: 'json',
+            success: function(data) {
+                if (data.success && data.stats) {
+                    var filterMatch = buildFilterMatch();
+                    var html = buildStatsDetailHtml(data.stats, filterMatch);
+                    if (html) {
+                        $container.html(html);
+                        wireCallsignExpanders($container);
+                    } else {
+                        $container.html('<div class="rid-empty">' + PERTII18n.t('routes.detail.noAdditionalDetails') + '</div>');
+                    }
+                } else {
+                    $container.html('<div class="rid-empty">Could not load details</div>');
+                }
+            },
+            error: function() {
+                $container.html('<div class="rid-empty">Failed to load details</div>');
+            }
+        });
+    }
+
     function sortVariantRows(rows, key, dir) {
         rows.sort(function(a, b) {
             var aVal, bVal;
@@ -2040,6 +2274,20 @@
     // ========================================================================
     // MULTI-SELECT MANAGEMENT
     // ========================================================================
+
+    /**
+     * Select all visible routes (up to 6).
+     */
+    function selectAllVisible() {
+        if (!state.results || !state.results.routes) return;
+        state.multiSelected = [];
+        var routes = state.results.routes;
+        var max = Math.min(routes.length, 6);
+        for (var i = 0; i < max; i++) {
+            state.multiSelected.push(String(routes[i].route_dim_id));
+        }
+        updateMultiSelectUI();
+    }
 
     function toggleMultiSelect(dimId) {
         dimId = String(dimId);
@@ -2229,16 +2477,28 @@
 
         html += '</tbody></table>';
 
+        // Detail sections placeholder (populated async)
+        html += '<div class="route-group-detail-sections" id="rcd_detail_sections">';
+        html += '<div class="rid-loading"><i class="fas fa-spinner fa-spin"></i> ' + PERTII18n.t('routes.loadingDetails') + '</div>';
+        html += '</div>';
+
+        // Collect dim IDs for multi-detail fetch
+        var dimIds = routes.map(function(r) { return String(r.route_dim_id); });
+
         Swal.fire({
             title: PERTII18n.t('routes.compare.title'),
             html: html,
-            width: Math.min(900, 300 + routes.length * 200),
+            width: 900,
             showConfirmButton: false,
             showCloseButton: true,
             customClass: {
                 popup: 'route-info-popup',
                 title: 'route-info-title',
                 htmlContainer: 'route-info-html'
+            },
+            didOpen: function() {
+                var $container = $('#rcd_detail_sections');
+                fetchAndRenderMultiDetail(dimIds, $container);
             }
         });
     }
@@ -2331,16 +2591,28 @@
         });
         html += '</tbody></table>';
 
+        // Detail sections placeholder (populated async)
+        html += '<div class="route-group-detail-sections" id="rgd_detail_sections">';
+        html += '<div class="rid-loading"><i class="fas fa-spinner fa-spin"></i> ' + PERTII18n.t('routes.loadingDetails') + '</div>';
+        html += '</div>';
+
+        // Collect dim IDs for multi-detail fetch
+        var dimIds = routes.map(function(r) { return String(r.route_dim_id); });
+
         Swal.fire({
             title: PERTII18n.t('routes.groupDialog.title', { count: routes.length }),
             html: html,
-            width: 700,
+            width: 900,
             showConfirmButton: false,
             showCloseButton: true,
             customClass: {
                 popup: 'route-info-popup',
                 title: 'route-info-title',
                 htmlContainer: 'route-info-html'
+            },
+            didOpen: function() {
+                var $container = $('#rgd_detail_sections');
+                fetchAndRenderMultiDetail(dimIds, $container);
             }
         });
     }

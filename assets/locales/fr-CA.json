@@ -5469,7 +5469,10 @@
       "compareDisabled": "Sélectionnez max. 3 routes pour la comparaison",
       "group": "Grouper ({count})",
       "clear": "Effacer",
-      "selected": "{count} sélectionnées"
+      "selected": "{count} sélectionnées",
+      "selectAll": "Tout sélectionner",
+      "selectNone": "Tout désélectionner",
+      "selectAllMax": "Premiers 6 sélectionnés (maximum)"
     },
     "compare": {
       "title": "Comparaison de routes",

@@ -1922,3 +1922,45 @@ body.routes-resizing .maplibregl-map {
     height: 100%;
     transition: width 0.3s;
 }
+
+/* Select All / Select None buttons in controls bar */
+.routes-select-btns {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.routes-select-btn {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 4px;
+    background: transparent;
+    color: #aaa;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.routes-select-btn:hover {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border-color: rgba(255,255,255,0.25);
+}
+
+/* Group dialog detail sections (reuses rid-* styles from route info) */
+.route-group-detail-sections {
+    margin-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 12px;
+}
+
+.route-group-detail-sections .rid-section {
+    margin-bottom: 14px;
+}
+
+.route-group-detail-sections .rid-loading {
+    text-align: center;
+    padding: 16px;
+    color: #888;
+}
