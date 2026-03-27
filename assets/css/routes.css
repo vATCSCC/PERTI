@@ -1685,6 +1685,8 @@ body.routes-resizing .maplibregl-map {
     cursor: pointer;
     transition: background 0.15s;
     user-select: none;
+    gap: 12px;
+    overflow: hidden;
 }
 
 .routes-group-header:hover {
@@ -1708,6 +1710,8 @@ body.routes-resizing .maplibregl-map {
     align-items: center;
     gap: 8px;
     min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
 }
 
 .routes-group-chevron {
@@ -1722,6 +1726,9 @@ body.routes-resizing .maplibregl-map {
     font-weight: 600;
     font-size: 0.9rem;
     color: #e0e0e0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .routes-group-label .arrow {
@@ -1732,8 +1739,11 @@ body.routes-resizing .maplibregl-map {
 .routes-group-header-right {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
+    gap: 6px 12px;
+    flex-shrink: 1;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
 }
 
 .routes-group-stat {
