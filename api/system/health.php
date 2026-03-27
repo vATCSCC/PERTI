@@ -14,6 +14,9 @@
 require_once(__DIR__ . '/../../load/config.php');
 require_once(__DIR__ . '/../../load/perti_constants.php');
 
+// Guard against worker pool saturation — cap total execution to 10s
+set_time_limit(10);
+
 header('Content-Type: application/json; charset=utf-8');
 perti_set_cors();
 header('Cache-Control: no-cache, no-store, must-revalidate');
@@ -99,7 +102,7 @@ if (defined('ADL_SQL_HOST') && defined('ADL_SQL_DATABASE')) {
         'Database' => ADL_SQL_DATABASE,
         'UID' => ADL_SQL_USERNAME,
         'PWD' => ADL_SQL_PASSWORD,
-        'LoginTimeout' => 5,
+        'LoginTimeout' => 2,
         'ConnectionPooling' => true,
     ];
 
@@ -180,7 +183,7 @@ if (defined('SWIM_SQL_HOST') && defined('SWIM_SQL_DATABASE')) {
         'Database' => SWIM_SQL_DATABASE,
         'UID' => SWIM_SQL_USERNAME ?? ADL_SQL_USERNAME,
         'PWD' => SWIM_SQL_PASSWORD ?? ADL_SQL_PASSWORD,
-        'LoginTimeout' => 5,
+        'LoginTimeout' => 2,
     ];
 
     $startTime = microtime(true);

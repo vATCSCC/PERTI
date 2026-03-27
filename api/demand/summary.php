@@ -101,11 +101,18 @@ if ($end !== null) {
 $startSQL = $startDt->format('Y-m-d H:i:s');
 $endSQL = $endDt->format('Y-m-d H:i:s');
 
+// Round start/end times to nearest granularity interval for cache key stability.
+// Without rounding, $startSQL changes every second (derived from $now->modify('-6 hours')),
+// making the cache key unique per-second and effectively defeating APCu caching.
+$granSec = max($granularity, 1) * 60;
+$cacheStart = floor($startDt->getTimestamp() / $granSec) * $granSec;
+$cacheEnd = floor($endDt->getTimestamp() / $granSec) * $granSec;
+
 // Check APCu cache before opening DB connection (30s TTL)
 $cacheKey = demand_cache_key('summary', [
     'airport' => $airport,
-    'start' => $startSQL,
-    'end' => $endSQL,
+    'start' => $cacheStart,
+    'end' => $cacheEnd,
     'granularity' => $granularity,
     'direction' => $direction,
     'time_bin' => $timeBin
