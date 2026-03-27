@@ -1197,23 +1197,23 @@
         $groupByGroup.append($groupBySelect);
         $controls.append($groupByGroup);
 
-        // Select All / Select None buttons
-        var $selectBtnGroup = $('<div class="routes-select-btns"></div>');
-        var $selectAllBtn = $('<button class="routes-select-btn" title="' + PERTII18n.t('routes.toolbar.selectAll') + '"></button>')
-            .html('<i class="fas fa-check-double"></i> ' + PERTII18n.t('routes.toolbar.selectAll'))
-            .on('click', function() {
-                selectAllVisible();
-            });
-        var $selectNoneBtn = $('<button class="routes-select-btn" title="' + PERTII18n.t('routes.toolbar.selectNone') + '"></button>')
-            .html('<i class="fas fa-square"></i> ' + PERTII18n.t('routes.toolbar.selectNone'))
-            .on('click', function() {
-                state.multiSelected = [];
-                updateMultiSelectUI();
-            });
-        $selectBtnGroup.append($selectAllBtn, $selectNoneBtn);
-        $controls.append($selectBtnGroup);
-
         $list.append($controls);
+
+        // Selection row — aligned with route item checkboxes
+        var $selRow = $('<div class="routes-select-row"></div>');
+        var $masterCheck = $('<input type="checkbox" class="routes-master-check" title="' + PERTII18n.t('routes.toolbar.selectAll') + '">')
+            .on('change', function() {
+                if (this.checked) {
+                    selectAllVisible();
+                } else {
+                    state.multiSelected = [];
+                    updateMultiSelectUI();
+                }
+            });
+        $selRow.append($masterCheck);
+        var $selLabel = $('<span class="routes-select-label">' + PERTII18n.t('routes.toolbar.selectAll') + '</span>');
+        $selRow.append($selLabel);
+        $list.append($selRow);
 
         // Render route items (with optional grouping)
         if (state.groupBy !== 'none') {
@@ -2336,6 +2336,25 @@
             RoutesMap.highlightMultiple(state.multiSelected);
         } else if (typeof RoutesMap !== 'undefined') {
             RoutesMap.clearHighlight();
+        }
+
+        // Sync master checkbox
+        var $master = $('.routes-master-check');
+        if ($master.length) {
+            var totalVisible = state.results && state.results.routes ? state.results.routes.length : 0;
+            var count = state.multiSelected.length;
+            $master.prop('checked', count > 0 && count >= Math.min(totalVisible, 6));
+            $master.prop('indeterminate', count > 0 && count < Math.min(totalVisible, 6));
+        }
+
+        // Update selection label
+        var $selLabel = $('.routes-select-label');
+        if ($selLabel.length) {
+            if (state.multiSelected.length > 0) {
+                $selLabel.text(PERTII18n.t('routes.toolbar.selected', { count: state.multiSelected.length }));
+            } else {
+                $selLabel.text(PERTII18n.t('routes.toolbar.selectAll'));
+            }
         }
 
         // Render multi-select toolbar
