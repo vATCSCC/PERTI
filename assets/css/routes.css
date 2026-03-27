@@ -1933,29 +1933,27 @@ body.routes-resizing .maplibregl-map {
     transition: width 0.3s;
 }
 
-/* Select All / Select None buttons in controls bar */
-.routes-select-btns {
+/* Master checkbox row — aligned with route item checkboxes */
+.routes-select-row {
     display: flex;
-    gap: 4px;
-    margin-left: auto;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    margin-bottom: 4px;
 }
 
-.routes-select-btn {
-    padding: 4px 10px;
-    font-size: 0.78rem;
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 4px;
-    background: transparent;
-    color: #aaa;
+.routes-master-check {
+    flex-shrink: 0;
+    accent-color: #239BCD;
     cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
+    width: 16px;
+    height: 16px;
 }
 
-.routes-select-btn:hover {
-    background: rgba(255,255,255,0.08);
-    color: #fff;
-    border-color: rgba(255,255,255,0.25);
+.routes-select-label {
+    font-size: 0.78rem;
+    color: #888;
+    user-select: none;
 }
 
 /* Group dialog detail sections (reuses rid-* styles from route info) */
