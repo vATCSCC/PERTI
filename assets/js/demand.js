@@ -1951,6 +1951,25 @@ function setupEventHandlers() {
         renderWithLoading();
     });
 
+    // TMI overlay toggle handlers
+    $('#tmi_toggle_timeline').on('change', function() {
+        DEMAND_STATE.showTmiTimeline = this.checked;
+        const $timeline = $('#demand_tmi_timeline');
+        if (this.checked && DEMAND_STATE.tmiPrograms && DEMAND_STATE.tmiPrograms.length > 0) {
+            $timeline.show();
+        } else {
+            $timeline.hide();
+        }
+    });
+
+    $('#tmi_toggle_markers').on('change', function() {
+        DEMAND_STATE.showTmiMarkers = this.checked;
+        // Re-render chart to add/remove TMI marker lines
+        if (DEMAND_STATE.lastDemandData) {
+            renderWithLoading();
+        }
+    });
+
     // Phase group filter toggles
     ['prefile', 'departing', 'active', 'arrived', 'disconnected', 'unknown'].forEach(group => {
         $(`#phase_${group}`).on('change', function() {
@@ -5590,6 +5609,12 @@ function renderTmiTimeline() {
     const container = document.getElementById('demand_tmi_timeline');
     const track = document.getElementById('tmi_timeline_track');
     if (!container || !track) return;
+
+    // Check toggle state
+    if (!DEMAND_STATE.showTmiTimeline) {
+        container.style.display = 'none';
+        return;
+    }
 
     const programs = DEMAND_STATE.tmiPrograms;
     if (!programs || programs.length === 0) {
