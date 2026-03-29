@@ -6222,7 +6222,7 @@ $(document).ready(function() {
                 return;
             }
             if (state.lastRefresh) {
-                const time = state.lastRefresh.toISOString().substr(11, 8) + 'Z';
+                const time = state.lastRefresh.toISOString().slice(11, 19) + 'Z';
                 el.html('<i class="fas fa-sync-alt"></i> ' + time);
             }
         }
@@ -7896,7 +7896,7 @@ $(document).ready(function() {
 
         // Add signature line: YY/MM/DD HH:MM
         const now = new Date();
-        const sigYear = String(now.getUTCFullYear()).substr(2, 2);
+        const sigYear = String(now.getUTCFullYear()).slice(2, 4);
         const sigMonth = String(now.getUTCMonth() + 1).padStart(2, '0');
         const sigDay = String(now.getUTCDate()).padStart(2, '0');
         const sigHour = String(now.getUTCHours()).padStart(2, '0');

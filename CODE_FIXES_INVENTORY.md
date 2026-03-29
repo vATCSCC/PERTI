@@ -15,12 +15,12 @@ This document tracks all files requiring fixes as identified in `CODE_INCONSISTE
 | P0 - SQL Injection | 4 | 4 | 0 |
 | P1 - Colors | 9 | 9 | 0 |
 | P1 - API Response | 8 | 0 | 8 |
-| P2 - Date/Time (JS) | 7 | 3 | 4 |
+| P2 - Date/Time (JS) | 7 | 7 | 0 |
 | P2 - Config | 5 | 3 | 2 |
 | P2 - CORS | 4 | 4 | 0 |
-| P3 - JS Patterns | 5 | 0 | 5 |
+| P3 - JS Patterns | 5 | 1 | 4 |
 | P3 - CSS Naming | 5 | 0 | 5 |
-| **Total** | **53** | **29** | **24** |
+| **Total** | **53** | **34** | **19** |
 
 ---
 
@@ -101,7 +101,9 @@ CSS migrated to CSS variables (`var(--status-success-text)`, etc.). JS centraliz
 
 ## P2 - Medium Priority
 
-### Date/Time Formatting (JavaScript)
+### Date/Time Formatting (JavaScript) ✅ COMPLETE
+
+All deprecated `.substr()` calls migrated to `.slice()` across the entire codebase (13 files, 30+ instances). Only third-party `plugins/datetimepicker.js` retains `.substr()` (not our code).
 
 **Target Standard:**
 ```javascript
@@ -112,17 +114,24 @@ DateTimeUtils.toHHMMZ(date)     // → "15:30Z"
 DateTimeUtils.toYYYYMMDD(date)  // → "2026-01-21"
 ```
 
-**Files with deprecated `substr()` (still open):**
+**Files migrated from `substr()` to `slice()`:**
 
-- [ ] `assets/js/nod.js` - `.toISOString().substr(11, 8)` → `.slice(11, 19)`
-- [ ] `assets/js/nod.js` - `.substr(11, 5)` → `.slice(11, 16)`
-- [ ] `assets/js/reroute.js` - `.toISOString().substr(11, 8)` → `.slice(11, 19)`
+- [x] `assets/js/nod.js` - 8 instances (hex parsing, clock, timestamps, formatTime, formatDateTime)
+- [x] `assets/js/reroute.js` - 2 instances (clock, fmtTime)
+- [x] `assets/js/tmi-publish.js` - 8 instances (clock, signature lines, validTime, generateId, formatDateTime)
+- [x] `assets/js/demand.js` - 4 instances (hex parsing, last update timestamp)
+- [x] `assets/js/splits.js` - 3 instances (hex parsing)
+- [x] `assets/js/route-maplibre.js` - 2 instances (refresh time, signature year)
+- [x] `assets/js/public-routes.js` - 4 instances (DDHHMM parsing, truncateString)
+- [x] `assets/js/navdata.js` - 2 instances (random ID generation)
+- [x] `assets/js/adl-service.js` - 1 instance (last update timestamp)
+- [x] `assets/js/adl-refresh-utils.js` - 1 instance (last update timestamp)
+- [x] `assets/js/tmi-active-display.js` - 1 instance (last refresh timestamp)
+- [x] `assets/js/lib/datetime.js` - Updated JSDoc comments to reference `.slice()` instead of `.substr()`
 
-**Files with inconsistent patterns (migrate when refactoring):**
+**Already using `slice()` (no changes needed):**
 
-- [ ] `assets/js/tmi-publish.js` - Various date patterns
-- [ ] `assets/js/splits.js` - `.toISOString().slice(0, 16)`
-- [x] `assets/js/weather_radar.js` - `.toISOString().slice(11, 16) + 'Z'` (uses slice, acceptable)
+- [x] `assets/js/weather_radar.js` - `.toISOString().slice(11, 16) + 'Z'`
 - [x] `assets/js/demand.js` - `.replace('.000Z', 'Z')` (cosmetic, acceptable)
 - [x] `assets/js/advisory-builder.js` - Custom FAA format (intentional domain format)
 
@@ -162,8 +171,8 @@ All endpoints now use `perti_set_cors()` from `load/perti_constants.php` (origin
 
 **Target:** Consolidate on `fetch()` + `async/await`, remove jQuery AJAX.
 
-**Silent error suppression (fix immediately when touching file):**
-- [ ] `assets/js/tmi-publish.js:5486` - `catch(e) {}` → proper error handling
+**Silent error suppression:**
+- [x] `assets/js/tmi-publish.js` - 3 empty `catch(e) {}` blocks → `catch(e) { console.warn(...) }` (all were JSON.parse on localStorage)
 
 **Mixed patterns (migrate when refactoring):**
 - [ ] `assets/js/tmi-publish.js:3416` - `await $.ajax()` → `await fetch()`
@@ -219,13 +228,18 @@ These are conventions for **new tables only** - do not refactor existing tables.
 
 ## Change Log
 
-### March 29, 2026
+### March 29, 2026 (Round 3)
+- P2 Date/Time: Migrated ALL `.substr()` → `.slice()` across 13 JS files (30+ instances). Only third-party `datetimepicker.js` retains `.substr()`. Category now COMPLETE.
+- P3 JS Patterns: Fixed 3 silent `catch(e) {}` blocks in `tmi-publish.js` → `console.warn()`
+- Progress: 29/53 → 34/53 fixed (64%)
+
+### March 29, 2026 (Round 2)
 - Refreshed inventory against current codebase state
 - P0 SQL injection: All 4 mitigated with `real_escape_string()` (marked complete)
 - P1 Colors: All 9 items resolved — CSS variables + `assets/js/lib/colors.js`
 - P2 CORS: All 4 items resolved — `perti_set_cors()` centralized
 - P2 Config: 3 of 5 items resolved (swim_config documented, connect.php port fixed)
-- P2 Date/Time: `assets/js/lib/datetime.js` created; 3 deprecated `.substr()` still open
+- P2 Date/Time: `assets/js/lib/datetime.js` created
 - Progress: 6/53 → 29/53 fixed (55%)
 
 ### February 2026

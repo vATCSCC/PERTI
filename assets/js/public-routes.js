@@ -2074,9 +2074,9 @@ window.PublicRoutes = (function() {
     function parseDDHHMM(str, referenceDate) {
         if (!str || str.length !== 6) {return null;}
 
-        const day = parseInt(str.substr(0, 2), 10);
-        const hours = parseInt(str.substr(2, 2), 10);
-        const mins = parseInt(str.substr(4, 2), 10);
+        const day = parseInt(str.slice(0, 2), 10);
+        const hours = parseInt(str.slice(2, 4), 10);
+        const mins = parseInt(str.slice(4, 6), 10);
 
         if (isNaN(day) || isNaN(hours) || isNaN(mins)) {return null;}
         if (day < 1 || day > 31 || hours > 23 || mins > 59) {return null;}
@@ -2106,7 +2106,7 @@ window.PublicRoutes = (function() {
     function truncateString(str, maxLen) {
         if (!str) {return '';}
         if (str.length <= maxLen) {return str;}
-        return str.substr(0, maxLen) + '...';
+        return str.slice(0, maxLen) + '...';
     }
 
     function getNextColor() {

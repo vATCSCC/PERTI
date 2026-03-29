@@ -51,9 +51,9 @@ window.formatConfigName = function(configName, arrRunways, depRunways) {
  */
 window.getContrastTextColor = function(hexColor) {
     const hex = hexColor.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16) / 255;
-    const g = parseInt(hex.substr(2, 2), 16) / 255;
-    const b = parseInt(hex.substr(4, 2), 16) / 255;
+    const r = parseInt(hex.slice(0, 2), 16) / 255;
+    const g = parseInt(hex.slice(2, 4), 16) / 255;
+    const b = parseInt(hex.slice(4, 6), 16) / 255;
     // Relative luminance formula (ITU-R BT.601)
     const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
     return luminance > 0.5 ? '#000000' : '#ffffff';
@@ -2366,7 +2366,7 @@ function loadFacilityDemand() {
     .always(function() {
         if (DEMAND_STATE.chart) DEMAND_STATE.chart.hideLoading();
         // Update last-update timestamp
-        $('#demand_last_update').text(new Date().toISOString().substr(11, 8) + 'Z');
+        $('#demand_last_update').text(new Date().toISOString().slice(11, 19) + 'Z');
     });
 }
 

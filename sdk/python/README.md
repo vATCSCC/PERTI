@@ -10,17 +10,23 @@ Official Python SDK for the VATSWIM (System Wide Information Management) API.
 - **REST API Client** - Query flights, positions, TMIs with filtering and pagination
 - **WebSocket Client** - Real-time flight event streaming
 - **Typed Models** - Full type hints and dataclasses for all responses
-- **Async Support** - Both sync and async clients for REST and WebSocket
-- **Zero Dependencies** - Core REST client uses only stdlib (aiohttp optional for async)
+- **Async Support** - Sync and async methods on the same client (`get_flights()` / `get_flights_async()`)
+- **Minimal Dependencies** - Core requires `websockets`; `requests` for REST sync, `aiohttp` for REST async
 
 ## Installation
 
 ```bash
-# Basic installation (REST + WebSocket)
+# Basic installation (WebSocket only)
 pip install swim-client
+
+# With sync REST support
+pip install swim-client[rest]
 
 # With async REST support
 pip install swim-client[async]
+
+# All features
+pip install swim-client[all]
 
 # Development
 pip install swim-client[dev]
@@ -90,23 +96,25 @@ client.run()
 
 ### Async Usage
 
+The same `SWIMRestClient` supports async via `_async` method variants:
+
 ```python
 import asyncio
-from swim_client import AsyncSWIMRestClient, SWIMClient
+from swim_client import SWIMRestClient, SWIMClient
 
 async def main():
-    # Async REST client
-    async with AsyncSWIMRestClient('your-api-key') as client:
-        flights = await client.get_flights(dest_icao='KJFK')
-        positions = await client.get_positions(artcc='ZNY')
-    
+    # Async REST client (same class, async context manager)
+    async with SWIMRestClient('swim_dev_your_api_key') as client:
+        flights = await client.get_flights_async(dest_icao='KJFK')
+        positions = await client.get_positions_async(artcc='ZNY')
+
     # Async WebSocket
     ws = SWIMClient('your-api-key')
-    
+
     @ws.on('flight.departed')
     def on_departure(event, ts):
         print(event.callsign)
-    
+
     ws.subscribe(['flight.departed'])
     await ws.run_async()
 
@@ -204,37 +212,35 @@ controlled = client.get_tmi_controlled_flights(airport='KJFK')
 #### Ingest Methods (Write Access Required)
 
 ```python
-from swim_client import FlightIngest, TrackIngest
-
-# Ingest flight data
+# Ingest flight data (takes list of dicts)
 result = client.ingest_flights([
-    FlightIngest(
-        callsign='VPA123',
-        dept_icao='KJFK',
-        dest_icao='KLAX',
-        cid=1234567,
-        latitude=40.6413,
-        longitude=-73.7781,
-        altitude_ft=35000,
-        groundspeed_kts=450,
-        vertical_rate_fpm=-500,
-        off_utc='2026-01-16T14:45:00Z',
-        eta_utc='2026-01-16T18:30:00Z',
-    )
+    {
+        'callsign': 'VPA123',
+        'dept_icao': 'KJFK',
+        'dest_icao': 'KLAX',
+        'cid': 1234567,
+        'latitude': 40.6413,
+        'longitude': -73.7781,
+        'altitude_ft': 35000,
+        'groundspeed_kts': 450,
+        'vertical_rate_fpm': -500,
+        'off_utc': '2026-01-16T14:45:00Z',
+        'eta_utc': '2026-01-16T18:30:00Z',
+    }
 ])
-print(f"Processed: {result.processed}, Errors: {result.errors}")
+print(f"Processed: {result['processed']}, Errors: {result['errors']}")
 
 # Ingest track/position data (high frequency)
 result = client.ingest_tracks([
-    TrackIngest(
-        callsign='VPA123',
-        latitude=41.2345,
-        longitude=-74.5678,
-        altitude_ft=35000,
-        ground_speed_kts=450,
-        heading_deg=270,
-        vertical_rate_fpm=-500,
-    )
+    {
+        'callsign': 'VPA123',
+        'latitude': 41.2345,
+        'longitude': -74.5678,
+        'altitude_ft': 35000,
+        'ground_speed_kts': 450,
+        'heading_deg': 270,
+        'vertical_rate_fpm': -500,
+    }
 ])
 ```
 
@@ -349,25 +355,25 @@ flight.tmi.delay_minutes      # 45
 ## Error Handling
 
 ```python
-from swim_client import SWIMRestError
+from swim_client import SWIMAPIError, SWIMAuthError, SWIMRateLimitError
 
 try:
     flights = client.get_flights(dest_icao='KJFK')
-except SWIMRestError as e:
-    print(f"API Error [{e.status_code}]: {e.message}")
-    print(f"Error Code: {e.code}")
-
-    # Rate limit handling
-    if e.status_code == 429:
-        retry_after = e.headers.get('Retry-After', 60)
-        print(f"Rate limited. Retry after {retry_after}s")
+except SWIMRateLimitError as e:
+    print(f"Rate limited. Retry after {e.retry_after}s")
+except SWIMAuthError as e:
+    print(f"Authentication failed: {e}")
+except SWIMAPIError as e:
+    print(f"API Error: {e}")
 ```
 
 ### Error Types
 
-| Exception | Status Code | Description |
-|-----------|-------------|-------------|
-| `SWIMRestError` | Any | Base API error with `status_code`, `code`, `message` |
+| Exception | Description |
+|-----------|-------------|
+| `SWIMAPIError` | Base API error |
+| `SWIMAuthError` | Authentication/authorization error (extends SWIMAPIError) |
+| `SWIMRateLimitError` | Rate limit exceeded (extends SWIMAPIError) |
 
 ### Rate Limits
 

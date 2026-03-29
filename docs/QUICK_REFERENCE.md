@@ -2,7 +2,7 @@
 
 Quick lookup for common codebase elements. Last updated: 2026-03-29
 
-> **SYSTEM STATUS: OPERATIONAL** (hibernation exited 2026-03-29). All daemons running. Azure resources upscaled. See `docs/HIBERNATION_RUNBOOK.md` for hibernation procedures.
+> **SYSTEM STATUS: HIBERNATING** (re-entered 2026-03-29). Only ADL ingest daemon running. Azure resources downscaled. See `docs/HIBERNATION_RUNBOOK.md` for hibernation procedures.
 
 ---
 

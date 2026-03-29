@@ -551,7 +551,7 @@
     function buildProcTransitionList(transitions, label, color, prefix, strikethrough) {
         if (!transitions || !transitions.length) return '';
         var PAGE_SZ = 20;
-        var listId = 'proc-list-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+        var listId = 'proc-list-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
         var html = '<div class="navdata-detail-label" style="color:' + color + '">' +
             label + ' (' + transitions.length + ')</div>';
         html += '<div id="' + listId + '" style="font-size:0.75rem;font-family:monospace">';
@@ -639,7 +639,7 @@
     function buildPlaybookRouteList(routes, label, color, prefix, strikethrough) {
         if (!routes || !routes.length) return '';
         var PAGE_SZ = 20;
-        var listId = 'pb-list-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+        var listId = 'pb-list-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
         var html = '<div class="navdata-detail-label" style="color:' + color + '">' +
             label + ' (' + routes.length + ')</div>';
         html += '<div id="' + listId + '" style="font-size:0.75rem;font-family:monospace">';

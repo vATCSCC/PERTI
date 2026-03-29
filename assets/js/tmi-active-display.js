@@ -2562,7 +2562,7 @@
         state.lastRefresh = new Date();
         const $lastRefresh = $('#lastRefreshTime');
         if ($lastRefresh.length) {
-            $lastRefresh.text(state.lastRefresh.toISOString().substr(11, 8) + ' UTC');
+            $lastRefresh.text(state.lastRefresh.toISOString().slice(11, 19) + ' UTC');
         }
         state.secondsUntilRefresh = 60;
     }

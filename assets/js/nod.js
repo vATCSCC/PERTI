@@ -33,9 +33,9 @@
             g = parseInt(hex[1] + hex[1], 16);
             b = parseInt(hex[2] + hex[2], 16);
         } else if (hex.length === 6) {
-            r = parseInt(hex.substr(0, 2), 16);
-            g = parseInt(hex.substr(2, 2), 16);
-            b = parseInt(hex.substr(4, 2), 16);
+            r = parseInt(hex.slice(0, 2), 16);
+            g = parseInt(hex.slice(2, 4), 16);
+            b = parseInt(hex.slice(4, 6), 16);
         } else {
             return '#ffffff';
         }
@@ -310,7 +310,7 @@
 
     function updateClock() {
         const now = new Date();
-        const utc = now.toISOString().substr(11, 8);
+        const utc = now.toISOString().slice(11, 19);
         document.getElementById('utcTime').textContent = utc;
     }
 
@@ -4121,7 +4121,7 @@
         const now = new Date();
         const lastUpdateEl = document.getElementById('lastUpdateTime');
         if (lastUpdateEl) {
-            lastUpdateEl.textContent = now.toISOString().substr(11, 5);
+            lastUpdateEl.textContent = now.toISOString().slice(11, 16);
         }
     }
 
@@ -6353,9 +6353,9 @@
         if (!dateStr) {return '???';}
         try {
             const d = new Date(dateStr);
-            return d.toISOString().substr(11, 5) + 'Z';
+            return d.toISOString().slice(11, 16) + 'Z';
         } catch (e) {
-            return dateStr.toString().substr(0, 5);
+            return dateStr.toString().slice(0, 5);
         }
     }
 
@@ -6363,7 +6363,7 @@
         if (!dateStr) {return PERTII18n.t('common.na');}
         try {
             const d = new Date(dateStr);
-            return d.toISOString().substr(0, 16).replace('T', ' ') + 'Z';
+            return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z';
         } catch (e) {
             return dateStr;
         }

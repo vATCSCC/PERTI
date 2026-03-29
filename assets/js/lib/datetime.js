@@ -21,7 +21,7 @@ const PERTIDateTime = (function() {
 
     /**
      * Get current UTC time formatted as HH:MM:SSZ
-     * Use instead of: new Date().toISOString().substr(11, 8)
+     * Use instead of: new Date().toISOString().slice(11, 19)
      * @returns {string}
      */
     function nowTimeZ() {
@@ -30,7 +30,7 @@ const PERTIDateTime = (function() {
 
     /**
      * Get current UTC time formatted as HH:MMZ
-     * Use instead of: new Date().toISOString().substr(11, 5) + 'Z'
+     * Use instead of: new Date().toISOString().slice(11, 16) + 'Z'
      * @returns {string}
      */
     function nowTimeShortZ() {
@@ -71,7 +71,7 @@ const PERTIDateTime = (function() {
 
     /**
      * Format a Date as YYYY-MM-DD HH:MMZ
-     * Use instead of: d.toISOString().substr(0, 16).replace('T', ' ') + 'Z'
+     * Use instead of: d.toISOString().slice(0, 16).replace('T', ' ') + 'Z'
      * @param {Date} date
      * @returns {string}
      */

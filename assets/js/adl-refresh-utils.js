@@ -117,7 +117,7 @@ const ADLRefreshUtils = (function() {
                 el.classList.remove('adl-refreshing');
                 // Update timestamp if we have one
                 if (lastUpdate) {
-                    const timeStr = lastUpdate.toISOString().substr(11, 5) + 'Z';
+                    const timeStr = lastUpdate.toISOString().slice(11, 16) + 'Z';
                     el.textContent = timeStr;
                 }
             }

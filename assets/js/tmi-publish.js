@@ -267,7 +267,7 @@
     function initClock() {
         function updateClock() {
             const now = new Date();
-            const utc = now.toISOString().substr(11, 8);
+            const utc = now.toISOString().slice(11, 19);
             $('#utc_clock').text(utc);
         }
         updateClock();
@@ -3497,7 +3497,7 @@
             return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
         }
         // Single word - use first 2 characters
-        return userName.substr(0, 2).toUpperCase();
+        return userName.slice(0, 2).toUpperCase();
     }
 
     // Build TMI ID in format: {OI}.RR{SOURCE}{ADVZY #}
@@ -3531,7 +3531,7 @@
         const endTimestamp = `${endDay}${String(endHour).padStart(2, '0')}${min}`;
 
         // Signature line: YY/MM/DD HH:MM {OI}
-        const year = String(now.getUTCFullYear()).substr(2, 2);
+        const year = String(now.getUTCFullYear()).slice(2, 4);
         const month = String(now.getUTCMonth() + 1).padStart(2, '0');
         const signature = `${year}/${month}/${day} ${hour}:${min} ${oi}`;
 
@@ -3570,7 +3570,7 @@
         const sigDay = String(now.getUTCDate()).padStart(2, '0');
         const sigHour = String(now.getUTCHours()).padStart(2, '0');
         const sigMin = String(now.getUTCMinutes()).padStart(2, '0');
-        const year = String(now.getUTCFullYear()).substr(2, 2);
+        const year = String(now.getUTCFullYear()).slice(2, 4);
         const month = String(now.getUTCMonth() + 1).padStart(2, '0');
         const signature = `${year}/${month}/${sigDay} ${sigHour}:${sigMin} ${oi}`;
 
@@ -5564,7 +5564,7 @@
         let validTime = '';
         if (entry.validFrom) {
             try {
-                validTime = new Date(entry.validFrom).toISOString().substr(11, 5).replace(':', '') + 'Z';
+                validTime = new Date(entry.validFrom).toISOString().slice(11, 16).replace(':', '') + 'Z';
             } catch (e) {
                 validTime = '';
             }
@@ -6017,7 +6017,7 @@
 
     function getUtcDateString() {
         const now = new Date();
-        return now.toISOString().substr(0, 10);
+        return now.toISOString().slice(0, 10);
     }
 
     function getUtcDateFormatted() {
@@ -6040,7 +6040,7 @@
     }
 
     function generateId() {
-        return 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        return 'entry_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
     }
 
     function escapeHtml(text) {
@@ -6315,7 +6315,7 @@
                 try {
                     const profile = JSON.parse(savedProfile);
                     displayName = profile.name;
-                } catch (e) {}
+                } catch (e) { console.warn('Failed to parse saved profile:', e); }
             }
         }
 
@@ -6333,7 +6333,7 @@
         const savedProfile = localStorage.getItem('tmi_user_profile');
         let profile = {};
         if (savedProfile) {
-            try { profile = JSON.parse(savedProfile); } catch(e) {}
+            try { profile = JSON.parse(savedProfile); } catch(e) { console.warn('Failed to parse saved profile:', e); }
         }
 
         // Pre-populate name/cid if editable (not readonly from server)
@@ -6399,7 +6399,7 @@
                 const existing = JSON.parse(existingProfile);
                 if (!nameEditable && existing.name) {profile.name = existing.name;}
                 if (!cidEditable && existing.cid) {profile.cid = existing.cid;}
-            } catch(e) {}
+            } catch(e) { console.warn('Failed to parse existing profile:', e); }
         }
 
         localStorage.setItem('tmi_user_profile', JSON.stringify(profile));
@@ -7630,7 +7630,7 @@
                 dateStrUtc = dateStr.replace(' ', 'T') + 'Z';
             }
             const d = new Date(dateStrUtc);
-            return d.toISOString().substr(0, 16).replace('T', ' ') + 'Z';
+            return d.toISOString().slice(0, 16).replace('T', ' ') + 'Z';
         } catch (e) {
             return dateStr || '--';
         }

@@ -1,6 +1,6 @@
 # Daemons and Scripts
 
-> **SYSTEM OPERATIONAL** (hibernation exited 2026-03-29). All daemons running. See `docs/HIBERNATION_RUNBOOK.md` for hibernation procedures.
+> **SYSTEM HIBERNATING** (re-entered 2026-03-29). Only always-on daemons running. See `docs/HIBERNATION_RUNBOOK.md` for hibernation procedures.
 
 Background processes that keep PERTI data current. 24 daemons are started at App Service boot via `scripts/startup.sh`. Some run always (even in hibernation), others are conditional on hibernation mode or GIS mode (`USE_GIS_DAEMONS` env var).
 

@@ -56,7 +56,7 @@
         function tick() {
             const now = new Date();
             const el = document.getElementById('rr_utc_clock');
-            if (el) {el.textContent = now.toISOString().substr(11, 8) + 'Z';}
+            if (el) {el.textContent = now.toISOString().slice(11, 19) + 'Z';}
 
             if (state.lastRefresh && state.isMonitoring) {
                 const ago = Math.round((now - state.lastRefresh) / 1000);
@@ -622,7 +622,7 @@
         return common[fix] || null;
     }
 
-    const fmtTime = d => d ? (d instanceof Date ? d : new Date(d)).toISOString().substr(11, 5) + 'Z' : '--';
+    const fmtTime = d => d ? (d instanceof Date ? d : new Date(d)).toISOString().slice(11, 16) + 'Z' : '--';
     const esc = s => { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; };
 
     window.toggleSel = function(cb) {

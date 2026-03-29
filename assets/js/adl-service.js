@@ -262,7 +262,7 @@ const ADLService = (function() {
         // Update timestamp elements
         if (!isLoading && state.lastRefresh) {
             document.querySelectorAll('.adl-last-update').forEach(el => {
-                el.textContent = state.lastRefresh.toISOString().substr(11, 5) + 'Z';
+                el.textContent = state.lastRefresh.toISOString().slice(11, 16) + 'Z';
             });
         }
     }

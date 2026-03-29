@@ -185,13 +185,38 @@
 
 ---
 
-## 7. Remaining Work
+## 7. Fixes Applied — Round 3 (Deferred Items: SDK, Styling, Code Quality)
 
-### Deferred (Low Risk)
+| # | File | Change | Severity |
+|---|------|--------|----------|
+| 19 | `sdk/python/README.md` | Reconciled v2.0.0: fixed async pattern (same client, `_async` methods), exception hierarchy (`SWIMAPIError`→`SWIMAuthError`/`SWIMRateLimitError`), ingest methods (plain dicts), dependencies | Medium |
+| 20 | `STYLING_GUIDE.md` | Added 7 page-specific pattern sections (CTP, CDM, navdata, playbook, JATOC, historical-routes, route-analysis-panel), 6 CSS file refs, updated timestamp | Low |
+| 21 | `assets/js/nod.js` | Migrated 8 `.substr()` → `.slice()` (hex parsing, clock, timestamps, formatTime, formatDateTime) | Medium |
+| 22 | `assets/js/reroute.js` | Migrated 2 `.substr()` → `.slice()` (clock, fmtTime) | Medium |
+| 23 | `assets/js/tmi-publish.js` | Migrated 8 `.substr()` → `.slice()` + fixed 3 silent `catch(e) {}` → `console.warn()` | Medium |
+| 24 | `assets/js/demand.js` | Migrated 4 `.substr()` → `.slice()` (hex parsing, last update) | Medium |
+| 25 | `assets/js/splits.js` | Migrated 3 `.substr()` → `.slice()` (hex parsing) | Medium |
+| 26 | `assets/js/route-maplibre.js` | Migrated 2 `.substr()` → `.slice()` (refresh time, signature year) | Medium |
+| 27 | `assets/js/public-routes.js` | Migrated 4 `.substr()` → `.slice()` (DDHHMM parsing, truncateString) | Medium |
+| 28 | `assets/js/navdata.js` | Migrated 2 `.substr()` → `.slice()` (random ID generation) | Medium |
+| 29 | `assets/js/adl-service.js` | Migrated 1 `.substr()` → `.slice()` (last update) | Medium |
+| 30 | `assets/js/adl-refresh-utils.js` | Migrated 1 `.substr()` → `.slice()` (last update) | Medium |
+| 31 | `assets/js/tmi-active-display.js` | Migrated 1 `.substr()` → `.slice()` (last refresh) | Medium |
+| 32 | `assets/js/lib/datetime.js` | Updated JSDoc comments from `.substr()` to `.slice()` references | Low |
+| 33 | `CODE_FIXES_INVENTORY.md` | Updated: 29/53 → 34/53 fixed (64%). P2 Date/Time COMPLETE, P3 silent catch fixed | Medium |
 
-1. **Python SDK v2.0.0** - pyproject.toml says v2.0.0 but README patterns are v1.0.0. Low risk (SDK not yet published).
-2. **CODE_FIXES_INVENTORY.md remaining 24 items** - P1 API response standardization (8), P2 deprecated `.substr()` (4), P2 config magic numbers (2), P3 JS jQuery→fetch migration (5), P3 CSS naming conflicts (5). All are code quality, not documentation.
-3. **STYLING_GUIDE.md** - Missing newer subsystem styling (CTP, CDM, navdata pages). Low impact.
+---
+
+## 8. Remaining Work
+
+### Deferred (Low Risk, Code Quality Only)
+
+1. **P1 API Response Standardization** (8 files) - Add `{status, timestamp, data}` wrapper to Pattern A/B/C endpoints + create `api/common/response.php` helper.
+2. **P2 Config magic numbers** (2 items) - `config.example.php` Discord IDs, `advisory-builder.js` debounce delay constant.
+3. **P3 jQuery→fetch migration** (4 files) - `tmi-publish.js`, `route-maplibre.js`, `tmi_compliance.js` jQuery AJAX → `fetch()`.
+4. **P3 CSS naming conflicts** (5 items) - Bootstrap overrides, `.active`/`.selected` duplication, `.col-arr`/`.col-dep` collision.
+
+All remaining items are code quality improvements, not documentation gaps.
 
 ### Completed (Previously Listed as Remaining)
 
@@ -199,7 +224,11 @@
 - ~~OpenAPI spec version alignment~~ → Both specs aligned to v1.2.0
 - ~~SDK error handling standardization~~ → Rate limit handling + error patterns added to all 6 SDKs
 - ~~SDK FIXM format documentation~~ → FIXM section added to all 5 applicable SDKs (not C++, ingest-only)
-- ~~CODE_FIXES_INVENTORY.md~~ → Refreshed against codebase, 55% now verified fixed
+- ~~CODE_FIXES_INVENTORY.md~~ → Refreshed against codebase, 64% now verified fixed
 - ~~SQL injection verification~~ → All 4 endpoints use real_escape_string() (mitigated)
 - ~~wiki/API-Reference.md~~ → Updated to v19 with CDM, CTP, SWIM v1.2.0
+- ~~Python SDK v2.0.0~~ → README reconciled with actual v2.0.0 implementation
+- ~~STYLING_GUIDE.md~~ → Added 7 newer subsystem page patterns + 6 CSS file references
+- ~~Deprecated `.substr()`~~ → All 30+ instances migrated to `.slice()` across 13 files
+- ~~Silent error suppression~~ → 3 empty catch blocks in tmi-publish.js fixed
 - ~~wiki/Home.md~~ → Updated to v19, OPERATIONAL status
