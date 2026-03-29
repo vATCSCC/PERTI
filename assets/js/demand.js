@@ -3005,7 +3005,7 @@ function readUrlState() {
 
     // Restore comparison mode
     if (params.has('compare')) {
-        const airports = params.get('compare').split(',').filter(Boolean);
+        const airports = params.get('compare').split(',').filter(a => /^[A-Z0-9]{3,4}$/i.test(a)).map(a => a.toUpperCase());
         if (airports.length > 0) {
             DEMAND_STATE.comparisonAirports = airports.slice(0, 4);
             DEMAND_STATE.comparisonMode = true;
@@ -6845,7 +6845,7 @@ function enterComparisonMode() {
 
     // Show comparison UI
     $('#compare_add_btn').show();
-    $('#compare_chip_bar').css('display', '').show();
+    $('#compare_chip_bar').css('display', 'flex');
     renderComparisonChips();
 
     // Switch from single chart to grid
@@ -6878,7 +6878,7 @@ function exitComparisonMode() {
 
     // Hide comparison UI
     $('#compare_add_btn').hide();
-    $('#compare_chip_bar').hide();
+    $('#compare_chip_bar').css('display', 'none');
     $('#compare_max_msg').hide();
     const $grid = $('#demand_chart_grid');
     $grid.removeClass('active').empty();
@@ -7123,8 +7123,8 @@ function renderComparisonPanel(icao) {
     const data = ctx.demandData;
     const direction = DEMAND_STATE.direction;
 
-    // Apply client filters
-    const filteredData = applyClientFilters(data);
+    // Apply client filters (pass inner data, not full API response)
+    const filteredData = applyClientFilters(data.data);
     const arrivals = filteredData.arrivals || [];
     const departures = filteredData.departures || [];
 
@@ -7315,7 +7315,7 @@ function updateComparisonInfoBar() {
     let totalArr = 0, totalDep = 0;
     DEMAND_STATE.comparisonData.forEach((ctx) => {
         if (!ctx.demandData) return;
-        const filtered = applyClientFilters(ctx.demandData);
+        const filtered = applyClientFilters(ctx.demandData.data);
         const sumBins = (bins) => (bins || []).reduce((s, bin) => {
             return s + (bin.breakdown ? Object.values(bin.breakdown).reduce((a, b) => a + b, 0) : 0);
         }, 0);
@@ -7414,7 +7414,7 @@ function renderSummaryCardsForAirport(icao) {
     const ctx = DEMAND_STATE.comparisonData.get(icao);
     if (!ctx) return;
 
-    // Save global state
+    // Save global state (including all breakdown properties)
     const saved = {
         lastDemandData: DEMAND_STATE.lastDemandData,
         rateData: DEMAND_STATE.rateData,
@@ -7423,31 +7423,37 @@ function renderSummaryCardsForAirport(icao) {
         weightBreakdown: DEMAND_STATE.weightBreakdown,
         arrFixBreakdown: DEMAND_STATE.arrFixBreakdown,
         depFixBreakdown: DEMAND_STATE.depFixBreakdown,
+        originBreakdown: DEMAND_STATE.originBreakdown,
+        destBreakdown: DEMAND_STATE.destBreakdown,
+        carrierBreakdown: DEMAND_STATE.carrierBreakdown,
+        equipmentBreakdown: DEMAND_STATE.equipmentBreakdown,
         summaryLoaded: DEMAND_STATE.summaryLoaded,
     };
 
-    // Swap in per-airport data
-    DEMAND_STATE.lastDemandData = ctx.demandData;
-    DEMAND_STATE.rateData = ctx.rateData;
-    DEMAND_STATE.tmiPrograms = ctx.tmiPrograms;
-    DEMAND_STATE.summaryData = ctx.summaryData;
-    if (ctx.summaryData) {
-        DEMAND_STATE.weightBreakdown = ctx.summaryData.weight_breakdown || {};
-        DEMAND_STATE.arrFixBreakdown = ctx.summaryData.arr_fix_breakdown || {};
-        DEMAND_STATE.depFixBreakdown = ctx.summaryData.dep_fix_breakdown || {};
-        DEMAND_STATE.summaryLoaded = true;
+    try {
+        // Swap in per-airport data
+        DEMAND_STATE.lastDemandData = ctx.demandData;
+        DEMAND_STATE.rateData = ctx.rateData;
+        DEMAND_STATE.tmiPrograms = ctx.tmiPrograms;
+        DEMAND_STATE.summaryData = ctx.summaryData;
+        if (ctx.summaryData) {
+            DEMAND_STATE.weightBreakdown = ctx.summaryData.weight_breakdown || {};
+            DEMAND_STATE.arrFixBreakdown = ctx.summaryData.arr_fix_breakdown || {};
+            DEMAND_STATE.depFixBreakdown = ctx.summaryData.dep_fix_breakdown || {};
+            DEMAND_STATE.summaryLoaded = true;
+        }
+
+        // Render cards (they read from DEMAND_STATE)
+        renderPeakHourCard();
+        renderTmiControlCard();
+        renderWeightMixCard();
+        renderTopOriginsCard();
+        renderTopCarriersCard();
+        renderTopFixesCard();
+    } finally {
+        // Restore global state
+        Object.assign(DEMAND_STATE, saved);
     }
-
-    // Render cards (they read from DEMAND_STATE)
-    renderPeakHourCard();
-    renderTmiControlCard();
-    renderWeightMixCard();
-    renderTopOriginsCard();
-    renderTopCarriersCard();
-    renderTopFixesCard();
-
-    // Restore global state
-    Object.assign(DEMAND_STATE, saved);
 }
 
 /**
@@ -7458,10 +7464,10 @@ function renderPeakHourCard() {
     if (!container) return;
 
     const data = DEMAND_STATE.lastDemandData;
-    if (!data) { container.innerHTML = '<span class="text-muted small">--</span>'; return; }
+    if (!data || !data.data) { container.innerHTML = '<span class="text-muted small">--</span>'; return; }
 
-    // Apply client filters
-    const filtered = applyClientFilters(data);
+    // Apply client filters (pass inner data, not full API response)
+    const filtered = applyClientFilters(data.data);
     const arrivals = filtered.arrivals || [];
     const departures = filtered.departures || [];
     const direction = DEMAND_STATE.direction;
@@ -7528,9 +7534,10 @@ function renderTmiControlCard() {
     if (!container) return;
 
     const data = DEMAND_STATE.lastDemandData;
-    if (!data) { container.innerHTML = '<span class="text-muted small">--</span>'; return; }
+    if (!data || !data.data) { container.innerHTML = '<span class="text-muted small">--</span>'; return; }
 
-    const filtered = applyClientFilters(data);
+    // Apply client filters (pass inner data, not full API response)
+    const filtered = applyClientFilters(data.data);
     const allBins = [...(filtered.arrivals || []), ...(filtered.departures || [])];
 
     // Sum TMI-related phases across all bins
@@ -7943,16 +7950,6 @@ function populateFilterDropdowns(resp) {
  * re-renders chart with filtered data.
  */
 function onEnhancedFilterChange() {
-    // In comparison mode, re-render all panels
-    if (DEMAND_STATE.comparisonMode) {
-        DEMAND_STATE.comparisonAirports.forEach(icao => renderComparisonPanel(icao));
-        updateComparisonInfoBar();
-        // Re-render active stats tab
-        const activeTab = $('#summary_tab_strip .summary-tab.active').data('icao');
-        if (activeTab) renderSummaryCardsForAirport(activeTab);
-        // Still update filter UI state below
-    }
-
     // Show/hide reset link
     const hasActiveFilter =
         DEMAND_STATE.filterCarriers.length > 0 ||
@@ -7965,7 +7962,17 @@ function onEnhancedFilterChange() {
     // Update direction-aware ARTCC filter state
     updateArtccFilterState();
 
-    // Re-render chart with filtered data
+    // In comparison mode, re-render all panels and return
+    if (DEMAND_STATE.comparisonMode) {
+        DEMAND_STATE.comparisonAirports.forEach(icao => renderComparisonPanel(icao));
+        updateComparisonInfoBar();
+        const activeTab = $('#summary_tab_strip .summary-tab.active').data('icao');
+        if (activeTab) renderSummaryCardsForAirport(activeTab);
+        writeUrlState();
+        return;
+    }
+
+    // Re-render chart with filtered data (single airport mode)
     if (DEMAND_STATE.lastDemandData) {
         if (DEMAND_STATE.chartView === 'status') {
             renderChart(DEMAND_STATE.lastDemandData);

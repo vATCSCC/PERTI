@@ -975,7 +975,7 @@ include("load/i18n.php");
                             </button>
                         </div>
                         <!-- Chip bar for selected airports -->
-                        <div id="compare_chip_bar" class="d-flex flex-wrap mt-1" style="gap: 4px; display: none !important;"></div>
+                        <div id="compare_chip_bar" class="d-flex flex-wrap mt-1" style="gap: 4px; display: none;"></div>
                         <small class="text-danger" id="compare_max_msg" style="display: none;"><?= __('demand.compare.maxReached') ?></small>
                     </div>
 
