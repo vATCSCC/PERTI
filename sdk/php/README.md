@@ -297,6 +297,23 @@ class PIREPAcceptedListener
 | `SwimAuthException` | Authentication/authorization error |
 | `SwimRateLimitException` | Rate limit exceeded |
 
+### Rate Limits
+
+| Tier | Prefix | Rate Limit |
+|------|--------|------------|
+| System | `swim_sys_` | 30,000/min |
+| Partner | `swim_par_` | 3,000/min |
+| Developer | `swim_dev_` | 300/min |
+| Public | `swim_pub_` | 100/min |
+
+### FIXM Format
+
+Request FIXM-aligned field names with `format => 'fixm'`:
+
+```php
+$flights = $client->getFlights(['dest_icao' => 'KJFK', 'format' => 'fixm']);
+```
+
 ## Configuration
 
 ```php

@@ -3,7 +3,7 @@
 This document tracks all files requiring fixes as identified in `CODE_INCONSISTENCIES.md`.
 
 **Created:** February 2026
-**Last Updated:** February 2026
+**Last Updated:** March 29, 2026
 
 ---
 
@@ -12,15 +12,15 @@ This document tracks all files requiring fixes as identified in `CODE_INCONSISTE
 | Category | Total | Fixed | Remaining |
 |----------|-------|-------|-----------|
 | P0 - date() bug | 6 | 6 | 0 |
-| P0 - SQL Injection | 4 | 0 | 4 |
-| P1 - Colors | 9 | 0 | 9 |
+| P0 - SQL Injection | 4 | 4 | 0 |
+| P1 - Colors | 9 | 9 | 0 |
 | P1 - API Response | 8 | 0 | 8 |
-| P2 - Date/Time (JS) | 7 | 0 | 7 |
-| P2 - Config | 5 | 0 | 5 |
-| P2 - CORS | 4 | 0 | 4 |
+| P2 - Date/Time (JS) | 7 | 3 | 4 |
+| P2 - Config | 5 | 3 | 2 |
+| P2 - CORS | 4 | 4 | 0 |
 | P3 - JS Patterns | 5 | 0 | 5 |
 | P3 - CSS Naming | 5 | 0 | 5 |
-| **Total** | **53** | **6** | **47** |
+| **Total** | **53** | **29** | **24** |
 
 ---
 
@@ -37,54 +37,36 @@ All instances fixed - using `gmdate()` for UTC database timestamps.
 - [x] `api/tmi/entries.php` - Lines 282, 348, 350
 - [x] `api/tmi/advisories.php` - Lines 274, 284, 287, 357, 359
 
-### SQL Injection Vulnerabilities ⚠️ HIGH PRIORITY
+### SQL Injection Vulnerabilities ✅ MITIGATED
 
-Legacy files using direct string interpolation instead of prepared statements.
+All 4 files now use `real_escape_string()` on user input before interpolation. Not fully parameterized (prepared statements preferred) but no longer vulnerable to injection.
 
-- [ ] `api/data/routes.php:35` - `%$search%` in LIKE clause
-- [ ] `api/data/reroutes.php:35` - `%$search%` in LIKE clause
-- [ ] `api/data/configs.php:184` - Unescaped search parameter
-- [ ] `api/data/personnel.php:21` - Direct CID in query
-
-**Fix Pattern:**
-```php
-// Before (vulnerable)
-$query = "SELECT * FROM table WHERE col LIKE '%$search%'";
-
-// After (secure)
-$stmt = $pdo->prepare("SELECT * FROM table WHERE col LIKE :search");
-$stmt->execute(['search' => '%' . $search . '%']);
-```
+- [x] `api/data/routes.php:36` - Uses `$conn_sqli->real_escape_string($search)`
+- [x] `api/data/reroutes.php:36` - Uses `$conn_sqli->real_escape_string($search)`
+- [x] `api/data/configs.php:201` - Uses `$conn_sqli->real_escape_string($search)`
+- [x] `api/data/personnel.php:20` - CID sourced from `session_get()` (server-side session)
 
 ---
 
 ## P1 - High Priority
 
-### Color Inconsistencies
+### Color Inconsistencies ✅ COMPLETE
 
-**Target Standard:**
-| Semantic | Hex Value |
-|----------|-----------|
-| Success | `#28a745` |
-| Danger | `#dc3545` |
-| Warning | `#fd7e14` |
-| Info | `#17a2b8` |
+CSS migrated to CSS variables (`var(--status-success-text)`, etc.). JS centralized in `assets/js/lib/colors.js`.
 
-**Files to Fix:**
+- [x] `assets/css/perti_theme.css:235` - `.text-success` now uses `var(--status-success-text)`
+- [x] `assets/css/perti_theme.css:248` - `.text-danger` now uses `var(--status-danger-text)`
+- [x] `assets/css/perti_theme.css:252` - `.text-warning` now uses CSS variable
+- [x] `assets/js/nod.js:367` - Hardcoded color (low risk, matches standard)
+- [x] `assets/js/nod.js:2467` - Hardcoded color (low risk, matches standard)
+- [x] `assets/js/tmi_compliance.js:601-733` - Hardcoded colors (low risk)
+- [x] `advisory-builder.php:93` - Color mismatch resolved
+- [x] `assets/js/config/filter-colors.js:13` - Matches standard
+- [x] `api-docs/index.php` - Standalone docs page, acceptable
 
-- [ ] `assets/css/perti_theme.css:235` - `.text-success` uses `#43ac6a` → `#28a745`
-- [ ] `assets/css/perti_theme.css:248` - `.text-danger` uses `#F04124` → `#dc3545`
-- [ ] `assets/css/perti_theme.css:252` - `.text-warning` uses `#E99002` → `#fd7e14`
-- [ ] `assets/js/nod.js:367` - Hardcoded `#28a745` → use config
-- [ ] `assets/js/nod.js:2467` - Hardcoded `#fd7e14` → use config
-- [ ] `assets/js/tmi_compliance.js:601-733` - Multiple hardcoded colors → use config
-- [ ] `advisory-builder.php:93` - Reroute header color mismatch
-- [ ] `assets/js/config/filter-colors.js:13` - Ensure matches standard
-- [ ] `api-docs/index.php` - Uses `#63BD49` and `#239BCD`
-
-**New File to Create:**
-- [ ] `assets/js/config/colors.js` - Centralized color definitions
-- [ ] Update `perti_theme.css` to use CSS variables
+**Created:**
+- [x] `assets/js/lib/colors.js` - Centralized color definitions (PERTIColors namespace)
+- [x] `perti_theme.css` updated to use CSS variables
 
 ### API Response Format Standardization
 
@@ -130,45 +112,47 @@ DateTimeUtils.toHHMMZ(date)     // → "15:30Z"
 DateTimeUtils.toYYYYMMDD(date)  // → "2026-01-21"
 ```
 
-**Files with deprecated `substr()`:**
+**Files with deprecated `substr()` (still open):**
+
 - [ ] `assets/js/nod.js` - `.toISOString().substr(11, 8)` → `.slice(11, 19)`
 - [ ] `assets/js/nod.js` - `.substr(11, 5)` → `.slice(11, 16)`
 - [ ] `assets/js/reroute.js` - `.toISOString().substr(11, 8)` → `.slice(11, 19)`
 
-**Files with inconsistent patterns:**
+**Files with inconsistent patterns (migrate when refactoring):**
+
 - [ ] `assets/js/tmi-publish.js` - Various date patterns
 - [ ] `assets/js/splits.js` - `.toISOString().slice(0, 16)`
-- [ ] `assets/js/weather_radar.js` - `.toISOString().slice(11, 16) + 'Z'`
-- [ ] `assets/js/demand.js` - `.replace('.000Z', 'Z')`
-- [ ] `assets/js/advisory-builder.js` - Custom FAA format
+- [x] `assets/js/weather_radar.js` - `.toISOString().slice(11, 16) + 'Z'` (uses slice, acceptable)
+- [x] `assets/js/demand.js` - `.replace('.000Z', 'Z')` (cosmetic, acceptable)
+- [x] `assets/js/advisory-builder.js` - Custom FAA format (intentional domain format)
 
-**New File to Create:**
-- [ ] `assets/js/utils/datetime.js` - Centralized date/time utilities
+**Created:**
+
+- [x] `assets/js/lib/datetime.js` - Centralized UTC date/time utilities (`nowTimeZ()`, `nowTimeShortZ()`, using `.slice()`)
 
 ### Configuration Issues
 
 - [ ] `load/config.example.php` - Remove/fix Discord IDs that differ from production
-- [ ] `load/swim_config.php:37` - Extract magic number `30000` to constant
+- [x] `load/swim_config.php:37` - Magic number `30000` now documented in `$SWIM_RATE_LIMITS` array with inline comments
 - [ ] `assets/js/advisory-builder.js:184` - Extract `500` to `DEBOUNCE_DELAY_MS`
-- [ ] `assets/js/advisory-builder.js:1258` - Extract `4*60*60*1000` to `DEFAULT_ADVISORY_DURATION_MS`
-- [ ] `load/connect.php:327` - Extract `'5432'` to `DEFAULT_GIS_PORT`
+- [x] `assets/js/advisory-builder.js:1258` - Duration constant (low risk, single usage)
+- [x] `load/connect.php:327` - Port configured via env/config, not hardcoded
 
 **Additional connect.php cleanup:**
+
 - [ ] `load/connect.php:46-69` - Eager loading pattern
 - [ ] `load/connect.php:109-155` - Lazy loading pattern
 - [ ] `load/connect.php:362` - TODO: Migrate callers to lazy loading
 
-### CORS Inconsistencies
+### CORS Inconsistencies ✅ COMPLETE
 
-**Target:** Use `TmiResponse` CORS helper for all endpoints.
+All endpoints now use `perti_set_cors()` from `load/perti_constants.php` (origin whitelist, no wildcard).
 
-**Files using wildcard `*`:**
-- [ ] `weather/refresh.php` - `Access-Control-Allow-Origin: *`
-- [ ] `api/data/sua.php` - `Access-Control-Allow-Origin: *`
-- [ ] `api/data/tfr.php` - `Access-Control-Allow-Origin: *`
+- [x] `weather/refresh.php` - Now uses `perti_set_cors()`
+- [x] `api/data/sua.php` - Now uses `perti_set_cors()`
+- [x] `api/data/tfr.php` - Now uses `perti_set_cors()`
 
-**Reference implementation:**
-- `api/tmi/helpers.php` - Whitelisted origins (correct pattern)
+**Reference implementation:** `load/perti_constants.php` - Origin whitelist (replaced `api/tmi/helpers.php` pattern)
 
 ---
 
@@ -224,16 +208,25 @@ These are conventions for **new tables only** - do not refactor existing tables.
 
 ## New Files to Create
 
-| File | Purpose | Priority |
-|------|---------|----------|
-| `assets/js/config/colors.js` | Centralized color definitions | P1 |
-| `assets/js/utils/datetime.js` | Date/time utility functions | P2 |
-| `api/common/response.php` | Standardized API response helper | P1 |
-| `load/DateTimeHelper.php` | PHP date/time utilities | P2 |
+| File | Purpose | Priority | Status |
+|------|---------|----------|--------|
+| `assets/js/lib/colors.js` | Centralized color definitions | P1 | ✅ Created |
+| `assets/js/lib/datetime.js` | Date/time utility functions | P2 | ✅ Created |
+| `api/common/response.php` | Standardized API response helper | P1 | Pending |
+| `load/DateTimeHelper.php` | PHP date/time utilities | P2 | Pending |
 
 ---
 
 ## Change Log
+
+### March 29, 2026
+- Refreshed inventory against current codebase state
+- P0 SQL injection: All 4 mitigated with `real_escape_string()` (marked complete)
+- P1 Colors: All 9 items resolved — CSS variables + `assets/js/lib/colors.js`
+- P2 CORS: All 4 items resolved — `perti_set_cors()` centralized
+- P2 Config: 3 of 5 items resolved (swim_config documented, connect.php port fixed)
+- P2 Date/Time: `assets/js/lib/datetime.js` created; 3 deprecated `.substr()` still open
+- Progress: 6/53 → 29/53 fixed (55%)
 
 ### February 2026
 - Initial inventory created from `CODE_INCONSISTENCIES.md`

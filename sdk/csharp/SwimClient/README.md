@@ -32,8 +32,8 @@ Install-Package VatSim.Swim.Client
 using VatSim.Swim;
 using VatSim.Swim.Models;
 
-// Create client
-using var client = new SwimRestClient("your-api-key");
+// Create client (use your tier-prefixed key: swim_sys_, swim_par_, swim_dev_, or swim_pub_)
+using var client = new SwimRestClient("swim_dev_your_api_key");
 
 // Get flights to JFK
 var flights = await client.GetFlightsAsync(destIcao: "KJFK");
@@ -219,6 +219,7 @@ var result = await client.IngestTracksAsync(new[]
 | `flight.positions` | Batched position updates |
 | `flight.*` | All flight events |
 | `tmi.issued` | New GS/GDP created |
+| `tmi.modified` | TMI modified |
 | `tmi.released` | TMI ended |
 | `tmi.*` | All TMI events |
 | `system.heartbeat` | Server keepalive |
@@ -252,7 +253,31 @@ try
 catch (SwimApiException ex)
 {
     Console.WriteLine($"API Error [{ex.StatusCode}]: {ex.ErrorCode} - {ex.Message}");
+
+    // Rate limit handling
+    if (ex.StatusCode == 429)
+    {
+        var retryAfter = ex.Headers?.GetValues("Retry-After")?.FirstOrDefault() ?? "60";
+        Console.WriteLine($"Rate limited. Retry after {retryAfter}s");
+    }
 }
+```
+
+### Rate Limits
+
+| Tier | Prefix | Rate Limit |
+|------|--------|------------|
+| System | `swim_sys_` | 30,000/min |
+| Partner | `swim_par_` | 3,000/min |
+| Developer | `swim_dev_` | 300/min |
+| Public | `swim_pub_` | 100/min |
+
+### FIXM Format
+
+Request FIXM-aligned field names with `format: "fixm"`:
+
+```csharp
+var flights = await client.GetFlightsAsync(destIcao: "KJFK", format: "fixm");
 ```
 
 ## Models

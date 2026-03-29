@@ -20,7 +20,7 @@ info:
     ## Response Types
     Most endpoints return JSON. Some legacy endpoints return HTML table rows
     (noted in each endpoint's description).
-  version: 1.1.0
+  version: 1.2.0
   contact:
     name: PERTI Support
 

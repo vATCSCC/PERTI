@@ -34,6 +34,11 @@
 | **RBS** | Ration By Schedule (GDP slot assignment algorithm) |
 | **ASPM82** | FAA Aviation System Performance Metrics 82-airport set |
 | **OPSNET45** | FAA Operations Network 45-airport performance metric set |
+| **CTP** | Collaborative Traffic Planning (oceanic/special event coordination) |
+| **CDM** | Collaborative Decision Making (A-CDM airport milestones) |
+| **ECFMP** | EUROCONTROL-style Flow Measures (VATSIM Europe integration) |
+| **NAT** | North Atlantic Tracks (oceanic routing) |
+| **TMR** | Traffic Management Review (post-event analysis) |
 
 ## Quick Start / Commands
 
@@ -236,8 +241,10 @@ ADL-specific in `adl/migrations/`: `core/`, `boundaries/`, `crossings/`, `demand
 **Planning**: `index.php` (plan listing), `plan.php` (plan detail), `schedule.php`, `sheet.php`, `review.php`
 **Operations**: `demand.php` (demand charts), `splits.php` (sector splits), `route.php` (MapLibre map), `gdt.php` (GDP table), `nod.php` (NAS dashboard), `playbook.php` (route plays)
 **TMI**: `tmi-publish.php` (Discord publishing), `sua.php` (SUA display), `airport_config.php`, `event-aar.php`
+**CDM/CTP**: `cdm.php` (collaborative decision making), `ctp.php` (collaborative traffic planning)
 **JATOC**: `jatoc.php` (incident management)
 **SWIM**: `swim.php`, `swim-doc.php`, `swim-docs.php`, `swim-keys.php`
+**Data/Nav**: `navdata.php` (navigation data display), `historical-routes.php` (route history analysis)
 **System**: `status.php`, `simulator.php`, `healthcheck.php`, `data.php`, `login/`, `logout.php`
 **Static**: `transparency.php`, `privacy.php`, `fmds-comparison.php`, `hibernation.php`
 
@@ -246,37 +253,53 @@ ADL-specific in `adl/migrations/`: `core/`, `boundaries/`, `crossings/`, `demand
 | Path | Purpose |
 |------|---------|
 | `/api/adl/` | Flight data: `current`, `flight`, `ingest`, `waypoints`, `boundaries`, `demand/*`, diagnostics |
-| `/api/data/` | Reference/planning: `plans/*` (configs, staffing, initiatives, timelines), fixes, routes, weather, SUA, reroutes, review, crossings |
+| `/api/data/` | Reference/planning: `plans/*` (configs, staffing, initiatives, timelines), fixes, routes, weather, SUA, reroutes, review, crossings, `cdm/*` |
 | `/api/tmi/` | TMI programs: GDP (`gdp_preview/apply/simulate/purge`), GS (`gs/*` lifecycle), advisories, entries, reroutes, public-routes |
-| `/api/mgt/` | Management: `perti/` (plan CRUD), `tmi/` (TMI management, coordination, reroute drafts, ground stops) |
+| `/api/mgt/` | Management: `perti/` (plan CRUD), `tmi/` (TMI management, coordination, reroute drafts, ground stops), `historical/*` |
 | `/api/splits/` | Sector splits: config CRUD, sectors, maps, scheduler |
 | `/api/stats/` | Statistics: realtime, hourly, daily, flight phase history |
-| `/api/swim/v1/` | SWIM API: REST flights/positions/metering, `ingest/*`, `keys/*`, `tmi/*`, `ws/` WebSocket |
+| `/api/swim/v1/` | SWIM API: REST flights/positions/metering, `ingest/*`, `keys/*`, `tmi/*`, `cdm/*`, `connectors/*`, `ctp/*`, `playbook/*`, `reference/*`, `routes/*`, `ws/` WebSocket |
 | `/api/jatoc/` | Incident management: auth, config, validators |
-| Other | `event-aar/`, `nod/tracks`, `simulator/navdata`, `weather/refresh`, `cron.php` |
+| `/api/gdt/` | GDT endpoints: program management, slot operations, advisories, compress, reoptimize |
+| `/api/ctp/` | CTP integration: audit_log, boundaries, changelog, demand, sessions |
+| `/api/demand/` | Demand management: monitors, thresholds, analysis |
+| `/api/gis/` | GIS spatial queries: boundaries, intersections, route expansion |
+| `/api/routes/` | Route management: analysis, history, geometry |
+| `/api/discord/` | Discord integration: webhooks, message management |
+| `/api/events/` | Event management: sync, scheduling |
+| Other | `admin/`, `analysis/`, `event-aar/`, `nod/`, `session/`, `simulator/`, `statsim/`, `system/`, `tiers/`, `user/`, `util/`, `weather/` |
 
 ### Frontend Architecture
 
 **Stack**: Vanilla JS + jQuery 2.2.4 + Bootstrap 4.5 + Chart.js + MapLibre GL
 
-**CSS** (`assets/css/`): `theme.css`, `perti_theme.css`, `perti-colors.css`, `mobile.css`, weather (`weather_radar/impact/hazards.css`), `initiative_timeline.css`, `tmi-publish.css`, `tmi-compliance.css`, `info-bar.css`, `playbook.css`
+**CSS** (`assets/css/`): `theme.css`, `perti_theme.css`, `perti-colors.css`, `mobile.css`, `weather_radar.css`, `weather_impact.css`, `weather_hazards.css`, `initiative_timeline.css`, `tmi-publish.css`, `tmi-compliance.css`, `info-bar.css`, `playbook.css`, `ctp.css`, `navdata.css`, `route-analysis.css`, `routes.css`
 
-**JavaScript** (`assets/js/`) — 65 modules, 45 using i18n:
-- Core: `lib/datetime.js`, `lib/logger.js`, `lib/colors.js`, `lib/dialog.js`, `lib/i18n.js`, `config/constants.js`, `config/rate-colors.js`, `config/phase-colors.js`
-- Feature: `adl-service.js`, `demand.js`, `gdp.js`, `tmi-gdp.js`, `tmi-publish.js`, `tmi_compliance.js`, `splits.js`, `schedule.js`, `review.js`, `plan.js`, `gdt.js`, `nod.js`, `playbook.js`
-- Map: `route-maplibre.js`, `route-symbology.js`, `fir-scope.js`, `fir-integration.js`, `sua.js`
-- Data: `facility-hierarchy.js`, `procs.js`, `cycle.js`, `awys.js`, `reroute.js`, `playbook-cdr-search.js`
-- Weather: `weather_radar.js`, `weather_impact.js`, `weather_hazards.js`
+**JavaScript** (`assets/js/`) — 71+ modules, 45 using i18n:
+
+- Core: `lib/datetime.js`, `lib/logger.js`, `lib/colors.js`, `lib/dialog.js`, `lib/i18n.js`, `lib/aircraft.js`, `lib/artcc-hierarchy.js`, `lib/artcc-labels.js`, `lib/deeplink.js`, `lib/norad-codes.js`, `lib/perti.js`, `lib/route-advisory-parser.js`
+- Config: `config/constants.js`, `config/rate-colors.js`, `config/phase-colors.js`, `config/facility-roles.js`, `config/filter-colors.js`
+- Feature: `adl-service.js`, `demand.js`, `gdp.js`, `tmi-gdp.js`, `tmi-publish.js`, `tmi_compliance.js`, `tmi-active-display.js`, `splits.js`, `schedule.js`, `review.js`, `plan.js`, `plan-tables.js`, `plan-splits-map.js`, `gdt.js`, `nod.js`, `nod-demand-layer.js`, `playbook.js`, `cdm.js`, `ctp.js`, `navdata.js`, `tmr_report.js`, `statsim_rates.js`, `advisory-config.js`
+- Map: `route-maplibre.js`, `route-symbology.js`, `route-analysis-panel.js`, `routes.js`, `routes-map.js`, `fir-scope.js`, `fir-integration.js`, `sua.js`, `public-routes.js`
+- Data: `facility-hierarchy.js`, `procs.js`, `procs_enhanced.js`, `cycle.js`, `awys.js`, `reroute.js`, `reroute-advisory-search.js`, `playbook-cdr-search.js`, `playbook-dcc-loader.js`, `playbook-filter-parser.js`, `playbook-query-builder.js`, `natots-search.js`, `adl-refresh-utils.js`
+- Weather: `weather_radar.js`, `weather_impact.js`, `weather_hazards.js`, `weather_radar_integration.js`
+- JATOC: `jatoc-facility-patch.js`
 
 **Third-party** (CDN): jQuery 2.2.4, Bootstrap 4.5, SweetAlert2, Select2, Summernote, FontAwesome 5.15.4, Chart.js, MapLibre GL JS
 
 ### PHP Utility Classes
 
-**`lib/`**: `Database.php` (parameterized queries for MySQLi/sqlsrv), `Response.php` (JSON API helpers), `Session.php`, `DateTime.php`
+**`lib/`**: `Database.php` (parameterized queries for MySQLi/sqlsrv), `Response.php` (JSON API helpers), `Session.php`, `DateTime.php`, `ArtccNormalizer.php` (ARTCC code normalization), `Changelog.php` (flight change tracking)
 
-**`load/`**: `config.php` (env config, gitignored), `connect.php` (DB connections), `input.php` (PHP 8.2+ input), `header.php`/`nav.php`/`footer.php` (layout), `swim_config.php`, `azure_perti_config.json`
-**`load/discord/`**: `DiscordAPI.php`, `MultiDiscordAPI.php`, `TMIDiscord.php`, `DiscordMessageParser.php`
-**`load/services/`**: `GISService.php` (PostGIS spatial queries)
+**`load/`** (35 files — key ones listed):
+
+- Config: `config.php` (env config, gitignored), `connect.php` (DB connections), `input.php` (PHP 8.2+ input), `swim_config.php`, `azure_perti_config.json`, `perti_constants.php`, `cache.php`
+- Layout: `header.php`, `nav.php`, `nav_public.php`, `footer.php`, `breadcrumb.php`
+- Feature: `gdp_section.php`, `hibernation.php`, `i18n.php`, `org_context.php`, `playbook_visibility.php`, `coordination_log.php`
+- Reference: `aircraft_families.php`, `airport_aliases.php`
+
+**`load/discord/`**: `DiscordAPI.php`, `MultiDiscordAPI.php`, `TMIDiscord.php`, `DiscordMessageParser.php`, `DiscordWebhookHandler.php`
+**`load/services/`**: `GISService.php` (PostGIS spatial queries), `CDMService.php`, `CTPApiClient.php`, `CTPPlaybookSync.php`, `EDCTDelivery.php`, `NATTrackFunctions.php`, `NATTrackResolver.php`
 
 ### Discord Bot (`discord-bot/`)
 
@@ -290,25 +313,48 @@ Flight sim plugins (MSFS/X-Plane/P3D), virtual airline modules (phpVMS7/smartCAR
 
 **IMPORTANT**: Use PHP daemons with `scripts/startup.sh`, NOT Azure Functions.
 
-All daemons are started at App Service boot via `scripts/startup.sh` and run continuously:
+All daemons are started at App Service boot via `scripts/startup.sh`. Some run always, others are conditional on hibernation mode or GIS mode (`USE_GIS_DAEMONS` env var).
+
+**Always-on daemons** (run even in hibernation):
 
 | Daemon | Script | Interval | Purpose |
 |--------|--------|----------|---------|
 | ADL Ingest | `scripts/vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS + deferred ETA processing |
+| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events on port 8090 |
+| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | Sync ADL to SWIM_API |
+| SWIM TMI Sync | `scripts/swim_tmi_sync_daemon.php` | 5min | TMI/CDM/reference data sync to SWIM mirrors |
+| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data polling |
+| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL |
+| Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge |
+| Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics collection |
+| Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting (batch=50) |
+| ECFMP Poll | `scripts/ecfmp_poll_daemon.php` | 5min | ECFMP flow measure polling |
+| vIFF CDM Poll | `scripts/viff_cdm_poll_daemon.php` | 30s | EU CDM milestone data (conditional: `VIFF_CDM_ENABLED`) |
+| Playbook Export | `scripts/playbook/export_playbook.php` | Daily | Daily playbook backup |
+| Refdata Sync | `scripts/refdata_sync_daemon.php` | Daily 06:00Z | CDR + playbook reference reimport |
+| ADL Archive | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage |
+
+**Conditional daemons** (skipped in hibernation):
+
+| Daemon | Script | Interval | Purpose |
+|--------|--------|----------|---------|
 | Parse Queue (GIS) | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS |
 | Boundary Detection (GIS) | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection |
 | Crossing Calculation | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction |
 | Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation |
-| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events on port 8090 |
-| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | Sync ADL to SWIM_API |
-| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data polling |
-| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL |
 | Scheduler | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activation |
-| Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge |
-| Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics collection |
-| Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting |
 | Event Sync | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync |
-| ADL Archive | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage |
+| CDM | `scripts/cdm_daemon.php` | 60s | A-CDM milestone computation |
+| vACDM Poll | `scripts/vacdm_poll_daemon.php` | 2min | vACDM instance polling |
+
+**Legacy fallback daemons** (when `USE_GIS_DAEMONS=0`):
+
+| Daemon | Script | Interval | Purpose |
+|--------|--------|----------|---------|
+| Parse Queue (ADL) | `adl/php/parse_queue_daemon.php` | 5s batch | Route parsing without PostGIS |
+| Boundary Detection (ADL) | `adl/php/boundary_daemon.php` | 30s | Boundary detection without PostGIS |
+
+**Startup job**: `scripts/indexer/run_indexer.php` runs once at boot (30s delay).
 
 ### Tiered Processing
 

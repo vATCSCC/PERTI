@@ -182,6 +182,45 @@ void swim_client_mark_position_sent(SwimClient* client, const SwimPosition* pos)
 bool swim_client_send_position_throttled(SwimClient* client, const char* callsign, const SwimPosition* pos, SwimIngestResult* result);
 ```
 
+## Error Handling
+
+All API functions return `SwimStatus` codes:
+
+```cpp
+SwimIngestResult result;
+SwimStatus status = swim_client_ingest_track(&client, &track, 1, &result);
+
+switch (status) {
+    case SWIM_OK:
+        printf("Success: %d processed\n", result.processed);
+        break;
+    case SWIM_ERROR_AUTH:
+        printf("Authentication failed - check your API key\n");
+        break;
+    case SWIM_ERROR_RATE_LIMIT:
+        printf("Rate limited - retry after %d seconds\n", result.retry_after);
+        break;
+    case SWIM_ERROR_NETWORK:
+        printf("Network error\n");
+        break;
+    case SWIM_ERROR_SERVER:
+        printf("Server error (5xx)\n");
+        break;
+    default:
+        printf("Error: %s\n", swim_status_to_string(status));
+        break;
+}
+```
+
+### Rate Limits
+
+| Tier | Prefix | Rate Limit |
+|------|--------|------------|
+| System | `swim_sys_` | 30,000/min |
+| Partner | `swim_par_` | 3,000/min |
+| Developer | `swim_dev_` | 300/min |
+| Public | `swim_pub_` | 100/min |
+
 ## Building with CMake
 
 ```cmake

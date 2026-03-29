@@ -1,8 +1,8 @@
 # Daemons and Scripts
 
-> **HIBERNATION MODE ACTIVE** (since March 22, 2026): ADL Ingest and all SWIM daemons run during hibernation (SWIM exempt). All non-SWIM daemons are suspended. See `docs/HIBERNATION_RUNBOOK.md` for re-activation procedures.
+> **SYSTEM OPERATIONAL** (hibernation exited 2026-03-29). All daemons running. See `docs/HIBERNATION_RUNBOOK.md` for hibernation procedures.
 
-Background processes that keep PERTI data current. All 17 daemons are started at App Service boot via `scripts/startup.sh` and run continuously (ADL Archive is conditional on `ADL_ARCHIVE_STORAGE_CONN`).
+Background processes that keep PERTI data current. 24 daemons are started at App Service boot via `scripts/startup.sh`. Some run always (even in hibernation), others are conditional on hibernation mode or GIS mode (`USE_GIS_DAEMONS` env var).
 
 ---
 
@@ -10,23 +10,30 @@ Background processes that keep PERTI data current. All 17 daemons are started at
 
 | Daemon | Script | Interval | Purpose | Hibernation |
 |--------|--------|----------|---------|-------------|
-| ADL Ingest | `scripts/vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS processing | **ACTIVE** |
-| Parse Queue (GIS) | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS | Suspended |
-| Boundary Detection (GIS) | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection | Suspended |
-| Crossing Calculation | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction | Suspended |
-| Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation | Suspended |
-| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events on port 8090 | **Active** (SWIM exempt) |
-| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | Sync ADL flights to SWIM_API | **Active** (SWIM exempt) |
-| SWIM TMI Sync | `scripts/swim_tmi_sync_daemon.php` | 5min | Sync TMI/CDM/flow/ref data to SWIM_API | **Active** (SWIM exempt) |
-| SWIM Refdata Sync | `scripts/refdata_sync_daemon.php` | Daily 06:00Z | Sync CDRs, playbook, airports, taxi ref to SWIM_API | **Active** (SWIM exempt) |
-| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data polling | **Active** (SWIM exempt) |
-| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL | **Active** (SWIM exempt) |
-| Scheduler | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activation | Suspended |
-| Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge | Suspended |
-| Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics collection | Suspended |
-| Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting | Suspended |
-| Event Sync | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync | Suspended |
-| ADL Archive | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage (conditional) | Suspended |
+| ADL Ingest | `scripts/vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS processing | Always |
+| SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events on port 8090 | Always |
+| SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | Sync ADL flights to SWIM_API | Always |
+| SWIM TMI Sync | `scripts/swim_tmi_sync_daemon.php` | 5min | Sync TMI/CDM/flow/ref data to SWIM_API | Always |
+| Refdata Sync | `scripts/refdata_sync_daemon.php` | Daily 06:00Z | Sync CDRs, playbook, airports, taxi ref to SWIM_API | Always |
+| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data polling | Always |
+| Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL | Always |
+| Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge | Always |
+| Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics collection | Always |
+| Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | Async TMI Discord posting (batch=50) | Always |
+| ECFMP Poll | `scripts/ecfmp_poll_daemon.php` | 5min | ECFMP flow measure polling | Always |
+| vIFF CDM Poll | `scripts/viff_cdm_poll_daemon.php` | 30s | EU CDM milestone data (`VIFF_CDM_ENABLED`) | Always |
+| Playbook Export | `scripts/playbook/export_playbook.php` | Daily | Daily playbook backup | Always |
+| ADL Archive | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage (`ADL_ARCHIVE_STORAGE_CONN`) | Always |
+| Parse Queue (GIS) | `adl/php/parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS | Skipped |
+| Boundary Detection (GIS) | `adl/php/boundary_gis_daemon.php` | 15s | Spatial boundary detection | Skipped |
+| Crossing Calculation | `adl/php/crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction | Skipped |
+| Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation | Skipped |
+| Scheduler | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activation | Skipped |
+| Event Sync | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync | Skipped |
+| CDM | `scripts/cdm_daemon.php` | 60s | A-CDM milestone computation | Skipped |
+| vACDM Poll | `scripts/vacdm_poll_daemon.php` | 2min | vACDM instance polling | Skipped |
+| Parse Queue (Legacy) | `adl/php/parse_queue_daemon.php` | 5s batch | Route parsing without PostGIS (fallback) | Skipped |
+| Boundary (Legacy) | `adl/php/boundary_daemon.php` | 30s | Boundary detection without PostGIS (fallback) | Skipped |
 
 ---
 

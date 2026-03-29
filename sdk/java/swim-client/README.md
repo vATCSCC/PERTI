@@ -38,7 +38,8 @@ implementation 'org.vatsim.swim:swim-client:1.0.0'
 import org.vatsim.swim.SwimRestClient;
 import org.vatsim.swim.model.Flight;
 
-try (SwimRestClient client = new SwimRestClient("your-api-key")) {
+// Use your tier-prefixed key: swim_sys_, swim_par_, swim_dev_, or swim_pub_
+try (SwimRestClient client = new SwimRestClient("swim_dev_your_api_key")) {
     // Get flights to JFK
     List<Flight> flights = client.getFlights("KJFK", null, "active");
     
@@ -168,6 +169,7 @@ for (GdpProgram gdp : tmi.getGdpPrograms()) {
 | `flight.positions` | Batched position updates |
 | `flight.*` | All flight events |
 | `tmi.issued` | New GS/GDP created |
+| `tmi.modified` | TMI modified |
 | `tmi.released` | TMI ended |
 | `tmi.*` | All TMI events |
 | `system.heartbeat` | Server keepalive |
@@ -192,7 +194,30 @@ try {
     List<Flight> flights = client.getFlights("KJFK", null, "active");
 } catch (SwimApiException e) {
     System.err.println("API Error [" + e.getStatusCode() + "]: " + e.getMessage());
+
+    // Rate limit handling
+    if (e.getStatusCode() == 429) {
+        String retryAfter = e.getHeaders().getOrDefault("Retry-After", "60");
+        System.err.println("Rate limited. Retry after " + retryAfter + "s");
+    }
 }
+```
+
+### Rate Limits
+
+| Tier | Prefix | Rate Limit |
+|------|--------|------------|
+| System | `swim_sys_` | 30,000/min |
+| Partner | `swim_par_` | 3,000/min |
+| Developer | `swim_dev_` | 300/min |
+| Public | `swim_pub_` | 100/min |
+
+### FIXM Format
+
+Request FIXM-aligned field names with `format("fixm")`:
+
+```java
+List<Flight> flights = client.getFlights("KJFK", null, "active", "fixm");
 ```
 
 ## Models

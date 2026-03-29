@@ -1,7 +1,7 @@
 # PERTI Codebase Dependency Map
 
-> Generated: 2026-01-31 | Verified: 2026-02-25
-> Total PHP API Files: 368 | Frontend Pages: 20+ | JS Files: 43 | Scripts: 50+
+> Generated: 2026-01-31 | Verified: 2026-02-25 | Updated: 2026-03-29
+> Total PHP API Files: 400+ | Frontend Pages: 32+ | JS Files: 71+ | Scripts: 70+
 
 ---
 
@@ -25,6 +25,7 @@
 │                              FRONTEND LAYER                                  │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
 │  │index.php│ │plan.php │ │route.php│ │demand.php│ │ nod.php │ │ gdt.php │   │
+│  │cdm.php  │ │ctp.php  │ │navdata  │ │hist-rte  │ │playbook │ │ jatoc   │   │
 │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘   │
 │       │           │           │           │           │           │         │
 │  ┌────┴───────────┴───────────┴───────────┴───────────┴───────────┴────┐   │
@@ -38,6 +39,7 @@
 │                              API LAYER (368 endpoints)                       │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐   │
 │  │ /api/adl│ │/api/data│ │/api/tmi │ │/api/mgt │ │/api/swim│ │/api/gdt │   │
+│  │/api/ctp │ │/api/cdm │ │/api/gis │ │/api/rte │ │/api/dem │ │/api/dsc │   │
 │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘   │
 │       └───────────┴───────────┴─────┬─────┴───────────┴───────────┘         │
 └─────────────────────────────────────┼───────────────────────────────────────┘
@@ -544,6 +546,26 @@ Statsim.net
 ├── Called By: scripts/statsim/fetch_new_events.py
 ├── Purpose: VATUSA event data
 └── Depth: External (scheduled task)
+
+ECFMP API
+├── Called By: scripts/ecfmp_poll_daemon.php
+├── Purpose: EUROCONTROL-style flow measures
+└── Depth: External (daemon, 5min)
+
+vACDM API
+├── Called By: scripts/vacdm_poll_daemon.php
+├── Purpose: A-CDM airport milestones
+└── Depth: External (daemon, 2min)
+
+vIFF CDM API
+├── Called By: scripts/viff_cdm_poll_daemon.php
+├── Purpose: EU CDM milestone data
+└── Depth: External (daemon, 30s, conditional)
+
+CTP API
+├── Called By: load/services/CTPApiClient.php
+├── Purpose: Collaborative Traffic Planning (oceanic/special events)
+└── Depth: External (service layer)
 ```
 
 ### 7.2 Inbound API (SWIM)
@@ -556,7 +578,16 @@ Statsim.net
 │   ├── ingest/track.php ← Position updates
 │   ├── ingest/acars.php ← ACARS messages
 │   ├── ingest/simtraffic.php ← SimTraffic data
-│   └── ingest/vnas/*.php ← vNAS data
+│   ├── ingest/cdm.php ← CDM milestone data
+│   ├── ingest/ctp.php ← CTP session data
+│   ├── ingest/metering.php ← Metering data
+│   ├── ingest/vnas/*.php ← vNAS data
+│   ├── cdm/*.php ← CDM compliance, metrics, readiness
+│   ├── connectors/*.php ← Connector health/status
+│   ├── ctp/sessions.php ← CTP session management
+│   ├── playbook/*.php ← Playbook route data
+│   ├── reference/*.php ← Reference data
+│   └── routes/*.php ← Route data
 ├── Rate Limits: Defined in swim_config.php
 └── Depth: 3 (auth → endpoint → database)
 ```

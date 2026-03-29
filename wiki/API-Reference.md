@@ -1,6 +1,6 @@
 # API Reference
 
-> **Version:** v18 | **Updated:** February 2026
+> **Version:** v19 | **Updated:** March 2026
 
 This document provides a comprehensive reference for PERTI's RESTful API endpoints. These APIs enable integration with external systems and support the web interface.
 
@@ -1462,9 +1462,9 @@ Exceeded SWIM rate limits return HTTP 429 with retry information.
 
 ---
 
-## SWIM v1 APIs
+## SWIM v1 APIs (v1.2.0)
 
-System Wide Information Management - external flight data integration.
+System Wide Information Management - external flight data integration. See `docs/swim/VATSWIM_API_Documentation.md` for full documentation.
 
 ### Authentication
 
@@ -1584,6 +1584,17 @@ Returns flights under TMI control (with EDCTs).
 |-----------|------|-------------|
 | `program_id` | int | Filter by specific program |
 | `airport` | string | Filter by control element |
+
+### Additional SWIM Endpoints (v19)
+
+| Path | Description |
+|------|-------------|
+| `GET /api/swim/v1/cdm/*` | CDM milestones and status |
+| `GET /api/swim/v1/ctp/*` | CTP sessions, slots, capacity |
+| `GET /api/swim/v1/controllers` | ATC controller data with sector assignments |
+| `GET /api/swim/v1/connectors/status` | External connector health |
+| `GET /api/swim/v1/routes/*` | CDR and playbook route data |
+| `POST /api/swim/v1/ingest/*` | Flight, track, metering, CDM ingest |
 
 ### Reference Data (v18)
 
@@ -1873,6 +1884,72 @@ Returns reroute details with assigned flights.
 
 ---
 
+## CDM APIs (v19)
+
+Collaborative Decision Making endpoints for A-CDM milestone tracking and EDCT delivery.
+
+### GET /api/data/cdm/status.php
+
+Returns CDM operational status for airports.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `airport` | string | Airport ICAO code |
+
+### GET /api/data/cdm/milestones.php
+
+Returns A-CDM milestone data (TOBT, TSAT, TTOT) for flights.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `airport` | string | Airport ICAO code (required) |
+| `window` | int | Time window in minutes (default: 120) |
+
+### SWIM CDM Endpoints
+
+| Path | Description |
+|------|-------------|
+| `GET /api/swim/v1/cdm/status` | CDM airport status |
+| `GET /api/swim/v1/cdm/milestones` | Flight milestones |
+| `POST /api/swim/v1/cdm/tobt` | Update TOBT (partner tier) |
+
+---
+
+## CTP APIs (v19)
+
+Cross the Pond event management endpoints.
+
+### GET /api/ctp/sessions.php
+
+Returns CTP event sessions and configuration.
+
+**Access:** Authenticated
+
+### GET /api/ctp/slots.php
+
+Returns CTP slot assignments and capacity data.
+
+**Access:** Authenticated
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `session_id` | int | CTP session ID |
+| `track` | string | NAT track identifier |
+
+### SWIM CTP Endpoints
+
+| Path | Description |
+|------|-------------|
+| `GET /api/swim/v1/ctp/sessions` | CTP sessions |
+| `GET /api/swim/v1/ctp/slots` | Slot assignments |
+| `GET /api/swim/v1/ctp/capacity` | Track capacity |
+
+---
+
 ## See Also
 
 - [[ADL API]] - Detailed ADL API documentation
@@ -1880,5 +1957,7 @@ Returns reroute details with assigned flights.
 - [[GIS API]] - PostGIS spatial query documentation
 - [[NOD Discord API]] - NOD Discord integration details
 - [[Simulator API]] - ATFM training simulator details
+- [[CDM API]] - Collaborative Decision Making endpoints
+- [[CTP API]] - Cross the Pond event management
 - [[Architecture]] - System architecture overview
 - [[Navigation Helper]] - Find the right documentation quickly

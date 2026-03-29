@@ -56,6 +56,7 @@
 
 **Features**
 - [[GDT Ground Delay Tool]]
+- [[GDT Reference]] (TFMS/FAA source synthesis)
 - [[Route Plotter]]
 - [[Playbook]]
 - [[JATOC]]
@@ -99,4 +100,4 @@
 - [[FAQ]]
 - [[FMDS Comparison]]
 - [[Changelog]]
-- [[Security Policy|SECURITY]]
+- [Security Policy](../blob/main/SECURITY.md)

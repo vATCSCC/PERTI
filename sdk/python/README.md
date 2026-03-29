@@ -39,8 +39,8 @@ pip install -e .
 ```python
 from swim_client import SWIMRestClient
 
-# Create client
-client = SWIMRestClient('your-api-key')
+# Create client (use your tier-prefixed key: swim_sys_, swim_par_, swim_dev_, or swim_pub_)
+client = SWIMRestClient('swim_dev_your_api_key')
 
 # Get active flights to JFK
 flights = client.get_flights(dest_icao='KJFK')
@@ -356,7 +356,47 @@ try:
 except SWIMRestError as e:
     print(f"API Error [{e.status_code}]: {e.message}")
     print(f"Error Code: {e.code}")
+
+    # Rate limit handling
+    if e.status_code == 429:
+        retry_after = e.headers.get('Retry-After', 60)
+        print(f"Rate limited. Retry after {retry_after}s")
 ```
+
+### Error Types
+
+| Exception | Status Code | Description |
+|-----------|-------------|-------------|
+| `SWIMRestError` | Any | Base API error with `status_code`, `code`, `message` |
+
+### Rate Limits
+
+Rate limits are per API key tier:
+
+| Tier | Prefix | Rate Limit |
+|------|--------|------------|
+| System | `swim_sys_` | 30,000/min |
+| Partner | `swim_par_` | 3,000/min |
+| Developer | `swim_dev_` | 300/min |
+| Public | `swim_pub_` | 100/min |
+
+Rate limit headers are included in every response: `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+
+## FIXM Format
+
+Request FIXM-aligned field names by adding `format=fixm` to any query:
+
+```python
+# Legacy field names (default)
+flights = client.get_flights(dest_icao='KJFK')
+print(flight.times.eta)  # eta_utc
+
+# FIXM-aligned field names
+flights = client.get_flights(dest_icao='KJFK', format='fixm')
+print(flight.times.estimated_time_of_arrival)  # FIXM name
+```
+
+See VATSWIM_FIXM_Field_Mapping.md for complete legacy-to-FIXM mapping.
 
 ## Configuration
 

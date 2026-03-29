@@ -129,7 +129,7 @@ info:
     - `data_provider_example.py` - CRC/provider data ingest
     - `route_compliance_monitor.py` - Reroute compliance tracking
 
-  version: 1.1.0
+  version: 1.2.0
   contact:
     name: vATCSCC Development Team
     email: dev@vatcscc.org

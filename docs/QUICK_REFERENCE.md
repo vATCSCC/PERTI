@@ -1,8 +1,8 @@
 # PERTI Quick Reference Index
 
-Quick lookup for common codebase elements. Last updated: 2026-03-12
+Quick lookup for common codebase elements. Last updated: 2026-03-29
 
-> **SYSTEM STATUS: HIBERNATED** (since March 22, 2026). ADL ingest + all SWIM daemons run (SWIM exempt). Non-SWIM daemons suspended. Azure resources downscaled (PostGIS kept at B2s). See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
+> **SYSTEM STATUS: OPERATIONAL** (hibernation exited 2026-03-29). All daemons running. Azure resources upscaled. See `docs/HIBERNATION_RUNBOOK.md` for hibernation procedures.
 
 ---
 
@@ -174,7 +174,7 @@ Quick lookup for common codebase elements. Last updated: 2026-03-12
 
 ## Daemons & Scripts Index
 
-### PHP Daemons (15 total, started via startup.sh -- only ADL Ingest active during hibernation)
+### PHP Daemons (24 total, started via startup.sh)
 
 | Daemon | File | Interval | Purpose |
 |--------|------|----------|---------|
@@ -185,14 +185,23 @@ Quick lookup for common codebase elements. Last updated: 2026-03-12
 | Waypoint ETA | `adl/php/waypoint_eta_daemon.php` | Tiered | Waypoint ETA calc |
 | SWIM WebSocket | `scripts/swim_ws_server.php` | Persistent | Real-time events (port 8090) |
 | SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | ADL → SWIM_API sync |
+| SWIM TMI Sync | `scripts/swim_tmi_sync_daemon.php` | 5min | TMI/CDM/ref → SWIM_API sync |
+| Refdata Sync | `scripts/refdata_sync_daemon.php` | Daily 06:00Z | CDR + playbook reimport |
 | SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data |
 | Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic → ADL |
 | Scheduler | `scripts/scheduler_daemon.php` | 60s | Splits/routes auto-activate |
 | Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, purge |
 | Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics |
 | Discord Queue | `scripts/tmi/process_discord_queue.php` | Continuous | TMI Discord posting |
+| ECFMP Poll | `scripts/ecfmp_poll_daemon.php` | 5min | ECFMP flow measure polling |
+| vIFF CDM Poll | `scripts/viff_cdm_poll_daemon.php` | 30s | EU CDM milestone data |
+| Playbook Export | `scripts/playbook/export_playbook.php` | Daily | Daily playbook backup |
 | Event Sync | `scripts/event_sync_daemon.php` | 6h | Event sync (VATUSA/VATCAN) |
+| CDM | `scripts/cdm_daemon.php` | 60s | A-CDM milestone computation |
+| vACDM Poll | `scripts/vacdm_poll_daemon.php` | 2min | vACDM instance polling |
 | ADL Archive | `scripts/adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival (conditional) |
+| Parse Queue (Legacy) | `adl/php/parse_queue_daemon.php` | 5s batch | Route parsing (non-GIS fallback) |
+| Boundary (Legacy) | `adl/php/boundary_daemon.php` | 30s | Boundary detection (non-GIS fallback) |
 
 ### Import Scripts
 

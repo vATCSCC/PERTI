@@ -134,16 +134,16 @@ The JavaScript (`term-inits.js`) only calls:
 
 **Recommendation**: Delete these files.
 
-### 3.5 Incomplete Feature: JATOC Integration (2 files)
+### 3.5 ~~Incomplete Feature: JATOC Integration~~ **CORRECTION: JATOC IS ACTIVE** (2 files)
+
+> **UPDATE 2026-03-29**: JATOC is a fully active subsystem (170+ references across 20+ PHP files, with `jatoc.php` page, 10+ API endpoints, nav links, and database tables). The two files below may have limited direct JS callers but are part of the active JATOC subsystem and should NOT be deleted.
 
 | File | Lines | Purpose | Status |
 |------|-------|---------|--------|
-| `api/jatoc/faa_ops_plan.php` | ~300 | FAA Operations Plan import | Never completed |
-| `api/jatoc/special_emphasis.php` | ~200 | Special emphasis items | Never completed |
+| `api/jatoc/faa_ops_plan.php` | ~300 | FAA Operations Plan import | Active JATOC subsystem |
+| `api/jatoc/special_emphasis.php` | ~200 | Special emphasis items | Active JATOC subsystem |
 
-**Analysis**: JATOC (Joint Air Traffic Operations Center) integration was started but never finished. No JavaScript or other PHP files reference these endpoints.
-
-**Recommendation**: Archive to `_archive/jatoc/` or delete with documentation note.
+**Recommendation**: Keep. These are part of the active JATOC module.
 
 ### 3.6 Incomplete Feature: Ground Stop Data (2 files)
 

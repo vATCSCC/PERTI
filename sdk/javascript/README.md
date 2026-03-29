@@ -30,7 +30,8 @@ pnpm add @vatsim/swim-client
 ```typescript
 import { SwimRestClient } from '@vatsim/swim-client';
 
-const client = new SwimRestClient('your-api-key');
+// Use your tier-prefixed key: swim_sys_, swim_par_, swim_dev_, or swim_pub_
+const client = new SwimRestClient('swim_dev_your_api_key');
 
 // Get flights to JFK
 const flights = await client.getFlights({ dest_icao: 'KJFK' });
@@ -205,6 +206,7 @@ const result = await client.ingestTracks([
 | `flight.positions` | Batched position updates |
 | `flight.*` | All flight events |
 | `tmi.issued` | New GS/GDP created |
+| `tmi.modified` | TMI modified |
 | `tmi.released` | TMI ended |
 | `tmi.*` | All TMI events |
 | `system.heartbeat` | Server keepalive |
@@ -265,8 +267,31 @@ try {
 } catch (error) {
   if (error instanceof SwimApiError) {
     console.error(`API Error [${error.statusCode}]: ${error.errorCode} - ${error.message}`);
+
+    // Rate limit handling
+    if (error.statusCode === 429) {
+      const retryAfter = error.headers?.get('Retry-After') ?? 60;
+      console.log(`Rate limited. Retry after ${retryAfter}s`);
+    }
   }
 }
+```
+
+### Rate Limits
+
+| Tier | Prefix | Rate Limit |
+|------|--------|------------|
+| System | `swim_sys_` | 30,000/min |
+| Partner | `swim_par_` | 3,000/min |
+| Developer | `swim_dev_` | 300/min |
+| Public | `swim_pub_` | 100/min |
+
+### FIXM Format
+
+Request FIXM-aligned field names with `format: 'fixm'`:
+
+```typescript
+const flights = await client.getFlights({ dest_icao: 'KJFK', format: 'fixm' });
 ```
 
 ## TypeScript Support

@@ -1,5 +1,5 @@
 # PERTI TMI System Documentation Index
-**Last Updated:** January 27, 2026
+**Last Updated:** March 29, 2026
 
 ---
 
@@ -65,15 +65,41 @@
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Schema Design | ✅ Complete | See GDT design doc |
-| Database Migration | ✅ Complete | Jan 21, 2026 - 010/011/012 deployed |
-| GDT Tables | ✅ Complete | tmi_flight_control, tmi_popup_queue |
+| Database Migration | ✅ Complete | Migrations 010-041 deployed |
+| GDT Tables | ✅ Complete | tmi_flight_control, tmi_popup_queue, tmi_slots |
 | GDT Views | ✅ Complete | 6 views deployed + gs_flag |
-| GDT Procedures | ✅ Complete | 12 procedures deployed |
+| GDT Procedures | ✅ Complete | 12+ procedures deployed |
 | GS Eligibility Flag | ✅ Complete | Migration 009 - phase-based gs_flag |
-| Ground Stop UI | 🔄 In Progress | Basic implementation |
-| GDP UI | 📋 Planned | After GS complete |
-| API Layer | 🔄 In Progress | /api/gdt/* endpoints |
-| Daemon Integration | 📋 Planned | Pop-up detection |
+| Ground Stop UI | ✅ Complete | Full GS lifecycle |
+| GDP UI | ✅ Complete | CASA-FPFS + RBD hybrid algorithm |
+| API Layer | ✅ Complete | /api/gdt/* endpoints |
+| Compression | ✅ Complete | Migration 037 - compress.php endpoint |
+| Reoptimization | ✅ Complete | Migration 039 - sp_TMI_ReoptimizeProgram |
+| Variable Rate Editor | ✅ Complete | Hourly + Edit 15 tiers |
+| Advisory Generation | ✅ Complete | Variable rate advisory display |
+| Power Run | ✅ Complete | Localhost:8080 optimization |
+| Reversal Metrics | ✅ Complete | Migration 041 - anti-gaming flags |
+| TMI-ADL Sync | ✅ Complete | executeDeferredTMISync() in ADL daemon |
+
+### CDM Integration (cdm.php)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| CDM Page | ✅ Complete | cdm.php with CDM dashboard |
+| CDM API | ✅ Complete | /api/data/cdm/*, /api/swim/v1/cdm/* |
+| CDM Daemon | ✅ Complete | scripts/cdm_daemon.php (60s) |
+| vACDM Poll | ✅ Complete | scripts/vacdm_poll_daemon.php (2min) |
+| CDM Service | ✅ Complete | load/services/CDMService.php |
+| EDCT Delivery | ✅ Complete | load/services/EDCTDelivery.php |
+
+### CTP Integration (ctp.php)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| CTP Page | ✅ Complete | ctp.php with CTP dashboard |
+| CTP API | ✅ Complete | /api/ctp/*, /api/swim/v1/ctp/* |
+| CTP Playbook Sync | ✅ Complete | load/services/CTPPlaybookSync.php |
+| CTP API Client | ✅ Complete | load/services/CTPApiClient.php |
 
 ---
 
