@@ -83,6 +83,7 @@ RETURNS TABLE (
 DECLARE
     trajectory GEOMETRY;
     total_length_m FLOAT;
+    v_shifted BOOLEAN;
 BEGIN
     -- Build trajectory line
     trajectory := build_trajectory_line(p_waypoints);
@@ -91,8 +92,14 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Get total length in meters (for nm conversion)
+    -- Get total length BEFORE shifting (geography handles antimeridian correctly)
     total_length_m := ST_Length(trajectory::geography);
+
+    -- Detect and handle antimeridian crossing
+    v_shifted := crosses_antimeridian(trajectory);
+    IF v_shifted THEN
+        trajectory := ST_ShiftLongitude(trajectory);
+    END IF;
 
     RETURN QUERY
     WITH crossings AS (
@@ -101,9 +108,15 @@ BEGIN
             ab.artcc_code,
             ab.fir_name AS artcc_name,
             COALESCE(ab.is_oceanic, FALSE) AS is_oceanic,
-            (ST_Dump(ST_Intersection(trajectory, ST_Boundary(ab.geom)))).geom AS crossing_point
+            (ST_Dump(ST_Intersection(
+                trajectory,
+                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END)
+            ))).geom AS crossing_point
         FROM artcc_boundaries ab
-        WHERE ST_Intersects(trajectory, ab.geom)
+        WHERE ST_Intersects(
+            trajectory,
+            CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+        )
     ),
     crossing_details AS (
         SELECT
@@ -111,7 +124,7 @@ BEGIN
             c.artcc_name,
             c.is_oceanic,
             ST_Y(c.crossing_point)::DECIMAL(10,6) AS crossing_lat,
-            ST_X(c.crossing_point)::DECIMAL(11,6) AS crossing_lon,
+            normalize_lon(ST_X(c.crossing_point))::DECIMAL(11,6) AS crossing_lon,
             ST_LineLocatePoint(trajectory, c.crossing_point) AS crossing_fraction
         FROM crossings c
         WHERE ST_GeometryType(c.crossing_point) = 'ST_Point'
@@ -127,7 +140,8 @@ BEGIN
         -- Determine if entry or exit based on containment before/after crossing
         CASE
             WHEN ST_Contains(
-                (SELECT ab2.geom FROM artcc_boundaries ab2 WHERE ab2.artcc_code = cd.artcc_code LIMIT 1),
+                (SELECT CASE WHEN v_shifted THEN ST_ShiftLongitude(ab2.geom) ELSE ab2.geom END
+                 FROM artcc_boundaries ab2 WHERE ab2.artcc_code = cd.artcc_code LIMIT 1),
                 ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
             ) THEN 'ENTRY'::VARCHAR(5)
             ELSE 'EXIT'::VARCHAR(5)
@@ -163,6 +177,7 @@ RETURNS TABLE (
 DECLARE
     trajectory GEOMETRY;
     total_length_m FLOAT;
+    v_shifted BOOLEAN;
 BEGIN
     trajectory := build_trajectory_line(p_waypoints);
 
@@ -170,7 +185,14 @@ BEGIN
         RETURN;
     END IF;
 
+    -- Get total length BEFORE shifting
     total_length_m := ST_Length(trajectory::geography);
+
+    -- Detect and handle antimeridian crossing
+    v_shifted := crosses_antimeridian(trajectory);
+    IF v_shifted THEN
+        trajectory := ST_ShiftLongitude(trajectory);
+    END IF;
 
     RETURN QUERY
     WITH crossings AS (
@@ -179,9 +201,15 @@ BEGIN
             sb.sector_name,
             sb.sector_type,
             sb.parent_artcc,
-            (ST_Dump(ST_Intersection(trajectory, ST_Boundary(sb.geom)))).geom AS crossing_point
+            (ST_Dump(ST_Intersection(
+                trajectory,
+                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END)
+            ))).geom AS crossing_point
         FROM (SELECT sector_code, sector_name, sector_type, parent_artcc, geom FROM sector_boundaries WHERE ST_IsValid(geom)) sb
-        WHERE ST_Intersects(trajectory, sb.geom)
+        WHERE ST_Intersects(
+            trajectory,
+            CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+        )
           AND (p_sector_type IS NULL OR sb.sector_type = p_sector_type)
     ),
     crossing_details AS (
@@ -191,7 +219,7 @@ BEGIN
             c.sector_type,
             c.parent_artcc,
             ST_Y(c.crossing_point)::DECIMAL(10,6) AS crossing_lat,
-            ST_X(c.crossing_point)::DECIMAL(11,6) AS crossing_lon,
+            normalize_lon(ST_X(c.crossing_point))::DECIMAL(11,6) AS crossing_lon,
             ST_LineLocatePoint(trajectory, c.crossing_point) AS crossing_fraction
         FROM crossings c
         WHERE ST_GeometryType(c.crossing_point) = 'ST_Point'
@@ -207,7 +235,8 @@ BEGIN
         (cd.crossing_fraction * total_length_m / 1852.0)::FLOAT AS distance_nm,
         CASE
             WHEN ST_Contains(
-                (SELECT sb2.geom FROM sector_boundaries sb2 WHERE sb2.sector_code = cd.sector_code LIMIT 1),
+                (SELECT CASE WHEN v_shifted THEN ST_ShiftLongitude(sb2.geom) ELSE sb2.geom END
+                 FROM sector_boundaries sb2 WHERE sb2.sector_code = cd.sector_code LIMIT 1),
                 ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
             ) THEN 'ENTRY'::VARCHAR(5)
             ELSE 'EXIT'::VARCHAR(5)
@@ -242,6 +271,7 @@ RETURNS TABLE (
 DECLARE
     trajectory GEOMETRY;
     total_length_m FLOAT;
+    v_shifted BOOLEAN;
 BEGIN
     trajectory := build_trajectory_line(p_waypoints);
 
@@ -249,7 +279,14 @@ BEGIN
         RETURN;
     END IF;
 
+    -- Get total length BEFORE shifting (geography handles antimeridian correctly)
     total_length_m := ST_Length(trajectory::geography);
+
+    -- Detect and handle antimeridian crossing
+    v_shifted := crosses_antimeridian(trajectory);
+    IF v_shifted THEN
+        trajectory := ST_ShiftLongitude(trajectory);
+    END IF;
 
     RETURN QUERY
     -- ARTCC crossings
@@ -259,9 +296,15 @@ BEGIN
             ab.artcc_code::VARCHAR(16) AS boundary_code,
             ab.fir_name AS boundary_name,
             ab.artcc_code AS parent_artcc,
-            (ST_Dump(ST_Intersection(trajectory, ST_Boundary(ab.geom)))).geom AS crossing_point
+            (ST_Dump(ST_Intersection(
+                trajectory,
+                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END)
+            ))).geom AS crossing_point
         FROM artcc_boundaries ab
-        WHERE ST_Intersects(trajectory, ab.geom)
+        WHERE ST_Intersects(
+            trajectory,
+            CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+        )
     ),
     sector_crossings AS (
         SELECT
@@ -269,9 +312,15 @@ BEGIN
             sb.sector_code::VARCHAR(16) AS boundary_code,
             sb.sector_name AS boundary_name,
             sb.parent_artcc,
-            (ST_Dump(ST_Intersection(trajectory, ST_Boundary(sb.geom)))).geom AS crossing_point
+            (ST_Dump(ST_Intersection(
+                trajectory,
+                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END)
+            ))).geom AS crossing_point
         FROM (SELECT sector_code, sector_type, sector_name, parent_artcc, geom FROM sector_boundaries WHERE ST_IsValid(geom)) sb
-        WHERE ST_Intersects(trajectory, sb.geom)
+        WHERE ST_Intersects(
+            trajectory,
+            CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+        )
     ),
     all_crossings AS (
         SELECT * FROM artcc_crossings
@@ -285,7 +334,7 @@ BEGIN
             ac.boundary_name,
             ac.parent_artcc,
             ST_Y(ac.crossing_point)::DECIMAL(10,6) AS crossing_lat,
-            ST_X(ac.crossing_point)::DECIMAL(11,6) AS crossing_lon,
+            normalize_lon(ST_X(ac.crossing_point))::DECIMAL(11,6) AS crossing_lon,
             ST_LineLocatePoint(trajectory, ac.crossing_point) AS crossing_fraction
         FROM all_crossings ac
         WHERE ST_GeometryType(ac.crossing_point) = 'ST_Point'
@@ -303,12 +352,14 @@ BEGIN
         CASE
             WHEN cd.boundary_type = 'ARTCC' THEN
                 CASE WHEN ST_Contains(
-                    (SELECT ab2.geom FROM artcc_boundaries ab2 WHERE ab2.artcc_code = cd.boundary_code::VARCHAR(4) LIMIT 1),
+                    (SELECT CASE WHEN v_shifted THEN ST_ShiftLongitude(ab2.geom) ELSE ab2.geom END
+                     FROM artcc_boundaries ab2 WHERE ab2.artcc_code = cd.boundary_code::VARCHAR(4) LIMIT 1),
                     ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
                 ) THEN 'ENTRY'::VARCHAR(5) ELSE 'EXIT'::VARCHAR(5) END
             ELSE
                 CASE WHEN ST_Contains(
-                    (SELECT sb2.geom FROM sector_boundaries sb2 WHERE sb2.sector_code = cd.boundary_code LIMIT 1),
+                    (SELECT CASE WHEN v_shifted THEN ST_ShiftLongitude(sb2.geom) ELSE sb2.geom END
+                     FROM sector_boundaries sb2 WHERE sb2.sector_code = cd.boundary_code LIMIT 1),
                     ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
                 ) THEN 'ENTRY'::VARCHAR(5) ELSE 'EXIT'::VARCHAR(5) END
         END AS crossing_type
@@ -443,6 +494,7 @@ RETURNS TEXT[] AS $$
 DECLARE
     trajectory GEOMETRY;
     artccs TEXT[];
+    v_shifted BOOLEAN;
 BEGIN
     trajectory := build_trajectory_line(p_waypoints);
 
@@ -450,8 +502,13 @@ BEGIN
         RETURN ARRAY[]::TEXT[];
     END IF;
 
+    -- Detect and handle antimeridian crossing
+    v_shifted := crosses_antimeridian(trajectory);
+    IF v_shifted THEN
+        trajectory := ST_ShiftLongitude(trajectory);
+    END IF;
+
     -- Get unique ARTCCs in first-crossing order using ST_Boundary for precise points
-    -- This matches the approach used in get_trajectory_artcc_crossings
     SELECT array_agg(sub.artcc_code ORDER BY sub.first_crossing)
     INTO artccs
     FROM (
@@ -460,9 +517,15 @@ BEGIN
             MIN(ST_LineLocatePoint(trajectory, crossing_point.geom)) AS first_crossing
         FROM artcc_boundaries ab
         CROSS JOIN LATERAL (
-            SELECT (ST_Dump(ST_Intersection(trajectory, ST_Boundary(ab.geom)))).geom
+            SELECT (ST_Dump(ST_Intersection(
+                trajectory,
+                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END)
+            ))).geom
         ) AS crossing_point
-        WHERE ST_Intersects(trajectory, ab.geom)
+        WHERE ST_Intersects(
+            trajectory,
+            CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+        )
           AND NOT COALESCE(ab.is_oceanic, FALSE)
           AND ST_GeometryType(crossing_point.geom) = 'ST_Point'
         GROUP BY ab.artcc_code
