@@ -88,16 +88,23 @@ if ($auto_completed_count > 0) {
 }
 
 // Auto-purge stale MODELING programs (older than 2 hours, never activated)
-$purge_sql = "
-    UPDATE dbo.tmi_programs
-    SET status = 'PURGED',
-        updated_at = SYSUTCDATETIME(),
-        purged_at = SYSUTCDATETIME()
-    WHERE status = 'MODELING'
-      AND created_at < DATEADD(HOUR, -2, SYSUTCDATETIME())
-";
-$purge_stmt = sqlsrv_query($conn_tmi, $purge_sql);
-if ($purge_stmt !== false) sqlsrv_free_stmt($purge_stmt);
+// Hard-delete: these are ephemeral workspace items, not historical records
+$stale_ids_sql = "SELECT program_id FROM dbo.tmi_programs WHERE status = 'MODELING' AND created_at < DATEADD(HOUR, -2, SYSUTCDATETIME())";
+$stale_result = fetch_all($conn_tmi, $stale_ids_sql);
+
+if ($stale_result['success'] && !empty($stale_result['data'])) {
+    $stale_ids = array_column($stale_result['data'], 'program_id');
+    $id_list = implode(',', array_map('intval', $stale_ids));
+
+    // Clear non-cascading FK refs first (order matters: tmi_flight_control before tmi_slots cascade)
+    sqlsrv_query($conn_tmi, "DELETE FROM dbo.tmi_flight_control WHERE program_id IN ($id_list)");
+    sqlsrv_query($conn_tmi, "DELETE FROM dbo.tmi_advisories WHERE program_id IN ($id_list)");
+    sqlsrv_query($conn_tmi, "DELETE FROM dbo.ctp_sessions WHERE program_id IN ($id_list)");
+    sqlsrv_query($conn_tmi, "UPDATE dbo.tmi_programs SET parent_program_id = NULL WHERE parent_program_id IN ($id_list)");
+    sqlsrv_query($conn_tmi, "UPDATE dbo.tmi_programs SET superseded_by_id = NULL WHERE superseded_by_id IN ($id_list)");
+    // CASCADE handles: tmi_slots, tmi_flight_list, tmi_popup_queue, tmi_program_coordination_log
+    sqlsrv_query($conn_tmi, "DELETE FROM dbo.tmi_programs WHERE program_id IN ($id_list)");
+}
 
 // Build query: active + proposed + modeling, optionally recent completed/cancelled
 $sql = "

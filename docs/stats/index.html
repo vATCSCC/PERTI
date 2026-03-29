@@ -1023,7 +1023,7 @@
 
     <div class="footer">
         &copy; 2026 Virtual Air Traffic Control System Command Center (vATCSCC) &bull;
-        Data refreshes every 5 minutes &bull;
+        Data refreshes periodically &bull;
         <a href="https://vatcscc.org">vatcscc.org</a>
     </div>
 
@@ -1037,7 +1037,6 @@
         document.addEventListener('DOMContentLoaded', async () => {
             initCharts();
             await loadOverviewData();
-            await loadHeatmap();
             populateYearSelectors();
         });
 
@@ -1140,6 +1139,11 @@
                 renderDowChart(data.seasonality);
                 renderRegionalChart(data.regional);
                 renderDistributionChart(data.distribution);
+                if (data.heatmap) {
+                    renderHeatmap(data.heatmap);
+                } else {
+                    await loadHeatmap();
+                }
 
             } catch (err) {
                 console.error('Failed to load data:', err);
@@ -1932,10 +1936,14 @@
             `).join('');
         }
 
+        const OVERVIEW_REFRESH_MS = 30 * 60 * 1000;
+
         // Auto-refresh
         setInterval(() => {
-            if (currentView === 'overview') loadOverviewData();
-        }, 300000);
+            if (document.visibilityState === 'visible' && currentView === 'overview') {
+                loadOverviewData();
+            }
+        }, OVERVIEW_REFRESH_MS);
     </script>
 </body>
 </html>

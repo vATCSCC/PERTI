@@ -82,6 +82,30 @@ if (in_array($status, ['PURGED', 'COMPLETED', 'CANCELLED', 'TRANSITIONED'])) {
 }
 
 // ============================================================================
+// MODELING programs: hard-delete (ephemeral, no history to preserve)
+// ============================================================================
+if ($status === 'MODELING') {
+    sqlsrv_begin_transaction($conn_tmi);
+
+    // Clear non-cascading FK refs first (order matters: tmi_flight_control before tmi_slots cascade)
+    execute_query($conn_tmi, "DELETE FROM dbo.tmi_flight_control WHERE program_id = ?", [$program_id]);
+    execute_query($conn_tmi, "DELETE FROM dbo.tmi_advisories WHERE program_id = ?", [$program_id]);
+    execute_query($conn_tmi, "DELETE FROM dbo.ctp_sessions WHERE program_id = ?", [$program_id]);
+    execute_query($conn_tmi, "UPDATE dbo.tmi_programs SET parent_program_id = NULL WHERE parent_program_id = ?", [$program_id]);
+    execute_query($conn_tmi, "UPDATE dbo.tmi_programs SET superseded_by_id = NULL WHERE superseded_by_id = ?", [$program_id]);
+    // CASCADE handles: tmi_slots, tmi_flight_list, tmi_popup_queue, tmi_program_coordination_log
+    execute_query($conn_tmi, "DELETE FROM dbo.tmi_programs WHERE program_id = ?", [$program_id]);
+
+    sqlsrv_commit($conn_tmi);
+
+    respond_json(200, [
+        'status' => 'ok',
+        'message' => 'Modeling program deleted',
+        'data' => ['program_id' => $program_id, 'flights_removed' => 0, 'hard_deleted' => true]
+    ]);
+}
+
+// ============================================================================
 // Purge: remove flight list + mark CANCELLED
 // ============================================================================
 
