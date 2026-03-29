@@ -6081,13 +6081,16 @@
 
         var defaultRate = parseInt(document.getElementById('gs_program_rate').value) || 30;
 
-        // Determine hour range
+        // Determine hour range (with day context for cross-midnight display)
         rateEditor.hours = [];
+        rateEditor.hourDates = {}; // { "HH": "DD" } for display labels
         var t = new Date(start.getTime());
         t.setUTCMinutes(0, 0, 0);
         while (t < end) {
             var hh = String(t.getUTCHours()).padStart(2, '0');
+            var dd = String(t.getUTCDate()).padStart(2, '0');
             rateEditor.hours.push(hh);
+            rateEditor.hourDates[hh] = dd;
             t.setTime(t.getTime() + 3600000);
         }
 
@@ -6101,9 +6104,10 @@
 
         rateEditor.hours.forEach(function(hh) {
             var th = document.createElement('th');
-            th.textContent = hh + 'Z';
+            th.textContent = (rateEditor.hourDates[hh] || '') + '/' + hh + '00Z';
             th.style.textAlign = 'center';
-            th.style.minWidth = '50px';
+            th.style.minWidth = '65px';
+            th.style.fontSize = '0.65rem';
             hourlyHeader.appendChild(th);
 
             var td = document.createElement('td');
@@ -6156,10 +6160,12 @@
             var mm = String(t.getUTCMinutes()).padStart(2, '0');
             var key = hh + ':' + mm;
 
+            var dd = String(t.getUTCDate()).padStart(2, '0');
             var th = document.createElement('th');
-            th.textContent = key;
+            th.textContent = dd + '/' + hh + mm + 'Z';
             th.style.textAlign = 'center';
-            th.style.minWidth = '50px';
+            th.style.minWidth = '65px';
+            th.style.fontSize = '0.65rem';
             quarterHeader.appendChild(th);
 
             var td = document.createElement('td');
