@@ -138,11 +138,15 @@ try {
                 $json_content = file_get_contents($json_path);
                 $results = json_decode($json_content, true);
 
-                if ($results) {
+                if ($results && !isset($results['error'])) {
                     $response['data'] = format_results($results);
                     $response['data']['plan_specific'] = $using_plan_specific;
                     $response['data']['trajectories_url'] = "api/analysis/tmi_compliance.php?p_id={$plan_id}&trajectories=true";
                     $response['message'] = "Results loaded for plan $plan_id";
+                } elseif ($results && isset($results['error'])) {
+                    // Previous analysis run produced an error — treat as no results
+                    $response['data'] = null;
+                    $response['message'] = $results['error'];
                 } else {
                     throw new Exception("Failed to parse results JSON");
                 }
@@ -272,15 +276,20 @@ function launch_analysis_async($plan_id, $base_path) {
         }
     }
 
+    // Pass config file path directly so Python reads from disk (bypasses HTTP auth)
+    $config_file = $base_path . '/tmi_config_' . $plan_id . '.json';
+    $config_arg = file_exists($config_file) ? ' --config_path ' . escapeshellarg($config_file) : '';
+
     // Build the command - redirect output to log file, run in background
     if (PHP_OS_FAMILY === 'Windows') {
         // Windows: use start /B for background
         $cmd = sprintf(
-            'start /B %s %s --plan_id %d --output %s > %s 2>&1',
+            'start /B %s %s --plan_id %d --output %s%s > %s 2>&1',
             escapeshellcmd($python),
             escapeshellarg($script_path),
             intval($plan_id),
             escapeshellarg($output_file),
+            $config_arg,
             escapeshellarg($log_file)
         );
         $pid_cmd = $cmd;
@@ -288,12 +297,13 @@ function launch_analysis_async($plan_id, $base_path) {
         // Linux: env vars BEFORE setsid/nohup (nohup treats first arg as the command)
         // setsid creates a new session so the process is fully detached from PHP-FPM
         $cmd = sprintf(
-            '%ssetsid nohup %s %s --plan_id %d --output %s > %s 2>&1 & echo $!',
+            '%ssetsid nohup %s %s --plan_id %d --output %s%s > %s 2>&1 & echo $!',
             $env_prefix,
             escapeshellcmd($python),
             escapeshellarg($script_path),
             intval($plan_id),
             escapeshellarg($output_file),
+            $config_arg,
             escapeshellarg($log_file)
         );
     }

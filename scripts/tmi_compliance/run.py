@@ -42,8 +42,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def load_config_from_file(config_path: str) -> dict:
+    """Load TMI configuration directly from a JSON file on disk.
+
+    This avoids the HTTP auth issue when the Python analyzer runs as a
+    background process without session cookies.
+    """
+    logger.info(f"Loading config from file: {config_path}")
+    try:
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        if config:
+            return config
+        else:
+            logger.warning("Config file is empty or null")
+            return None
+    except (IOError, json.JSONDecodeError) as e:
+        logger.error(f"Failed to read config file: {e}")
+        return None
+
+
 def load_config_from_api(plan_id: int, api_url: str) -> dict:
-    """Load TMI configuration from PERTI API"""
+    """Load TMI configuration from PERTI API (fallback when no file path given)"""
     config_url = f"{api_url}/analysis/tmi_config.php?p_id={plan_id}"
     logger.info(f"Fetching config from: {config_url}")
 
@@ -563,12 +583,17 @@ def build_event_config(config: dict, plan_id: int) -> EventConfig:
     return event
 
 
-def run_analysis(plan_id: int, api_url: str) -> dict:
+def run_analysis(plan_id: int, api_url: str, config_path: str = None) -> dict:
     """Run TMI compliance analysis for a plan"""
     logger.info(f"Starting TMI compliance analysis for plan_id: {plan_id}")
 
-    # Load configuration from PERTI API
-    config = load_config_from_api(plan_id, api_url)
+    # Load configuration: prefer direct file read (avoids HTTP auth issues),
+    # fall back to API fetch for backwards compatibility / CLI usage
+    config = None
+    if config_path:
+        config = load_config_from_file(config_path)
+    if not config:
+        config = load_config_from_api(plan_id, api_url)
     if not config:
         return {"error": f"No TMI config found for plan {plan_id}. Save configuration in PERTI first."}
 
@@ -601,11 +626,27 @@ def main():
                         help='PERTI API base URL')
     parser.add_argument('--output', type=str, default=None,
                         help='Write JSON results to file instead of stdout')
+    parser.add_argument('--config_path', type=str, default=None,
+                        help='Path to config JSON file (reads directly, bypasses HTTP auth)')
 
     args = parser.parse_args()
 
     try:
-        results = run_analysis(args.plan_id, args.api_url)
+        results = run_analysis(args.plan_id, args.api_url, args.config_path)
+
+        # If analysis returned an error, write it to the output file so the
+        # PHP status poller can detect it, but exit with code 1
+        if 'error' in results:
+            logger.error(f"Analysis error: {results['error']}")
+            if args.output:
+                os.makedirs(os.path.dirname(args.output), exist_ok=True)
+                tmp_path = args.output + '.tmp'
+                with open(tmp_path, 'w') as f:
+                    f.write(json.dumps(results, default=str))
+                os.replace(tmp_path, args.output)
+            else:
+                print(json.dumps(results, default=str))
+            sys.exit(1)
 
         # Split trajectory data into separate file for memory efficiency
         # PHP serves trajectories via readfile() (zero json_decode overhead)
@@ -643,7 +684,7 @@ def main():
                     results['mit_results'][key]['trajectories'] = traj
             print(json.dumps(results, default=str))
 
-        sys.exit(0 if 'error' not in results else 1)
+        sys.exit(0)
     except Exception as e:
         logger.exception("Analysis failed")
         print(json.dumps({"error": str(e)}))
