@@ -6932,6 +6932,134 @@ function renderWeightMixCard() {
 }
 
 /**
+ * Render Top Origins card with clickable ARTCC codes.
+ */
+function renderTopOriginsCard() {
+    const container = document.getElementById('summary_top_origins');
+    if (!container) return;
+
+    const summaryData = DEMAND_STATE.summaryData;
+    const origins = summaryData ? (summaryData.top_origins || []) : [];
+
+    if (origins.length === 0) {
+        container.innerHTML = '<span class="text-muted small">' + PERTII18n.t('demand.summary.noData') + '</span>';
+        return;
+    }
+
+    let html = '';
+    origins.slice(0, 5).forEach((item, i) => {
+        const code = item.artcc || item.origin_artcc || item[0] || '';
+        const count = item.count || item[1] || 0;
+        const weight = i === 0 ? 'font-weight:700;' : '';
+        html += '<div style="display:flex;justify-content:space-between;padding:2px 0;' + (i < 4 ? 'border-bottom:1px solid #f0f0f0;' : '') + '">' +
+            '<a href="#" class="summary-origin-click" data-artcc="' + code + '" style="' + weight + 'color:#2c3e50;text-decoration:none;" title="Click to filter">' + code + '</a>' +
+            '<span style="font-family:monospace;">' + count + '</span></div>';
+    });
+    container.innerHTML = html;
+
+    // Bind click-to-filter
+    $(container).find('.summary-origin-click').on('click', function(e) {
+        e.preventDefault();
+        const artcc = $(this).data('artcc');
+        if (artcc) {
+            DEMAND_STATE.filterOriginArtccs = [artcc];
+            $('#filter_origin_artcc').val([artcc]).trigger('change');
+            onEnhancedFilterChange();
+        }
+    });
+}
+
+/**
+ * Render Top Carriers card with clickable carrier codes.
+ */
+function renderTopCarriersCard() {
+    const container = document.getElementById('summary_top_carriers');
+    if (!container) return;
+
+    const summaryData = DEMAND_STATE.summaryData;
+    const carriers = summaryData ? (summaryData.top_carriers || []) : [];
+
+    if (carriers.length === 0) {
+        container.innerHTML = '<span class="text-muted small">' + PERTII18n.t('demand.summary.noData') + '</span>';
+        return;
+    }
+
+    let html = '';
+    carriers.slice(0, 5).forEach((item, i) => {
+        const code = item.carrier || item[0] || '';
+        const count = item.count || item[1] || 0;
+        const weight = i === 0 ? 'font-weight:700;' : '';
+        html += '<div style="display:flex;justify-content:space-between;padding:2px 0;' + (i < 4 ? 'border-bottom:1px solid #f0f0f0;' : '') + '">' +
+            '<a href="#" class="summary-carrier-click" data-carrier="' + code + '" style="' + weight + 'color:#2c3e50;text-decoration:none;" title="Click to filter">' + code + '</a>' +
+            '<span style="font-family:monospace;">' + count + '</span></div>';
+    });
+    container.innerHTML = html;
+
+    // Bind click-to-filter
+    $(container).find('.summary-carrier-click').on('click', function(e) {
+        e.preventDefault();
+        const carrier = $(this).data('carrier');
+        if (carrier) {
+            DEMAND_STATE.filterCarriers = [carrier];
+            $('#filter_carrier').val([carrier]).trigger('change');
+            onEnhancedFilterChange();
+        }
+    });
+}
+
+/**
+ * Render Top Fixes card (arrival or departure based on direction).
+ */
+function renderTopFixesCard() {
+    const container = document.getElementById('summary_top_fixes');
+    const titleEl = document.getElementById('summary_fixes_title');
+    if (!container) return;
+
+    const direction = DEMAND_STATE.direction;
+    const isDepOnly = direction === 'dep';
+
+    // Update card title
+    if (titleEl) {
+        titleEl.textContent = isDepOnly
+            ? PERTII18n.t('demand.summary.topDepFixes')
+            : PERTII18n.t('demand.summary.topArrFixes');
+    }
+
+    // Get fix breakdown
+    const breakdown = isDepOnly ? DEMAND_STATE.depFixBreakdown : DEMAND_STATE.arrFixBreakdown;
+    if (!breakdown || Object.keys(breakdown).length === 0) {
+        container.innerHTML = '<span class="text-muted small">' + PERTII18n.t('demand.summary.noData') + '</span>';
+        return;
+    }
+
+    // Aggregate across bins and sort by count
+    const totals = {};
+    Object.values(breakdown).forEach(bin => {
+        if (bin && typeof bin === 'object') {
+            for (const [fix, count] of Object.entries(bin)) {
+                totals[fix] = (totals[fix] || 0) + count;
+            }
+        }
+    });
+
+    const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    if (sorted.length === 0) {
+        container.innerHTML = '<span class="text-muted small">' + PERTII18n.t('demand.summary.noData') + '</span>';
+        return;
+    }
+
+    let html = '';
+    sorted.forEach(([fix, count], i) => {
+        const weight = i === 0 ? 'font-weight:700;' : '';
+        html += '<div style="display:flex;justify-content:space-between;padding:2px 0;' + (i < sorted.length - 1 ? 'border-bottom:1px solid #f0f0f0;' : '') + '">' +
+            '<span style="' + weight + '">' + fix + '</span>' +
+            '<span style="font-family:monospace;">' + count + '</span></div>';
+    });
+    container.innerHTML = html;
+}
+
+/**
  * Load flight summary data (top origins, top carriers, origin breakdown)
  * @param {boolean} renderOriginChartAfter - If true, render origin chart after loading
  */
