@@ -3224,8 +3224,7 @@ function loadDemandData() {
                     DEMAND_STATE.starBreakdown = normalizeBreakdownByProcedure(summaryResponse.star_breakdown || {}, 'star');
                     DEMAND_STATE.summaryLoaded = true;
                     DEMAND_STATE.summaryDataHash = summaryResponse.data_hash || null;
-                    updateTopOrigins(summaryResponse.top_origins || []);
-                    updateTopCarriers(summaryResponse.top_carriers || []);
+                    renderSummaryCards();
                     populateFilterDropdowns(summaryResponse);
                 }
             }
@@ -6757,6 +6756,182 @@ function stopAutoRefresh() {
 }
 
 /**
+ * Render all 6 enhanced summary cards.
+ * Called after demand + summary data are loaded.
+ */
+function renderSummaryCards() {
+    renderPeakHourCard();
+    renderTmiControlCard();
+    renderWeightMixCard();
+    renderTopOriginsCard();
+    renderTopCarriersCard();
+    renderTopFixesCard();
+
+    // Auto-expand summary if any card has data
+    const $summary = $('#demand_flight_summary');
+    const $icon = $('#demand_toggle_flights i');
+    if (!$summary.is(':visible') && DEMAND_STATE.summaryLoaded) {
+        $summary.slideDown(200);
+        $icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+    }
+}
+
+/**
+ * Render Peak Hour card: finds the time bin with highest total demand.
+ */
+function renderPeakHourCard() {
+    const container = document.getElementById('summary_peak_hour');
+    if (!container) return;
+
+    const data = DEMAND_STATE.lastDemandData;
+    if (!data) { container.innerHTML = '<span class="text-muted small">--</span>'; return; }
+
+    // Apply client filters
+    const filtered = applyClientFilters(data);
+    const arrivals = filtered.arrivals || [];
+    const departures = filtered.departures || [];
+    const direction = DEMAND_STATE.direction;
+
+    // Sum totals per bin
+    const binTotals = {};
+    const sumBreakdown = (bin) => bin.breakdown ? Object.values(bin.breakdown).reduce((s, v) => s + v, 0) : 0;
+
+    if (direction === 'arr' || direction === 'both') {
+        arrivals.forEach(bin => {
+            const key = normalizeTimeBin(bin.time_bin);
+            binTotals[key] = (binTotals[key] || { arr: 0, dep: 0 });
+            binTotals[key].arr = sumBreakdown(bin);
+        });
+    }
+    if (direction === 'dep' || direction === 'both') {
+        departures.forEach(bin => {
+            const key = normalizeTimeBin(bin.time_bin);
+            binTotals[key] = binTotals[key] || { arr: 0, dep: 0 };
+            binTotals[key].dep = sumBreakdown(bin);
+        });
+    }
+
+    // Find peak
+    let peakKey = null, peakTotal = 0;
+    for (const [key, val] of Object.entries(binTotals)) {
+        const total = val.arr + val.dep;
+        if (total > peakTotal) { peakTotal = total; peakKey = key; }
+    }
+
+    if (!peakKey) { container.innerHTML = '<span class="text-muted small">' + PERTII18n.t('demand.summary.noData') + '</span>'; return; }
+
+    const peakDate = new Date(peakKey);
+    const granMin = getGranularityMinutes();
+    const endDate = new Date(peakDate.getTime() + granMin * 60000);
+    const fmt = (d) => d.getUTCHours().toString().padStart(2, '0') + ':' + d.getUTCMinutes().toString().padStart(2, '0') + 'Z';
+    const peak = binTotals[peakKey];
+
+    // Check AAR exceedance
+    let aarBadge = '';
+    const proRate = granMin / 60;
+    if (DEMAND_STATE.rateData && DEMAND_STATE.rateData.rates && DEMAND_STATE.rateData.rates.vatsim_aar) {
+        const aar = Math.round(DEMAND_STATE.rateData.rates.vatsim_aar * proRate);
+        if (peak.arr > aar) {
+            aarBadge = '<div style="margin-top:4px;padding:3px 6px;background:#fff3cd;border-radius:2px;color:#856404;font-size:9px;font-weight:600;">' +
+                PERTII18n.t('demand.summary.exceededBy', { count: peak.arr - aar }) + '</div>';
+        } else {
+            aarBadge = '<div style="margin-top:4px;padding:3px 6px;background:#d4edda;border-radius:2px;color:#155724;font-size:9px;font-weight:600;">' +
+                PERTII18n.t('demand.summary.withinCapacity') + '</div>';
+        }
+    }
+
+    container.innerHTML =
+        '<div style="font-size:18px;font-weight:700;color:#dc2626;font-family:monospace;">' + fmt(peakDate) + '\u2013' + fmt(endDate) + '</div>' +
+        '<div style="color:#666;font-size:11px;">' + peak.arr + ' arr | ' + peak.dep + ' dep</div>' +
+        aarBadge;
+}
+
+/**
+ * Render TMI Control card: GDP controlled, GS stopped, exempt, avg delay.
+ */
+function renderTmiControlCard() {
+    const container = document.getElementById('summary_tmi_control');
+    if (!container) return;
+
+    const data = DEMAND_STATE.lastDemandData;
+    if (!data) { container.innerHTML = '<span class="text-muted small">--</span>'; return; }
+
+    const filtered = applyClientFilters(data);
+    const allBins = [...(filtered.arrivals || []), ...(filtered.departures || [])];
+
+    // Sum TMI-related phases across all bins
+    let gdpCount = 0, gsCount = 0, exemptCount = 0;
+    allBins.forEach(bin => {
+        if (!bin.breakdown) return;
+        gdpCount += (bin.breakdown.actual_gdp || 0) + (bin.breakdown.simulated_gdp || 0);
+        gsCount += (bin.breakdown.actual_gs || 0) + (bin.breakdown.simulated_gs || 0);
+        exemptCount += (bin.breakdown.exempt || 0);
+    });
+
+    // Avg/max delay from TMI programs
+    let avgDelay = '--', maxDelay = '--';
+    const programs = DEMAND_STATE.tmiPrograms;
+    if (programs && programs.length > 0) {
+        const gdpPrograms = programs.filter(p => (p.program_type || '').toUpperCase().startsWith('GDP'));
+        if (gdpPrograms.length > 0) {
+            const delays = gdpPrograms.map(p => p.avg_delay_minutes).filter(d => d != null);
+            const maxDelays = gdpPrograms.map(p => p.max_delay_minutes).filter(d => d != null);
+            if (delays.length > 0) avgDelay = Math.round(delays.reduce((s, d) => s + d, 0) / delays.length) + ' min';
+            if (maxDelays.length > 0) maxDelay = Math.max(...maxDelays) + ' min';
+        }
+    }
+
+    container.innerHTML =
+        '<div><span style="font-weight:600;">' + PERTII18n.t('demand.summary.gdpControlled') + ':</span> ' + gdpCount + '</div>' +
+        '<div><span style="font-weight:600;">' + PERTII18n.t('demand.summary.gsStopped') + ':</span> ' + gsCount + '</div>' +
+        '<div><span style="font-weight:600;">' + PERTII18n.t('demand.summary.exempt') + ':</span> ' + exemptCount + '</div>' +
+        '<div style="margin-top:4px;font-weight:600;">' + PERTII18n.t('demand.summary.avgDelay') + ': <span style="color:#dc2626;font-family:monospace;">' + avgDelay + '</span></div>' +
+        '<div style="font-weight:600;">' + PERTII18n.t('demand.summary.maxDelay') + ': <span style="font-family:monospace;">' + maxDelay + '</span></div>';
+}
+
+/**
+ * Render Weight Mix card: horizontal bars for H/L/S/+ percentages.
+ */
+function renderWeightMixCard() {
+    const container = document.getElementById('summary_weight_mix');
+    if (!container) return;
+
+    const breakdown = DEMAND_STATE.weightBreakdown;
+    if (!breakdown || Object.keys(breakdown).length === 0) {
+        container.innerHTML = '<span class="text-muted small">' + PERTII18n.t('demand.summary.noData') + '</span>';
+        return;
+    }
+
+    // Aggregate weight counts across all time bins
+    const totals = {};
+    Object.values(breakdown).forEach(bin => {
+        if (bin && typeof bin === 'object') {
+            for (const [wc, count] of Object.entries(bin)) {
+                totals[wc] = (totals[wc] || 0) + count;
+            }
+        }
+    });
+
+    const grand = Object.values(totals).reduce((s, v) => s + v, 0);
+    if (grand === 0) { container.innerHTML = '<span class="text-muted small">' + PERTII18n.t('demand.summary.noData') + '</span>'; return; }
+
+    const WEIGHT_COLORS = { 'H': '#dc2626', 'L': '#3b82f6', 'S': '#22c55e', '+': '#9333ea' };
+    const order = ['H', 'L', 'S', '+'];
+
+    let html = '';
+    order.forEach(wc => {
+        const count = totals[wc] || 0;
+        const pct = grand > 0 ? Math.round(count / grand * 100) : 0;
+        const color = WEIGHT_COLORS[wc] || '#6b7280';
+        html +=
+            '<div style="display:flex;justify-content:space-between;font-size:11px;"><span>' + wc + '</span><span style="font-weight:600;">' + pct + '% (' + count + ')</span></div>' +
+            '<div style="background:#e5e7eb;height:6px;border-radius:3px;margin:2px 0 4px;"><div style="background:' + color + ';height:100%;width:' + pct + '%;border-radius:3px;"></div></div>';
+    });
+
+    container.innerHTML = html;
+}
+
+/**
  * Load flight summary data (top origins, top carriers, origin breakdown)
  * @param {boolean} renderOriginChartAfter - If true, render origin chart after loading
  */
@@ -6793,8 +6968,7 @@ function loadFlightSummary(renderOriginChartAfter) {
             }
 
             if (response.success) {
-                updateTopOrigins(response.top_origins || []);
-                updateTopCarriers(response.top_carriers || []);
+                renderSummaryCards();
 
                 // Store breakdown data for chart views
                 DEMAND_STATE.originBreakdown = response.origin_artcc_breakdown || {};
@@ -7004,6 +7178,17 @@ function updateArtccFilterState() {
 }
 
 /**
+ * Normalize a time bin string to a consistent ISO format (page-level utility).
+ * @param {string} bin - ISO time string
+ * @returns {string} Normalized time string
+ */
+function normalizeTimeBin(bin) {
+    const d = new Date(bin);
+    d.setUTCSeconds(0, 0);
+    return d.toISOString().replace('.000Z', 'Z');
+}
+
+/**
  * Apply client-side filters to demand time-bin data.
  * Uses summary breakdown data to compute filtered counts per bin.
  * Returns a modified copy of the demand data with adjusted phase counts.
@@ -7101,50 +7286,14 @@ function applyClientFilters(demandData) {
 }
 
 /**
- * Update top origins table
+ * Legacy — replaced by renderSummaryCards() / renderTopOriginsCard()
  */
-function updateTopOrigins(origins) {
-    const $tbody = $('#demand_top_origins');
-    $tbody.empty();
-
-    if (origins.length === 0) {
-        $tbody.append('<tr><td class="text-muted text-center" colspan="2">' + PERTII18n.t('demand.table.noData') + '</td></tr>');
-        return;
-    }
-
-    origins.forEach(function(item, index) {
-        const bgClass = index === 0 ? 'table-primary' : '';
-        $tbody.append(`
-            <tr class="${bgClass}">
-                <td><strong>${item.artcc}</strong></td>
-                <td class="text-right">${item.count}</td>
-            </tr>
-        `);
-    });
-}
+function updateTopOrigins() { /* no-op */ }
 
 /**
- * Update top carriers table
+ * Legacy — replaced by renderSummaryCards() / renderTopCarriersCard()
  */
-function updateTopCarriers(carriers) {
-    const $tbody = $('#demand_top_carriers');
-    $tbody.empty();
-
-    if (carriers.length === 0) {
-        $tbody.append('<tr><td class="text-muted text-center" colspan="2">' + PERTII18n.t('demand.table.noData') + '</td></tr>');
-        return;
-    }
-
-    carriers.forEach(function(item, index) {
-        const bgClass = index === 0 ? 'table-primary' : '';
-        $tbody.append(`
-            <tr class="${bgClass}">
-                <td><strong>${item.carrier}</strong></td>
-                <td class="text-right">${item.count}</td>
-            </tr>
-        `);
-    });
-}
+function updateTopCarriers() { /* no-op */ }
 
 /**
  * Load facility-scoped breakdown summary data from facility_summary.php
@@ -7184,8 +7333,7 @@ function loadFacilitySummary(renderAfter) {
         }
         if (response.success) {
             // Update sidebar panels
-            updateTopOrigins(response.top_origins || []);
-            updateTopCarriers(response.top_carriers || []);
+            renderSummaryCards();
 
             // Store all breakdown data — same DEMAND_STATE properties as airport mode
             DEMAND_STATE.originBreakdown = response.origin_artcc_breakdown || {};
