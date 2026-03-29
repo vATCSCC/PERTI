@@ -102,7 +102,7 @@ if ($program_type === 'GS') {
 // ============================================================================
 
 $scenarios = [];
-$base_url = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' .
+$base_url = 'https://' .
     ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/api/gdt/programs/simulate.php';
 
 for ($val = $sweep_start; $val <= $sweep_end; $val += $sweep_step) {
