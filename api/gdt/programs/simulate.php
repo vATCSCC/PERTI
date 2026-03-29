@@ -522,6 +522,9 @@ if (count($flights_for_sp) > 0) {
         // with NULL eta_utc (common for prefiled flights found via ETD-based query).
         // We replicate the SP logic here as separate queries to avoid parameter binding issues.
         $gs_end = datetime_to_iso($end_utc);
+        // GS control times (EDCTs) are issued at GS end + 1 minute
+        // e.g., GS period 1200-1259Z → EDCTs at 1300Z
+        $gs_release = datetime_to_iso(date_create($gs_end)->modify('+1 minute')->format('Y-m-d\TH:i:s'));
 
         // Step 4a: Clear existing assignments
         $del_stmt = sqlsrv_query($conn_tmi,
@@ -582,10 +585,10 @@ if (count($flights_for_sp) > 0) {
             FROM #FlightList f
         ";
         $ins_params = [
-            $program_id, $ctl_element, $gs_end,    // program_id, ctl_elem, gs_release_utc
-            $gs_end, $gs_end,                      // CTD: etd >= gs_end, ELSE gs_end
-            $gs_end, $gs_end,                      // CTA: etd >= gs_end, DATEADD(...gs_end)
-            $gs_end, $gs_end,                      // delay: etd >= gs_end, DATEDIFF(etd, gs_end)
+            $program_id, $ctl_element, $gs_release,    // program_id, ctl_elem, gs_release_utc
+            $gs_release, $gs_release,                  // CTD: etd >= gs_release, ELSE gs_release
+            $gs_release, $gs_release,                  // CTA: etd >= gs_release, DATEADD(...gs_release)
+            $gs_release, $gs_release,                  // delay: etd >= gs_release, DATEDIFF(etd, gs_release)
         ];
         $ins_stmt = sqlsrv_query($conn_tmi, $ins_sql, $ins_params);
         if ($ins_stmt === false) {

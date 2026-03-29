@@ -470,5 +470,5 @@ echo json_encode([
     'summary' => $summary,
     'flights' => $flights,
     'exempt_flights' => $exempt_flights
-], JSON_PRETTY_PRINT);
+], JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
 ?>

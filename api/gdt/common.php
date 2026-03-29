@@ -28,7 +28,7 @@ if (!defined('GDT_API_INCLUDED')) {
 function respond_json($code, $payload) {
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
 }
 

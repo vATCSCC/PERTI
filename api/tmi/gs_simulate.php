@@ -380,5 +380,5 @@ echo json_encode([
         'common_columns_count' => count($common)
     ],
     'flights' => $flights
-], JSON_PRETTY_PRINT);
+], JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
 ?>

@@ -760,41 +760,57 @@ $is_canoc = (get_org_code() === 'canoc');
                         <div id="gs_airports_legend" class="mt-1"></div>
                     </div>
 
+                    <!-- Scope Group + Facility Checkboxes -->
                     <div class="form-row">
-                        <div class="form-group col-md-6">
-                            <label class="tmi-label mb-0" for="gs_scope_select"><?= __('gdt.page.originCentersScope') ?></label>
-                            <select multiple class="form-control form-control-sm tmi-scope-select" id="gs_scope_select"></select>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0" for="gs_scope_group"><?= __('gdt.page.originCentersScope') ?></label>
+                            <select class="form-control form-control-sm" id="gs_scope_group">
+                                <option value="">-- Select Scope --</option>
+                                <option value="1stTier">1st Tier</option>
+                                <option value="2ndTier">2nd Tier</option>
+                                <option value="ALL">ALL CONUS</option>
+                                <option value="ALL+Canada">ALL + Canada</option>
+                                <option value="6WEST">6 West</option>
+                                <option value="10WEST">10 West</option>
+                                <option value="12WEST">12 West</option>
+                                <option value="EASTCOAST">East Coast</option>
+                                <option value="WESTCOAST">West Coast</option>
+                                <option value="GULF">Gulf</option>
+                                <option value="Manual">Manual</option>
+                            </select>
                             <input type="hidden" id="gs_origin_centers">
-                            <small class="form-text text-muted tmi-scope-help">
-                                <?= __('gdt.page.originCentersHelp') ?>
-                            </small>
+                            <!-- Legacy multi-select hidden for backward compat -->
+                            <select multiple class="d-none" id="gs_scope_select"></select>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-4">
                             <label class="tmi-label mb-0" for="gs_origin_airports"><?= __('gdt.page.originAirports') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_origin_airports"
                                    placeholder="<?= __('gdt.page.placeholderOriginList') ?>">
                         </div>
+                        <div class="form-group col-md-4">
+                            <label class="tmi-label mb-0" for="gs_dep_facilities"><?= __('gdt.page.depFacilitiesIncluded') ?></label>
+                            <input type="text" class="form-control form-control-sm" id="gs_dep_facilities"
+                                   placeholder="<?= __('gdt.page.placeholderFacilities') ?>" readonly>
+                        </div>
+                    </div>
+                    <div class="form-group" id="gs_scope_checkboxes_container">
+                        <div id="gs_scope_checkboxes" class="d-flex flex-wrap" style="gap: 2px 8px; font-size: 0.8rem;"></div>
                     </div>
 
                     <!-- Flight inclusion -->
                     <div class="form-row">
-                        <div class="form-group col-md-4">
+                        <div class="form-group col-md-6">
                             <label class="tmi-label mb-0" for="gs_flt_incl_carrier"><?= __('gdt.page.fltInclCarrier') ?></label>
                             <input type="text" class="form-control form-control-sm" id="gs_flt_incl_carrier"
                                    placeholder="<?= __('gdt.page.placeholderCarriers') ?>">
                         </div>
-                        <div class="form-group col-md-4">
+                        <div class="form-group col-md-6">
                             <label class="tmi-label mb-0" for="gs_flt_incl_type"><?= __('gdt.page.aircraftType') ?></label>
                             <select class="form-control form-control-sm" id="gs_flt_incl_type">
                                 <option value="ALL" selected>ALL</option>
                                 <option value="JET">JET</option>
                                 <option value="PROP">PROP</option>
                             </select>
-                        </div>
-                        <div class="form-group col-md-4">
-                            <label class="tmi-label mb-0" for="gs_dep_facilities"><?= __('gdt.page.depFacilitiesIncluded') ?></label>
-                            <input type="text" class="form-control form-control-sm" id="gs_dep_facilities"
-                                   placeholder="<?= __('gdt.page.placeholderFacilities') ?>">
                         </div>
                     </div>
 

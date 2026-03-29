@@ -189,5 +189,5 @@ echo json_encode([
         'gs_end_utc'       => $gs_end
     ],
     'flights' => $flights
-], JSON_PRETTY_PRINT);
+], JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
 ?>

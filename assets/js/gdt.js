@@ -2217,27 +2217,11 @@
         // partial input on keyup. The computed value is used for the advisory preview.
         // User can manually fill in the CTL Element field if they want to override.
 
-        // Determine scope tier name from selected options
+        // Determine scope tier name from scope group dropdown
         let scopeTierName = '';
-        const scopeSel = document.getElementById('gs_scope_select');
-        if (scopeSel && scopeSel.selectedOptions && scopeSel.selectedOptions.length) {
-            const selectedNames = [];
-            Array.prototype.forEach.call(scopeSel.selectedOptions, function(opt) {
-                if (opt && opt.dataset) {
-                    const type = opt.dataset.type;
-                    const val = opt.value;
-                    if (type === 'tier' || type === 'special') {
-                        selectedNames.push(opt.dataset.tierLabel || val);
-                    } else if (type === 'fac') {
-                        selectedNames.push(opt.dataset.tierLabel || val);
-                    } else if (type === 'manual') {
-                        selectedNames.push(PERTII18n.t('gdt.scope.manual'));
-                    }
-                }
-            });
-            if (selectedNames.length > 0) {
-                scopeTierName = selectedNames.join('+');
-            }
+        const scopeGroupSel = document.getElementById('gs_scope_group');
+        if (scopeGroupSel && scopeGroupSel.value) {
+            scopeTierName = scopeGroupSel.value;
         }
 
         // Build DEP FACILITIES line with scope tier prefix
@@ -3251,9 +3235,14 @@
         const t = document.getElementById('gs_flt_incl_type');
         if (t) {t.value = 'ALL';}
 
-        const scopeSelect = document.getElementById('gs_scope_select');
-        if (scopeSelect) {
-            Array.prototype.forEach.call(scopeSelect.options, function(opt) { opt.selected = false; });
+        // Reset scope group and facility checkboxes
+        const scopeGroupSel = document.getElementById('gs_scope_group');
+        if (scopeGroupSel) {scopeGroupSel.value = '';}
+        const scopeContainer = document.getElementById('gs_scope_checkboxes');
+        if (scopeContainer) {
+            scopeContainer.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+                cb.checked = false;
+            });
         }
 
         const pre = document.getElementById('gs_advisory_preview');
@@ -3280,111 +3269,158 @@
         buildAdvisory();
     }
 
+    // Track whether checkbox changes are programmatic (from group selection) vs manual
+    let _scopeCheckboxProgrammatic = false;
+
     function populateScopeSelector() {
-        const sel = document.getElementById('gs_scope_select');
-        if (!sel) {return;}
+        // Populate facility checkboxes from tier data
+        const container = document.getElementById('gs_scope_checkboxes');
+        if (!container) {return;}
+        container.innerHTML = '';
 
-        sel.innerHTML = '';
+        if (!TMI_UNIQUE_FACILITIES.length) {return;}
 
-        if (!TMI_TIER_INFO.length && !TMI_UNIQUE_FACILITIES.length) {
-            // No data loaded; keep selector empty but usable later if data appears.
-            return;
-        }
+        TMI_UNIQUE_FACILITIES.sort().forEach(function(fac) {
+            const label = document.createElement('label');
+            label.className = 'custom-control custom-checkbox custom-control-inline mb-0';
+            label.style.minWidth = '55px';
 
-        // Special presets (if present)
-        const optgroupPresets = document.createElement('optgroup');
-        optgroupPresets.label = PERTII18n.t('gdt.scope.presets');
-        ['ALL', 'ALL+Canada', 'Manual'].forEach(function(code) {
-            const entry = TMI_TIER_INFO_BY_CODE[code];
-            const opt = document.createElement('option');
-            opt.value = code;
-            opt.dataset.type = (code === 'Manual') ? 'manual' : 'special';
-            opt.dataset.tierLabel = code;
-            if (entry && entry.label) {
-                opt.textContent = code + ' ' + entry.label;
-            } else {
-                opt.textContent = code;
-            }
-            optgroupPresets.appendChild(opt);
-        });
-        sel.appendChild(optgroupPresets);
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.className = 'custom-control-input';
+            input.id = 'gs_scope_cb_' + fac;
+            input.value = fac;
+            input.dataset.facility = fac;
 
-        // Group TierInfo by facility
-        const facilities = {};
-        TMI_TIER_INFO.forEach(function(e) {
-            if (!e.facility) {return;}
-            if (!facilities[e.facility]) {facilities[e.facility] = [];}
-            facilities[e.facility].push(e);
-        });
+            const span = document.createElement('span');
+            span.className = 'custom-control-label';
+            span.textContent = fac;
 
-        Object.keys(facilities).sort().forEach(function(fac) {
-            const group = document.createElement('optgroup');
-            group.label = fac + ' tiers/groups';
-            facilities[fac].forEach(function(e) {
-                const opt = document.createElement('option');
-                opt.value = e.code;
-                opt.dataset.type = 'tier';
-                const label = e.label || e.code;
-                opt.dataset.tierLabel = label.replace(/[()]/g, '');
-                group.appendChild(opt);
-                opt.textContent = fac + ' ' + opt.dataset.tierLabel;
+            // When user manually changes a checkbox, switch scope group to Manual
+            input.addEventListener('change', function() {
+                if (!_scopeCheckboxProgrammatic) {
+                    const groupSel = document.getElementById('gs_scope_group');
+                    if (groupSel && groupSel.value !== 'Manual') {
+                        groupSel.value = 'Manual';
+                    }
+                }
+                recomputeScopeFromCheckboxes();
             });
-            sel.appendChild(group);
+
+            label.appendChild(input);
+            label.appendChild(span);
+            container.appendChild(label);
         });
 
-        // Individual facilities
-        if (TMI_UNIQUE_FACILITIES.length) {
-            const groupInd = document.createElement('optgroup');
-            groupInd.label = PERTII18n.t('gdt.scope.individualFacilities');
-            TMI_UNIQUE_FACILITIES.forEach(function(f) {
-                const opt = document.createElement('option');
-                opt.value = f;
-                opt.dataset.type = 'fac';
-                opt.dataset.tierLabel = f;
-                opt.textContent = f;
-                groupInd.appendChild(opt);
+        // Wire up scope group selector
+        const groupSel = document.getElementById('gs_scope_group');
+        if (groupSel) {
+            groupSel.addEventListener('change', function() {
+                applyScopeGroup(this.value);
             });
-            sel.appendChild(groupInd);
         }
     }
 
-    function recomputeScopeFromSelector() {
-        const sel = document.getElementById('gs_scope_select');
-        if (!sel) {return;}
+    /**
+     * Apply a scope group selection: check the appropriate facility checkboxes.
+     * For tier-based groups (1stTier, 2ndTier), uses the control element's
+     * responsible ARTCC to look up the correct tier data.
+     */
+    function applyScopeGroup(groupName) {
+        if (!groupName || groupName === 'Manual') {return;}
 
-        const selected = Array.prototype.slice.call(sel.selectedOptions || []);
-        const originCentersField = document.getElementById('gs_origin_centers');
-        const depFacilitiesField = document.getElementById('gs_dep_facilities');
+        let facilities = [];
 
-        const includedSet = new Set();
-        const scopeTokens = [];
-        const manual = selected.some(function(o) { return o.dataset.type === 'manual'; });
+        if (groupName === '1stTier' || groupName === '2ndTier') {
+            // Tier-based: find responsible center from control element
+            const ctlEl = (getValue('gs_ctl_element') || '').toUpperCase().replace(/^K/, '');
+            let responsibleCenter = '';
 
-        if (!manual) {
-            selected.forEach(function(o) {
-                const type = o.dataset.type;
-                const val = o.value;
-                if (type === 'tier' || type === 'special') {
-                    const entry = TMI_TIER_INFO_BY_CODE[val];
-                    if (entry) {
-                        scopeTokens.push(val);
-                        (entry.included || []).forEach(function(f) { includedSet.add(f); });
-                    }
-                } else if (type === 'fac') {
-                    scopeTokens.push(val);
-                    includedSet.add(val);
+            // Look up the ARTCC for the control element airport
+            if (ctlEl) {
+                // Try AIRPORT_CENTER_MAP first (airport -> ARTCC)
+                const icao = ctlEl.length === 3 ? 'K' + ctlEl : ctlEl;
+                responsibleCenter = AIRPORT_CENTER_MAP[icao] || AIRPORT_CENTER_MAP[ctlEl] || '';
+                if (responsibleCenter && responsibleCenter.startsWith('K')) {
+                    responsibleCenter = responsibleCenter.substring(1);
                 }
-            });
-
-            if (originCentersField) {
-                originCentersField.value = scopeTokens.join(' ');
             }
-            if (depFacilitiesField) {
-                depFacilitiesField.value = Array.from(includedSet).sort().join(' ');
+
+            if (!responsibleCenter) {
+                // Fallback: check gs_airports field
+                const airportsVal = (getValue('gs_airports') || '').toUpperCase();
+                const firstApt = airportsVal.split(/[\s,]+/).filter(function(a) { return a.length >= 3; })[0] || '';
+                if (firstApt) {
+                    const icao2 = firstApt.length === 3 ? 'K' + firstApt : firstApt;
+                    responsibleCenter = AIRPORT_CENTER_MAP[icao2] || AIRPORT_CENTER_MAP[firstApt] || '';
+                    if (responsibleCenter && responsibleCenter.startsWith('K')) {
+                        responsibleCenter = responsibleCenter.substring(1);
+                    }
+                }
+            }
+
+            if (responsibleCenter) {
+                // Look up tier code: e.g., ZNY1 = 1stTier, ZNY2 = 2ndTier
+                const tierSuffix = groupName === '1stTier' ? '1' : '2';
+                const tierCode = responsibleCenter + tierSuffix;
+                const tierEntry = TMI_TIER_INFO_BY_CODE[tierCode];
+                if (tierEntry && tierEntry.included) {
+                    facilities = tierEntry.included.slice();
+                }
+            }
+        } else {
+            // Named group: ALL, ALL+Canada, 6WEST, etc.
+            const entry = TMI_TIER_INFO_BY_CODE[groupName];
+            if (entry && entry.included) {
+                facilities = entry.included.slice();
             }
         }
 
+        // Apply to checkboxes
+        const facilitySet = new Set(facilities);
+        _scopeCheckboxProgrammatic = true;
+        const container = document.getElementById('gs_scope_checkboxes');
+        if (container) {
+            const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(function(cb) {
+                cb.checked = facilitySet.has(cb.value);
+            });
+        }
+        _scopeCheckboxProgrammatic = false;
+
+        recomputeScopeFromCheckboxes();
+    }
+
+    /**
+     * Read checked facility checkboxes and update origin_centers + dep_facilities fields.
+     */
+    function recomputeScopeFromCheckboxes() {
+        const container = document.getElementById('gs_scope_checkboxes');
+        const originCentersField = document.getElementById('gs_origin_centers');
+        const depFacilitiesField = document.getElementById('gs_dep_facilities');
+
+        const checkedFacilities = [];
+        if (container) {
+            container.querySelectorAll('input[type="checkbox"]:checked').forEach(function(cb) {
+                checkedFacilities.push(cb.value);
+            });
+        }
+
+        checkedFacilities.sort();
+
+        if (originCentersField) {
+            originCentersField.value = checkedFacilities.join(' ');
+        }
+        if (depFacilitiesField) {
+            depFacilitiesField.value = checkedFacilities.join(' ');
+        }
+
         buildAdvisory();
+    }
+
+    // Legacy compat wrapper
+    function recomputeScopeFromSelector() {
+        recomputeScopeFromCheckboxes();
     }
 
 
@@ -4864,9 +4900,16 @@
             })(),
 
             // Scope / inclusion
+            gs_scope_group: getValue('gs_scope_group') || 'Manual',
             gs_scope_select: (function() {
-                const sel = document.getElementById('gs_scope_select');
-                return getMultiSelectValues(sel);
+                // Build legacy-compatible scope select from checkboxes
+                const container = document.getElementById('gs_scope_checkboxes');
+                if (!container) {return [];}
+                const checked = [];
+                container.querySelectorAll('input[type="checkbox"]:checked').forEach(function(cb) {
+                    checked.push(cb.value);
+                });
+                return checked;
             })(),
             gs_dep_facilities: getValue('gs_dep_facilities'),
             gs_flt_incl_carrier: getValue('gs_flt_incl_carrier'),
@@ -5522,10 +5565,13 @@
         var programTypeEl = document.getElementById('gs_program_type');
         var selectedProgramType = (programTypeEl && programTypeEl.value) ? programTypeEl.value : 'GS';
 
-        // Build scope_json from departure facilities (optional — omitted for non-US airports)
+        // Build scope_json from departure facilities and scope group
         var depFacilitiesRaw = (workflowPayload.gs_dep_facilities || '').trim();
         var depFacilitiesArr = depFacilitiesRaw.split(/\s+/).filter(function(x) { return x.length > 0 && x !== 'ALL'; });
-        var scopeJson = depFacilitiesArr.length > 0 ? { origin_centers: depFacilitiesArr } : null;
+        var scopeJson = depFacilitiesArr.length > 0 ? {
+            origin_centers: depFacilitiesArr,
+            scope_group: workflowPayload.gs_scope_group || 'Manual'
+        } : null;
 
         // Build create payload for GDT API
         var createPayload = {
@@ -7189,9 +7235,15 @@
             el.addEventListener('keyup', buildAdvisory);
         });
 
-        const scopeSel = document.getElementById('gs_scope_select');
-        if (scopeSel) {
-            scopeSel.addEventListener('change', recomputeScopeFromSelector);
+        // Re-apply tier-based scope group when control element changes
+        const ctlElementEl = document.getElementById('gs_ctl_element');
+        if (ctlElementEl) {
+            ctlElementEl.addEventListener('change', function() {
+                const groupSel = document.getElementById('gs_scope_group');
+                if (groupSel && (groupSel.value === '1stTier' || groupSel.value === '2ndTier')) {
+                    applyScopeGroup(groupSel.value);
+                }
+            });
         }
 
         // Copy Advisory button handler
@@ -7259,6 +7311,10 @@
                     GS_CURRENT_PROGRAM_STATUS = null;
                     setWorkflowState('configure');
                 }
+
+                // Re-initialize default end time for new program type
+                // GS uses :00/:15/:30/:45, GDP uses :14/:29/:44/:59
+                initializeDefaultGsTimes();
             });
         }
 
@@ -7852,16 +7908,21 @@
     let GS_MATCHING_FLIGHTS = [];
     let GS_MATCHING_ROWS = [];
 
-    // Initialize default GS Start (current UTC) and End (+1 hour, ending on :14/:29/:44/:59)
+    // Initialize default GS/GDP Start (current UTC) and End
+    // GS: end on :00/:15/:30/:45 (15-min on-the-hour), minimum 1 hour
+    // GDP: end on :14/:29/:44/:59 (15-min quarter-hour boundaries)
     function initializeDefaultGsTimes() {
         const gsStartEl = document.getElementById('gs_start');
         const gsEndEl = document.getElementById('gs_end');
 
         if (!gsStartEl || !gsEndEl) {return;}
 
+        const programTypeEl = document.getElementById('gs_program_type');
+        const isGS = !programTypeEl || !programTypeEl.value || programTypeEl.value === 'GS';
+
         const now = new Date();
 
-        // GS Start: current UTC time
+        // Start: current UTC time
         const startYear = now.getUTCFullYear();
         const startMonth = String(now.getUTCMonth() + 1).padStart(2, '0');
         const startDay = String(now.getUTCDate()).padStart(2, '0');
@@ -7869,23 +7930,36 @@
         const startMin = String(now.getUTCMinutes()).padStart(2, '0');
         gsStartEl.value = startYear + '-' + startMonth + '-' + startDay + 'T' + startHour + ':' + startMin;
 
-        // GS End: current UTC + 1 hour, but end on :14, :29, :44, or :59
+        // End: current UTC + 1 hour, snapped to 15-minute boundary
         let endTime = new Date(now.getTime() + 60 * 60 * 1000); // +1 hour
         const endMinutes = endTime.getUTCMinutes();
 
-        // Find nearest :14, :29, :44, or :59
-        const endPoints = [14, 29, 44, 59];
-        let targetMin = 59;
-        for (let i = 0; i < endPoints.length; i++) {
-            if (endMinutes <= endPoints[i]) {
-                targetMin = endPoints[i];
-                break;
+        let targetMin;
+        if (isGS) {
+            // GS: snap to :00, :15, :30, :45 (on-the-hour 15-min increments)
+            const gsEndPoints = [0, 15, 30, 45];
+            targetMin = 0; // default: roll to next hour at :00
+            for (let i = 0; i < gsEndPoints.length; i++) {
+                if (endMinutes <= gsEndPoints[i]) {
+                    targetMin = gsEndPoints[i];
+                    break;
+                }
             }
-        }
-        // If minutes > 59, roll to next hour at :14
-        if (endMinutes > 59) {
-            endTime = new Date(endTime.getTime() + (60 - endMinutes + 14) * 60 * 1000);
-            targetMin = 14;
+            if (endMinutes > 45) {
+                // Roll to next hour at :00
+                endTime = new Date(endTime.getTime() + (60 - endMinutes) * 60 * 1000);
+                targetMin = 0;
+            }
+        } else {
+            // GDP: snap to :14, :29, :44, :59 (quarter-hour boundaries)
+            const gdpEndPoints = [14, 29, 44, 59];
+            targetMin = 59;
+            for (let i = 0; i < gdpEndPoints.length; i++) {
+                if (endMinutes <= gdpEndPoints[i]) {
+                    targetMin = gdpEndPoints[i];
+                    break;
+                }
+            }
         }
 
         endTime.setUTCMinutes(targetMin);
@@ -7979,40 +8053,39 @@
                     }
                 }
 
-                // Populate scope selector if scope data exists
+                // Populate scope checkboxes if scope data exists
                 if (scope) {
-                    const scopeSel = document.getElementById('gs_scope_select');
-                    if (scopeSel) {
-                    // Clear current selection
-                        Array.prototype.forEach.call(scopeSel.options, function(opt) {
-                            opt.selected = false;
+                    let scopeTokens = scope.origin_centers || scope.tokens || [];
+                    if (typeof scopeTokens === 'string') {
+                        scopeTokens = scopeTokens.split(/\s+/).filter(Boolean);
+                    }
+
+                    // Check matching facility checkboxes
+                    const tokenSet = new Set(scopeTokens.map(function(t) { return t.toUpperCase(); }));
+                    const container = document.getElementById('gs_scope_checkboxes');
+                    if (container) {
+                        _scopeCheckboxProgrammatic = true;
+                        container.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+                            cb.checked = tokenSet.has(cb.value.toUpperCase());
                         });
+                        _scopeCheckboxProgrammatic = false;
+                    }
 
-                        // Select matching options based on scope tokens
-                        let scopeTokens = scope.tokens || scope.origin_centers || [];
-                        if (typeof scopeTokens === 'string') {
-                            scopeTokens = scopeTokens.split(/\s+/).filter(Boolean);
-                        }
+                    // Set scope group dropdown
+                    const groupSel = document.getElementById('gs_scope_group');
+                    if (groupSel && scope.scope_group) {
+                        groupSel.value = scope.scope_group;
+                    } else if (groupSel) {
+                        groupSel.value = 'Manual';
+                    }
 
-                        scopeTokens.forEach(function(token) {
-                            const tok = token.toUpperCase();
-                            Array.prototype.forEach.call(scopeSel.options, function(opt) {
-                                if (opt.value.toUpperCase() === tok) {
-                                    opt.selected = true;
-                                }
-                            });
-                        });
-
-                        // Also populate hidden origin_centers field
-                        setValue('gs_origin_centers', scopeTokens.join(' '));
-
-                        // Populate dep_facilities from scope if available
-                        if (scope.dep_facilities) {
-                            const depFac = Array.isArray(scope.dep_facilities)
-                                ? scope.dep_facilities.join(' ')
-                                : scope.dep_facilities;
-                            setValue('gs_dep_facilities', depFac);
-                        }
+                    // Populate hidden fields
+                    setValue('gs_origin_centers', scopeTokens.join(' '));
+                    if (scope.dep_facilities) {
+                        const depFac = Array.isArray(scope.dep_facilities)
+                            ? scope.dep_facilities.join(' ')
+                            : scope.dep_facilities;
+                        setValue('gs_dep_facilities', depFac);
                     }
                 }
 

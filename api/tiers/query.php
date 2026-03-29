@@ -229,10 +229,10 @@ if ($format === 'gdt' || $format === 'csv') {
         sort($tier1);
         sort($tier2);
 
-        // Output facility configs
-        echo "{$artcc}1,{$artcc},(Internal)," . implode(' ', $tier0) . "\n";
-        echo "{$artcc}2,{$artcc},(1stTier)," . implode(' ', $tier1) . "\n";
-        echo "{$artcc}3,{$artcc},(2ndTier)," . implode(' ', $tier2) . "\n";
+        // Output facility configs (code suffix matches tier level: 0=Internal, 1=1stTier, 2=2ndTier)
+        echo "{$artcc}0,{$artcc},(Internal)," . implode(' ', $tier0) . "\n";
+        echo "{$artcc}1,{$artcc},(1stTier)," . implode(' ', $tier1) . "\n";
+        echo "{$artcc}2,{$artcc},(2ndTier)," . implode(' ', $tier2) . "\n";
     }
 
     exit;

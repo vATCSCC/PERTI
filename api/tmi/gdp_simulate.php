@@ -722,5 +722,5 @@ echo json_encode([
     'summary' => $summary,
     'flights' => $flights_out,
     'slots' => $slots_out
-], JSON_PRETTY_PRINT);
+], JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
 ?>
