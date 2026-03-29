@@ -13,6 +13,10 @@
 -- preference in ORDER BY to prevent US regression when both NASR and CIFP
 -- procedures exist for the same airport.
 --
+-- ARINC 424 truncation: Pilots file full base names (DIXAT1A) but CIFP
+-- truncates 5+ char alpha prefix to 4 chars (DIXA1A). All procedure lookup
+-- queries include OR alternatives with truncated names as fallback.
+--
 -- Data quality: 99.94% of CIFP STAR fix references resolve in nav_fixes.
 --
 -- Safe to re-run: uses CREATE OR REPLACE FUNCTION.
@@ -50,6 +54,7 @@ DECLARE
     v_proc_parts TEXT[];
     v_proc_idx INT;
     v_proc_part TEXT;
+    v_trunc_name TEXT;   -- ARINC 424 truncated procedure name (5+ char alpha -> 4)
 BEGIN
     -- Split route string into raw parts
     v_raw_parts := regexp_split_to_array(TRIM(p_route_string), '\s+');
@@ -108,6 +113,17 @@ BEGIN
 
             v_proc_route := NULL;
 
+            -- ARINC 424 truncation: CIFP truncates 5+ char alpha base to 4
+            -- e.g., pilots file DIXAT1A but CIFP stores DIXA1A
+            v_trunc_name := NULL;
+            IF UPPER(v_dot_right) ~ '^[A-Z]{5,}\d' THEN
+                v_trunc_name := LEFT(regexp_replace(UPPER(v_dot_right), '\d.*$', ''), 4)
+                             || regexp_replace(UPPER(v_dot_right), '^[A-Z]+', '');
+            ELSIF UPPER(v_dot_left) ~ '^[A-Z]{5,}\d' THEN
+                v_trunc_name := LEFT(regexp_replace(UPPER(v_dot_left), '\d.*$', ''), 4)
+                             || regexp_replace(UPPER(v_dot_left), '^[A-Z]+', '');
+            END IF;
+
             -- Look up procedure full_route from nav_procedures.
             -- Filed routes use TRANSITION.PROCEDURE (STARs: ENE.PARCH4)
             --   or PROCEDURE.TRANSITION (DPs: DEEZZ6.CANDR)
@@ -140,6 +156,10 @@ BEGIN
                 -- Exact computer_code match
                 OR np.computer_code = UPPER(v_part)
                 OR np.computer_code = UPPER(v_dot_right || '.' || v_dot_left)
+                -- ARINC 424 truncation alternatives for dot-notation
+                OR (v_trunc_name IS NOT NULL AND np.computer_code LIKE '%.' || v_trunc_name)
+                OR (v_trunc_name IS NOT NULL AND np.computer_code LIKE v_trunc_name || '.%')
+                OR (v_trunc_name IS NOT NULL AND np.computer_code = v_trunc_name)
               )
             ORDER BY
               CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
@@ -285,6 +305,14 @@ BEGIN
                 -- NASR preferred via ORDER BY to preserve US behavior.
                 v_proc_route := NULL;
 
+                -- ARINC 424 truncation: CIFP truncates 5+ char alpha base to 4
+                -- e.g., pilots file DIXAT1A but CIFP stores DIXA1A
+                v_trunc_name := NULL;
+                IF UPPER(v_part) ~ '^[A-Z]{5,}\d' THEN
+                    v_trunc_name := LEFT(regexp_replace(UPPER(v_part), '\d.*$', ''), 4)
+                                 || regexp_replace(UPPER(v_part), '^[A-Z]+', '');
+                END IF;
+
                 -- Use adjacent token as transition hint
                 v_next_fix := NULL;
                 IF v_idx < array_length(v_parts, 1) THEN
@@ -297,7 +325,8 @@ BEGIN
                 -- PROC.TRANSITION format) from matching the DP pattern.
                 SELECT np.full_route INTO v_proc_route
                 FROM nav_procedures np
-                WHERE np.computer_code LIKE UPPER(v_part) || '.%'
+                WHERE (np.computer_code LIKE UPPER(v_part) || '.%'
+                       OR (v_trunc_name IS NOT NULL AND np.computer_code LIKE v_trunc_name || '.%'))
                   AND np.procedure_type IN ('DP', 'SID')
                   AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base', 'CIFP')
                   AND np.is_active = true
@@ -318,7 +347,8 @@ BEGIN
                 IF v_proc_route IS NULL THEN
                     SELECT np.full_route INTO v_proc_route
                     FROM nav_procedures np
-                    WHERE np.computer_code LIKE '%.' || UPPER(v_part)
+                    WHERE (np.computer_code LIKE '%.' || UPPER(v_part)
+                           OR (v_trunc_name IS NOT NULL AND np.computer_code LIKE '%.' || v_trunc_name))
                       AND np.procedure_type = 'STAR'
                       AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base', 'CIFP')
                       AND np.is_active = true
@@ -339,7 +369,8 @@ BEGIN
                 IF v_proc_route IS NULL THEN
                     SELECT np.full_route INTO v_proc_route
                     FROM nav_procedures np
-                    WHERE np.procedure_name = UPPER(v_part)
+                    WHERE (np.procedure_name = UPPER(v_part)
+                           OR (v_trunc_name IS NOT NULL AND np.procedure_name = v_trunc_name))
                       AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base', 'CIFP')
                       AND np.is_active = true
                       AND (np.is_superseded IS NULL OR np.is_superseded = false)
