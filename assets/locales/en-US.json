@@ -1049,6 +1049,11 @@
       "start": "Start",
       "update": "Update"
     },
+    "tmiToggles": {
+      "overlays": "TMI Overlays",
+      "timeline": "TMI Timeline",
+      "markers": "GS/GDP Markers"
+    },
     "tmiTimeline": {
       "active": "ACTIVE",
       "cancelled": "CANCELLED",

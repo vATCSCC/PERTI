@@ -1127,6 +1127,25 @@ include("load/i18n.php");
                             </div>
                         </div>
                     </div>
+                    <hr class="my-2">
+                    <!-- TMI Overlay Toggles -->
+                    <div class="legend-group">
+                        <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <i class="fas fa-layer-group mr-1"></i> <?= __('demand.tmiToggles.overlays') ?>
+                        </div>
+                        <div class="d-flex flex-column" style="gap: 4px;">
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="tmi_toggle_timeline" checked style="margin-right: 4px;">
+                                <span style="display: inline-block; width: 16px; height: 4px; background: #ffc107; margin-right: 4px; vertical-align: middle; border-radius: 1px;"></span>
+                                <?= __('demand.tmiToggles.timeline') ?>
+                            </label>
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="tmi_toggle_markers" checked style="margin-right: 4px;">
+                                <span style="display: inline-block; width: 0; height: 12px; border-left: 2px solid #dc3545; margin-right: 4px; vertical-align: middle;"></span>
+                                <?= __('demand.tmiToggles.markers') ?>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

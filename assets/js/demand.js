@@ -877,6 +877,9 @@ const DEMAND_STATE = {
     showVatsimAdr: true,
     showRwAar: true,
     showRwAdr: true,
+    // TMI overlay visibility toggles
+    showTmiTimeline: true,    // DOM timeline bar above chart
+    showTmiMarkers: true,     // GS/GDP vertical markLines on chart
     // Phase group visibility filters (all checked by default except unknown)
     phaseGroups: {
         prefile: true,      // PREFILE - filed but not connected
