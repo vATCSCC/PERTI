@@ -791,6 +791,7 @@ BEGIN
     SET @step_start = SYSUTCDATETIME();
 
     -- 7a. Flights near destination (<50nm) - mark as actually arrived
+    -- NOTE: All Step 7 queries exclude last_source='synthetic' to preserve injected test flights
     UPDATE t
     SET t.ata_utc = c.last_seen_utc,
         t.ata_runway_utc = c.last_seen_utc,
@@ -800,6 +801,7 @@ BEGIN
     INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
     INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     WHERE c.is_active = 1
+      AND c.last_source != 'synthetic'
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
       AND p.dist_to_dest_nm < 50;  -- Actually near destination
 
@@ -808,6 +810,7 @@ BEGIN
     FROM dbo.adl_flight_core c
     INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     WHERE c.is_active = 1
+      AND c.last_source != 'synthetic'
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
       AND p.dist_to_dest_nm < 50;
 
@@ -817,6 +820,7 @@ BEGIN
     FROM dbo.adl_flight_core c
     LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     WHERE c.is_active = 1
+      AND c.last_source != 'synthetic'
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
       AND (p.dist_to_dest_nm >= 50 OR p.dist_to_dest_nm IS NULL);
 

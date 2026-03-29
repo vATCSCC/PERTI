@@ -36,7 +36,7 @@ BEGIN
     JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
     CROSS APPLY dbo.itvf_IsFlightRelevant(fp.fp_dept_icao, fp.fp_dest_icao, p.lat, p.lon) r
-    WHERE c.is_active = 1 AND c.is_relevant IS NULL;
+    WHERE c.is_active = 1 AND c.last_source != 'synthetic' AND c.is_relevant IS NULL;
 
     -- ========================================================================
     -- Trajectory logging using iTVFs
@@ -180,7 +180,7 @@ BEGIN
             JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
             JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
             LEFT JOIN dbo.apts a ON a.ICAO_ID = fp.fp_dest_icao
-            WHERE c.is_active = 1 AND p.lat IS NOT NULL
+            WHERE c.is_active = 1 AND c.last_source != 'synthetic' AND p.lat IS NOT NULL
         )
         UPDATE ft
         SET ft.eta_utc = e.calc_eta,

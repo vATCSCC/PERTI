@@ -99,7 +99,7 @@ if ($active_only) {
 }
 
 if (!$include_completed) {
-    $where[] = "status NOT IN ('COMPLETED', 'CANCELLED', 'PURGED')";
+    $where[] = "status NOT IN ('COMPLETED', 'CANCELLED', 'PURGED', 'MODELING')";
 }
 
 $where_sql = count($where) > 0 ? "WHERE " . implode(" AND ", $where) : "";

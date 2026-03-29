@@ -1,6 +1,6 @@
 # CTP Pull-Based Sync — Go-Live Checklist
 
-## Current Status: BLOCKED (waiting on CTP team)
+## Current Status: BLOCKED (API endpoint not yet public)
 
 **Deployed**: 2026-03-26 (PR #244, squash-merged to main)
 
@@ -19,9 +19,10 @@
 
 ## Blocked On (from CTP team)
 
-1. **API Key** — needed to authenticate against `GET /api/Routes`
-2. **Session ID** — integer identifying the CTP event session
-3. **Confirmation of endpoint URL & schema** — we built against:
+1. ~~**API Key**~~ — **RECEIVED** 2026-03-26: `e25c925f3ff3a552b5f476810fa0e60056362cf16e605a02ac256aa2ba4dea99` (rate limit: 300/min)
+2. **Session ID** — integer identifying the CTP event session (still needed)
+3. **API endpoint deployment** — `GET /api/Routes` on `planning.ctp.vatsim.net` returns 404 (endpoint not yet public)
+4. **Confirmation of endpoint URL & schema** — we built against:
    - `GET {CTP_API_URL}/api/Routes`
    - Auth: `X-API-Key` header
    - Response: array of `RouteSegment` objects with fields:

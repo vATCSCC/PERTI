@@ -37,6 +37,7 @@ function swim_cleanup_stale_data() {
         'flights_marked_inactive' => 0,
         'flights_deleted' => 0,
         'audit_deleted' => 0,
+        'change_feed_deleted' => 0,
         'subscriptions_deleted' => 0,
         'cache_deleted' => 0,
         'errors' => [],
@@ -90,7 +91,7 @@ function swim_cleanup_stale_data() {
         // ========================================================================
         $sql = "
             DELETE FROM dbo.swim_audit_log
-            WHERE created_at < DATEADD(DAY, -90, GETUTCDATE())
+            WHERE request_time < DATEADD(DAY, -90, GETUTCDATE())
         ";
         $result = @sqlsrv_query($conn_swim, $sql);
         if ($result !== false) {
@@ -140,7 +141,34 @@ function swim_cleanup_stale_data() {
         }
 
         // ========================================================================
-        // 5. Cleanup webhook delivery attempts older than 7 days
+        // 5. Purge change feed older than 3 days (batched)
+        // The change feed is append-only event journal for WebSocket consumers.
+        // Consumers read within seconds; 3 days covers reconnection/replay.
+        // Batched to avoid long-running transactions on Basic tier.
+        // ========================================================================
+        $changeFeedDeleted = 0;
+        $batchLimit = 50000;
+        $maxBatches = 200; // Safety cap: 10M rows max per cleanup cycle
+        for ($batch = 0; $batch < $maxBatches; $batch++) {
+            $sql = "
+                DELETE TOP ($batchLimit) FROM dbo.swim_change_feed
+                WHERE event_utc < DATEADD(DAY, -3, SYSUTCDATETIME())
+            ";
+            $result = @sqlsrv_query($conn_swim, $sql);
+            if ($result !== false) {
+                $affected = sqlsrv_rows_affected($result);
+                sqlsrv_free_stmt($result);
+                $changeFeedDeleted += $affected;
+                if ($affected < $batchLimit) break; // Done
+            } else {
+                $stats['errors'][] = 'Failed to cleanup change feed: ' . swim_get_last_error();
+                break;
+            }
+        }
+        $stats['change_feed_deleted'] = $changeFeedDeleted;
+
+        // ========================================================================
+        // 6. Cleanup webhook delivery attempts older than 7 days
         // ========================================================================
         $sql = "
             DELETE FROM dbo.swim_webhook_deliveries
@@ -157,14 +185,16 @@ function swim_cleanup_stale_data() {
         $stats['duration_ms'] = round((microtime(true) - $stats['start_time']) * 1000);
 
         $totalDeleted = $stats['flights_deleted'] + $stats['audit_deleted'] +
-                        $stats['subscriptions_deleted'] + $stats['cache_deleted'];
+                        $stats['subscriptions_deleted'] + $stats['cache_deleted'] +
+                        $stats['change_feed_deleted'];
 
         $success = count($stats['errors']) === 0;
         $message = sprintf(
-            'Cleanup completed: %d flights marked inactive, %d flights deleted, %d audit, %d subscriptions, %d cache deleted in %dms',
+            'Cleanup completed: %d flights marked inactive, %d flights deleted, %d audit, %d change_feed, %d subscriptions, %d cache deleted in %dms',
             $stats['flights_marked_inactive'],
             $stats['flights_deleted'],
             $stats['audit_deleted'],
+            $stats['change_feed_deleted'],
             $stats['subscriptions_deleted'],
             $stats['cache_deleted'],
             $stats['duration_ms']

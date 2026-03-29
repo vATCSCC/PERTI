@@ -139,6 +139,7 @@ BEGIN
     LEFT JOIN dbo.adl_flight_tmi tmi ON tmi.flight_uid = c.flight_uid
     LEFT JOIN dbo.adl_flight_times ft ON ft.flight_uid = c.flight_uid
     WHERE c.is_active = 1
+      AND c.last_source != 'synthetic'  -- Skip injected test flights
       AND (p.lat IS NOT NULL OR c.phase = 'prefile');  -- V3.1: Include prefiles without position
 
     IF @debug = 1

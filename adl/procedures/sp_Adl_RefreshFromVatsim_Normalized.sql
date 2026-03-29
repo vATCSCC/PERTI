@@ -876,6 +876,7 @@ BEGIN
     SET @step_start = SYSUTCDATETIME();
 
     -- 7a. Flights with touchdown_utc - DEFINITIVE arrivals (zone detection caught landing)
+    -- NOTE: All Step 7 queries exclude last_source='synthetic' to preserve injected test flights
     UPDATE t
     SET t.ata_utc = COALESCE(t.touchdown_utc, t.on_utc, c.last_seen_utc),
         t.ata_runway_utc = COALESCE(t.ata_runway_utc, t.touchdown_utc),
@@ -884,6 +885,7 @@ BEGIN
     FROM dbo.adl_flight_times t
     INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
     WHERE c.is_active = 1
+      AND c.last_source != 'synthetic'
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
       AND t.touchdown_utc IS NOT NULL;
 
@@ -892,6 +894,7 @@ BEGIN
     FROM dbo.adl_flight_core c
     INNER JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
     WHERE c.is_active = 1
+      AND c.last_source != 'synthetic'
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
       AND t.touchdown_utc IS NOT NULL;
 
@@ -905,6 +908,7 @@ BEGIN
     INNER JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
     INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     WHERE c.is_active = 1
+      AND c.last_source != 'synthetic'
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
       AND t.touchdown_utc IS NULL
       AND p.dist_to_dest_nm < 10;
@@ -915,6 +919,7 @@ BEGIN
     INNER JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
     WHERE c.is_active = 1
+      AND c.last_source != 'synthetic'
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
       AND (t.touchdown_utc IS NULL OR t.flight_uid IS NULL)
       AND p.dist_to_dest_nm < 10;
@@ -926,6 +931,7 @@ BEGIN
     LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
     LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
     WHERE c.is_active = 1
+      AND c.last_source != 'synthetic'
       AND c.last_seen_utc < DATEADD(MINUTE, -5, @now)
       AND (t.touchdown_utc IS NULL OR t.flight_uid IS NULL)
       AND (p.dist_to_dest_nm >= 10 OR p.dist_to_dest_nm IS NULL);
