@@ -263,6 +263,51 @@ if ($proposal_id > 0) {
 }
 
 // ============================================================================
+// Recalculate Delay Metrics from Flight Control Records
+// ============================================================================
+
+$fc_result = fetch_all($conn_tmi,
+    "SELECT program_delay_min, ctl_exempt FROM dbo.tmi_flight_control WHERE program_id = ?",
+    [$program_id]
+);
+
+if ($fc_result['success'] && !empty($fc_result['data'])) {
+    $total_delay = 0;
+    $max_delay = 0;
+    $delay_count = 0;
+    $controlled_count = 0;
+    $exempt_count = 0;
+
+    foreach ($fc_result['data'] as $fc) {
+        $is_exempt = !empty($fc['ctl_exempt']);
+        if ($is_exempt) {
+            $exempt_count++;
+        } else {
+            $controlled_count++;
+            $d = (int)($fc['program_delay_min'] ?? 0);
+            $total_delay += $d;
+            if ($d > $max_delay) $max_delay = $d;
+            $delay_count++;
+        }
+    }
+
+    $avg_delay = $delay_count > 0 ? round($total_delay / $delay_count, 1) : 0;
+
+    execute_query($conn_tmi, "
+        UPDATE dbo.tmi_programs
+        SET total_flights = ?,
+            controlled_flights = ?,
+            exempt_flights = ?,
+            avg_delay_min = ?,
+            max_delay_min = ?,
+            total_delay_min = ?,
+            updated_at = SYSUTCDATETIME()
+        WHERE program_id = ?
+    ", [count($fc_result['data']), $controlled_count, $exempt_count,
+        $avg_delay, $max_delay, $total_delay, $program_id]);
+}
+
+// ============================================================================
 // Generate ACTUAL Advisory Text
 // ============================================================================
 
