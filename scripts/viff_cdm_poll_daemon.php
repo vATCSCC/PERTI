@@ -50,7 +50,7 @@ if (!defined('PERTI_LOADED')) {
     require_once __DIR__ . '/../load/connect.php';
 }
 
-// Load swim_config for swim_generate_gufi()
+// Load swim_config for swim_generate_gufi_legacy()
 require_once __DIR__ . '/../load/swim_config.php';
 
 // ============================================================================
@@ -332,7 +332,7 @@ function viff_batch_gufi_lookup($conn_swim, array $flights): array {
         }
 
         $date = viff_eobt_to_date($eobt);
-        $gufi = swim_generate_gufi($callsign, $departure, $arrival, $date);
+        $gufi = swim_generate_gufi_legacy($callsign, $departure, $arrival, $date);
         $gufis[] = $gufi;
         $gufiMap[$gufi] = $idx;
     }
@@ -345,13 +345,13 @@ function viff_batch_gufi_lookup($conn_swim, array $flights): array {
     $resolved = [];
     foreach (array_chunk($gufis, 200) as $chunk) {
         $placeholders = implode(',', array_fill(0, count($chunk), '?'));
-        $sql = "SELECT flight_uid, callsign, fp_dept_icao, fp_dest_icao, gufi
+        $sql = "SELECT flight_uid, callsign, fp_dept_icao, fp_dest_icao, gufi, gufi_legacy
                 FROM dbo.swim_flights
-                WHERE gufi IN ($placeholders) AND is_active = 1";
+                WHERE gufi_legacy IN ($placeholders) AND is_active = 1";
         $stmt = sqlsrv_query($conn_swim, $sql, $chunk);
         if ($stmt !== false) {
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-                $resolved[$row['gufi']] = $row;
+                $resolved[$row['gufi_legacy']] = $row;
             }
             sqlsrv_free_stmt($stmt);
         }
@@ -742,7 +742,7 @@ function viff_poll(bool $debug = false): array {
             // Try batch GUFI result first
             if ($departure !== '' && $arrival !== '' && $eobt !== '') {
                 $date = viff_eobt_to_date($eobt);
-                $gufi = swim_generate_gufi($callsign, $departure, $arrival, $date);
+                $gufi = swim_generate_gufi_legacy($callsign, $departure, $arrival, $date);
                 if (isset($gufiResults[$gufi])) {
                     $match = $gufiResults[$gufi];
                 }

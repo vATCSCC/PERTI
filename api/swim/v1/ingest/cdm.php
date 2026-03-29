@@ -146,10 +146,9 @@ function processCdmUpdate($conn_swim, $conn_tmi, $record, $source, $valid_readin
 
     // Look up flight - prefer GUFI if provided
     if (!empty($gufi)) {
+        [$gufi_where, $params] = swim_gufi_lookup_sql($gufi);
         $lookup_sql = "SELECT flight_uid, callsign, fp_dept_icao, fp_dest_icao
-                       FROM dbo.swim_flights
-                       WHERE gufi = ? AND is_active = 1";
-        $params = [$gufi];
+                       FROM dbo.swim_flights $gufi_where";
     } elseif (!empty($airport)) {
         // Look up by callsign and departure airport (CDM is departure-focused)
         $lookup_sql = "SELECT TOP 1 flight_uid, callsign, fp_dept_icao, fp_dest_icao

@@ -55,27 +55,13 @@ if ($flight_uid) {
     $where_clause = 'f.flight_key = ?';
     $params[] = $flight_key;
 } elseif ($gufi) {
-    $gufi_parts = swim_parse_gufi($gufi);
-
-    if (!$gufi_parts) {
-        SwimResponse::error('Invalid GUFI format. Expected: VAT-YYYYMMDD-CALLSIGN-DEPT-DEST', 400, 'INVALID_GUFI');
-    }
-
-    $where_clause = 'f.callsign = ? AND f.fp_dept_icao = ? AND f.fp_dest_icao = ?';
-    $params[] = $gufi_parts['callsign'];
-    $params[] = $gufi_parts['dept'];
-    $params[] = $gufi_parts['dest'];
-
-    if (!$include_history) {
-        $gufi_date = $gufi_parts['date'];
-        if (strlen($gufi_date) === 8) {
-            $year = substr($gufi_date, 0, 4);
-            $month = substr($gufi_date, 4, 2);
-            $day = substr($gufi_date, 6, 2);
-            $date_str = "$year-$month-$day";
-            $where_clause .= ' AND CAST(f.first_seen_utc AS DATE) = ?';
-            $params[] = $date_str;
-        }
+    // Auto-detect UUID vs legacy format
+    if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $gufi)) {
+        $where_clause = 'f.gufi = ?';
+        $params[] = $gufi;
+    } else {
+        $where_clause = 'f.gufi_legacy = ?';
+        $params[] = $gufi;
     }
 }
 
@@ -86,7 +72,7 @@ if (!$include_history && !$flight_uid) {
 // Main query - single table against swim_flights (SWIM_API database)
 $sql = "
     SELECT TOP 1
-        f.flight_uid, f.flight_key, f.gufi, f.callsign, f.cid, f.flight_id,
+        f.flight_uid, f.flight_key, f.gufi, f.gufi_legacy, f.gufi_created_utc, f.callsign, f.cid, f.flight_id,
         f.phase, f.is_active,
         f.first_seen_utc, f.last_seen_utc, f.logon_time_utc,
         f.current_artcc, f.current_tracon, f.current_zone,
@@ -164,7 +150,7 @@ function formatDT($dt) {
  * Uses columns available in the denormalized swim_flights table only.
  */
 function formatSwimFlightRecordFIXM($row) {
-    $gufi = $row['gufi'] ?? swim_generate_gufi($row['callsign'], $row['fp_dept_icao'], $row['fp_dest_icao']);
+    $gufi = $row['gufi'] ?? '';
 
     $time_to_dest = null;
     if ($row['groundspeed_kts'] > 50 && $row['dist_to_dest_nm'] > 0) {
@@ -174,7 +160,12 @@ function formatSwimFlightRecordFIXM($row) {
     }
 
     $result = [
-        'gufi' => $gufi,
+        'gufi' => swim_format_gufi_response(
+            $gufi,
+            $row['gufi_legacy'] ?? null,
+            formatDT($row['gufi_created_utc'] ?? null)
+        ),
+        'gufi_legacy' => $row['gufi_legacy'] ?? null,
         'flight_uid' => $row['flight_uid'],
         'flight_key' => $row['flight_key'],
         'flight_id' => $row['flight_id'],

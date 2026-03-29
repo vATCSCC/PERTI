@@ -85,11 +85,17 @@ function processFlightUpdate($flight, $source, $conn) {
     $callsign = strtoupper(trim($flight['callsign']));
     $dept_icao = strtoupper(trim($flight['dept_icao']));
     $dest_icao = strtoupper(trim($flight['dest_icao']));
-    $gufi = swim_generate_gufi($callsign, $dept_icao, $dest_icao);
-    
     // Check if flight exists in swim_flights
-    $check_sql = "SELECT flight_uid FROM dbo.swim_flights WHERE gufi = ?";
-    $check_stmt = sqlsrv_query($conn, $check_sql, [$gufi]);
+    // Primary: flight_uid (most reliable, available from ADL source)
+    $flight_uid = isset($flight['flight_uid']) ? (int)$flight['flight_uid'] : 0;
+    if ($flight_uid > 0) {
+        $check_sql = "SELECT flight_uid FROM dbo.swim_flights WHERE flight_uid = ?";
+        $check_stmt = sqlsrv_query($conn, $check_sql, [$flight_uid]);
+    } else {
+        // Fallback: callsign + dept + dest + active (for external ingest without flight_uid)
+        $check_sql = "SELECT flight_uid FROM dbo.swim_flights WHERE callsign = ? AND fp_dept_icao = ? AND fp_dest_icao = ? AND is_active = 1";
+        $check_stmt = sqlsrv_query($conn, $check_sql, [$callsign, $dept_icao, $dest_icao]);
+    }
     
     if ($check_stmt === false) {
         $errors = sqlsrv_errors();
@@ -210,7 +216,7 @@ function processFlightUpdate($flight, $source, $conn) {
             sqlsrv_free_stmt($stmt);
         }
         
-        return ['status' => 'updated', 'gufi' => $gufi, 'flight_uid' => $existing['flight_uid']];
+        return ['status' => 'updated', 'flight_uid' => $existing['flight_uid']];
         
     } else {
         // Insert new flight
@@ -227,10 +233,14 @@ function processFlightUpdate($flight, $source, $conn) {
         
         $flight_key = $flight['flight_key'] ?? sprintf('%s|%s|%s|%s', $callsign, $dept_icao, $dest_icao, gmdate('Ymd'));
         
+        // Generate gufi_legacy for backward compatibility
+        $gufi_legacy = swim_generate_gufi_legacy($callsign, $dept_icao, $dest_icao);
+
         // Insert with FIXM columns only (accepts legacy input names)
+        // gufi omitted — DEFAULT NEWID() generates UUID v4
         $insert_sql = "
             INSERT INTO dbo.swim_flights (
-                flight_uid, gufi, flight_key, callsign, cid,
+                flight_uid, gufi_legacy, flight_key, callsign, cid,
                 fp_dept_icao, fp_dest_icao, fp_alt_icao,
                 fp_altitude_ft, fp_tas_kts, fp_route,
                 aircraft_type, aircraft_icao,
@@ -265,7 +275,7 @@ function processFlightUpdate($flight, $source, $conn) {
 
         $insert_params = [
             $flight_uid,
-            $gufi,
+            $gufi_legacy,
             $flight_key,
             $callsign,
             $flight['cid'] ?? null,
@@ -297,6 +307,6 @@ function processFlightUpdate($flight, $source, $conn) {
         }
         sqlsrv_free_stmt($stmt);
         
-        return ['status' => 'created', 'gufi' => $gufi];
+        return ['status' => 'created', 'flight_uid' => $flight_uid];
     }
 }

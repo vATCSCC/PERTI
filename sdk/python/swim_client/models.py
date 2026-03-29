@@ -190,6 +190,8 @@ class FlightTMI:
 class Flight:
     """Complete flight record."""
     gufi: str
+    gufi_legacy: Optional[str] = None
+    gufi_created_utc: Optional[str] = None
     flight_uid: int
     flight_key: str
     identity: FlightIdentity
@@ -203,6 +205,8 @@ class Flight:
     def from_dict(cls, data: Dict[str, Any]) -> 'Flight':
         return cls(
             gufi=data.get('gufi', ''),
+            gufi_legacy=data.get('gufi_legacy'),
+            gufi_created_utc=data.get('gufi_created_utc'),
             flight_uid=data.get('flight_uid', 0),
             flight_key=data.get('flight_key', ''),
             identity=FlightIdentity.from_dict(data.get('identity', {})),
