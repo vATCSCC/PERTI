@@ -42,6 +42,7 @@ RETURNS TABLE (
 DECLARE
     route_geom GEOMETRY;
     intersection_geom GEOMETRY;
+    v_shifted BOOLEAN;
 BEGIN
     -- Build LineString from waypoints array
     SELECT ST_MakeLine(
@@ -61,6 +62,12 @@ BEGIN
         RETURN;
     END IF;
 
+    -- Detect and handle antimeridian crossing
+    v_shifted := crosses_antimeridian(route_geom);
+    IF v_shifted THEN
+        route_geom := ST_ShiftLongitude(route_geom);
+    END IF;
+
     -- ARTCCs (always included)
     RETURN QUERY
     SELECT
@@ -70,17 +77,35 @@ BEGIN
         ab.artcc_code::VARCHAR(4) AS parent_artcc,
         ab.floor_altitude,
         ab.ceiling_altitude,
-        ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(route_geom, ab.geom)))::FLOAT AS traversal_order,
+        ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
+            route_geom,
+            CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+        )))::FLOAT AS traversal_order,
         jsonb_build_object(
-            'lon', ST_X(ST_StartPoint(ST_Intersection(route_geom, ab.geom))),
-            'lat', ST_Y(ST_StartPoint(ST_Intersection(route_geom, ab.geom)))
+            'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+            )))),
+            'lat', ST_Y(ST_StartPoint(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+            )))
         ) AS entry_point,
         jsonb_build_object(
-            'lon', ST_X(ST_EndPoint(ST_Intersection(route_geom, ab.geom))),
-            'lat', ST_Y(ST_EndPoint(ST_Intersection(route_geom, ab.geom)))
+            'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+            )))),
+            'lat', ST_Y(ST_EndPoint(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+            )))
         ) AS exit_point
     FROM artcc_boundaries ab
-    WHERE ST_Intersects(route_geom, ab.geom);
+    WHERE ST_Intersects(
+        route_geom,
+        CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+    );
 
     -- TRACONs (for departure/arrival, typically below FL180)
     RETURN QUERY
@@ -91,17 +116,35 @@ BEGIN
         tb.parent_artcc::VARCHAR(4) AS parent_artcc,
         tb.floor_altitude,
         tb.ceiling_altitude,
-        ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(route_geom, tb.geom)))::FLOAT AS traversal_order,
+        ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
+            route_geom,
+            CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+        )))::FLOAT AS traversal_order,
         jsonb_build_object(
-            'lon', ST_X(ST_StartPoint(ST_Intersection(route_geom, tb.geom))),
-            'lat', ST_Y(ST_StartPoint(ST_Intersection(route_geom, tb.geom)))
+            'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+            )))),
+            'lat', ST_Y(ST_StartPoint(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+            )))
         ) AS entry_point,
         jsonb_build_object(
-            'lon', ST_X(ST_EndPoint(ST_Intersection(route_geom, tb.geom))),
-            'lat', ST_Y(ST_EndPoint(ST_Intersection(route_geom, tb.geom)))
+            'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+            )))),
+            'lat', ST_Y(ST_EndPoint(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+            )))
         ) AS exit_point
     FROM tracon_boundaries tb
-    WHERE ST_Intersects(route_geom, tb.geom);
+    WHERE ST_Intersects(
+        route_geom,
+        CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+    );
 
     -- Sectors (if requested)
     IF include_sectors THEN
@@ -114,20 +157,38 @@ BEGIN
             sb.parent_artcc::VARCHAR(4) AS parent_artcc,
             sb.floor_altitude,
             sb.ceiling_altitude,
-            ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(route_geom, sb.geom)))::FLOAT AS traversal_order,
+            ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+            )))::FLOAT AS traversal_order,
             jsonb_build_object(
-                'lon', ST_X(ST_StartPoint(ST_Intersection(route_geom, sb.geom))),
-                'lat', ST_Y(ST_StartPoint(ST_Intersection(route_geom, sb.geom)))
+                'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))),
+                'lat', ST_Y(ST_StartPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))
             ) AS entry_point,
             jsonb_build_object(
-                'lon', ST_X(ST_EndPoint(ST_Intersection(route_geom, sb.geom))),
-                'lat', ST_Y(ST_EndPoint(ST_Intersection(route_geom, sb.geom)))
+                'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))),
+                'lat', ST_Y(ST_EndPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))
             ) AS exit_point
         FROM sector_boundaries sb
         WHERE sb.sector_type = 'LOW'
-          AND ST_Intersects(route_geom, sb.geom)
+          AND ST_Intersects(
+              route_geom,
+              CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+          )
           AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= cruise_altitude)
-          AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= 0);  -- Low sectors affect climb/descent
+          AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= 0);
 
         -- HIGH sectors (typically FL240 to FL600)
         RETURN QUERY
@@ -138,18 +199,36 @@ BEGIN
             sb.parent_artcc::VARCHAR(4) AS parent_artcc,
             sb.floor_altitude,
             sb.ceiling_altitude,
-            ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(route_geom, sb.geom)))::FLOAT AS traversal_order,
+            ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+            )))::FLOAT AS traversal_order,
             jsonb_build_object(
-                'lon', ST_X(ST_StartPoint(ST_Intersection(route_geom, sb.geom))),
-                'lat', ST_Y(ST_StartPoint(ST_Intersection(route_geom, sb.geom)))
+                'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))),
+                'lat', ST_Y(ST_StartPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))
             ) AS entry_point,
             jsonb_build_object(
-                'lon', ST_X(ST_EndPoint(ST_Intersection(route_geom, sb.geom))),
-                'lat', ST_Y(ST_EndPoint(ST_Intersection(route_geom, sb.geom)))
+                'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))),
+                'lat', ST_Y(ST_EndPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))
             ) AS exit_point
         FROM sector_boundaries sb
         WHERE sb.sector_type = 'HIGH'
-          AND ST_Intersects(route_geom, sb.geom)
+          AND ST_Intersects(
+              route_geom,
+              CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+          )
           AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= cruise_altitude)
           AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= cruise_altitude);
 
@@ -162,18 +241,36 @@ BEGIN
             sb.parent_artcc::VARCHAR(4) AS parent_artcc,
             sb.floor_altitude,
             sb.ceiling_altitude,
-            ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(route_geom, sb.geom)))::FLOAT AS traversal_order,
+            ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
+                route_geom,
+                CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+            )))::FLOAT AS traversal_order,
             jsonb_build_object(
-                'lon', ST_X(ST_StartPoint(ST_Intersection(route_geom, sb.geom))),
-                'lat', ST_Y(ST_StartPoint(ST_Intersection(route_geom, sb.geom)))
+                'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))),
+                'lat', ST_Y(ST_StartPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))
             ) AS entry_point,
             jsonb_build_object(
-                'lon', ST_X(ST_EndPoint(ST_Intersection(route_geom, sb.geom))),
-                'lat', ST_Y(ST_EndPoint(ST_Intersection(route_geom, sb.geom)))
+                'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))),
+                'lat', ST_Y(ST_EndPoint(ST_Intersection(
+                    route_geom,
+                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                )))
             ) AS exit_point
         FROM sector_boundaries sb
         WHERE sb.sector_type = 'SUPERHIGH'
-          AND ST_Intersects(route_geom, sb.geom)
+          AND ST_Intersects(
+              route_geom,
+              CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+          )
           AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= cruise_altitude)
           AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= cruise_altitude);
     END IF;
@@ -324,9 +421,9 @@ DECLARE
     v_sectors JSONB := '[]'::jsonb;
     v_origin_artcc VARCHAR(4);
     v_dest_artcc VARCHAR(4);
+    v_shifted BOOLEAN;
 BEGIN
     -- Parse route geometry from GeoJSON
-    -- Supports: raw coordinates array, LineString geometry, Feature with geometry
     IF p_route_geojson IS NULL THEN
         RETURN QUERY SELECT '{}'::TEXT[], '{}'::TEXT[], '{}'::TEXT[], '[]'::JSONB, NULL::VARCHAR(4), NULL::VARCHAR(4);
         RETURN;
@@ -335,13 +432,10 @@ BEGIN
     -- Try to extract geometry
     BEGIN
         IF p_route_geojson ? 'coordinates' AND p_route_geojson->>'type' = 'LineString' THEN
-            -- Direct LineString
             route_geom := ST_SetSRID(ST_GeomFromGeoJSON(p_route_geojson::text), 4326);
         ELSIF p_route_geojson ? 'geometry' THEN
-            -- Feature with geometry
             route_geom := ST_SetSRID(ST_GeomFromGeoJSON((p_route_geojson->'geometry')::text), 4326);
         ELSIF jsonb_typeof(p_route_geojson) = 'array' THEN
-            -- Raw coordinates array [[lon,lat], [lon,lat], ...]
             SELECT ST_MakeLine(
                 array_agg(
                     ST_SetSRID(ST_MakePoint(
@@ -354,7 +448,6 @@ BEGIN
             INTO route_geom
             FROM jsonb_array_elements(p_route_geojson) WITH ORDINALITY AS t(coord, ordinality);
         ELSE
-            -- Try as waypoints format [{lon, lat}, ...]
             SELECT ST_MakeLine(
                 array_agg(
                     ST_SetSRID(ST_MakePoint(
@@ -376,19 +469,31 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Get ARTCCs traversed (ordered by traversal)
+    -- Detect and handle antimeridian crossing
+    v_shifted := crosses_antimeridian(route_geom);
+    IF v_shifted THEN
+        route_geom := ST_ShiftLongitude(route_geom);
+    END IF;
+
+    -- Get ARTCCs traversed
     SELECT array_agg(DISTINCT artcc_code ORDER BY artcc_code)
     INTO v_artccs
     FROM artcc_boundaries
-    WHERE ST_Intersects(geom, route_geom);
+    WHERE ST_Intersects(
+        CASE WHEN v_shifted THEN ST_ShiftLongitude(geom) ELSE geom END,
+        route_geom
+    );
 
     -- Get TRACONs traversed
     SELECT array_agg(DISTINCT tracon_code ORDER BY tracon_code)
     INTO v_tracons
     FROM tracon_boundaries
-    WHERE ST_Intersects(geom, route_geom);
+    WHERE ST_Intersects(
+        CASE WHEN v_shifted THEN ST_ShiftLongitude(geom) ELSE geom END,
+        route_geom
+    );
 
-    -- Get sectors traversed at cruise altitude (as JSONB array)
+    -- Get sectors traversed at cruise altitude
     SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'code', sector_code,
         'name', sector_name,
@@ -397,11 +502,14 @@ BEGIN
     )), '[]'::jsonb)
     INTO v_sectors
     FROM sector_boundaries
-    WHERE ST_Intersects(geom, route_geom)
+    WHERE ST_Intersects(
+        CASE WHEN v_shifted THEN ST_ShiftLongitude(geom) ELSE geom END,
+        route_geom
+    )
       AND (floor_altitude IS NULL OR floor_altitude <= p_cruise_altitude)
       AND (ceiling_altitude IS NULL OR ceiling_altitude >= p_cruise_altitude);
 
-    -- Get origin airport's ARTCC (if airports table exists and origin provided)
+    -- Get origin airport's ARTCC (point lookup, no antimeridian issue)
     IF p_origin_icao IS NOT NULL THEN
         BEGIN
             SELECT ab.artcc_code INTO v_origin_artcc
@@ -430,12 +538,12 @@ BEGIN
     END IF;
 
     RETURN QUERY SELECT
-        COALESCE(v_artccs, '{}'),        -- facilities_traversed (ARTCCs as facilities)
-        COALESCE(v_artccs, '{}'),        -- artccs_traversed
-        COALESCE(v_tracons, '{}'),       -- tracons_traversed
-        COALESCE(v_sectors, '[]'::jsonb), -- sectors_traversed
-        v_origin_artcc,                   -- origin_artcc
-        v_dest_artcc;                     -- dest_artcc
+        COALESCE(v_artccs, '{}'),
+        COALESCE(v_artccs, '{}'),
+        COALESCE(v_tracons, '{}'),
+        COALESCE(v_sectors, '[]'::jsonb),
+        v_origin_artcc,
+        v_dest_artcc;
 END;
 $$ LANGUAGE plpgsql STABLE;
 
@@ -457,6 +565,7 @@ RETURNS TABLE (
 ) AS $$
 DECLARE
     route_geom GEOMETRY;
+    v_shifted BOOLEAN;
 BEGIN
     -- Build LineString from waypoints
     SELECT ST_MakeLine(
@@ -475,14 +584,26 @@ BEGIN
         RETURN;
     END IF;
 
+    -- Detect and handle antimeridian crossing
+    v_shifted := crosses_antimeridian(route_geom);
+    IF v_shifted THEN
+        route_geom := ST_ShiftLongitude(route_geom);
+    END IF;
+
     RETURN QUERY
     SELECT
         tb.tracon_code,
         tb.tracon_name,
         tb.parent_artcc,
-        ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(route_geom, tb.geom)))::FLOAT AS traversal_order
+        ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
+            route_geom,
+            CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+        )))::FLOAT AS traversal_order
     FROM tracon_boundaries tb
-    WHERE ST_Intersects(route_geom, tb.geom)
+    WHERE ST_Intersects(
+        route_geom,
+        CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+    )
     ORDER BY traversal_order;
 END;
 $$ LANGUAGE plpgsql STABLE;
