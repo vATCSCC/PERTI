@@ -85,11 +85,17 @@ function processFlightUpdate($flight, $source, $conn) {
     $callsign = strtoupper(trim($flight['callsign']));
     $dept_icao = strtoupper(trim($flight['dept_icao']));
     $dest_icao = strtoupper(trim($flight['dest_icao']));
-    $gufi = swim_generate_gufi($callsign, $dept_icao, $dest_icao);
-    
     // Check if flight exists in swim_flights
-    $check_sql = "SELECT flight_uid FROM dbo.swim_flights WHERE gufi = ?";
-    $check_stmt = sqlsrv_query($conn, $check_sql, [$gufi]);
+    // Primary: flight_uid (most reliable, available from ADL source)
+    $flight_uid = isset($flight['flight_uid']) ? (int)$flight['flight_uid'] : 0;
+    if ($flight_uid > 0) {
+        $check_sql = "SELECT flight_uid FROM dbo.swim_flights WHERE flight_uid = ?";
+        $check_stmt = sqlsrv_query($conn, $check_sql, [$flight_uid]);
+    } else {
+        // Fallback: callsign + dept + dest + active (for external ingest without flight_uid)
+        $check_sql = "SELECT flight_uid FROM dbo.swim_flights WHERE callsign = ? AND fp_dept_icao = ? AND fp_dest_icao = ? AND is_active = 1";
+        $check_stmt = sqlsrv_query($conn, $check_sql, [$callsign, $dept_icao, $dest_icao]);
+    }
     
     if ($check_stmt === false) {
         $errors = sqlsrv_errors();
