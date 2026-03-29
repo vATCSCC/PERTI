@@ -110,12 +110,12 @@ BEGIN
             COALESCE(ab.is_oceanic, FALSE) AS is_oceanic,
             (ST_Dump(ST_Intersection(
                 trajectory,
-                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END)
+                ST_Boundary(CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END)
             ))).geom AS crossing_point
         FROM artcc_boundaries ab
         WHERE ST_Intersects(
             trajectory,
-            CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+            CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
         )
     ),
     crossing_details AS (
@@ -140,7 +140,7 @@ BEGIN
         -- Determine if entry or exit based on containment before/after crossing
         CASE
             WHEN ST_Contains(
-                (SELECT CASE WHEN v_shifted THEN ST_ShiftLongitude(ab2.geom) ELSE ab2.geom END
+                (SELECT CASE WHEN v_shifted THEN safe_shift_geom(ab2.geom) ELSE ab2.geom END
                  FROM artcc_boundaries ab2 WHERE ab2.artcc_code = cd.artcc_code LIMIT 1),
                 ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
             ) THEN 'ENTRY'::VARCHAR(5)
@@ -203,12 +203,12 @@ BEGIN
             sb.parent_artcc,
             (ST_Dump(ST_Intersection(
                 trajectory,
-                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END)
+                ST_Boundary(CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END)
             ))).geom AS crossing_point
         FROM (SELECT sector_code, sector_name, sector_type, parent_artcc, geom FROM sector_boundaries WHERE ST_IsValid(geom)) sb
         WHERE ST_Intersects(
             trajectory,
-            CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+            CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
         )
           AND (p_sector_type IS NULL OR sb.sector_type = p_sector_type)
     ),
@@ -235,7 +235,7 @@ BEGIN
         (cd.crossing_fraction * total_length_m / 1852.0)::FLOAT AS distance_nm,
         CASE
             WHEN ST_Contains(
-                (SELECT CASE WHEN v_shifted THEN ST_ShiftLongitude(sb2.geom) ELSE sb2.geom END
+                (SELECT CASE WHEN v_shifted THEN safe_shift_geom(sb2.geom) ELSE sb2.geom END
                  FROM sector_boundaries sb2 WHERE sb2.sector_code = cd.sector_code LIMIT 1),
                 ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
             ) THEN 'ENTRY'::VARCHAR(5)
@@ -298,12 +298,12 @@ BEGIN
             ab.artcc_code AS parent_artcc,
             (ST_Dump(ST_Intersection(
                 trajectory,
-                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END)
+                ST_Boundary(CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END)
             ))).geom AS crossing_point
         FROM artcc_boundaries ab
         WHERE ST_Intersects(
             trajectory,
-            CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+            CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
         )
     ),
     sector_crossings AS (
@@ -314,12 +314,12 @@ BEGIN
             sb.parent_artcc,
             (ST_Dump(ST_Intersection(
                 trajectory,
-                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END)
+                ST_Boundary(CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END)
             ))).geom AS crossing_point
         FROM (SELECT sector_code, sector_type, sector_name, parent_artcc, geom FROM sector_boundaries WHERE ST_IsValid(geom)) sb
         WHERE ST_Intersects(
             trajectory,
-            CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+            CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
         )
     ),
     all_crossings AS (
@@ -352,13 +352,13 @@ BEGIN
         CASE
             WHEN cd.boundary_type = 'ARTCC' THEN
                 CASE WHEN ST_Contains(
-                    (SELECT CASE WHEN v_shifted THEN ST_ShiftLongitude(ab2.geom) ELSE ab2.geom END
+                    (SELECT CASE WHEN v_shifted THEN safe_shift_geom(ab2.geom) ELSE ab2.geom END
                      FROM artcc_boundaries ab2 WHERE ab2.artcc_code = cd.boundary_code::VARCHAR(4) LIMIT 1),
                     ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
                 ) THEN 'ENTRY'::VARCHAR(5) ELSE 'EXIT'::VARCHAR(5) END
             ELSE
                 CASE WHEN ST_Contains(
-                    (SELECT CASE WHEN v_shifted THEN ST_ShiftLongitude(sb2.geom) ELSE sb2.geom END
+                    (SELECT CASE WHEN v_shifted THEN safe_shift_geom(sb2.geom) ELSE sb2.geom END
                      FROM sector_boundaries sb2 WHERE sb2.sector_code = cd.boundary_code LIMIT 1),
                     ST_LineInterpolatePoint(trajectory, LEAST(cd.crossing_fraction + 0.001, 1.0))
                 ) THEN 'ENTRY'::VARCHAR(5) ELSE 'EXIT'::VARCHAR(5) END
@@ -519,12 +519,12 @@ BEGIN
         CROSS JOIN LATERAL (
             SELECT (ST_Dump(ST_Intersection(
                 trajectory,
-                ST_Boundary(CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END)
+                ST_Boundary(CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END)
             ))).geom
         ) AS crossing_point
         WHERE ST_Intersects(
             trajectory,
-            CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+            CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
         )
           AND NOT COALESCE(ab.is_oceanic, FALSE)
           AND ST_GeometryType(crossing_point.geom) = 'ST_Point'

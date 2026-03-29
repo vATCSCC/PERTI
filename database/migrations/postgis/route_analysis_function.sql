@@ -83,7 +83,7 @@ BEGIN
             ab.fir_name::text AS fname,
             ST_Intersection(
                 v_route,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ST_MakeValid(ab.geom))
+                CASE WHEN v_shifted THEN ST_MakeValid(safe_shift_geom(ab.geom))
                      ELSE ST_MakeValid(ab.geom) END
             ) AS intersection_geom,
             ab.floor_altitude AS f_alt,
@@ -92,7 +92,7 @@ BEGIN
         WHERE ('ARTCC' = ANY(p_facility_types) OR 'FIR' = ANY(p_facility_types))
           AND ST_Intersects(
                 v_route,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ST_MakeValid(ab.geom))
+                CASE WHEN v_shifted THEN ST_MakeValid(safe_shift_geom(ab.geom))
                      ELSE ST_MakeValid(ab.geom) END
               )
           AND ab.geom IS NOT NULL
@@ -111,7 +111,7 @@ BEGIN
             END::text AS fname,
             ST_Intersection(
                 v_route,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ST_MakeValid(tb.geom))
+                CASE WHEN v_shifted THEN ST_MakeValid(safe_shift_geom(tb.geom))
                      ELSE ST_MakeValid(tb.geom) END
             ) AS intersection_geom,
             tb.floor_altitude AS f_alt,
@@ -120,7 +120,7 @@ BEGIN
         WHERE 'TRACON' = ANY(p_facility_types)
           AND ST_Intersects(
                 v_route,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ST_MakeValid(tb.geom))
+                CASE WHEN v_shifted THEN ST_MakeValid(safe_shift_geom(tb.geom))
                      ELSE ST_MakeValid(tb.geom) END
               )
           AND tb.geom IS NOT NULL
@@ -134,7 +134,7 @@ BEGIN
             COALESCE(sb.sector_name, sb.sector_code || ' (' || sb.parent_artcc || ')')::text AS fname,
             ST_Intersection(
                 v_route,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ST_MakeValid(sb.geom))
+                CASE WHEN v_shifted THEN ST_MakeValid(safe_shift_geom(sb.geom))
                      ELSE ST_MakeValid(sb.geom) END
             ) AS intersection_geom,
             sb.floor_altitude AS f_alt,
@@ -143,7 +143,7 @@ BEGIN
         WHERE sb.geom IS NOT NULL
           AND ST_Intersects(
                 v_route,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ST_MakeValid(sb.geom))
+                CASE WHEN v_shifted THEN ST_MakeValid(safe_shift_geom(sb.geom))
                      ELSE ST_MakeValid(sb.geom) END
               )
           AND (

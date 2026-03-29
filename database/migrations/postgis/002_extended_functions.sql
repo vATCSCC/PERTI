@@ -79,32 +79,32 @@ BEGIN
         ab.ceiling_altitude,
         ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
             route_geom,
-            CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+            CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
         )))::FLOAT AS traversal_order,
         jsonb_build_object(
             'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
             )))),
             'lat', ST_Y(ST_StartPoint(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
             )))
         ) AS entry_point,
         jsonb_build_object(
             'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
             )))),
             'lat', ST_Y(ST_EndPoint(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
             )))
         ) AS exit_point
     FROM artcc_boundaries ab
     WHERE ST_Intersects(
         route_geom,
-        CASE WHEN v_shifted THEN ST_ShiftLongitude(ab.geom) ELSE ab.geom END
+        CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
     );
 
     -- TRACONs (for departure/arrival, typically below FL180)
@@ -118,32 +118,32 @@ BEGIN
         tb.ceiling_altitude,
         ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
             route_geom,
-            CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+            CASE WHEN v_shifted THEN safe_shift_geom(tb.geom) ELSE tb.geom END
         )))::FLOAT AS traversal_order,
         jsonb_build_object(
             'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(tb.geom) ELSE tb.geom END
             )))),
             'lat', ST_Y(ST_StartPoint(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(tb.geom) ELSE tb.geom END
             )))
         ) AS entry_point,
         jsonb_build_object(
             'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(tb.geom) ELSE tb.geom END
             )))),
             'lat', ST_Y(ST_EndPoint(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(tb.geom) ELSE tb.geom END
             )))
         ) AS exit_point
     FROM tracon_boundaries tb
     WHERE ST_Intersects(
         route_geom,
-        CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+        CASE WHEN v_shifted THEN safe_shift_geom(tb.geom) ELSE tb.geom END
     );
 
     -- Sectors (if requested)
@@ -159,33 +159,33 @@ BEGIN
             sb.ceiling_altitude,
             ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
             )))::FLOAT AS traversal_order,
             jsonb_build_object(
                 'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))),
                 'lat', ST_Y(ST_StartPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))
             ) AS entry_point,
             jsonb_build_object(
                 'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))),
                 'lat', ST_Y(ST_EndPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))
             ) AS exit_point
         FROM sector_boundaries sb
         WHERE sb.sector_type = 'LOW'
           AND ST_Intersects(
               route_geom,
-              CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+              CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
           )
           AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= cruise_altitude)
           AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= 0);
@@ -201,33 +201,33 @@ BEGIN
             sb.ceiling_altitude,
             ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
             )))::FLOAT AS traversal_order,
             jsonb_build_object(
                 'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))),
                 'lat', ST_Y(ST_StartPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))
             ) AS entry_point,
             jsonb_build_object(
                 'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))),
                 'lat', ST_Y(ST_EndPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))
             ) AS exit_point
         FROM sector_boundaries sb
         WHERE sb.sector_type = 'HIGH'
           AND ST_Intersects(
               route_geom,
-              CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+              CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
           )
           AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= cruise_altitude)
           AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= cruise_altitude);
@@ -243,33 +243,33 @@ BEGIN
             sb.ceiling_altitude,
             ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
                 route_geom,
-                CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
             )))::FLOAT AS traversal_order,
             jsonb_build_object(
                 'lon', normalize_lon(ST_X(ST_StartPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))),
                 'lat', ST_Y(ST_StartPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))
             ) AS entry_point,
             jsonb_build_object(
                 'lon', normalize_lon(ST_X(ST_EndPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))),
                 'lat', ST_Y(ST_EndPoint(ST_Intersection(
                     route_geom,
-                    CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+                    CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
                 )))
             ) AS exit_point
         FROM sector_boundaries sb
         WHERE sb.sector_type = 'SUPERHIGH'
           AND ST_Intersects(
               route_geom,
-              CASE WHEN v_shifted THEN ST_ShiftLongitude(sb.geom) ELSE sb.geom END
+              CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
           )
           AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= cruise_altitude)
           AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= cruise_altitude);
@@ -480,7 +480,7 @@ BEGIN
     INTO v_artccs
     FROM artcc_boundaries
     WHERE ST_Intersects(
-        CASE WHEN v_shifted THEN ST_ShiftLongitude(geom) ELSE geom END,
+        CASE WHEN v_shifted THEN safe_shift_geom(geom) ELSE geom END,
         route_geom
     );
 
@@ -489,7 +489,7 @@ BEGIN
     INTO v_tracons
     FROM tracon_boundaries
     WHERE ST_Intersects(
-        CASE WHEN v_shifted THEN ST_ShiftLongitude(geom) ELSE geom END,
+        CASE WHEN v_shifted THEN safe_shift_geom(geom) ELSE geom END,
         route_geom
     );
 
@@ -503,7 +503,7 @@ BEGIN
     INTO v_sectors
     FROM sector_boundaries
     WHERE ST_Intersects(
-        CASE WHEN v_shifted THEN ST_ShiftLongitude(geom) ELSE geom END,
+        CASE WHEN v_shifted THEN safe_shift_geom(geom) ELSE geom END,
         route_geom
     )
       AND (floor_altitude IS NULL OR floor_altitude <= p_cruise_altitude)
@@ -597,12 +597,12 @@ BEGIN
         tb.parent_artcc,
         ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(
             route_geom,
-            CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+            CASE WHEN v_shifted THEN safe_shift_geom(tb.geom) ELSE tb.geom END
         )))::FLOAT AS traversal_order
     FROM tracon_boundaries tb
     WHERE ST_Intersects(
         route_geom,
-        CASE WHEN v_shifted THEN ST_ShiftLongitude(tb.geom) ELSE tb.geom END
+        CASE WHEN v_shifted THEN safe_shift_geom(tb.geom) ELSE tb.geom END
     )
     ORDER BY traversal_order;
 END;
