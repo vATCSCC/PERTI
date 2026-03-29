@@ -13,6 +13,8 @@ class Flight
 {
     // Identity
     public ?string $gufi = null;
+    public ?string $gufi_legacy = null;
+    public ?string $gufi_created_utc = null;
     public ?string $flightKey = null;
     public string $callsign;
     public ?int $cid = null;
@@ -103,6 +105,8 @@ class Flight
         // Map snake_case keys to camelCase properties
         $map = [
             'gufi' => 'gufi',
+            'gufi_legacy' => 'gufi_legacy',
+            'gufi_created_utc' => 'gufi_created_utc',
             'flight_key' => 'flightKey',
             'callsign' => 'callsign',
             'cid' => 'cid',

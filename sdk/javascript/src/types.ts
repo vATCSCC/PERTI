@@ -90,8 +90,18 @@ export interface FlightTmi {
   delay_minutes?: number;
 }
 
+export interface GufiMetadata {
+  value: string;
+  codeSpace: string;
+  creationTime: string | null;
+  namespaceDomain: string;
+  namespaceIdentifier: string;
+}
+
 export interface Flight {
-  gufi: string;
+  gufi: string | GufiMetadata;
+  gufi_legacy?: string;
+  gufi_created_utc?: string;
   flight_uid: number;
   flight_key: string;
   identity: FlightIdentity;
