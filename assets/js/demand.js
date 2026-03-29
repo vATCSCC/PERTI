@@ -2979,10 +2979,26 @@ function loadDemandData() {
     const tmiConfigPromise = $.getJSON(`api/demand/active_config.php?airport=${encodeURIComponent(airport)}`);
     const scheduledConfigsPromise = $.getJSON(`api/demand/scheduled_configs.php?airport=${encodeURIComponent(airport)}&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
     const tmiProgramsPromise = $.getJSON(`api/demand/tmi_programs.php?airport=${encodeURIComponent(airport)}&start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`);
+    const summaryParams = new URLSearchParams({
+        airport: airport,
+        start: start.toISOString(),
+        end: end.toISOString(),
+        direction: DEMAND_STATE.direction,
+        granularity: getGranularityMinutes(),
+    });
+    const summaryHeaders = {};
+    if (DEMAND_STATE.summaryDataHash) {
+        summaryHeaders['X-If-Data-Hash'] = DEMAND_STATE.summaryDataHash;
+    }
+    const summaryPromise = $.ajax({
+        url: `api/demand/summary.php?${summaryParams.toString()}`,
+        dataType: 'json',
+        headers: summaryHeaders
+    });
 
-    Promise.allSettled([demandPromise, ratesPromise, atisPromise, tmiConfigPromise, scheduledConfigsPromise, tmiProgramsPromise])
+    Promise.allSettled([demandPromise, ratesPromise, atisPromise, tmiConfigPromise, scheduledConfigsPromise, tmiProgramsPromise, summaryPromise])
         .then(function(results) {
-            const [demandResult, ratesResult, atisResult, tmiConfigResult, scheduledConfigsResult, tmiProgramsResult] = results;
+            const [demandResult, ratesResult, atisResult, tmiConfigResult, scheduledConfigsResult, tmiProgramsResult, summaryResult] = results;
 
             // Handle demand data (required)
             if (demandResult.status === 'rejected') {
@@ -3085,16 +3101,44 @@ function loadDemandData() {
                 }
             }
 
+            // Handle summary data (parallel-loaded for filter population)
+            if (summaryResult.status === 'fulfilled' && summaryResult.value) {
+                const summaryResponse = summaryResult.value;
+                if (summaryResponse.unchanged) {
+                    DEMAND_STATE.summaryLoaded = true;
+                } else if (summaryResponse.success) {
+                    DEMAND_STATE.summaryData = summaryResponse;
+                    DEMAND_STATE.originBreakdown = summaryResponse.origin_artcc_breakdown || {};
+                    DEMAND_STATE.destBreakdown = summaryResponse.dest_artcc_breakdown || {};
+                    DEMAND_STATE.weightBreakdown = summaryResponse.weight_breakdown || {};
+                    DEMAND_STATE.carrierBreakdown = summaryResponse.carrier_breakdown || {};
+                    DEMAND_STATE.equipmentBreakdown = summaryResponse.equipment_breakdown || {};
+                    DEMAND_STATE.ruleBreakdown = summaryResponse.rule_breakdown || {};
+                    DEMAND_STATE.depFixBreakdown = summaryResponse.dep_fix_breakdown || {};
+                    DEMAND_STATE.arrFixBreakdown = summaryResponse.arr_fix_breakdown || {};
+                    DEMAND_STATE.dpBreakdown = normalizeBreakdownByProcedure(summaryResponse.dp_breakdown || {}, 'dp');
+                    DEMAND_STATE.starBreakdown = normalizeBreakdownByProcedure(summaryResponse.star_breakdown || {}, 'star');
+                    DEMAND_STATE.summaryLoaded = true;
+                    DEMAND_STATE.summaryDataHash = summaryResponse.data_hash || null;
+                    updateTopOrigins(summaryResponse.top_origins || []);
+                    updateTopCarriers(summaryResponse.top_carriers || []);
+                    populateFilterDropdowns(summaryResponse);
+                }
+            }
+
             // Render chart and update stats (skip if demand data unchanged)
             if (!demandUnchanged) {
                 if (DEMAND_STATE.chartView === 'status') {
                     // Status view - render immediately with demand data
                     renderChart(demandResponse);
-                    // Load flight summary data (for tables, not chart)
-                    loadFlightSummary(false);
                 } else {
-                    // Any breakdown view - load breakdown data first, then render
-                    loadFlightSummary(true);
+                    // Breakdown views need summary data — if already loaded from parallel fetch, render directly
+                    if (DEMAND_STATE.summaryLoaded) {
+                        renderBreakdownChart(DEMAND_STATE.chartView);
+                    } else {
+                        // Fallback: summary fetch still pending/failed, load sequentially
+                        loadFlightSummary(true);
+                    }
                 }
 
                 updateInfoBarStats(demandResponse);
@@ -6704,6 +6748,16 @@ function loadFlightSummary(renderOriginChartAfter) {
         .fail(function(err) {
             console.error('Failed to load flight summary:', err);
         });
+}
+
+/**
+ * Populate enhanced filter dropdowns from summary data.
+ * Called after summary.php response is received.
+ * @param {Object} summaryResponse - Raw summary.php API response
+ */
+function populateFilterDropdowns(summaryResponse) {
+    // Will be implemented in Task 6
+    console.log('[Demand] populateFilterDropdowns stub called');
 }
 
 /**
