@@ -127,14 +127,31 @@ RETURNS TABLE (
     fir_name VARCHAR(64),
     traversal_order FLOAT
 ) AS $$
+DECLARE
+    v_route GEOMETRY;
+    v_shifted BOOLEAN;
 BEGIN
+    v_route := route_geom;
+
+    -- Detect and handle antimeridian crossing
+    v_shifted := crosses_antimeridian(v_route);
+    IF v_shifted THEN
+        v_route := ST_ShiftLongitude(v_route);
+    END IF;
+
     RETURN QUERY
     SELECT
         ab.artcc_code,
         ab.fir_name,
-        ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(route_geom, ab.geom))) AS traversal_order
+        ST_LineLocatePoint(v_route, ST_Centroid(ST_Intersection(
+            v_route,
+            CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
+        ))) AS traversal_order
     FROM artcc_boundaries ab
-    WHERE ST_Intersects(route_geom, ab.geom)
+    WHERE ST_Intersects(
+        v_route,
+        CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END
+    )
     ORDER BY traversal_order;
 END;
 $$ LANGUAGE plpgsql STABLE;
@@ -186,16 +203,33 @@ RETURNS TABLE (
     sector_type VARCHAR(16),
     traversal_order FLOAT
 ) AS $$
+DECLARE
+    v_route GEOMETRY;
+    v_shifted BOOLEAN;
 BEGIN
+    v_route := route_geom;
+
+    -- Detect and handle antimeridian crossing
+    v_shifted := crosses_antimeridian(v_route);
+    IF v_shifted THEN
+        v_route := ST_ShiftLongitude(v_route);
+    END IF;
+
     RETURN QUERY
     SELECT
         sb.sector_code,
         sb.sector_name,
         sb.parent_artcc,
         sb.sector_type,
-        ST_LineLocatePoint(route_geom, ST_Centroid(ST_Intersection(route_geom, sb.geom))) AS traversal_order
+        ST_LineLocatePoint(v_route, ST_Centroid(ST_Intersection(
+            v_route,
+            CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
+        ))) AS traversal_order
     FROM sector_boundaries sb
-    WHERE ST_Intersects(route_geom, sb.geom)
+    WHERE ST_Intersects(
+        v_route,
+        CASE WHEN v_shifted THEN safe_shift_geom(sb.geom) ELSE sb.geom END
+    )
       AND (sb.floor_altitude IS NULL OR sb.floor_altitude <= cruise_altitude)
       AND (sb.ceiling_altitude IS NULL OR sb.ceiling_altitude >= cruise_altitude)
       AND (sector_type_filter IS NULL OR sb.sector_type = sector_type_filter)
