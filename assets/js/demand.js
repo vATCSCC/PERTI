@@ -1977,6 +1977,71 @@ function setupEventHandlers() {
         }
     });
 
+    // Initialize enhanced filter Select2 dropdowns
+    $('#filter_carrier').select2({
+        placeholder: PERTII18n.t('demand.page.allCarriers'),
+        allowClear: true,
+        width: '100%',
+        theme: 'default',
+    }).on('change', function() {
+        DEMAND_STATE.filterCarriers = $(this).val() || [];
+        onEnhancedFilterChange();
+    });
+
+    $('#filter_equipment').select2({
+        placeholder: PERTII18n.t('demand.page.allEquipment'),
+        allowClear: true,
+        width: '100%',
+        theme: 'default',
+    }).on('change', function() {
+        DEMAND_STATE.filterEquipment = $(this).val() || [];
+        onEnhancedFilterChange();
+    });
+
+    $('#filter_origin_artcc').select2({
+        placeholder: PERTII18n.t('demand.page.originArtccFilter'),
+        allowClear: true,
+        width: '100%',
+        theme: 'default',
+    }).on('change', function() {
+        DEMAND_STATE.filterOriginArtccs = $(this).val() || [];
+        onEnhancedFilterChange();
+    });
+
+    $('#filter_dest_artcc').select2({
+        placeholder: PERTII18n.t('demand.page.destArtccFilter'),
+        allowClear: true,
+        width: '100%',
+        theme: 'default',
+    }).on('change', function() {
+        DEMAND_STATE.filterDestArtccs = $(this).val() || [];
+        onEnhancedFilterChange();
+    });
+
+    // Weight class checkbox handlers
+    $('.weight-class-filter').on('change', function() {
+        const checked = [];
+        $('.weight-class-filter:checked').each(function() { checked.push($(this).val()); });
+        DEMAND_STATE.filterWeightClasses = checked.length === 4 ? [] : checked; // empty = all
+        onEnhancedFilterChange();
+    });
+
+    // Reset filters link
+    $('#reset_filters_link').on('click', function(e) {
+        e.preventDefault();
+        DEMAND_STATE.filterCarriers = [];
+        DEMAND_STATE.filterWeightClasses = [];
+        DEMAND_STATE.filterEquipment = [];
+        DEMAND_STATE.filterOriginArtccs = [];
+        DEMAND_STATE.filterDestArtccs = [];
+        $('#filter_carrier').val(null).trigger('change');
+        $('#filter_equipment').val(null).trigger('change');
+        $('#filter_origin_artcc').val(null).trigger('change');
+        $('#filter_dest_artcc').val(null).trigger('change');
+        $('.weight-class-filter').prop('checked', true);
+        onEnhancedFilterChange();
+    });
+
     // Phase group filter toggles
     ['prefile', 'departing', 'active', 'arrived', 'disconnected', 'unknown'].forEach(group => {
         $(`#phase_${group}`).on('change', function() {
@@ -3553,8 +3618,10 @@ function renderChart(data) {
     // Hide loading indicator
     DEMAND_STATE.chart.hideLoading();
 
-    const arrivals = data.data.arrivals || [];
-    const departures = data.data.departures || [];
+    // Apply client-side filters if any are active
+    const filteredInner = applyClientFilters(data.data);
+    const arrivals = filteredInner.arrivals || [];
+    const departures = filteredInner.departures || [];
     const direction = DEMAND_STATE.direction;
 
     // Generate complete time bins for the entire range (no gaps)
@@ -6752,12 +6819,223 @@ function loadFlightSummary(renderOriginChartAfter) {
 
 /**
  * Populate enhanced filter dropdowns from summary data.
- * Called after summary.php response is received.
- * @param {Object} summaryResponse - Raw summary.php API response
+ * Extracts unique values from breakdown data across all time bins.
+ * @param {Object} resp - Raw summary.php API response
  */
-function populateFilterDropdowns(summaryResponse) {
-    // Will be implemented in Task 6
-    console.log('[Demand] populateFilterDropdowns stub called');
+function populateFilterDropdowns(resp) {
+    // Extract unique carriers from carrier_breakdown
+    const carriers = new Set();
+    if (resp.carrier_breakdown) {
+        Object.values(resp.carrier_breakdown).forEach(bin => {
+            if (bin && typeof bin === 'object') {
+                Object.keys(bin).forEach(k => carriers.add(k));
+            }
+        });
+    }
+
+    // Extract unique equipment from equipment_breakdown
+    const equipment = new Set();
+    if (resp.equipment_breakdown) {
+        Object.values(resp.equipment_breakdown).forEach(bin => {
+            if (bin && typeof bin === 'object') {
+                Object.keys(bin).forEach(k => equipment.add(k));
+            }
+        });
+    }
+
+    // Extract unique origin ARTCCs
+    const originArtccs = new Set();
+    if (resp.origin_artcc_breakdown) {
+        Object.values(resp.origin_artcc_breakdown).forEach(bin => {
+            if (bin && typeof bin === 'object') {
+                Object.keys(bin).forEach(k => originArtccs.add(k));
+            }
+        });
+    }
+
+    // Extract unique dest ARTCCs
+    const destArtccs = new Set();
+    if (resp.dest_artcc_breakdown) {
+        Object.values(resp.dest_artcc_breakdown).forEach(bin => {
+            if (bin && typeof bin === 'object') {
+                Object.keys(bin).forEach(k => destArtccs.add(k));
+            }
+        });
+    }
+
+    // Populate carrier Select2
+    const $carrier = $('#filter_carrier');
+    const currentCarriers = $carrier.val() || [];
+    $carrier.empty();
+    [...carriers].sort().forEach(c => {
+        $carrier.append(new Option(c, c, false, currentCarriers.includes(c)));
+    });
+    $carrier.trigger('change.select2');
+
+    // Populate equipment Select2
+    const $equip = $('#filter_equipment');
+    const currentEquip = $equip.val() || [];
+    $equip.empty();
+    [...equipment].sort().forEach(e => {
+        $equip.append(new Option(e, e, false, currentEquip.includes(e)));
+    });
+    $equip.trigger('change.select2');
+
+    // Populate origin ARTCC Select2
+    const $origin = $('#filter_origin_artcc');
+    const currentOrigin = $origin.val() || [];
+    $origin.empty();
+    [...originArtccs].sort().forEach(a => {
+        $origin.append(new Option(a, a, false, currentOrigin.includes(a)));
+    });
+    $origin.trigger('change.select2');
+
+    // Populate dest ARTCC Select2
+    const $dest = $('#filter_dest_artcc');
+    const currentDest = $dest.val() || [];
+    $dest.empty();
+    [...destArtccs].sort().forEach(a => {
+        $dest.append(new Option(a, a, false, currentDest.includes(a)));
+    });
+    $dest.trigger('change.select2');
+}
+
+/**
+ * Called when any enhanced filter changes. Shows/hides reset link,
+ * re-renders chart with filtered data.
+ */
+function onEnhancedFilterChange() {
+    // Show/hide reset link
+    const hasActiveFilter =
+        DEMAND_STATE.filterCarriers.length > 0 ||
+        DEMAND_STATE.filterWeightClasses.length > 0 ||
+        DEMAND_STATE.filterEquipment.length > 0 ||
+        DEMAND_STATE.filterOriginArtccs.length > 0 ||
+        DEMAND_STATE.filterDestArtccs.length > 0;
+    $('#reset_filters_container').toggle(hasActiveFilter);
+
+    // Update direction-aware ARTCC filter state
+    updateArtccFilterState();
+
+    // Re-render chart with filtered data
+    if (DEMAND_STATE.lastDemandData) {
+        if (DEMAND_STATE.chartView === 'status') {
+            renderChart(DEMAND_STATE.lastDemandData);
+        } else {
+            renderBreakdownChart(DEMAND_STATE.chartView);
+        }
+    }
+
+    writeUrlState();
+}
+
+/**
+ * Direction-aware ARTCC filter: gray out irrelevant filter based on direction.
+ */
+function updateArtccFilterState() {
+    const dir = DEMAND_STATE.direction;
+    const $origin = $('#filter_origin_artcc');
+    const $dest = $('#filter_dest_artcc');
+    // dep-only: origin filter less relevant; arr-only: dest filter less relevant
+    $origin.prop('disabled', dir === 'dep');
+    $dest.prop('disabled', dir === 'arr');
+}
+
+/**
+ * Apply client-side filters to demand time-bin data.
+ * Uses summary breakdown data to compute filtered counts per bin.
+ * Returns a modified copy of the demand data with adjusted phase counts.
+ *
+ * @param {Object} demandData - The inner data object ({arrivals: [...], departures: [...]})
+ * @returns {Object} - Filtered copy with adjusted arrival/departure bin counts
+ */
+function applyClientFilters(demandData) {
+    const hasFilter =
+        DEMAND_STATE.filterCarriers.length > 0 ||
+        DEMAND_STATE.filterWeightClasses.length > 0 ||
+        DEMAND_STATE.filterEquipment.length > 0 ||
+        DEMAND_STATE.filterOriginArtccs.length > 0 ||
+        DEMAND_STATE.filterDestArtccs.length > 0;
+
+    if (!hasFilter) return demandData;
+
+    // Deep clone to avoid mutating original
+    const filtered = JSON.parse(JSON.stringify(demandData));
+
+    // For each time bin, calculate the fraction of flights matching active filters
+    // using the breakdown data, then scale the phase counts proportionally.
+    const scaleTimeBins = (bins, breakdowns) => {
+        if (!bins || !Array.isArray(bins)) return bins;
+
+        return bins.map(bin => {
+            const binKey = normalizeTimeBin(bin.time_bin);
+            let fraction = 1.0;
+
+            // Apply each active filter dimension independently (multiplicative)
+            if (DEMAND_STATE.filterCarriers.length > 0 && breakdowns.carrier) {
+                const carrierBin = breakdowns.carrier[binKey] || {};
+                const total = Object.values(carrierBin).reduce((s, v) => s + v, 0);
+                const matched = DEMAND_STATE.filterCarriers.reduce((s, c) => s + (carrierBin[c] || 0), 0);
+                fraction *= total > 0 ? matched / total : 0;
+            }
+
+            if (DEMAND_STATE.filterWeightClasses.length > 0 && breakdowns.weight) {
+                const weightBin = breakdowns.weight[binKey] || {};
+                const total = Object.values(weightBin).reduce((s, v) => s + v, 0);
+                const matched = DEMAND_STATE.filterWeightClasses.reduce((s, w) => s + (weightBin[w] || 0), 0);
+                fraction *= total > 0 ? matched / total : 0;
+            }
+
+            if (DEMAND_STATE.filterEquipment.length > 0 && breakdowns.equipment) {
+                const equipBin = breakdowns.equipment[binKey] || {};
+                const total = Object.values(equipBin).reduce((s, v) => s + v, 0);
+                const matched = DEMAND_STATE.filterEquipment.reduce((s, e) => s + (equipBin[e] || 0), 0);
+                fraction *= total > 0 ? matched / total : 0;
+            }
+
+            if (DEMAND_STATE.filterOriginArtccs.length > 0 && breakdowns.origin) {
+                const originBin = breakdowns.origin[binKey] || {};
+                const total = Object.values(originBin).reduce((s, v) => s + v, 0);
+                const matched = DEMAND_STATE.filterOriginArtccs.reduce((s, a) => s + (originBin[a] || 0), 0);
+                fraction *= total > 0 ? matched / total : 0;
+            }
+
+            if (DEMAND_STATE.filterDestArtccs.length > 0 && breakdowns.dest) {
+                const destBin = breakdowns.dest[binKey] || {};
+                const total = Object.values(destBin).reduce((s, v) => s + v, 0);
+                const matched = DEMAND_STATE.filterDestArtccs.reduce((s, a) => s + (destBin[a] || 0), 0);
+                fraction *= total > 0 ? matched / total : 0;
+            }
+
+            // Scale all phase counts in the breakdown
+            if (bin.breakdown && fraction < 1.0) {
+                const scaled = {};
+                for (const [phase, count] of Object.entries(bin.breakdown)) {
+                    scaled[phase] = Math.round(count * fraction);
+                }
+                bin.breakdown = scaled;
+            }
+
+            return bin;
+        });
+    };
+
+    const breakdowns = {
+        carrier: DEMAND_STATE.carrierBreakdown,
+        weight: DEMAND_STATE.weightBreakdown,
+        equipment: DEMAND_STATE.equipmentBreakdown,
+        origin: DEMAND_STATE.originBreakdown,
+        dest: DEMAND_STATE.destBreakdown,
+    };
+
+    if (filtered.arrivals) {
+        filtered.arrivals = scaleTimeBins(filtered.arrivals, breakdowns);
+    }
+    if (filtered.departures) {
+        filtered.departures = scaleTimeBins(filtered.departures, breakdowns);
+    }
+
+    return filtered;
 }
 
 /**
