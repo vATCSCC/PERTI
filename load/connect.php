@@ -69,7 +69,7 @@ if (!defined('PERTI_SWIM_ONLY')) {
 
     // Establish Connection (PDO)
     try {
-        $conn_pdo = new PDO("mysql:host={$sql_host};dbname={$sql_dbname};charset=utf8mb4", $sql_user, $sql_passwd);
+        $conn_pdo = new PDO("mysql:host={$sql_host};dbname={$sql_dbname};charset=utf8mb4;connect_timeout=10", $sql_user, $sql_passwd);
         $conn_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     } catch (Exception $ex) {
         error_log('PDO connection failed: ' . $ex->getMessage());
@@ -77,13 +77,13 @@ if (!defined('PERTI_SWIM_ONLY')) {
     }
 
     // Establish Connection (MySQLi)
-    $conn_sqli = mysqli_connect($sql_host, $sql_user, $sql_passwd, $sql_dbname);
-
-    if (!$conn_sqli) {
-        error_log('MySQLi connection failed: ' . mysqli_connect_error());
+    $conn_sqli = new mysqli();
+    $conn_sqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
+    if (!$conn_sqli->real_connect($sql_host, $sql_user, $sql_passwd, $sql_dbname)) {
+        error_log('MySQLi connection failed: ' . $conn_sqli->connect_error);
         $conn_sqli = null;
     } else {
-        mysqli_set_charset($conn_sqli, 'utf8mb4');
+        $conn_sqli->set_charset('utf8mb4');
     }
 
     // If both primary database connections failed, return 503 Service Unavailable

@@ -6,6 +6,10 @@ WWWROOT="/home/site/wwwroot"
 # Ensure log directory exists
 mkdir -p /home/LogFiles
 
+# Ensure persistent session directory exists (/home survives deployments)
+mkdir -p /home/sessions
+chmod 0700 /home/sessions
+
 echo "========================================"
 echo "PERTI Daemon Startup - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "WWWROOT: $WWWROOT"

@@ -4,11 +4,6 @@
 // Returns flight count statistics for the TMI status bar
 // Categories: Global (D-D, D-I, I-D, I-I), Domestic by DCC/ASPM82/OEP35/Core30
 
-if (session_status() == PHP_SESSION_NONE) {
-    session_start();
-    ob_start();
-}
-
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: public, max-age=30');
 
@@ -48,7 +43,9 @@ if (!function_exists('sqlsrv_connect')) {
 $connectionInfo = [
     "Database" => ADL_SQL_DATABASE,
     "UID"      => ADL_SQL_USERNAME,
-    "PWD"      => ADL_SQL_PASSWORD
+    "PWD"      => ADL_SQL_PASSWORD,
+    "ConnectionPooling" => 1,
+    "LoginTimeout" => 10
 ];
 
 $conn = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
