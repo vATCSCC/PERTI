@@ -4,10 +4,15 @@
  *
  * POST /api/gdt/programs/power_run.php
  *
- * Iterates the simulate endpoint over a range of parameter values to produce
+ * Iterates the simulation pipeline over a range of parameter values to produce
  * a comparison table. Supports sweeping over distance, data time, or rate.
  *
- * All scenarios run as dry_run=true (no persistent changes).
+ * All scenarios run as dry_run (in-process, no persistent changes).
+ *
+ * Optimized for performance:
+ * - In-process simulation (no HTTP overhead per scenario)
+ * - Cached flight list for rate sweeps (flights don't change between scenarios)
+ * - Single ADL query per unique scope
  *
  * Request body (JSON):
  * {
@@ -32,7 +37,7 @@
  *   }
  * }
  *
- * @version 1.0.0
+ * @version 2.0.0
  * @date 2026-03-29
  */
 
@@ -45,6 +50,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GDT_API_INCLUDED', true);
 require_once(__DIR__ . '/../common.php');
+require_once __DIR__ . '/../../../load/perti_constants.php';
 $auth_cid = gdt_optional_auth();
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -53,6 +59,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 
 $payload = read_request_payload();
 $conn_tmi = gdt_get_conn_tmi();
+$conn_adl = gdt_get_conn_adl();
 
 // ============================================================================
 // Validate Input
@@ -98,78 +105,383 @@ if ($program_type === 'GS') {
 }
 
 // ============================================================================
+// Parse Scope and Exemption Filters (from program record)
+// ============================================================================
+
+$ctl_element = $program['ctl_element'] ?? '';
+$start_utc = $program['start_utc'] ?? null;
+$end_utc = $program['end_utc'] ?? null;
+
+$scope = [];
+if (!empty($program['scope_json'])) {
+    $scope = is_string($program['scope_json']) ? json_decode($program['scope_json'], true) : $program['scope_json'];
+    if (!is_array($scope)) $scope = [];
+}
+
+$origin_centers = isset($scope['origin_centers']) ? split_codes($scope['origin_centers']) : [];
+$origin_airports = isset($scope['origin_airports']) ? split_codes($scope['origin_airports']) : [];
+$carriers = isset($scope['carriers']) ? split_codes($scope['carriers']) : [];
+$aircraft_type = isset($scope['aircraft_type']) ? strtoupper(trim($scope['aircraft_type'])) : 'ALL';
+$base_distance_nm = isset($scope['distance_nm']) ? (int)$scope['distance_nm'] : 0;
+
+// Fall back to program's flt_incl_* columns
+if (empty($carriers) && !empty($program['flt_incl_carrier'])) {
+    $carriers = split_codes($program['flt_incl_carrier']);
+}
+if ($aircraft_type === 'ALL' && !empty($program['flt_incl_type']) && strtoupper($program['flt_incl_type']) !== 'ALL') {
+    $aircraft_type = strtoupper(trim($program['flt_incl_type']));
+}
+
+// Exemption rules (from program's exemption settings)
+$exempt_airborne = true;
+
+// ============================================================================
+// Query ADL Flights (cached for rate sweeps)
+// ============================================================================
+
+/**
+ * Query matching flights from ADL for a given end_utc.
+ */
+function query_adl_flights($conn_adl, $ctl_element, $start_utc, $end_utc,
+                           $origin_centers, $origin_airports, $carriers, $aircraft_type) {
+    $where = [];
+    $params = [];
+
+    // GDP filters by arrival airport and ETA window
+    $where[] = "fp_dest_icao = ?";
+    $params[] = $ctl_element;
+
+    if ($start_utc) {
+        $where[] = "COALESCE(eta_runway_utc, eta_utc) >= ?";
+        $params[] = datetime_to_iso($start_utc);
+    }
+    if ($end_utc) {
+        $where[] = "COALESCE(eta_runway_utc, eta_utc) <= ?";
+        $params[] = datetime_to_iso($end_utc);
+    }
+
+    // Origin center filter
+    $artcc_codes = [];
+    $fir_like_patterns = [];
+    $fir_wildcard = false;
+    foreach ($origin_centers as $c) {
+        if (strpos($c, 'FIR:') === 0) {
+            $prefix = substr($c, 4);
+            if ($prefix === '' || $prefix === '*') {
+                $fir_wildcard = true;
+            } else {
+                $fir_like_patterns[] = $prefix;
+                $expanded = perti_expand_fir_pattern($c);
+                foreach ($expanded as $code) { $artcc_codes[] = $code; }
+            }
+        } else {
+            $artcc_codes[] = $c;
+        }
+    }
+    if (!$fir_wildcard) {
+        $origin_conditions = [];
+        if (count($artcc_codes) > 0) {
+            $placeholders = implode(',', array_fill(0, count($artcc_codes), '?'));
+            $origin_conditions[] = "fp_dept_artcc IN ({$placeholders})";
+            foreach ($artcc_codes as $c) { $params[] = $c; }
+        }
+        foreach ($fir_like_patterns as $prefix) {
+            $origin_conditions[] = "fp_dept_icao LIKE ?";
+            $params[] = $prefix . '%';
+        }
+        if (count($origin_conditions) > 0) {
+            $where[] = "(" . implode(' OR ', $origin_conditions) . ")";
+        }
+    }
+
+    // Origin airport filter
+    if (count($origin_airports) > 0) {
+        $placeholders = implode(',', array_fill(0, count($origin_airports), '?'));
+        $where[] = "fp_dept_icao IN ({$placeholders})";
+        foreach ($origin_airports as $a) { $params[] = $a; }
+    }
+
+    // Carrier filter
+    if (count($carriers) > 0) {
+        $placeholders = implode(',', array_fill(0, count($carriers), '?'));
+        $where[] = "major_carrier IN ({$placeholders})";
+        foreach ($carriers as $c) { $params[] = $c; }
+    }
+
+    // Aircraft type filter
+    if ($aircraft_type === 'JET') {
+        $where[] = "UPPER(ISNULL(ac_cat,'')) = 'JET'";
+    } elseif ($aircraft_type === 'PROP') {
+        $where[] = "UPPER(ISNULL(ac_cat,'')) = 'PROP'";
+    }
+
+    // Exclude arrived flights
+    $where[] = "(phase IS NULL OR phase != 'arrived')";
+
+    $where_sql = count($where) > 0 ? "WHERE " . implode(" AND ", $where) : "";
+
+    $flights_sql = "
+        SELECT
+            flight_uid, callsign, major_carrier,
+            fp_dept_icao AS dep_airport, fp_dest_icao AS arr_airport,
+            fp_dept_artcc AS dep_center, fp_dest_artcc AS arr_center,
+            COALESCE(etd_runway_utc, etd_utc, std_utc) AS etd_utc,
+            COALESCE(eta_runway_utc, eta_utc) AS eta_utc,
+            ac_cat AS aircraft_type, phase,
+            COALESCE(dist_to_dest_nm, gcd_nm) AS dist_to_dest_nm
+        FROM dbo.vw_adl_flights
+        {$where_sql}
+        ORDER BY eta_runway_utc ASC, flight_uid ASC
+    ";
+
+    $result = fetch_all($conn_adl, $flights_sql, $params);
+    return $result['success'] ? $result['data'] : [];
+}
+
+/**
+ * Apply exemption rules to flight list. Returns flights_for_sp array.
+ */
+function apply_exemptions($adl_flights) {
+    $flights_for_sp = [];
+    $now_utc = new DateTime('now', new DateTimeZone('UTC'));
+
+    foreach ($adl_flights as $flight) {
+        $is_exempt = false;
+        $exempt_reason = null;
+
+        // Airborne exemption
+        $phase = strtolower($flight['phase'] ?? '');
+        if (in_array($phase, ['departed', 'enroute', 'descending'])) {
+            $is_exempt = true;
+            $exempt_reason = 'AIRBORNE';
+        }
+
+        $flights_for_sp[] = [
+            'flight_uid' => $flight['flight_uid'],
+            'callsign' => $flight['callsign'],
+            'eta_utc' => $flight['eta_utc'],
+            'etd_utc' => $flight['etd_utc'],
+            'dep_airport' => $flight['dep_airport'],
+            'arr_airport' => $flight['arr_airport'],
+            'dep_center' => $flight['dep_center'],
+            'arr_center' => $flight['arr_center'] ?? null,
+            'carrier' => $flight['major_carrier'],
+            'aircraft_type' => $flight['aircraft_type'],
+            'flight_status' => $flight['phase'] ?? null,
+            'is_exempt' => $is_exempt ? 1 : 0,
+            'exempt_reason' => $exempt_reason,
+            'dist_to_dest_nm' => $flight['dist_to_dest_nm'] ?? null
+        ];
+    }
+
+    return $flights_for_sp;
+}
+
+/**
+ * Run a single GDP simulation scenario in-process using a transaction + rollback.
+ * Returns summary array or error string.
+ */
+function run_scenario($conn_tmi, $program_id, $flights_for_sp, $overrides = []) {
+    // Begin transaction for dry-run rollback
+    sqlsrv_begin_transaction($conn_tmi);
+
+    // Apply overrides to program record temporarily
+    if (!empty($overrides)) {
+        $sets = [];
+        $params = [];
+        foreach ($overrides as $col => $val) {
+            $sets[] = "{$col} = ?";
+            $params[] = $val;
+        }
+        $params[] = $program_id;
+        $sql = "UPDATE dbo.tmi_programs SET " . implode(', ', $sets) . " WHERE program_id = ?";
+        $stmt = sqlsrv_query($conn_tmi, $sql, $params);
+        if ($stmt !== false) sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 1: Generate slots
+    $slot_sql = "
+        DECLARE @slot_count INT;
+        EXEC dbo.sp_TMI_GenerateSlots @program_id = ?, @slot_count = @slot_count OUTPUT;
+        SELECT @slot_count AS slot_count;
+    ";
+    $slot_stmt = sqlsrv_query($conn_tmi, $slot_sql, [$program_id]);
+    if ($slot_stmt === false) {
+        $err = sqlsrv_errors();
+        sqlsrv_rollback($conn_tmi);
+        return ['error' => 'Slot generation failed: ' . ($err[0]['message'] ?? 'unknown')];
+    }
+    $slot_row = sqlsrv_fetch_array($slot_stmt, SQLSRV_FETCH_ASSOC);
+    $slot_count = ($slot_row && isset($slot_row['slot_count'])) ? (int)$slot_row['slot_count'] : 0;
+    sqlsrv_free_stmt($slot_stmt);
+
+    // Step 2: Insert flights into temp table
+    $assigned_count = 0;
+    $exempt_count = 0;
+
+    if (count($flights_for_sp) > 0) {
+        $temp_sql = "
+            CREATE TABLE #FlightList (
+                flight_uid BIGINT, callsign NVARCHAR(12),
+                eta_utc DATETIME2(0), etd_utc DATETIME2(0),
+                dep_airport NVARCHAR(4), arr_airport NVARCHAR(4),
+                dep_center NVARCHAR(4), arr_center NVARCHAR(4),
+                carrier NVARCHAR(8), aircraft_type NVARCHAR(8),
+                flight_status NVARCHAR(16), is_exempt BIT,
+                exempt_reason NVARCHAR(32), dist_to_dest_nm FLOAT
+            );
+        ";
+        $temp_stmt = sqlsrv_query($conn_tmi, $temp_sql);
+        if ($temp_stmt === false) {
+            sqlsrv_rollback($conn_tmi);
+            return ['error' => 'Failed to create temp table'];
+        }
+        sqlsrv_free_stmt($temp_stmt);
+
+        // Batch insert flights
+        $cols = 'flight_uid, callsign, eta_utc, etd_utc, dep_airport, arr_airport, dep_center, arr_center, carrier, aircraft_type, flight_status, is_exempt, exempt_reason, dist_to_dest_nm';
+        foreach (array_chunk($flights_for_sp, 50) as $batch) {
+            $value_rows = [];
+            $batch_params = [];
+            foreach ($batch as $f) {
+                $value_rows[] = '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                $batch_params[] = $f['flight_uid'];
+                $batch_params[] = $f['callsign'];
+                $batch_params[] = $f['eta_utc'];
+                $batch_params[] = $f['etd_utc'];
+                $batch_params[] = $f['dep_airport'];
+                $batch_params[] = $f['arr_airport'];
+                $batch_params[] = $f['dep_center'];
+                $batch_params[] = $f['arr_center'];
+                $batch_params[] = $f['carrier'];
+                $batch_params[] = $f['aircraft_type'];
+                $batch_params[] = $f['flight_status'];
+                $batch_params[] = $f['is_exempt'];
+                $batch_params[] = $f['exempt_reason'];
+                $batch_params[] = $f['dist_to_dest_nm'];
+            }
+            $ins_sql = "INSERT INTO #FlightList ({$cols}) VALUES " . implode(', ', $value_rows);
+            $ins_stmt = sqlsrv_query($conn_tmi, $ins_sql, $batch_params);
+            if ($ins_stmt !== false) sqlsrv_free_stmt($ins_stmt);
+        }
+
+        // Step 3: Run FPFS+RBD assignment
+        $exec_sql = "
+            DECLARE @assigned_count INT, @exempt_count INT;
+            DECLARE @flights dbo.FlightListType;
+            INSERT INTO @flights SELECT * FROM #FlightList;
+            EXEC dbo.sp_TMI_AssignFlightsFPFS
+                @program_id = ?,
+                @flights = @flights,
+                @assigned_count = @assigned_count OUTPUT,
+                @exempt_count = @exempt_count OUTPUT;
+            SELECT @assigned_count AS assigned_count, @exempt_count AS exempt_count;
+            DROP TABLE #FlightList;
+        ";
+        $exec_stmt = sqlsrv_query($conn_tmi, $exec_sql, [$program_id]);
+        if ($exec_stmt === false) {
+            $err = sqlsrv_errors();
+            sqlsrv_query($conn_tmi, "IF OBJECT_ID('tempdb..#FlightList') IS NOT NULL DROP TABLE #FlightList");
+            sqlsrv_rollback($conn_tmi);
+            return ['error' => 'Assignment failed: ' . ($err[0]['message'] ?? 'unknown')];
+        }
+        $result_row = sqlsrv_fetch_array($exec_stmt, SQLSRV_FETCH_ASSOC);
+        if ($result_row) {
+            $assigned_count = (int)($result_row['assigned_count'] ?? 0);
+            $exempt_count = (int)($result_row['exempt_count'] ?? 0);
+        }
+        sqlsrv_free_stmt($exec_stmt);
+    }
+
+    // Step 4: Read results (program metrics updated by SP)
+    $prog = get_program($conn_tmi, $program_id);
+
+    $summary = [
+        'total_flights' => count($flights_for_sp),
+        'assigned_count' => $assigned_count,
+        'exempt_count' => $exempt_count,
+        'slot_count' => $slot_count,
+        'avg_delay_min' => $prog['avg_delay_min'] ?? null,
+        'max_delay_min' => $prog['max_delay_min'] ?? null,
+        'total_delay_min' => $prog['total_delay_min'] ?? null,
+        'controlled_flights' => $prog['controlled_flights'] ?? null,
+    ];
+
+    // Rollback all changes
+    sqlsrv_rollback($conn_tmi);
+
+    return ['summary' => $summary, 'slot_count' => $slot_count,
+            'assigned_count' => $assigned_count, 'exempt_count' => $exempt_count];
+}
+
+// ============================================================================
 // Run Scenarios
 // ============================================================================
 
 $scenarios = [];
-// Internal loopback: call nginx directly on port 8080 to avoid Azure reverse proxy
-// roundtrip (which causes 30s+ timeouts on self-referencing HTTPS calls)
-$base_url = 'http://localhost:8080/api/gdt/programs/simulate.php';
+
+// For rate sweeps, cache the flight list (flights don't change between scenarios)
+$cached_flights = null;
+if ($sweep_param === 'rate') {
+    $adl_flights = query_adl_flights($conn_adl, $ctl_element, $start_utc, $end_utc,
+                                     $origin_centers, $origin_airports, $carriers, $aircraft_type);
+    $cached_flights = apply_exemptions($adl_flights);
+}
 
 for ($val = $sweep_start; $val <= $sweep_end; $val += $sweep_step) {
-    // Build the simulate payload for this scenario
-    $sim_payload = [
-        'program_id' => $program_id,
-        'dry_run' => true,
-    ];
+    $overrides = [];
+    $flights_for_scenario = $cached_flights;
 
     switch ($sweep_param) {
         case 'distance':
-            $sim_payload['scope'] = ['distance_nm' => $val];
+            // Distance sweep: need fresh flight query (scope changes)
+            // Note: distance filtering is typically done at the ADL query level
+            // For now, we query with the base scope and the SP handles the rest
+            $adl_flights = query_adl_flights($conn_adl, $ctl_element, $start_utc, $end_utc,
+                                             $origin_centers, $origin_airports, $carriers, $aircraft_type);
+            // Filter by distance
+            $adl_flights = array_filter($adl_flights, function($f) use ($val) {
+                $dist = $f['dist_to_dest_nm'] ?? null;
+                return $dist === null || $dist <= $val;
+            });
+            $adl_flights = array_values($adl_flights);
+            $flights_for_scenario = apply_exemptions($adl_flights);
             break;
+
         case 'rate':
-            $sim_payload['what_if_rate'] = $val;
+            // Rate sweep: use cached flights, override program_rate
+            $overrides['program_rate'] = $val;
             break;
+
         case 'end_time':
-            // val = minutes to add to current program end_utc
+            // End time sweep: need fresh flight query (ETA window changes)
             $end = $program['end_utc'];
             $endStr = ($end instanceof DateTimeInterface) ? $end->format('Y-m-d H:i:s') : (string)$end;
-            $newEnd = date('Y-m-d\TH:i:s\Z', strtotime($endStr) + ($val * 60));
-            $sim_payload['what_if_end_utc'] = $newEnd;
+            $newEnd = date('Y-m-d H:i:s', strtotime($endStr) + ($val * 60));
+            $overrides['end_utc'] = $newEnd;
+
+            $adl_flights = query_adl_flights($conn_adl, $ctl_element, $start_utc, $newEnd,
+                                             $origin_centers, $origin_airports, $carriers, $aircraft_type);
+            $flights_for_scenario = apply_exemptions($adl_flights);
             break;
     }
 
-    // Internal loopback call to simulate endpoint (no HTTPS, no Azure proxy)
-    $ch = curl_init($base_url);
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode($sim_payload),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/json',
-            'Cookie: ' . ($_SERVER['HTTP_COOKIE'] ?? ''),
-        ],
-        CURLOPT_TIMEOUT => 60,
-    ]);
+    $result = run_scenario($conn_tmi, $program_id, $flights_for_scenario, $overrides);
 
-    $response = curl_exec($ch);
-    $curl_error = curl_error($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    $result = json_decode($response, true);
-
-    if ($httpCode === 200 && isset($result['data']['summary'])) {
+    if (isset($result['error'])) {
         $scenarios[] = [
             'param_value' => $val,
             'param_label' => formatParamLabel($sweep_param, $val),
-            'summary' => $result['data']['summary'],
-            'slot_count' => $result['data']['slot_count'] ?? 0,
-            'assigned_count' => $result['data']['assigned_count'] ?? 0,
-            'exempt_count' => $result['data']['exempt_count'] ?? 0,
+            'error' => $result['error'],
         ];
     } else {
-        $err_detail = $result['message'] ?? 'Simulation failed';
-        if ($curl_error) {
-            $err_detail .= ' (cURL: ' . $curl_error . ')';
-        }
-        if ($httpCode !== 200) {
-            $err_detail .= ' (HTTP ' . $httpCode . ')';
-        }
         $scenarios[] = [
             'param_value' => $val,
             'param_label' => formatParamLabel($sweep_param, $val),
-            'error' => $err_detail,
+            'summary' => $result['summary'],
+            'slot_count' => $result['slot_count'],
+            'assigned_count' => $result['assigned_count'],
+            'exempt_count' => $result['exempt_count'],
         ];
     }
 }

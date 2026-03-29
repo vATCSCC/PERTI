@@ -2373,9 +2373,8 @@
 
         // GDP-specific fields
         if (isGdp) {
-            var rateEl = document.getElementById('gs_program_rate');
-            var programRate = rateEl ? (rateEl.value || '0') : '0';
-            lines = lines.concat(wrapAdvisoryLabelValue('PROGRAM RATE:', programRate + '/HR'));
+            var rateDisplay = formatRateDisplayForAdvisory();
+            lines = lines.concat(wrapAdvisoryLabelValue('PROGRAM RATE:', rateDisplay));
             lines = lines.concat(wrapAdvisoryLabelValue('DELAY ASSIGNMENT MODE:', 'UDP'));
         }
 
@@ -6298,6 +6297,28 @@
     }
 
     /**
+     * Format rate display for advisory text.
+     * Fixed rate: "30/HR", Variable: "25 / 30 / 35 / 40/HR"
+     */
+    function formatRateDisplayForAdvisory() {
+        var flatRate = document.getElementById('gs_program_rate');
+        var baseRate = flatRate ? (flatRate.value || '0') : '0';
+
+        // Check if hourly rates vary
+        var hourlyKeys = Object.keys(rateEditor.hourlyRates);
+        if (hourlyKeys.length > 1) {
+            hourlyKeys.sort();
+            var rates = hourlyKeys.map(function(k) { return rateEditor.hourlyRates[k]; });
+            var allSame = rates.every(function(r) { return r === rates[0]; });
+            if (!allSame) {
+                return rates.join(' / ') + '/HR';
+            }
+        }
+
+        return baseRate + '/HR';
+    }
+
+    /**
      * Load rate editor state from an existing program record.
      */
     function loadRatesFromProgram(program) {
@@ -6501,6 +6522,7 @@
             origin_airports: workflowPayload.gs_origin_airports || '',
             dep_facilities: workflowPayload.gs_dep_facilities || '',
             scope_select: workflowPayload.gs_scope_select || [],
+            scope_group: workflowPayload.gs_scope_group || 'Manual',
             flt_incl_carrier: workflowPayload.gs_flt_incl_carrier || '',
             flt_incl_type: workflowPayload.gs_flt_incl_type || 'ALL',
             impacting_condition: workflowPayload.gs_impacting_condition || '',
@@ -6508,8 +6530,15 @@
             comments: workflowPayload.gs_comments || '',
             exemptions: workflowPayload.exemptions || {},
 
+            // GDP-specific parameters
+            program_rate: workflowPayload.gs_program_rate || null,
+            delay_limit: workflowPayload.gs_delay_limit || null,
+            reserve_rate: workflowPayload.gs_reserve_rate || null,
+            rates_quarter_json: collectRatesJson() || null,
+
             // Include simulation results from GS_LAST_SIMULATION_DATA
             simulation_data: GS_LAST_SIMULATION_DATA || null,
+            summary: GS_LAST_SIMULATION_DATA ? (GS_LAST_SIMULATION_DATA.summary || null) : null,
 
             // Include flight data (from GS_LAST_SIMULATION_DATA)
             flights: (GS_LAST_SIMULATION_DATA && GS_LAST_SIMULATION_DATA.flights) || [],

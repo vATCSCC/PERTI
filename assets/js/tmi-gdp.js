@@ -205,7 +205,7 @@
 
             const summary = data.summary || data.simulation_data || {};
             document.getElementById('gsgdpProgramRate').textContent =
-                (data.program_rate || summary.program_rate || '--') + PERTII18n.t('tmiGdp.perHour');
+                formatRateDisplayTmi(data) + PERTII18n.t('tmiGdp.perHour');
             document.getElementById('gsgdpAvgDelay').textContent =
                 (summary.avg_delay_min || summary.avg_delay || summary.avgDelay || '--') + PERTII18n.t('tmiGdp.minutesSuffix');
             document.getElementById('gsgdpMaxDelay').textContent =
@@ -301,7 +301,7 @@
         const facilitiesStr = facilities.length > 0 ? facilities.join(' ') : artcc;
 
         // Get flight inclusion criteria
-        const fltIncl = data.flight_filter || 'ALL';
+        const fltIncl = data.flt_incl_type || data.flight_filter || 'ALL';
 
         // Get delay summary — GDT handoff uses total_delay/max_delay/avg_delay,
         // while API responses use total_delay_min/max_delay_min/avg_delay_min
@@ -341,7 +341,7 @@
                    'ADL TIME: ' + adlTime + '\n' +
                    'GROUND STOP PERIOD: ' + startPeriod + ' - ' + endPeriod + '\n' +
                    'FLT INCL: ' + fltIncl + '\n' +
-                   formatDepFacilitiesLine(facilitiesStr) + '\n' +
+                   formatDepFacilitiesLine(facilitiesStr, data.scope_group) + '\n' +
                    'NEW TOTAL, MAXIMUM, AVERAGE DELAYS: ' + Math.round(totalDelay) + ' / ' + Math.round(maxDelay) + ' / ' + Math.round(avgDelay) + '\n' +
                    'PROBABILITY OF EXTENSION: ' + probExtension + '\n' +
                    'IMPACTING CONDITION: ' + reason + '\n' +
@@ -364,9 +364,9 @@
      * Format DEP FACILITIES line with word wrap at ~72 chars.
      * Continuation lines are indented with 2 spaces.
      */
-    function formatDepFacilitiesLine(facilitiesStr) {
+    function formatDepFacilitiesLine(facilitiesStr, scopeGroup) {
         var prefix = 'DEP FACILITIES INCLUDED: ';
-        var tierTag = '(Tier1) ';
+        var tierTag = '(' + (scopeGroup || 'Tier1') + ') ';
         var firstLinePrefix = prefix + tierTag;
         var contIndent = '  ';
         var maxWidth = 72;
@@ -409,12 +409,12 @@
         const facilitiesStr = facilities.length > 0 ? facilities.join(' ') : artcc;
 
         // Get flight inclusion criteria
-        const fltIncl = data.flight_filter || 'ALL';
+        const fltIncl = data.flt_incl_type || data.flight_filter || 'ALL';
 
         // Get delay/rate summary — GDT handoff uses total_delay/max_delay/avg_delay,
         // while API responses use total_delay_min/max_delay_min/avg_delay_min
         const summary = data.summary || data.simulation_data || {};
-        const programRate = data.program_rate || summary.program_rate || 0;
+        const rateDisplay = formatRateDisplayTmi(data);
         const totalDelay = summary.total_delay_min || summary.total_delay || 0;
         const maxDelay = summary.max_delay_min || summary.max_delay || data.delay_limit_min || 0;
         const avgDelay = summary.avg_delay_min || summary.avg_delay || 0;
@@ -451,8 +451,8 @@
                    'ADL TIME: ' + adlTime + '\n' +
                    'GDP PERIOD: ' + startPeriod + ' - ' + endPeriod + '\n' +
                    'FLT INCL: ' + fltIncl + '\n' +
-                   formatDepFacilitiesLine(facilitiesStr) + '\n' +
-                   'PROGRAM RATE: ' + programRate + '/HR\n' +
+                   formatDepFacilitiesLine(facilitiesStr, data.scope_group) + '\n' +
+                   'PROGRAM RATE: ' + rateDisplay + '\n' +
                    'DELAY ASSIGNMENT MODE: UDP\n' +
                    'NEW TOTAL, MAXIMUM, AVERAGE DELAYS: ' + Math.round(totalDelay) + ' / ' + Math.round(maxDelay) + ' / ' + Math.round(avgDelay) + '\n' +
                    'CONTROLLED FLIGHTS: ' + controlledFlights + '\n' +
@@ -853,6 +853,39 @@
     // ============================================================================
     // Utility Functions
     // ============================================================================
+
+    /**
+     * Format rate display for TMI Publish.
+     * Fixed rate: "30/HR", Variable: "25 / 30 / 35 / 40/HR"
+     */
+    function formatRateDisplayTmi(data) {
+        var summary = data.summary || data.simulation_data || {};
+        var baseRate = data.program_rate || summary.program_rate || 0;
+
+        // Check for quarter rates (from GDT handoff)
+        var quarterJson = data.rates_quarter_json;
+        if (quarterJson && typeof quarterJson === 'object') {
+            var hourBuckets = {};
+            Object.keys(quarterJson).forEach(function(key) {
+                var hh = key.substring(0, 2);
+                if (!hourBuckets[hh]) hourBuckets[hh] = [];
+                hourBuckets[hh].push(quarterJson[key]);
+            });
+            var hourKeys = Object.keys(hourBuckets).sort();
+            if (hourKeys.length > 1) {
+                var hourlyRates = hourKeys.map(function(hh) {
+                    var vals = hourBuckets[hh];
+                    return Math.round(vals.reduce(function(a, b) { return a + b; }, 0) / vals.length);
+                });
+                var allSame = hourlyRates.every(function(r) { return r === hourlyRates[0]; });
+                if (!allSame) {
+                    return hourlyRates.join(' / ') + '/HR';
+                }
+            }
+        }
+
+        return baseRate + '/HR';
+    }
 
     /**
      * Resolve parent ARTCC code from handoff data.

@@ -495,6 +495,53 @@ function resolve_scope_facilities($program, $fallback = null) {
 }
 
 /**
+ * Format program rate for advisory display.
+ * Fixed rate: "30/HR"
+ * Variable rate (hourly): "25 / 30 / 35 / 40/HR" (each hour's rate)
+ */
+function format_rate_display($program) {
+    $flat_rate = $program['program_rate'] ?? 0;
+
+    // Check for hourly variable rates
+    $hourly_json = $program['rates_hourly_json'] ?? null;
+    if (is_string($hourly_json) && strlen($hourly_json) > 2) {
+        $hourly = json_decode($hourly_json, true);
+        if (is_array($hourly) && count($hourly) > 1) {
+            ksort($hourly);
+            $rates = array_values($hourly);
+            if (count(array_unique($rates)) > 1) {
+                return implode(' / ', $rates) . '/HR';
+            }
+        }
+    }
+
+    // Check quarter rates and derive hourly averages
+    $quarter_json = $program['rates_quarter_json'] ?? null;
+    if (is_string($quarter_json) && strlen($quarter_json) > 2) {
+        $quarters = json_decode($quarter_json, true);
+        if (is_array($quarters) && count($quarters) > 4) {
+            $hour_buckets = [];
+            foreach ($quarters as $key => $val) {
+                $hh = substr($key, 0, 2);
+                $hour_buckets[$hh][] = (int)$val;
+            }
+            ksort($hour_buckets);
+            if (count($hour_buckets) > 1) {
+                $hourly_rates = [];
+                foreach ($hour_buckets as $vals) {
+                    $hourly_rates[] = (int)round(array_sum($vals) / count($vals));
+                }
+                if (count(array_unique($hourly_rates)) > 1) {
+                    return implode(' / ', $hourly_rates) . '/HR';
+                }
+            }
+        }
+    }
+
+    return "{$flat_rate}/HR";
+}
+
+/**
  * Generate ACTUAL advisory text (vATCSCC format).
  * Supports both GDP and GS program types.
  *
@@ -547,6 +594,9 @@ function generate_actual_advisory($program, $advisory_number, $conn_adl = null) 
         $program_rate = $program['program_rate'] ?? 0;
         $controlled_flights = $program['controlled_flights'] ?? $program['flight_count'] ?? 0;
 
+        // Format rate display: variable rates show each hour " / " delimited
+        $rate_display = format_rate_display($program);
+
         $lines[] = "vATCSCC ADVZY {$adv_num} {$ctl_element}/{$artcc} {$header_date} CDM GROUND DELAY PROGRAM";
         $lines[] = "CTL ELEMENT: {$ctl_element}";
         $lines[] = "ELEMENT TYPE: {$element_type}";
@@ -554,7 +604,7 @@ function generate_actual_advisory($program, $advisory_number, $conn_adl = null) 
         $lines[] = "GDP PERIOD: {$start_period} - {$end_period}";
         $lines[] = "FLT INCL: {$flt_incl}";
         $lines[] = "DEP FACILITIES INCLUDED: ({$scope_group}) {$facilities}";
-        $lines[] = "PROGRAM RATE: {$program_rate}/HR";
+        $lines[] = "PROGRAM RATE: {$rate_display}";
         $lines[] = "DELAY ASSIGNMENT MODE: UDP";
         $lines[] = "NEW TOTAL, MAXIMUM, AVERAGE DELAYS: {$total_delay} / {$max_delay} / {$avg_delay}";
         $lines[] = "CONTROLLED FLIGHTS: {$controlled_flights}";
