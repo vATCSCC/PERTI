@@ -225,12 +225,25 @@ $power_run = [
     'exempt' => $exempt_count
 ];
 
+// Generate advisory text for the activated program
+$conn_adl = gdt_get_conn_adl();
+$advisory_text = generate_actual_advisory($program, $adv_number, $conn_adl);
+
+// Write advisory record to tmi_advisories
+$program_type = $program['program_type'] ?? 'GS';
+$adv_type = strpos($program_type, 'GDP') !== false ? 'GDP' : 'GS';
+write_advisory_record($conn_tmi, $program, $adv_number, $adv_type, $advisory_text, $activated_by);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => 'Program activated',
     'data' => [
         'program_id' => $program_id,
         'adv_number' => $adv_number,
+        'advisory' => [
+            'number' => $adv_number,
+            'text' => $advisory_text,
+        ],
         'program' => $program,
         'flights' => $flights_data,
         'power_run' => $power_run

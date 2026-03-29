@@ -70,8 +70,8 @@ $cancel_reason = isset($payload['cancel_reason']) ? strtoupper(trim($payload['ca
 $cancel_notes = isset($payload['cancel_notes']) ? trim($payload['cancel_notes']) : null;
 $edct_action = isset($payload['edct_action']) ? strtoupper(trim($payload['edct_action'])) : 'DISREGARD';
 $edct_action_time = isset($payload['edct_action_time']) ? trim($payload['edct_action_time']) : null;
-$user_cid = isset($payload['user_cid']) ? trim($payload['user_cid']) : null;
-$user_name = isset($payload['user_name']) ? trim($payload['user_name']) : 'Unknown';
+$user_cid = isset($payload['user_cid']) ? trim($payload['user_cid']) : ($auth_cid ?: null);
+$user_name = isset($payload['user_name']) ? trim($payload['user_name']) : 'TMU';
 
 if ($program_id <= 0) {
     respond_json(400, [
@@ -134,11 +134,12 @@ if ($program === null) {
     ]);
 }
 
-// Verify program is active (can be cancelled)
-if (!$program['is_active']) {
+// Verify program can be cancelled (active or still modeling)
+$cancellable_statuses = ['ACTIVE', 'MODELING', 'PROPOSED', 'EXTENDED'];
+if (!in_array($program['status'], $cancellable_statuses)) {
     respond_json(400, [
         'status' => 'error',
-        'message' => "Program {$program_id} is not active. Current status: {$program['status']}"
+        'message' => "Program {$program_id} cannot be cancelled. Current status: {$program['status']}"
     ]);
 }
 
@@ -155,7 +156,8 @@ $advisory_number = $advNumHelper->reserve();
 
 $ctl_element = $program['ctl_element'] ?? 'UNKN';
 $element_type = $program['element_type'] ?? 'APT';
-$artcc = $program['artcc'] ?? $program['arr_center'] ?? 'ZZZ';
+$conn_adl = gdt_get_conn_adl();
+$artcc = resolve_program_artcc($program, $conn_adl);
 $program_type = $program['program_type'] ?? 'GS';
 $is_gdp = strpos($program_type, 'GDP') !== false;
 $type_name = $is_gdp ? 'GROUND DELAY PROGRAM' : 'GROUND STOP';
@@ -252,6 +254,10 @@ log_coordination_action($conn_tmi, $program_id, $program['proposal_id'] ?? null,
     'user_cid' => $user_cid,
     'user_name' => $user_name
 ], $advisory_number, 'CANCEL');
+
+// Write cancellation advisory record to tmi_advisories
+$cancel_adv_type = $is_gdp ? 'GDP_CNX' : 'GS_CNX';
+write_advisory_record($conn_tmi, $program, $advisory_number, $cancel_adv_type, $advisory_text, $user_cid, $user_name);
 
 // Get updated program
 $program = get_program($conn_tmi, $program_id);

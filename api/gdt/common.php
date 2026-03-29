@@ -433,9 +433,210 @@ function get_program($conn, $program_id) {
  * @return array|null Program record or null
  */
 function get_active_program($conn, $ctl_element) {
-    $result = fetch_one($conn, 
+    $result = fetch_one($conn,
         "SELECT * FROM dbo.tmi_programs WHERE ctl_element = ? AND is_active = 1",
         [strtoupper(trim($ctl_element))]
     );
     return $result['success'] ? $result['data'] : null;
+}
+
+/**
+ * Look up the responsible ARTCC for an airport ICAO code.
+ * Returns 3-letter ARTCC code (e.g. 'ZNY') or fallback.
+ */
+function resolve_program_artcc($program, $conn_adl = null) {
+    $ctl = $program['ctl_element'] ?? '';
+
+    // Try database lookup via RESP_ARTCC_ID
+    if ($conn_adl && $ctl !== '') {
+        $stmt = sqlsrv_query($conn_adl,
+            "SELECT RESP_ARTCC_ID FROM dbo.apts WHERE ICAO_ID = ?",
+            [$ctl]
+        );
+        if ($stmt !== false) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+            if ($row && !empty($row['RESP_ARTCC_ID'])) {
+                return $row['RESP_ARTCC_ID'];
+            }
+        }
+    }
+
+    // Fallback: extract from scope_json origin_centers (first entry stripped of K prefix)
+    $scope = $program['scope_json'] ?? null;
+    if (is_string($scope)) {
+        $scope = json_decode($scope, true);
+    }
+    if (is_array($scope) && !empty($scope['origin_centers'])) {
+        $first = $scope['origin_centers'][0];
+        // origin_centers uses ICAO format (KZNY) — strip K prefix for advisory format (ZNY)
+        if (strlen($first) === 4 && $first[0] === 'K') {
+            return substr($first, 1);
+        }
+        return $first;
+    }
+
+    return 'ZZZ';
+}
+
+/**
+ * Extract scope facilities string from program's scope_json for advisory text.
+ * Returns comma-separated ARTCC codes or fallback.
+ */
+function resolve_scope_facilities($program, $fallback = null) {
+    $scope = $program['scope_json'] ?? null;
+    if (is_string($scope)) {
+        $scope = json_decode($scope, true);
+    }
+    if (is_array($scope) && !empty($scope['origin_centers'])) {
+        return implode(' ', $scope['origin_centers']);
+    }
+    return $fallback ?? 'ALL';
+}
+
+/**
+ * Generate ACTUAL advisory text (vATCSCC format).
+ * Supports both GDP and GS program types.
+ *
+ * @param array $program Program record from tmi_programs
+ * @param string $advisory_number Advisory number string
+ * @param resource|null $conn_adl ADL connection for ARTCC lookup
+ * @return string Formatted advisory text
+ */
+function generate_actual_advisory($program, $advisory_number, $conn_adl = null) {
+    $program_type = $program['program_type'] ?? 'GS';
+    $is_gdp = strpos($program_type, 'GDP') !== false;
+    $ctl_element = $program['ctl_element'] ?? 'UNKN';
+    $element_type = $program['element_type'] ?? 'APT';
+    $artcc = resolve_program_artcc($program, $conn_adl);
+
+    $now = new DateTime('now', new DateTimeZone('UTC'));
+    $adl_time = $now->format('Hi') . 'Z';
+    $header_date = $now->format('m/d/Y');
+
+    $start = $program['start_utc'] instanceof DateTime ? $program['start_utc'] : new DateTime($program['start_utc']);
+    $end = $program['end_utc'] instanceof DateTime ? $program['end_utc'] : new DateTime($program['end_utc']);
+    $start_period = $start->format('d/Hi') . 'Z';
+    $end_period = $end->format('d/Hi') . 'Z';
+
+    $start_code = $start->format('dHi');
+    $end_code = $end->format('dHi');
+    $footer_timestamp = $now->format('y/m/d H:i');
+
+    $total_delay = round($program['total_delay_min'] ?? 0);
+    $max_delay = round($program['max_delay_min'] ?? $program['delay_limit_min'] ?? 0);
+    $avg_delay = round($program['avg_delay_min'] ?? 0);
+
+    $flt_incl = $program['flt_incl_type'] ?? 'ALL';
+    $facilities = resolve_scope_facilities($program, $artcc);
+    $prob_extension = $program['prob_extension'] ?? 'MODERATE';
+    $reason = $program['impacting_condition'] ?? 'VOLUME';
+    $comments = $program['comments'] ?? 'NONE';
+
+    $adv_num = preg_replace('/[^0-9]/', '', $advisory_number) ?: '001';
+    $adv_num = str_pad($adv_num, 3, '0', STR_PAD_LEFT);
+
+    // Scope tier label from scope_json
+    $scope = $program['scope_json'] ?? null;
+    if (is_string($scope)) $scope = json_decode($scope, true);
+    $scope_group = (is_array($scope) && !empty($scope['scope_group'])) ? $scope['scope_group'] : 'Tier1';
+
+    $lines = [];
+
+    if ($is_gdp) {
+        $program_rate = $program['program_rate'] ?? 0;
+        $controlled_flights = $program['controlled_flights'] ?? $program['flight_count'] ?? 0;
+
+        $lines[] = "vATCSCC ADVZY {$adv_num} {$ctl_element}/{$artcc} {$header_date} CDM GROUND DELAY PROGRAM";
+        $lines[] = "CTL ELEMENT: {$ctl_element}";
+        $lines[] = "ELEMENT TYPE: {$element_type}";
+        $lines[] = "ADL TIME: {$adl_time}";
+        $lines[] = "GDP PERIOD: {$start_period} - {$end_period}";
+        $lines[] = "FLT INCL: {$flt_incl}";
+        $lines[] = "DEP FACILITIES INCLUDED: ({$scope_group}) {$facilities}";
+        $lines[] = "PROGRAM RATE: {$program_rate}/HR";
+        $lines[] = "DELAY ASSIGNMENT MODE: UDP";
+        $lines[] = "NEW TOTAL, MAXIMUM, AVERAGE DELAYS: {$total_delay} / {$max_delay} / {$avg_delay}";
+        $lines[] = "CONTROLLED FLIGHTS: {$controlled_flights}";
+        $lines[] = "PROBABILITY OF EXTENSION: {$prob_extension}";
+        $lines[] = "IMPACTING CONDITION: {$reason}";
+        $lines[] = "COMMENTS: {$comments}";
+    } else {
+        $lines[] = "vATCSCC ADVZY {$adv_num} {$ctl_element}/{$artcc} {$header_date} CDM GROUND STOP";
+        $lines[] = "CTL ELEMENT: {$ctl_element}";
+        $lines[] = "ELEMENT TYPE: {$element_type}";
+        $lines[] = "ADL TIME: {$adl_time}";
+        $lines[] = "GROUND STOP PERIOD: {$start_period} - {$end_period}";
+        $lines[] = "FLT INCL: {$flt_incl}";
+        $lines[] = "DEP FACILITIES INCLUDED: ({$scope_group}) {$facilities}";
+        $lines[] = "NEW TOTAL, MAXIMUM, AVERAGE DELAYS: {$total_delay} / {$max_delay} / {$avg_delay}";
+        $lines[] = "PROBABILITY OF EXTENSION: {$prob_extension}";
+        $lines[] = "IMPACTING CONDITION: {$reason}";
+        $lines[] = "COMMENTS: {$comments}";
+    }
+
+    $lines[] = "";
+    $lines[] = "{$start_code}-{$end_code}";
+    $lines[] = $footer_timestamp;
+
+    return implode("\n", $lines);
+}
+
+/**
+ * Write an advisory record to tmi_advisories.
+ *
+ * @param resource $conn_tmi TMI sqlsrv connection
+ * @param array $program Program record
+ * @param string $advisory_number Advisory number string
+ * @param string $advisory_type 'GDP', 'GS', 'GDP_CNX', 'GS_CNX'
+ * @param string $advisory_text Full advisory text
+ * @param string|null $created_by User CID
+ * @param string|null $created_by_name User name
+ */
+function write_advisory_record($conn_tmi, $program, $advisory_number, $advisory_type, $advisory_text, $created_by = null, $created_by_name = null) {
+    $program_type = $program['program_type'] ?? 'GS';
+    $is_cancel = strpos($advisory_type, 'CNX') !== false;
+    $subject = $is_cancel
+        ? strtoupper(str_replace('-', ' ', $program_type)) . ' CANCELLATION'
+        : 'CDM ' . strtoupper(str_replace('-', ' ', $program_type));
+
+    $sql = "INSERT INTO dbo.tmi_advisories (
+                advisory_number, advisory_type,
+                ctl_element, element_type, scope_facilities,
+                effective_from, effective_until,
+                subject, body_text,
+                reason_code, reason_detail,
+                status, is_proposed,
+                source_type, source_id,
+                created_by, created_by_name,
+                org_code
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    $params = [
+        $advisory_number,
+        $advisory_type,
+        $program['ctl_element'] ?? null,
+        $program['element_type'] ?? 'APT',
+        resolve_scope_facilities($program),
+        $program['start_utc'] ?? null,
+        $program['end_utc'] ?? null,
+        $subject,
+        $advisory_text,
+        $program['impacting_condition'] ?? null,
+        $program['cause_text'] ?? null,
+        'PUBLISHED',
+        0,
+        'GDT',
+        $program['program_id'] ?? null,
+        $created_by,
+        $created_by_name,
+        'vatcscc'
+    ];
+
+    $stmt = sqlsrv_query($conn_tmi, $sql, $params);
+    if ($stmt !== false) {
+        sqlsrv_free_stmt($stmt);
+        return true;
+    }
+    return false;
 }

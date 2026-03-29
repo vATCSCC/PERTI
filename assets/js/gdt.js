@@ -515,6 +515,13 @@
     }
 
     function resetAndNewProgram() {
+        // Purge old MODELING program to prevent orphans
+        if (GS_CURRENT_PROGRAM_ID && GS_CURRENT_PROGRAM_STATUS === 'MODELING') {
+            var oldId = GS_CURRENT_PROGRAM_ID;
+            GS_CURRENT_PROGRAM_ID = null;
+            GS_CURRENT_PROGRAM_STATUS = null;
+            apiPostJson(GS_API.purge, { program_id: oldId }).catch(function() {});
+        }
         GS_CURRENT_PROGRAM_ID = null;
         GS_CURRENT_PROGRAM_STATUS = null;
         GS_SIMULATION_READY = false;
@@ -1200,7 +1207,9 @@
                     contentType: 'application/json',
                     data: JSON.stringify({
                         program_id: programId,
-                        cancel_reason: 'USER_CANCELLED'
+                        cancel_reason: 'USER_CANCELLED',
+                        user_cid: 'TMU',
+                        user_name: 'TMU'
                     }),
                     success: function(resp) {
                         if (resp.status === 'ok') {
@@ -2267,16 +2276,23 @@
         const min = String(now.getUTCMinutes()).padStart(2, '0');
         const signatureLine = yy + '/' + mm + '/' + dd + ' ' + hh + ':' + min;
 
+        // Determine program type for advisory format
+        var programTypeEl = document.getElementById('gs_program_type');
+        var programType = programTypeEl ? programTypeEl.value : 'GS';
+        var isGdp = programType !== 'GS';
+        var typeName = isGdp ? 'CDM GROUND DELAY PROGRAM' : 'CDM GROUND STOP';
+        var periodLabel = isGdp ? 'GDP PERIOD:' : 'GROUND STOP PERIOD:';
+
         let lines = [];
 
-        // Header: {ORG_PREFIX} ADVZY {ADVZY_NUM} {CTL_ELEMENT} MM/DD/YYYY CDM GROUND STOP
-        lines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + advNum + ' ' + ctlElement + ' ' + headerDate + ' CDM GROUND STOP');
+        // Header: {ORG_PREFIX} ADVZY {ADVZY_NUM} {CTL_ELEMENT} MM/DD/YYYY CDM {TYPE}
+        lines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + advNum + ' ' + ctlElement + ' ' + headerDate + ' ' + typeName);
 
         // Standard lines with hanging-indent wrapping at 68 characters
         lines = lines.concat(wrapAdvisoryLabelValue('CTL ELEMENT:', ctlElement));
         lines = lines.concat(wrapAdvisoryLabelValue('ELEMENT TYPE:', elemType));
         lines = lines.concat(wrapAdvisoryLabelValue('ADL TIME:', nowZ));
-        lines = lines.concat(wrapAdvisoryLabelValue('GROUND STOP PERIOD:', gsPeriod));
+        lines = lines.concat(wrapAdvisoryLabelValue(periodLabel, gsPeriod));
 
         fltInclValues.forEach(function(v) {
             lines = lines.concat(wrapAdvisoryLabelValue('FLT INCL:', v));
@@ -2286,6 +2302,14 @@
             wrapAdvisoryLabelValue('DEP FACILITIES INCLUDED:', depFacilitiesValue),
         );
 
+        // GDP-specific fields
+        if (isGdp) {
+            var rateEl = document.getElementById('gs_program_rate');
+            var programRate = rateEl ? (rateEl.value || '0') : '0';
+            lines = lines.concat(wrapAdvisoryLabelValue('PROGRAM RATE:', programRate + '/HR'));
+            lines = lines.concat(wrapAdvisoryLabelValue('DELAY ASSIGNMENT MODE:', 'UDP'));
+        }
+
         // Delay line
         lines = lines.concat(
             wrapAdvisoryLabelValue(
@@ -2293,6 +2317,13 @@
                 delayTotal + ' / ' + delayMax + ' / ' + delayAvg,
             ),
         );
+
+        // GDP: controlled flights count
+        if (isGdp) {
+            var controlledEl = document.getElementById('gs_flight_count_badge');
+            var controlledCount = controlledEl ? (controlledEl.textContent || '0') : '0';
+            lines = lines.concat(wrapAdvisoryLabelValue('CONTROLLED FLIGHTS:', controlledCount));
+        }
 
         // Always show these lines (blank if empty)
         lines = lines.concat(
@@ -4568,8 +4599,10 @@
 
         const gsEndStr = gsEndEl.value || '';
         if (!gsEndStr) {return;}
-        const gsEndEpoch = parseUtcLocalToEpoch(gsEndStr);
-        if (!gsEndEpoch) {return;}
+        const gsEndRaw = parseUtcLocalToEpoch(gsEndStr);
+        if (!gsEndRaw) {return;}
+        // GS release time is gs_end + 1 minute (matches server-side simulate.php)
+        const gsEndEpoch = gsEndRaw + 60000;
 
         const apStr = getValue('gs_airports') || '';
         const apTokens = apStr.toUpperCase().split(/\s+/).filter(function(x) { return x.length > 0; });
@@ -5573,20 +5606,35 @@
             scope_group: workflowPayload.gs_scope_group || 'Manual'
         } : null;
 
+        // Determine scope type and parameters from UI
+        var scopeTypeEl = document.getElementById('gs_scope_type');
+        var scopeType = (scopeTypeEl && scopeTypeEl.value) ? scopeTypeEl.value : 'TIER';
+        var scopeDistanceNm = null;
+        if (scopeType === 'DISTANCE') {
+            var distEl = document.getElementById('gs_scope_distance_nm');
+            scopeDistanceNm = (distEl && distEl.value) ? parseInt(distEl.value, 10) : 200;
+        }
+
         // Build create payload for GDT API
         var createPayload = {
             ctl_element: workflowPayload.gs_ctl_element || workflowPayload.gs_airports.split(' ')[0],
             program_type: selectedProgramType,
             start_utc: workflowPayload.gs_start,
             end_utc: workflowPayload.gs_end,
-            scope_type: 'TIER',
-            scope_tier: 2,
+            scope_type: scopeType,
             scope_json: scopeJson,
             exempt_airborne: true,
             impacting_condition: workflowPayload.gs_impacting_condition || 'WEATHER',
             cause_text: workflowPayload.gs_comments || (selectedProgramType === 'GS' ? PERTII18n.t('gdt.gs.causeGroundStop') : PERTII18n.t('gdt.gs.causeGdp')),
             created_by: 'TMU',
         };
+
+        // Add scope-type-specific fields
+        if (scopeType === 'TIER') {
+            createPayload.scope_tier = 2;
+        } else if (scopeType === 'DISTANCE') {
+            createPayload.scope_distance_nm = scopeDistanceNm;
+        }
 
         // Add GDP-specific fields if applicable
         if (selectedProgramType !== 'GS') {
@@ -5641,8 +5689,11 @@
 
                 renderFlightsFromAdlRowsForWorkflow(flights, 'GS-PREVIEW');
 
-                // Apply GS EDCT to table rows so delay stats are computed
+                // Apply GS EDCT to table rows, then recalculate delay stats
                 applyGroundStopEdctToTable();
+                // Recalculate delay stats now that EDCT epochs are set on rows
+                // (applyTimeFilterToTable calls updateDelayStats which calls buildAdvisory)
+                applyTimeFilterToTable();
 
                 if (statusEl) {
                     const summary = modelResp.data.summary || {};
@@ -5653,7 +5704,6 @@
                         programId: GS_CURRENT_PROGRAM_ID
                     });
                 }
-                buildAdvisory();
 
                 // Refresh demand chart with program data
                 var apStr = getValue('gs_airports') || getValue('gs_ctl_element') || '';
@@ -5699,9 +5749,15 @@
         if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.modelingProgram', { id: GS_CURRENT_PROGRAM_ID });}
 
         // Run simulate.php which creates tmi_flight_control records (required before activation).
-        // simulate.php reads scope from the program's scope_json stored at creation time.
+        // Pass current scope from UI so simulate uses fresh values (not stale scope_json from creation).
+        var simWorkflow = collectGsWorkflowPayload();
+        var simDepFac = (simWorkflow.gs_dep_facilities || '').trim();
+        var simDepArr = simDepFac.split(/\s+/).filter(function(x) { return x.length > 0 && x !== 'ALL'; });
+        var simScope = simDepArr.length > 0 ? { origin_centers: simDepArr } : {};
+
         return apiPostJson(GS_API.simulate, {
             program_id: GS_CURRENT_PROGRAM_ID,
+            scope: simScope,
         })
             .then(function(simResp) {
                 if (simResp.status !== 'ok') {
@@ -5721,8 +5777,10 @@
                 setGsTableMode(progType);
                 renderFlightsFromAdlRowsForWorkflow(flights, progType + '-SIM');
 
-                // Apply GS EDCT to table rows so delay stats are computed
+                // Apply GS EDCT to table rows, then recalculate delay stats
                 if (progType === 'GS') applyGroundStopEdctToTable();
+                // Recalculate delay stats with EDCT epochs set
+                applyTimeFilterToTable();
 
                 if (statusEl) {
                     const summary = simResp.data.summary || {};
@@ -5732,7 +5790,6 @@
                         programId: GS_CURRENT_PROGRAM_ID
                     });
                 }
-                buildAdvisory();
 
                 // Refresh demand chart with program data
                 var apStr = getValue('gs_airports') || getValue('gs_ctl_element') || '';
@@ -5809,6 +5866,8 @@
                 setGsTableMode(progType);
                 renderFlightsFromAdlRowsForWorkflow(flights, progType + '-SIM');
                 if (progType === 'GS') applyGroundStopEdctToTable();
+                // Recalculate delay stats with EDCT epochs set
+                applyTimeFilterToTable();
 
                 if (statusEl) {
                     var summary = resp.data.summary || {};
@@ -5816,8 +5875,6 @@
                     var overrideText = overrides ? ' | Overrides: ' + JSON.stringify(overrides) : '';
                     statusEl.textContent = PERTII18n.t('gdt.dashboard.whatIfStatus', { flights: flights.length, maxDelay: summary.max_delay_min || 0 }) + overrideText;
                 }
-
-                buildAdvisory();
             })
             .catch(function(err) {
                 console.error('What-if simulate failed', err);
@@ -5969,9 +6026,11 @@
         const workflowPayload = collectGsWorkflowPayload();
 
         // Build the TMI Publishing handoff data
+        var programTypeEl = document.getElementById('gs_program_type');
+        var handoffProgramType = (programTypeEl && programTypeEl.value) ? programTypeEl.value : 'GS';
         const tmiHandoff = {
-            type: 'GS',
-            program_type: 'GS',
+            type: handoffProgramType,
+            program_type: handoffProgramType,
             program_id: GS_CURRENT_PROGRAM_ID,
             ctl_element: workflowPayload.gs_ctl_element || '',
             element_type: workflowPayload.gs_element_type || 'AIRPORT',
@@ -6011,7 +6070,7 @@
             if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.redirectingToTmi');}
 
             // Navigate to TMI Publishing page with GS/GDP tab active
-            window.location.href = 'tmi-publish.php?tab=gdp&source=gdt&type=gs&program_id=' + GS_CURRENT_PROGRAM_ID + '#gsgdpPanel';
+            window.location.href = 'tmi-publish.php?tab=gdp&source=gdt&type=' + encodeURIComponent(handoffProgramType.toLowerCase()) + '&program_id=' + GS_CURRENT_PROGRAM_ID + '#gsgdpPanel';
 
         } catch (err) {
             console.error('Failed to store TMI handoff data:', err);
@@ -7305,11 +7364,13 @@
                     headerEl.innerHTML = icon + ' ' + typeLabel + ' Setup';
                 }
 
-                // Reset program state when type changes (new type = new program)
+                // Purge old MODELING program when type changes to prevent orphans
                 if (GS_CURRENT_PROGRAM_ID && GS_CURRENT_PROGRAM_STATUS === 'MODELING') {
+                    var oldProgramId = GS_CURRENT_PROGRAM_ID;
                     GS_CURRENT_PROGRAM_ID = null;
                     GS_CURRENT_PROGRAM_STATUS = null;
                     setWorkflowState('configure');
+                    apiPostJson(GS_API.purge, { program_id: oldProgramId }).catch(function() {});
                 }
 
                 // Re-initialize default end time for new program type
