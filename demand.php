@@ -637,6 +637,89 @@ include("load/i18n.php");
             color: rgba(255, 255, 255, 0.8);
             margin-bottom: 2px;
         }
+
+        /* Comparison Mode Grid */
+        #demand_chart_grid {
+            display: none;
+        }
+        #demand_chart_grid.active {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        #demand_chart_grid.single-col {
+            grid-template-columns: 1fr;
+        }
+        .compare-panel {
+            border: 2px solid #2c3e50;
+            border-radius: 4px;
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+        .compare-panel-header {
+            background: #ecf0f1;
+            border-bottom: 1px solid #bdc3c7;
+            padding: 4px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .compare-panel-header .airport-code {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #2c3e50;
+        }
+        .compare-panel-header .airport-meta {
+            font-size: 0.65rem;
+            color: #666;
+            font-family: 'Roboto Mono', monospace;
+        }
+        .compare-panel-chart {
+            height: 340px;
+        }
+        .compare-panel-chart.side-by-side {
+            height: 380px;
+        }
+        .compare-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: #2c3e50;
+            color: #fff;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .compare-chip .chip-remove {
+            cursor: pointer;
+            opacity: 0.7;
+            font-size: 0.6rem;
+        }
+        .compare-chip .chip-remove:hover {
+            opacity: 1;
+        }
+        /* Stats tab strip for comparison mode */
+        .summary-tab-strip {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        .summary-tab {
+            padding: 2px 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: #fff;
+            color: #2c3e50;
+        }
+        .summary-tab.active {
+            background: #2c3e50;
+            color: #fff;
+            border-color: #2c3e50;
+        }
     </style>
 
 </head>
@@ -878,6 +961,22 @@ include("load/i18n.php");
                         <select class="form-control form-control-sm" id="demand_airport">
                             <option value=""><?= __('demand.page.selectAirportOption') ?></option>
                         </select>
+                    </div>
+
+                    <!-- Comparison Mode Toggle -->
+                    <div class="form-group mb-2" id="compare_toggle_container">
+                        <div class="d-flex align-items-center" style="gap: 8px;">
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.8rem;">
+                                <input type="checkbox" id="compare_mode_toggle" style="margin-right: 4px;">
+                                <i class="fas fa-columns mr-1 text-muted"></i> <?= __('demand.compare.enable') ?>
+                            </label>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="compare_add_btn" style="display: none; font-size: 0.7rem;">
+                                + <?= __('demand.compare.addAirport') ?>
+                            </button>
+                        </div>
+                        <!-- Chip bar for selected airports -->
+                        <div id="compare_chip_bar" class="d-flex flex-wrap mt-1" style="gap: 4px; display: none !important;"></div>
+                        <small class="text-danger" id="compare_max_msg" style="display: none;"><?= __('demand.compare.maxReached') ?></small>
                     </div>
 
                     <!-- Facility Selection (hidden by default, shown for non-airport types) -->
@@ -1295,6 +1394,8 @@ include("load/i18n.php");
                         <div id="demand_tmi_timeline" class="demand-tmi-timeline" style="display: none;">
                             <div class="tmi-timeline-track" id="tmi_timeline_track"></div>
                         </div>
+                        <!-- Comparison grid (hidden by default, replaces single chart in comparison mode) -->
+                        <div id="demand_chart_grid" style="display: none; gap: 8px;"></div>
                         <div id="demand_chart" class="demand-chart-container" style="display: none;"></div>
                         <div class="chart-loading-overlay" id="chart_loading_overlay">
                             <div class="chart-loading-content">

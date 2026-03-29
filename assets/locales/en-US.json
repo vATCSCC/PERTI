@@ -726,6 +726,13 @@
       "xAxisLabel": "Time in {minutes}-Minute Increments",
       "yAxisLabel": "Demand"
     },
+    "compare": {
+      "addAirport": "Add Airport",
+      "aggregate": "Aggregate",
+      "enable": "Compare",
+      "maxReached": "Maximum 4 airports",
+      "remove": "Remove {airport}"
+    },
     "config": {
       "arrDepFormat": "ARR: {arr} | DEP: {dep}",
       "selectPreset": "Select Preset"

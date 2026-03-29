@@ -887,6 +887,11 @@ const DEMAND_STATE = {
     filterOriginArtccs: [],    // Array of origin ARTCC codes, empty = all
     filterDestArtccs: [],      // Array of dest ARTCC codes, empty = all
     summaryData: null,         // Store raw summary.php response for filter population
+    // Comparison mode state (Feature 4)
+    comparisonMode: false,
+    comparisonAirports: [],       // Array of ICAO strings, max 4
+    comparisonCharts: new Map(),   // ICAO → ECharts instance
+    comparisonData: new Map(),     // ICAO → { demandData, summaryData, tmiPrograms, rateData, atisData, dataHash, summaryDataHash }
     // Phase group visibility filters (all checked by default except unknown)
     phaseGroups: {
         prefile: true,      // PREFILE - filed but not connected
