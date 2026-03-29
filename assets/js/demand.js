@@ -3576,6 +3576,34 @@ function renderChart(data) {
             markLineData.push(...rateMarkLines);
         }
 
+        // Add TMI GS/GDP vertical markers
+        const tmiMarkers = buildTmiMarkerLines();
+        if (tmiMarkers && tmiMarkers.length > 0) {
+            markLineData.push(...tmiMarkers);
+        }
+
+        // Label collision avoidance: stagger labels for nearby vertical markers
+        const verticalMarkers = markLineData.filter(m => m.xAxis !== undefined && m._tmiMarker);
+        if (verticalMarkers.length > 1) {
+            verticalMarkers.sort((a, b) => a.xAxis - b.xAxis);
+            const PROXIMITY_MS = 30 * 60 * 1000;
+            let groupStart = 0;
+            for (let i = 1; i <= verticalMarkers.length; i++) {
+                const inGroup = i < verticalMarkers.length &&
+                    (verticalMarkers[i].xAxis - verticalMarkers[groupStart].xAxis) < PROXIMITY_MS;
+                if (!inGroup) {
+                    const groupSize = i - groupStart;
+                    if (groupSize > 1) {
+                        for (let j = groupStart; j < i; j++) {
+                            const idx = j - groupStart;
+                            verticalMarkers[j].label.offset = [0, idx * -18];
+                        }
+                    }
+                    groupStart = i;
+                }
+            }
+        }
+
         if (markLineData.length > 0) {
             series[0].markLine = {
                 silent: true,
@@ -5041,6 +5069,112 @@ function getRatesForTimestamp(timestamp) {
     }
 
     return null;
+}
+
+/**
+ * Build TMI GS/GDP vertical marker lines from tmiPrograms data.
+ * Returns array of markLine data objects for ECharts xAxis markers.
+ */
+function buildTmiMarkerLines() {
+    if (!DEMAND_STATE.showTmiMarkers || !DEMAND_STATE.tmiPrograms) {
+        return [];
+    }
+
+    const programs = DEMAND_STATE.tmiPrograms;
+    const lines = [];
+
+    // TMI marker style definitions
+    const TMI_MARKER_STYLES = {
+        gs_start:  { color: '#dc3545', width: 2, type: 'solid', label: 'GS' },
+        gs_end:    { color: '#dc3545', width: 2, type: 'solid', label: 'GS END' },
+        gdp_start: { color: '#d4a574', width: 2, type: 'solid', label: 'GDP' },
+        gdp_end:   { color: '#d4a574', width: 2, type: 'solid', label: 'GDP END' },
+        cancelled: { color: '#6c757d', width: 2, type: [4, 4], label: 'CNX' },
+        updated:   { color: '#495057', width: 1, type: [2, 3], label: 'UPD' },
+    };
+
+    programs.forEach(p => {
+        const pType = (p.program_type || '').toUpperCase();
+        const isGS = pType === 'GS';
+        const isGDP = pType.startsWith('GDP');
+        if (!isGS && !isGDP) return;
+
+        const prefix = isGS ? 'gs' : 'gdp';
+
+        // Start line
+        if (p.start_utc) {
+            const style = TMI_MARKER_STYLES[prefix + '_start'];
+            lines.push({
+                xAxis: new Date(p.start_utc).getTime(),
+                lineStyle: { color: style.color, width: style.width, type: style.type },
+                label: {
+                    show: true,
+                    formatter: style.label,
+                    position: 'start',
+                    fontSize: 9,
+                    fontWeight: 'bold',
+                    color: '#fff',
+                    backgroundColor: style.color,
+                    padding: [1, 4],
+                    borderRadius: 2,
+                    distance: 5,
+                    offset: [0, 0],
+                },
+                _tmiMarker: true,
+            });
+        }
+
+        // End/cancel line
+        const endTime = p.purged_at || p.end_utc;
+        if (endTime) {
+            const isCancelled = !!p.purged_at && p.status === 'cancelled';
+            const styleKey = isCancelled ? 'cancelled' : (prefix + '_end');
+            const style = TMI_MARKER_STYLES[styleKey];
+            lines.push({
+                xAxis: new Date(endTime).getTime(),
+                lineStyle: { color: style.color, width: style.width, type: style.type },
+                label: {
+                    show: true,
+                    formatter: style.label,
+                    position: 'start',
+                    fontSize: 9,
+                    fontWeight: 'bold',
+                    color: '#fff',
+                    backgroundColor: style.color,
+                    padding: [1, 4],
+                    borderRadius: 2,
+                    distance: 5,
+                    offset: [0, 0],
+                },
+                _tmiMarker: true,
+            });
+        }
+
+        // Updated marker
+        if (p.was_updated && p.updated_at) {
+            const style = TMI_MARKER_STYLES.updated;
+            lines.push({
+                xAxis: new Date(p.updated_at).getTime(),
+                lineStyle: { color: style.color, width: style.width, type: style.type },
+                label: {
+                    show: true,
+                    formatter: style.label,
+                    position: 'start',
+                    fontSize: 8,
+                    fontWeight: 'normal',
+                    color: '#fff',
+                    backgroundColor: style.color,
+                    padding: [1, 3],
+                    borderRadius: 2,
+                    distance: 5,
+                    offset: [0, 0],
+                },
+                _tmiMarker: true,
+            });
+        }
+    });
+
+    return lines;
 }
 
 /**
