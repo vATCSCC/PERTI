@@ -7914,7 +7914,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         let html = '';
 
         // Back link for mobile
-        html += '<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">\u2190 ${PERTII18n.t('tmiCompliance.backToList')}</a>';
+        html += `<a class="tmi-detail-back" onclick="TMICompliance.scrollToList()">\u2190 ${PERTII18n.t('tmiCompliance.backToList')}</a>`;
 
         // Header
         html += `<div class="tmi-detail-header">
@@ -7939,7 +7939,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
 
         // NTML badge
         if (fix.ntml_corroborated) {
-            html += '<div class="holding-ntml-badge"><i class="fas fa-check-circle"></i>${PERTII18n.t('tmiCompliance.holding.ntmlCorroborated')}</div>';
+            html += `<div class="holding-ntml-badge"><i class="fas fa-check-circle"></i>${PERTII18n.t('tmiCompliance.holding.ntmlCorroborated')}</div>`;
         }
 
         // Flight list expandable section
