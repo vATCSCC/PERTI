@@ -150,7 +150,7 @@ function formatDT($dt) {
  * Uses columns available in the denormalized swim_flights table only.
  */
 function formatSwimFlightRecordFIXM($row) {
-    $gufi = $row['gufi'] ?? swim_generate_gufi($row['callsign'], $row['fp_dept_icao'], $row['fp_dest_icao']);
+    $gufi = $row['gufi'] ?? '';
 
     $time_to_dest = null;
     if ($row['groundspeed_kts'] > 50 && $row['dist_to_dest_nm'] > 0) {
@@ -160,7 +160,12 @@ function formatSwimFlightRecordFIXM($row) {
     }
 
     $result = [
-        'gufi' => $gufi,
+        'gufi' => swim_format_gufi_response(
+            $gufi,
+            $row['gufi_legacy'] ?? null,
+            formatDT($row['gufi_created_utc'] ?? null)
+        ),
+        'gufi_legacy' => $row['gufi_legacy'] ?? null,
         'flight_uid' => $row['flight_uid'],
         'flight_key' => $row['flight_key'],
         'flight_id' => $row['flight_id'],

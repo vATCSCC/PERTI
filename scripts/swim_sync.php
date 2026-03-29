@@ -571,7 +571,7 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
         // UPDATE - FIXM columns only
         $sql = "
             UPDATE dbo.swim_flights SET
-                flight_key = ?, gufi = ?, callsign = ?, cid = ?, flight_id = ?,
+                flight_key = ?, gufi_legacy = ?, callsign = ?, cid = ?, flight_id = ?,
                 lat = ?, lon = ?, altitude_ft = ?, heading_deg = ?, groundspeed_kts = ?, vertical_rate_fpm = ?,
                 fp_dept_icao = ?, fp_dest_icao = ?, fp_alt_icao = ?, fp_altitude_ft = ?, fp_tas_kts = ?,
                 fp_route = ?, fp_remarks = ?, fp_rule = ?,
@@ -601,7 +601,7 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
         // INSERT - FIXM columns only
         $sql = "
             INSERT INTO dbo.swim_flights (
-                flight_uid, flight_key, gufi, callsign, cid, flight_id,
+                flight_uid, flight_key, gufi_legacy, callsign, cid, flight_id,
                 lat, lon, altitude_ft, heading_deg, groundspeed_kts, vertical_rate_fpm,
                 fp_dept_icao, fp_dest_icao, fp_alt_icao, fp_altitude_ft, fp_tas_kts,
                 fp_route, fp_remarks, fp_rule,
