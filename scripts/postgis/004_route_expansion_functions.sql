@@ -942,6 +942,8 @@ RETURNS TABLE (
 DECLARE
     v_waypoints JSONB;
     v_route_geom GEOMETRY;
+    v_route_work GEOMETRY;
+    v_shifted BOOLEAN;
     v_artccs TEXT[];
 BEGIN
     -- Expand route to waypoints as JSONB
@@ -973,20 +975,30 @@ BEGIN
 
     -- Find ARTCCs traversed (in traversal order by route centroid position)
     IF v_route_geom IS NOT NULL THEN
+        -- Detect and handle antimeridian crossing
+        v_shifted := crosses_antimeridian(v_route_geom);
+        v_route_work := CASE WHEN v_shifted THEN ST_ShiftLongitude(v_route_geom) ELSE v_route_geom END;
+
         SELECT ARRAY(
             SELECT normalize_artcc_code(artcc_code) FROM (
                 SELECT DISTINCT ON (normalize_artcc_code(ab.artcc_code))
                     normalize_artcc_code(ab.artcc_code) AS artcc_code,
-                    ST_LineLocatePoint(v_route_geom, ST_Centroid(ST_Intersection(ab.geom, v_route_geom))) AS traversal_order
+                    ST_LineLocatePoint(v_route_work, ST_Centroid(ST_Intersection(
+                        CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END,
+                        v_route_work
+                    ))) AS traversal_order
                 FROM artcc_boundaries ab
-                WHERE ST_Intersects(ab.geom, v_route_geom)
+                WHERE ST_Intersects(
+                    CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END,
+                    v_route_work
+                )
                 ORDER BY normalize_artcc_code(ab.artcc_code), traversal_order
             ) sub
             ORDER BY traversal_order
         ) INTO v_artccs;
     END IF;
 
-    -- Return results
+    -- Return results (original geometry in [-180,180], not shifted)
     waypoints := COALESCE(v_waypoints, '[]'::JSONB);
     artccs_traversed := COALESCE(v_artccs, ARRAY[]::TEXT[]);
     route_geometry := v_route_geom;
@@ -1036,6 +1048,8 @@ RETURNS TABLE (
 DECLARE
     v_waypoints JSONB;
     v_route_geom GEOMETRY;
+    v_route_work GEOMETRY;
+    v_shifted BOOLEAN;
     v_artccs TEXT[];
     v_boundaries JSONB;
     v_distance DECIMAL(10,2);
@@ -1067,20 +1081,30 @@ BEGIN
         ) INTO v_route_geom;
     END IF;
 
-    -- Calculate distance in nautical miles
+    -- Calculate distance in nautical miles (geography handles antimeridian correctly)
     IF v_route_geom IS NOT NULL THEN
         SELECT ST_Length(v_route_geom::geography) / 1852.0 INTO v_distance;
     END IF;
 
-    -- Find ARTCCs traversed (in traversal order)
+    -- Find ARTCCs and boundaries traversed
     IF v_route_geom IS NOT NULL THEN
+        -- Detect and handle antimeridian crossing
+        v_shifted := crosses_antimeridian(v_route_geom);
+        v_route_work := CASE WHEN v_shifted THEN ST_ShiftLongitude(v_route_geom) ELSE v_route_geom END;
+
         SELECT ARRAY(
             SELECT artcc_code FROM (
                 SELECT DISTINCT ON (ab.artcc_code)
                     ab.artcc_code,
-                    ST_LineLocatePoint(v_route_geom, ST_Centroid(ST_Intersection(ab.geom, v_route_geom))) AS traversal_order
+                    ST_LineLocatePoint(v_route_work, ST_Centroid(ST_Intersection(
+                        CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END,
+                        v_route_work
+                    ))) AS traversal_order
                 FROM artcc_boundaries ab
-                WHERE ST_Intersects(ab.geom, v_route_geom)
+                WHERE ST_Intersects(
+                    CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END,
+                    v_route_work
+                )
                 ORDER BY ab.artcc_code, traversal_order
             ) sub
             ORDER BY traversal_order
@@ -1096,10 +1120,16 @@ BEGIN
                 'floor', ab.floor_altitude,
                 'ceiling', ab.ceiling_altitude,
                 'is_oceanic', ab.is_oceanic,
-                'traversal_order', ST_LineLocatePoint(v_route_geom, ST_Centroid(ST_Intersection(ab.geom, v_route_geom)))
+                'traversal_order', ST_LineLocatePoint(v_route_work, ST_Centroid(ST_Intersection(
+                    CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END,
+                    v_route_work
+                )))
             ) AS boundary_data
             FROM artcc_boundaries ab
-            WHERE ST_Intersects(ab.geom, v_route_geom)
+            WHERE ST_Intersects(
+                CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END,
+                v_route_work
+            )
               AND (ab.floor_altitude IS NULL OR ab.floor_altitude <= p_altitude)
               AND (ab.ceiling_altitude IS NULL OR ab.ceiling_altitude >= p_altitude)
         ) sub;
@@ -1214,6 +1244,8 @@ RETURNS TABLE (
 ) AS $$
 DECLARE
     v_route_geom GEOMETRY;
+    v_route_work GEOMETRY;
+    v_shifted BOOLEAN;
     v_artccs TEXT[];
     v_distance DECIMAL(10,2);
 BEGIN
@@ -1231,17 +1263,27 @@ BEGIN
     END IF;
 
     IF v_route_geom IS NOT NULL THEN
-        -- Calculate distance
+        -- Calculate distance (geography handles antimeridian correctly)
         SELECT ST_Length(v_route_geom::geography) / 1852.0 INTO v_distance;
+
+        -- Detect and handle antimeridian crossing
+        v_shifted := crosses_antimeridian(v_route_geom);
+        v_route_work := CASE WHEN v_shifted THEN ST_ShiftLongitude(v_route_geom) ELSE v_route_geom END;
 
         -- Find ARTCCs traversed
         SELECT ARRAY(
             SELECT artcc_code FROM (
                 SELECT DISTINCT ON (ab.artcc_code)
                     ab.artcc_code,
-                    ST_LineLocatePoint(v_route_geom, ST_Centroid(ST_Intersection(ab.geom, v_route_geom))) AS traversal_order
+                    ST_LineLocatePoint(v_route_work, ST_Centroid(ST_Intersection(
+                        CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END,
+                        v_route_work
+                    ))) AS traversal_order
                 FROM artcc_boundaries ab
-                WHERE ST_Intersects(ab.geom, v_route_geom)
+                WHERE ST_Intersects(
+                    CASE WHEN v_shifted THEN safe_shift_geom(ab.geom) ELSE ab.geom END,
+                    v_route_work
+                )
                 ORDER BY ab.artcc_code, traversal_order
             ) sub
             ORDER BY traversal_order

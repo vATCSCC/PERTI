@@ -40,6 +40,7 @@ DECLARE
     v_route_length_m  double precision;
     v_route_geog      geography;
     v_route           geometry;
+    v_shifted         boolean;
 BEGIN
     -- Validate input
     IF p_route_geom IS NULL OR ST_IsEmpty(p_route_geom) THEN
@@ -49,14 +50,24 @@ BEGIN
     -- Densify route to approximate great-circle arcs (50km max segment length).
     -- This prevents Cartesian-vs-geodesic mismatch at higher latitudes where
     -- straight segments in SRID 4326 deviate from the great circle path.
+    -- MUST happen before shift because geography expects [-180,180] input.
     v_route := ST_Segmentize(p_route_geom::geography, 50000)::geometry;
 
-    -- Pre-compute route length in meters for NM conversion
+    -- Pre-compute route length in meters for NM conversion.
+    -- Use geography BEFORE shifting (geography handles antimeridian correctly).
     v_route_geog := v_route::geography;
     v_route_length_m := ST_Length(v_route_geog);
 
     IF v_route_length_m < 1 THEN
         RETURN;
+    END IF;
+
+    -- Detect and handle antimeridian crossing.
+    -- After densification there may still be one segment with a ~360-degree
+    -- Cartesian jump at +/-180. Shifting to [0,360] removes the discontinuity.
+    v_shifted := crosses_antimeridian(v_route);
+    IF v_shifted THEN
+        v_route := ST_ShiftLongitude(v_route);
     END IF;
 
     RETURN QUERY
@@ -68,22 +79,28 @@ BEGIN
                 WHEN ab.artcc_code ~ '^CZ' THEN 'FIR'
                 ELSE 'FIR'
             END AS ftype,
-            normalize_artcc_code(ab.artcc_code) AS fid,
+            normalize_artcc_code(ab.artcc_code)::text AS fid,
             ab.fir_name::text AS fname,
-            ST_Intersection(v_route, ST_MakeValid(ab.geom)) AS intersection_geom,
+            ST_Intersection(
+                v_route,
+                CASE WHEN v_shifted THEN safe_shift_geom(ab.geom)
+                     ELSE ST_MakeValid(ab.geom) END
+            ) AS intersection_geom,
             ab.floor_altitude AS f_alt,
             ab.ceiling_altitude AS c_alt
         FROM artcc_boundaries ab
         WHERE ('ARTCC' = ANY(p_facility_types) OR 'FIR' = ANY(p_facility_types))
-          AND ST_Intersects(v_route, ST_MakeValid(ab.geom))
+          AND ST_Intersects(
+                v_route,
+                CASE WHEN v_shifted THEN safe_shift_geom(ab.geom)
+                     ELSE ST_MakeValid(ab.geom) END
+              )
           AND ab.geom IS NOT NULL
           AND NOT ab.is_subsector
 
         UNION ALL
 
         -- TRACON boundaries
-        -- sector_code = parent TRACON facility (N90, D01), tracon_code = area (JFK, EWR)
-        -- Include area code in name to disambiguate multi-area TRACONs
         SELECT
             'TRACON'::text AS ftype,
             tb.tracon_code::text AS fid,
@@ -92,12 +109,20 @@ BEGIN
                 THEN tb.tracon_name || ' (' || tb.tracon_code || ')'
                 ELSE tb.tracon_name
             END::text AS fname,
-            ST_Intersection(v_route, ST_MakeValid(tb.geom)) AS intersection_geom,
+            ST_Intersection(
+                v_route,
+                CASE WHEN v_shifted THEN safe_shift_geom(tb.geom)
+                     ELSE ST_MakeValid(tb.geom) END
+            ) AS intersection_geom,
             tb.floor_altitude AS f_alt,
             tb.ceiling_altitude AS c_alt
         FROM tracon_boundaries tb
         WHERE 'TRACON' = ANY(p_facility_types)
-          AND ST_Intersects(v_route, ST_MakeValid(tb.geom))
+          AND ST_Intersects(
+                v_route,
+                CASE WHEN v_shifted THEN safe_shift_geom(tb.geom)
+                     ELSE ST_MakeValid(tb.geom) END
+              )
           AND tb.geom IS NOT NULL
 
         UNION ALL
@@ -107,12 +132,20 @@ BEGIN
             ('SECTOR_' || UPPER(sb.sector_type))::text AS ftype,
             sb.sector_code::text AS fid,
             COALESCE(sb.sector_name, sb.sector_code || ' (' || sb.parent_artcc || ')')::text AS fname,
-            ST_Intersection(v_route, ST_MakeValid(sb.geom)) AS intersection_geom,
+            ST_Intersection(
+                v_route,
+                CASE WHEN v_shifted THEN safe_shift_geom(sb.geom)
+                     ELSE ST_MakeValid(sb.geom) END
+            ) AS intersection_geom,
             sb.floor_altitude AS f_alt,
             sb.ceiling_altitude AS c_alt
         FROM sector_boundaries sb
         WHERE sb.geom IS NOT NULL
-          AND ST_Intersects(v_route, ST_MakeValid(sb.geom))
+          AND ST_Intersects(
+                v_route,
+                CASE WHEN v_shifted THEN safe_shift_geom(sb.geom)
+                     ELSE ST_MakeValid(sb.geom) END
+              )
           AND (
               ('SECTOR_HIGH' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'HIGH')
               OR ('SECTOR_LOW' = ANY(p_facility_types) AND UPPER(sb.sector_type) = 'LOW')
@@ -142,9 +175,9 @@ BEGIN
             ST_LineLocatePoint(v_route, ST_EndPoint(s.seg_geom)) AS exit_frac,
             ST_Length(s.seg_geom::geography) / 1852.0 AS dist_nm,
             ST_Y(ST_StartPoint(s.seg_geom)) AS e_lat,
-            ST_X(ST_StartPoint(s.seg_geom)) AS e_lon,
+            normalize_lon(ST_X(ST_StartPoint(s.seg_geom))) AS e_lon,
             ST_Y(ST_EndPoint(s.seg_geom)) AS x_lat,
-            ST_X(ST_EndPoint(s.seg_geom)) AS x_lon
+            normalize_lon(ST_X(ST_EndPoint(s.seg_geom))) AS x_lon
         FROM extracted s
         WHERE ST_GeometryType(s.seg_geom) = 'ST_LineString'
           AND ST_NPoints(s.seg_geom) >= 2

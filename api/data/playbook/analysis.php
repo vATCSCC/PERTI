@@ -191,7 +191,17 @@ if (!$cached) {
         }, $route_waypoints));
 
         $dist_sql = "WITH route AS (
-                         SELECT ST_GeomFromText(:wkt, 4326) AS geom
+                         SELECT ST_GeomFromText(:wkt, 4326) AS geom_raw
+                     ),
+                     route_shifted AS (
+                         SELECT
+                             geom_raw,
+                             crosses_antimeridian(geom_raw) AS shifted,
+                             CASE WHEN crosses_antimeridian(geom_raw)
+                                  THEN ST_ShiftLongitude(geom_raw)
+                                  ELSE geom_raw
+                             END AS geom
+                         FROM route
                      ),
                      wp AS (
                          SELECT
@@ -202,18 +212,24 @@ if (!$cached) {
                          FROM jsonb_array_elements(:wps::jsonb) WITH ORDINALITY AS t(elem, ordinality)
                      )
                      SELECT
-                         ST_AsText(r.geom) AS route_wkt,
-                         ST_Length(r.geom::geography) / 1852.0 AS total_dist_nm,
+                         ST_AsText(rs.geom_raw) AS route_wkt,
+                         ST_Length(rs.geom_raw::geography) / 1852.0 AS total_dist_nm,
                          jsonb_agg(
                              jsonb_build_object(
                                  'fix_name', wp.fix_name,
                                  'lat', wp.lat,
                                  'lon', wp.lon,
-                                 'fraction', ST_LineLocatePoint(r.geom, ST_SetSRID(ST_MakePoint(wp.lon, wp.lat), 4326))
+                                 'fraction', ST_LineLocatePoint(
+                                     rs.geom,
+                                     CASE WHEN rs.shifted
+                                          THEN ST_ShiftLongitude(ST_SetSRID(ST_MakePoint(wp.lon, wp.lat), 4326))
+                                          ELSE ST_SetSRID(ST_MakePoint(wp.lon, wp.lat), 4326)
+                                     END
+                                 )
                              ) ORDER BY wp.seq
                          ) AS waypoints_json
-                     FROM route r, wp
-                     GROUP BY r.geom";
+                     FROM route_shifted rs, wp
+                     GROUP BY rs.geom_raw, rs.geom, rs.shifted";
 
         $dist_stmt = $conn_gis->prepare($dist_sql);
         $dist_stmt->execute([':wkt' => $route_wkt_raw, ':wps' => $params_json]);
@@ -261,20 +277,36 @@ if (!$cached) {
                                FROM expanded e ORDER BY e.waypoint_seq
                            )
                        ) AS geom
+                   ),
+                   route_shifted AS (
+                       SELECT
+                           rl.geom AS geom_raw,
+                           crosses_antimeridian(rl.geom) AS shifted,
+                           CASE WHEN crosses_antimeridian(rl.geom)
+                                THEN ST_ShiftLongitude(rl.geom)
+                                ELSE rl.geom
+                           END AS geom
+                       FROM route_line rl
                    )
                    SELECT
-                       ST_AsText(rl.geom) AS route_wkt,
-                       ST_Length(rl.geom::geography) / 1852.0 AS total_dist_nm,
+                       ST_AsText(rs.geom_raw) AS route_wkt,
+                       ST_Length(rs.geom_raw::geography) / 1852.0 AS total_dist_nm,
                        jsonb_agg(
                            jsonb_build_object(
                                'fix_name', e.waypoint_id,
                                'lat', e.lat,
                                'lon', e.lon,
-                               'fraction', ST_LineLocatePoint(rl.geom, ST_SetSRID(ST_MakePoint(e.lon::float, e.lat::float), 4326))
+                               'fraction', ST_LineLocatePoint(
+                                   rs.geom,
+                                   CASE WHEN rs.shifted
+                                        THEN ST_ShiftLongitude(ST_SetSRID(ST_MakePoint(e.lon::float, e.lat::float), 4326))
+                                        ELSE ST_SetSRID(ST_MakePoint(e.lon::float, e.lat::float), 4326)
+                                   END
+                               )
                            ) ORDER BY e.waypoint_seq
                        ) AS waypoints_json
-                   FROM expanded e, route_line rl
-                   GROUP BY rl.geom";
+                   FROM expanded e, route_shifted rs
+                   GROUP BY rs.geom_raw, rs.geom, rs.shifted";
 
         $er_stmt = $conn_gis->prepare($er_sql);
         $er_stmt->execute([':route' => $full_route]);
