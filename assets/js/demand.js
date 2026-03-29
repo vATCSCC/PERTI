@@ -1739,6 +1739,10 @@ function setupEventHandlers() {
     $('input[name="demand_granularity"]').on('change', function() {
         DEMAND_STATE.granularity = $(this).val();
         invalidateCache(); // Granularity changes require fresh data
+        if (DEMAND_STATE.comparisonMode) {
+            loadAllComparisonData();
+            return;
+        }
         if (DEMAND_STATE.selectedAirport) {
             loadDemandData();
         }
@@ -1771,6 +1775,10 @@ function setupEventHandlers() {
             DEMAND_STATE.customStart = null;
             DEMAND_STATE.customEnd = null;
             invalidateCache(); // Time range changes require fresh data
+            if (DEMAND_STATE.comparisonMode) {
+                loadAllComparisonData();
+                return;
+            }
             if (DEMAND_STATE.selectedAirport) {
                 loadDemandData();
             }
@@ -1802,6 +1810,10 @@ function setupEventHandlers() {
         DEMAND_STATE.timeRangeMode = 'custom';
 
         invalidateCache();
+        if (DEMAND_STATE.comparisonMode) {
+            loadAllComparisonData();
+            return;
+        }
         if (DEMAND_STATE.selectedAirport) {
             loadDemandData();
         }
@@ -1882,6 +1894,11 @@ function setupEventHandlers() {
         DEMAND_STATE.direction = $(this).val();
         updateArtccFilterState();
         invalidateCache();
+        if (DEMAND_STATE.comparisonMode) {
+            loadAllComparisonData();
+            writeUrlState();
+            return;
+        }
         if (DEMAND_STATE.demandType !== 'airport') {
             if (DEMAND_STATE.facilityCode) loadFacilityDemand();
         } else {
@@ -1924,6 +1941,10 @@ function setupEventHandlers() {
 
     // Manual refresh button
     $('#demand_refresh_btn').on('click', function() {
+        if (DEMAND_STATE.comparisonMode) {
+            loadAllComparisonData();
+            return;
+        }
         if (DEMAND_STATE.demandType !== 'airport') {
             if (DEMAND_STATE.facilityCode) loadFacilityDemand();
         } else {
@@ -1936,6 +1957,11 @@ function setupEventHandlers() {
     $('input[name="demand_chart_view"]').on('change', function() {
         DEMAND_STATE.chartView = $(this).val();
         DEMAND_STATE.legendSelected = {}; // Reset legend state when series names change
+
+        if (DEMAND_STATE.comparisonMode) {
+            DEMAND_STATE.comparisonAirports.forEach(icao => renderComparisonPanel(icao));
+            return;
+        }
 
         if (DEMAND_STATE.demandType !== 'airport') {
             // Facility mode - use facility data
@@ -2025,6 +2051,13 @@ function setupEventHandlers() {
                 if (chart && chart.resize) chart.resize();
             });
         }
+    });
+
+    // Clean up comparison charts on page unload
+    $(window).on('beforeunload', function() {
+        DEMAND_STATE.comparisonCharts.forEach(chart => {
+            if (chart && chart.dispose) chart.dispose();
+        });
     });
 
     // Initialize enhanced filter Select2 dropdowns
@@ -2970,6 +3003,21 @@ function readUrlState() {
         }
     }
 
+    // Restore comparison mode
+    if (params.has('compare')) {
+        const airports = params.get('compare').split(',').filter(Boolean);
+        if (airports.length > 0) {
+            DEMAND_STATE.comparisonAirports = airports.slice(0, 4);
+            DEMAND_STATE.comparisonMode = true;
+            DEMAND_STATE.selectedAirport = airports[0];
+            // Defer actual mode entry until after airport list loads
+            setTimeout(() => {
+                $('#compare_mode_toggle').prop('checked', true);
+                enterComparisonMode();
+            }, 500);
+        }
+    }
+
     // Restore enhanced filters
     if (params.has('carriers')) {
         DEMAND_STATE.filterCarriers = params.get('carriers').split(',').filter(Boolean);
@@ -3029,6 +3077,12 @@ function writeUrlState() {
         params.set('dests', DEMAND_STATE.filterDestArtccs.join(','));
     }
 
+    // Comparison mode
+    if (DEMAND_STATE.comparisonMode && DEMAND_STATE.comparisonAirports.length > 0) {
+        params.set('compare', DEMAND_STATE.comparisonAirports.join(','));
+        params.delete('airport'); // comparison uses 'compare' param instead
+    }
+
     history.replaceState(null, '', '#' + params.toString());
 }
 
@@ -3070,6 +3124,12 @@ function showSelectAirportPrompt() {
  * Load demand data from API
  */
 function loadDemandData() {
+    // In comparison mode, delegate to comparison loader
+    if (DEMAND_STATE.comparisonMode) {
+        loadAllComparisonData();
+        return;
+    }
+
     const airport = DEMAND_STATE.selectedAirport;
     if (!airport) {
         showSelectAirportPrompt();
@@ -7305,6 +7365,31 @@ function stopAutoRefresh() {
  * Called after demand + summary data are loaded.
  */
 function renderSummaryCards() {
+    // In comparison mode, add tab strip above cards
+    if (DEMAND_STATE.comparisonMode) {
+        let tabHtml = '<div class="summary-tab-strip" id="summary_tab_strip">';
+        DEMAND_STATE.comparisonAirports.forEach((icao, i) => {
+            tabHtml += '<span class="summary-tab' + (i === 0 ? ' active' : '') + '" data-icao="' + icao + '">' + icao + '</span>';
+        });
+        tabHtml += '</div>';
+
+        const $grid = $('#summary_card_grid');
+        $grid.find('.summary-tab-strip').remove();
+        $grid.prepend(tabHtml);
+
+        // Tab click handler
+        $grid.find('.summary-tab').on('click', function() {
+            $grid.find('.summary-tab').removeClass('active');
+            $(this).addClass('active');
+            const icao = $(this).data('icao');
+            renderSummaryCardsForAirport(icao);
+        });
+
+        // Render first airport's stats
+        renderSummaryCardsForAirport(DEMAND_STATE.comparisonAirports[0]);
+        return; // Don't render default single-airport cards
+    }
+
     renderPeakHourCard();
     renderTmiControlCard();
     renderWeightMixCard();
@@ -7319,6 +7404,50 @@ function renderSummaryCards() {
         $summary.slideDown(200);
         $icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
     }
+}
+
+/**
+ * Render summary cards for a specific airport in comparison mode.
+ * Temporarily swaps DEMAND_STATE globals to use per-airport data.
+ */
+function renderSummaryCardsForAirport(icao) {
+    const ctx = DEMAND_STATE.comparisonData.get(icao);
+    if (!ctx) return;
+
+    // Save global state
+    const saved = {
+        lastDemandData: DEMAND_STATE.lastDemandData,
+        rateData: DEMAND_STATE.rateData,
+        tmiPrograms: DEMAND_STATE.tmiPrograms,
+        summaryData: DEMAND_STATE.summaryData,
+        weightBreakdown: DEMAND_STATE.weightBreakdown,
+        arrFixBreakdown: DEMAND_STATE.arrFixBreakdown,
+        depFixBreakdown: DEMAND_STATE.depFixBreakdown,
+        summaryLoaded: DEMAND_STATE.summaryLoaded,
+    };
+
+    // Swap in per-airport data
+    DEMAND_STATE.lastDemandData = ctx.demandData;
+    DEMAND_STATE.rateData = ctx.rateData;
+    DEMAND_STATE.tmiPrograms = ctx.tmiPrograms;
+    DEMAND_STATE.summaryData = ctx.summaryData;
+    if (ctx.summaryData) {
+        DEMAND_STATE.weightBreakdown = ctx.summaryData.weight_breakdown || {};
+        DEMAND_STATE.arrFixBreakdown = ctx.summaryData.arr_fix_breakdown || {};
+        DEMAND_STATE.depFixBreakdown = ctx.summaryData.dep_fix_breakdown || {};
+        DEMAND_STATE.summaryLoaded = true;
+    }
+
+    // Render cards (they read from DEMAND_STATE)
+    renderPeakHourCard();
+    renderTmiControlCard();
+    renderWeightMixCard();
+    renderTopOriginsCard();
+    renderTopCarriersCard();
+    renderTopFixesCard();
+
+    // Restore global state
+    Object.assign(DEMAND_STATE, saved);
 }
 
 /**
@@ -7814,6 +7943,16 @@ function populateFilterDropdowns(resp) {
  * re-renders chart with filtered data.
  */
 function onEnhancedFilterChange() {
+    // In comparison mode, re-render all panels
+    if (DEMAND_STATE.comparisonMode) {
+        DEMAND_STATE.comparisonAirports.forEach(icao => renderComparisonPanel(icao));
+        updateComparisonInfoBar();
+        // Re-render active stats tab
+        const activeTab = $('#summary_tab_strip .summary-tab.active').data('icao');
+        if (activeTab) renderSummaryCardsForAirport(activeTab);
+        // Still update filter UI state below
+    }
+
     // Show/hide reset link
     const hasActiveFilter =
         DEMAND_STATE.filterCarriers.length > 0 ||
