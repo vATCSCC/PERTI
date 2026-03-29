@@ -737,24 +737,43 @@ $is_canoc = (get_org_code() === 'canoc');
                         </div>
                     </div>
 
-                    <!-- Edit 15: Per-15-Minute Rate Editor (GDP only) -->
-                    <div id="gs_edit15_container" style="display: none;">
-                        <div class="d-flex align-items-center mb-1">
-                            <label class="tmi-label mb-0 mr-2">Per-15-Min Rates (Edit 15)</label>
-                            <button type="button" class="btn btn-xs btn-outline-info" id="gs_edit15_toggle" onclick="toggleEdit15();" title="Toggle per-15-minute rate editor">
-                                <i class="fas fa-clock mr-1"></i>Edit 15
-                            </button>
-                            <button type="button" class="btn btn-xs btn-outline-secondary ml-1 d-none" id="gs_edit15_clear" onclick="clearEdit15();" title="Clear per-15-min rates and use flat rate">
-                                <i class="fas fa-times mr-1"></i>Clear
-                            </button>
-                        </div>
-                        <div id="gs_edit15_grid" class="mb-2" style="display: none; overflow-x: auto;">
+                    <!-- Variable Rate Editor (GDP only) -->
+                    <div id="gs_rate_editor_container" style="display: none;">
+                        <!-- Hourly rate table (always visible when container shown) -->
+                        <div class="mb-1" style="overflow-x: auto;">
                             <table class="table table-sm table-bordered mb-0" style="font-size: 0.75rem; table-layout: fixed;">
                                 <thead class="thead-light">
-                                    <tr id="gs_edit15_header"></tr>
+                                    <tr id="gs_hourly_header"><th style="min-width:70px; font-size:0.65rem;"><?= __('gdt.page.rateEditorHourlyLabel') ?></th></tr>
                                 </thead>
                                 <tbody>
-                                    <tr id="gs_edit15_inputs"></tr>
+                                    <tr id="gs_hourly_inputs"><td class="font-weight-bold small">AAR</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Toolbar: Edit 15 toggle + Fill controls -->
+                        <div class="d-flex align-items-center mb-1">
+                            <button type="button" class="btn btn-xs btn-outline-info mr-2" id="gs_edit15_toggle" title="Toggle per-15-minute rate editor">
+                                <i class="fas fa-clock mr-1"></i><span id="gs_edit15_toggle_label"><?= __('gdt.page.rateEditorEdit15') ?></span>
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary mr-2 d-none" id="gs_edit15_clear" title="Clear per-15-min rates">
+                                <i class="fas fa-times mr-1"></i><?= __('gdt.page.rateEditorClear') ?>
+                            </button>
+                            <div class="d-inline-flex align-items-center">
+                                <input type="number" class="form-control form-control-sm mr-1" id="gs_rate_fill_value"
+                                       style="width:60px; font-size:0.75rem;" min="1" max="120" placeholder="<?= __('gdt.page.rateEditorFillPlaceholder') ?>">
+                                <button type="button" class="btn btn-xs btn-outline-secondary" id="gs_rate_fill_btn">
+                                    <?= __('gdt.page.rateEditorFillAll') ?>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Per-15-min rate table (hidden until Edit 15 toggled) -->
+                        <div id="gs_quarter_grid" class="mb-2" style="display: none; overflow-x: auto;">
+                            <table class="table table-sm table-bordered mb-0" style="font-size: 0.75rem; table-layout: fixed;">
+                                <thead class="thead-light">
+                                    <tr id="gs_quarter_header"><th style="min-width:70px; font-size:0.65rem;"><?= __('gdt.page.rateEditorQuarterLabel') ?></th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr id="gs_quarter_inputs"><td class="font-weight-bold small">Rate</td></tr>
                                 </tbody>
                             </table>
                         </div>

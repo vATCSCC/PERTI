@@ -432,7 +432,7 @@
             if (el) el.value = p.reserve_rate || '';
 
             // Load Edit 15 rates if present
-            loadEdit15FromProgram(p);
+            loadRatesFromProgram(p);
         } else {
             clearEdit15();
         }
@@ -5712,8 +5712,8 @@
             if (rateEl && rateEl.value) createPayload.program_rate = parseInt(rateEl.value, 10);
             if (delayCapEl && delayCapEl.value) createPayload.delay_limit_min = parseInt(delayCapEl.value, 10);
 
-            // Edit 15: per-15-minute rates
-            var quarterRates = getEdit15Json();
+            // Variable rates from rate editor
+            var quarterRates = collectRatesJson();
             if (quarterRates) createPayload.rates_quarter_json = quarterRates;
         }
 
@@ -6056,34 +6056,21 @@
     }
 
     // =========================================================================
-    // Edit 15: Per-15-Minute Rate Editor
+    // Unified Variable Rate Editor
     // =========================================================================
 
-    var edit15_visible = false;
-    var edit15_rates = {}; // { "HH:MM": rate, ... }
+    var rateEditor = {
+        hourlyRates: {},    // { "14": 30, "15": 25, ... } keyed by hour string
+        quarterRates: {},   // { "14:00": 30, "14:15": 30, ... } keyed by HH:MM
+        edit15Visible: false,
+        hours: []           // ordered list of hour keys within the program window
+    };
 
-    function toggleEdit15() {
-        edit15_visible = !edit15_visible;
-        var grid = document.getElementById('gs_edit15_grid');
-        var clearBtn = document.getElementById('gs_edit15_clear');
-        if (grid) grid.style.display = edit15_visible ? '' : 'none';
-        if (clearBtn) {
-            if (edit15_visible) clearBtn.classList.remove('d-none');
-            else clearBtn.classList.add('d-none');
-        }
-        if (edit15_visible) buildEdit15Grid();
-    }
-
-    function clearEdit15() {
-        edit15_rates = {};
-        edit15_visible = false;
-        var grid = document.getElementById('gs_edit15_grid');
-        var clearBtn = document.getElementById('gs_edit15_clear');
-        if (grid) grid.style.display = 'none';
-        if (clearBtn) clearBtn.classList.add('d-none');
-    }
-
-    function buildEdit15Grid() {
+    /**
+     * Build both hourly and quarter rate grids from program start/end times.
+     * Called when GDP type is selected or times change.
+     */
+    function buildRateEditor() {
         var startEl = document.getElementById('gs_start');
         var endEl = document.getElementById('gs_end');
         if (!startEl || !endEl || !startEl.value || !endEl.value) return;
@@ -6093,22 +6080,78 @@
         if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) return;
 
         var defaultRate = parseInt(document.getElementById('gs_program_rate').value) || 30;
-        var headerRow = document.getElementById('gs_edit15_header');
-        var inputRow = document.getElementById('gs_edit15_inputs');
-        if (!headerRow || !inputRow) return;
 
-        headerRow.innerHTML = '';
-        inputRow.innerHTML = '';
-
-        // Generate 15-minute columns from start to end
+        // Determine hour range
+        rateEditor.hours = [];
         var t = new Date(start.getTime());
-        // Align to quarter-hour boundary
+        t.setUTCMinutes(0, 0, 0);
+        while (t < end) {
+            var hh = String(t.getUTCHours()).padStart(2, '0');
+            rateEditor.hours.push(hh);
+            t.setTime(t.getTime() + 3600000);
+        }
+
+        // Build hourly grid
+        var hourlyHeader = document.getElementById('gs_hourly_header');
+        var hourlyInputs = document.getElementById('gs_hourly_inputs');
+        if (!hourlyHeader || !hourlyInputs) return;
+
+        while (hourlyHeader.children.length > 1) hourlyHeader.removeChild(hourlyHeader.lastChild);
+        while (hourlyInputs.children.length > 1) hourlyInputs.removeChild(hourlyInputs.lastChild);
+
+        rateEditor.hours.forEach(function(hh) {
+            var th = document.createElement('th');
+            th.textContent = hh + 'Z';
+            th.style.textAlign = 'center';
+            th.style.minWidth = '50px';
+            hourlyHeader.appendChild(th);
+
+            var td = document.createElement('td');
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'form-control form-control-sm p-1';
+            input.style.cssText = 'width:50px; text-align:center; font-size:0.75rem;';
+            input.min = '1';
+            input.max = '120';
+            input.dataset.hour = hh;
+
+            var existingHourly = rateEditor.hourlyRates[hh];
+            input.value = existingHourly != null ? existingHourly : defaultRate;
+            if (existingHourly == null) rateEditor.hourlyRates[hh] = defaultRate;
+
+            input.addEventListener('change', function() {
+                var h = this.dataset.hour;
+                var val = parseInt(this.value) || defaultRate;
+                rateEditor.hourlyRates[h] = val;
+                syncQuartersFromHourly(h, val);
+            });
+            td.appendChild(input);
+            hourlyInputs.appendChild(td);
+        });
+
+        buildQuarterGrid(start, end, defaultRate);
+
+        var fillEl = document.getElementById('gs_rate_fill_value');
+        if (fillEl && !fillEl.value) fillEl.value = defaultRate;
+    }
+
+    /**
+     * Build the per-15-min quarter grid.
+     */
+    function buildQuarterGrid(start, end, defaultRate) {
+        var quarterHeader = document.getElementById('gs_quarter_header');
+        var quarterInputs = document.getElementById('gs_quarter_inputs');
+        if (!quarterHeader || !quarterInputs) return;
+
+        while (quarterHeader.children.length > 1) quarterHeader.removeChild(quarterHeader.lastChild);
+        while (quarterInputs.children.length > 1) quarterInputs.removeChild(quarterInputs.lastChild);
+
+        var t = new Date(start.getTime());
         var mins = t.getUTCMinutes();
-        var quarterMins = Math.floor(mins / 15) * 15;
-        t.setUTCMinutes(quarterMins, 0, 0);
+        t.setUTCMinutes(Math.floor(mins / 15) * 15, 0, 0);
 
         var colCount = 0;
-        while (t < end && colCount < 96) { // Max 24h = 96 quarters
+        while (t < end && colCount < 96) {
             var hh = String(t.getUTCHours()).padStart(2, '0');
             var mm = String(t.getUTCMinutes()).padStart(2, '0');
             var key = hh + ':' + mm;
@@ -6117,54 +6160,180 @@
             th.textContent = key;
             th.style.textAlign = 'center';
             th.style.minWidth = '50px';
-            headerRow.appendChild(th);
+            quarterHeader.appendChild(th);
 
             var td = document.createElement('td');
             var input = document.createElement('input');
             input.type = 'number';
             input.className = 'form-control form-control-sm p-1';
-            input.style.width = '50px';
-            input.style.textAlign = 'center';
-            input.style.fontSize = '0.75rem';
+            input.style.cssText = 'width:50px; text-align:center; font-size:0.75rem;';
             input.min = '1';
             input.max = '120';
-            input.value = edit15_rates[key] || defaultRate;
             input.dataset.quarterKey = key;
+            input.dataset.parentHour = hh;
+
+            var existing = rateEditor.quarterRates[key];
+            if (existing != null) {
+                input.value = existing;
+            } else {
+                var hourlyVal = rateEditor.hourlyRates[hh];
+                var seedVal = hourlyVal != null ? hourlyVal : defaultRate;
+                input.value = seedVal;
+                rateEditor.quarterRates[key] = seedVal;
+            }
+
             input.addEventListener('change', function() {
                 var k = this.dataset.quarterKey;
+                var h = this.dataset.parentHour;
                 var v = parseInt(this.value);
-                if (v > 0) edit15_rates[k] = v;
+                if (v > 0) {
+                    rateEditor.quarterRates[k] = v;
+                    syncHourlyFromQuarters(h);
+                }
             });
             td.appendChild(input);
-            inputRow.appendChild(td);
-
-            // Initialize in rates map
-            if (!edit15_rates[key]) edit15_rates[key] = defaultRate;
+            quarterInputs.appendChild(td);
 
             t.setUTCMinutes(t.getUTCMinutes() + 15);
             colCount++;
         }
     }
 
-    function getEdit15Json() {
-        if (!edit15_visible || Object.keys(edit15_rates).length === 0) return null;
-        return edit15_rates;
+    /**
+     * When a quarter cell changes, update parent hourly to average of its 4 quarters.
+     */
+    function syncHourlyFromQuarters(hour) {
+        var quarters = [':00', ':15', ':30', ':45'];
+        var sum = 0, count = 0;
+        quarters.forEach(function(suffix) {
+            var key = hour + suffix;
+            var val = rateEditor.quarterRates[key];
+            if (val != null) { sum += val; count++; }
+        });
+        if (count === 0) return;
+        var avg = Math.round(sum / count);
+        rateEditor.hourlyRates[hour] = avg;
+
+        var hourlyInput = document.querySelector('#gs_hourly_inputs input[data-hour="' + hour + '"]');
+        if (hourlyInput) hourlyInput.value = avg;
     }
 
-    function loadEdit15FromProgram(program) {
+    /**
+     * When an hourly cell changes, set all 4 quarter cells to the new value.
+     */
+    function syncQuartersFromHourly(hour, value) {
+        var quarters = [':00', ':15', ':30', ':45'];
+        quarters.forEach(function(suffix) {
+            var key = hour + suffix;
+            rateEditor.quarterRates[key] = value;
+
+            var qInput = document.querySelector('#gs_quarter_inputs input[data-quarter-key="' + key + '"]');
+            if (qInput) qInput.value = value;
+        });
+    }
+
+    /**
+     * Toggle the Edit 15 quarter grid visibility.
+     */
+    function toggleEdit15() {
+        rateEditor.edit15Visible = !rateEditor.edit15Visible;
+        var grid = document.getElementById('gs_quarter_grid');
+        var clearBtn = document.getElementById('gs_edit15_clear');
+        if (grid) grid.style.display = rateEditor.edit15Visible ? '' : 'none';
+        if (clearBtn) {
+            if (rateEditor.edit15Visible) clearBtn.classList.remove('d-none');
+            else clearBtn.classList.add('d-none');
+        }
+    }
+
+    /**
+     * Clear Edit 15 quarter rates — reverts all quarters to their parent
+     * hourly value and hides the grid.
+     */
+    function clearEdit15() {
+        rateEditor.edit15Visible = false;
+        var grid = document.getElementById('gs_quarter_grid');
+        var clearBtn = document.getElementById('gs_edit15_clear');
+        if (grid) grid.style.display = 'none';
+        if (clearBtn) clearBtn.classList.add('d-none');
+
+        rateEditor.hours.forEach(function(hh) {
+            var val = rateEditor.hourlyRates[hh];
+            if (val != null) syncQuartersFromHourly(hh, val);
+        });
+    }
+
+    /**
+     * Fill all hourly and quarter cells with a single value.
+     */
+    function fillAllRates(value) {
+        if (!value || value <= 0) return;
+        rateEditor.hours.forEach(function(hh) {
+            rateEditor.hourlyRates[hh] = value;
+            syncQuartersFromHourly(hh, value);
+            var hourlyInput = document.querySelector('#gs_hourly_inputs input[data-hour="' + hh + '"]');
+            if (hourlyInput) hourlyInput.value = value;
+        });
+    }
+
+    /**
+     * Collect rates for API payload. Returns rates_quarter_json object
+     * only if rates vary (not all identical to program_rate). Returns null if uniform.
+     */
+    function collectRatesJson() {
+        var keys = Object.keys(rateEditor.quarterRates);
+        if (keys.length === 0) return null;
+
+        var flatRate = parseInt(document.getElementById('gs_program_rate').value) || 30;
+        var allSame = keys.every(function(k) { return rateEditor.quarterRates[k] === flatRate; });
+        if (allSame) return null;
+
+        return rateEditor.quarterRates;
+    }
+
+    /**
+     * Load rate editor state from an existing program record.
+     */
+    function loadRatesFromProgram(program) {
+        rateEditor.hourlyRates = {};
+        rateEditor.quarterRates = {};
+        rateEditor.edit15Visible = false;
+
         if (program && program.rates_quarter_json) {
             var parsed = typeof program.rates_quarter_json === 'string'
                 ? JSON.parse(program.rates_quarter_json)
                 : program.rates_quarter_json;
             if (parsed && typeof parsed === 'object') {
-                edit15_rates = parsed;
-                edit15_visible = true;
-                var grid = document.getElementById('gs_edit15_grid');
-                var clearBtn = document.getElementById('gs_edit15_clear');
-                if (grid) grid.style.display = '';
-                if (clearBtn) clearBtn.classList.remove('d-none');
-                buildEdit15Grid();
+                rateEditor.quarterRates = parsed;
+
+                // Derive hourly rates from quarter averages
+                var hourBuckets = {};
+                Object.keys(parsed).forEach(function(key) {
+                    var hh = key.substring(0, 2);
+                    if (!hourBuckets[hh]) hourBuckets[hh] = [];
+                    hourBuckets[hh].push(parsed[key]);
+                });
+                Object.keys(hourBuckets).forEach(function(hh) {
+                    var vals = hourBuckets[hh];
+                    rateEditor.hourlyRates[hh] = Math.round(vals.reduce(function(a, b) { return a + b; }, 0) / vals.length);
+                });
+
+                // Auto-show Edit 15 if quarters vary
+                var vals = Object.values(parsed);
+                var allSame = vals.every(function(v) { return v === vals[0]; });
+                if (!allSame) {
+                    rateEditor.edit15Visible = true;
+                }
             }
+        }
+
+        buildRateEditor();
+
+        if (rateEditor.edit15Visible) {
+            var grid = document.getElementById('gs_quarter_grid');
+            var clearBtn = document.getElementById('gs_edit15_clear');
+            if (grid) grid.style.display = '';
+            if (clearBtn) clearBtn.classList.remove('d-none');
         }
     }
 
@@ -7646,9 +7815,12 @@
                 var powerRunBtn = document.getElementById('gs_power_run_btn');
                 if (powerRunBtn) powerRunBtn.style.display = isGDP ? '' : 'none';
 
-                // Show/hide Edit 15 container (GDP only)
-                var edit15Container = document.getElementById('gs_edit15_container');
-                if (edit15Container) edit15Container.style.display = isGDP ? '' : 'none';
+                // Show/hide rate editor container (GDP only)
+                var rateEditorContainer = document.getElementById('gs_rate_editor_container');
+                if (rateEditorContainer) {
+                    rateEditorContainer.style.display = isGDP ? '' : 'none';
+                    if (isGDP) buildRateEditor();
+                }
 
                 // Update the setup card header label and icon
                 var headerEl = document.getElementById('gs_setup_header_label');
@@ -7672,6 +7844,53 @@
                 initializeDefaultGsTimes();
             });
         }
+
+        // Flat rate → sync to hourly/quarter grids
+        var flatRateEl = document.getElementById('gs_program_rate');
+        if (flatRateEl) {
+            flatRateEl.addEventListener('change', function() {
+                var val = parseInt(this.value);
+                if (val > 0) fillAllRates(val);
+            });
+        }
+
+        // Fill All button
+        var fillBtn = document.getElementById('gs_rate_fill_btn');
+        if (fillBtn) {
+            fillBtn.addEventListener('click', function() {
+                var fillEl = document.getElementById('gs_rate_fill_value');
+                var val = parseInt(fillEl ? fillEl.value : 0);
+                if (val > 0) fillAllRates(val);
+            });
+        }
+
+        // Edit 15 toggle button
+        var edit15ToggleBtn = document.getElementById('gs_edit15_toggle');
+        if (edit15ToggleBtn) {
+            edit15ToggleBtn.addEventListener('click', function() {
+                toggleEdit15();
+            });
+        }
+
+        // Edit 15 clear button
+        var edit15ClearBtn = document.getElementById('gs_edit15_clear');
+        if (edit15ClearBtn) {
+            edit15ClearBtn.addEventListener('click', function() {
+                clearEdit15();
+            });
+        }
+
+        // Rebuild rate editor when times change
+        var gsStartEl = document.getElementById('gs_start');
+        var gsEndEl = document.getElementById('gs_end');
+        if (gsStartEl) gsStartEl.addEventListener('change', function() {
+            var typeEl = document.getElementById('gs_program_type');
+            if (typeEl && typeEl.value !== 'GS') buildRateEditor();
+        });
+        if (gsEndEl) gsEndEl.addEventListener('change', function() {
+            var typeEl = document.getElementById('gs_program_type');
+            if (typeEl && typeEl.value !== 'GS') buildRateEditor();
+        });
 
         // Workflow toolbar buttons (ADL/GS sandbox)
         var previewBtn2 = document.getElementById('gs_preview_btn');
@@ -7754,13 +7973,6 @@
                 closeModelGsSection();
             });
         }
-
-        // Rebuild Edit 15 grid when start/end times change
-        var startInput = document.getElementById('gs_start');
-        var endInput = document.getElementById('gs_end');
-        function onTimeChangeEdit15() { if (edit15_visible) buildEdit15Grid(); }
-        if (startInput) startInput.addEventListener('change', onTimeChangeEdit15);
-        if (endInput) endInput.addEventListener('change', onTimeChangeEdit15);
 
         // Initialize Model GS Power Run event handlers
         initModelGsHandlers();
