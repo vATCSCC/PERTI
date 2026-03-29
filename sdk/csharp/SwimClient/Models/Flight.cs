@@ -42,6 +42,12 @@ public class Flight
     [JsonPropertyName("gufi")]
     public string Gufi { get; set; } = string.Empty;
 
+    [JsonPropertyName("gufi_legacy")]
+    public string? GufiLegacy { get; set; }
+
+    [JsonPropertyName("gufi_created_utc")]
+    public string? GufiCreatedUtc { get; set; }
+
     [JsonPropertyName("flight_uid")]
     public long FlightUid { get; set; }
 

@@ -170,10 +170,10 @@ function processVnasHandoffUpdate($handoff, $facility_id, $source, $conn) {
     $existing = null;
 
     if (!empty($gufi)) {
-        $check_sql = "SELECT TOP 1 flight_uid, gufi
-                      FROM dbo.swim_flights
-                      WHERE gufi = ? AND is_active = 1";
-        $check_stmt = sqlsrv_query($conn, $check_sql, [$gufi]);
+        [$gufi_where, $gufi_params] = swim_gufi_lookup_sql($gufi);
+        $check_sql = "SELECT TOP 1 flight_uid, gufi, gufi_legacy
+                      FROM dbo.swim_flights $gufi_where";
+        $check_stmt = sqlsrv_query($conn, $check_sql, $gufi_params);
         if ($check_stmt !== false) {
             $existing = sqlsrv_fetch_array($check_stmt, SQLSRV_FETCH_ASSOC);
             sqlsrv_free_stmt($check_stmt);
@@ -247,13 +247,14 @@ function processVnasHandoffUpdate($handoff, $facility_id, $source, $conn) {
     // Log handoff to swim_handoff_log
     $logged = false;
     $log_sql = "INSERT INTO dbo.swim_handoff_log
-                (flight_uid, gufi, callsign, handoff_type, from_facility, from_sector,
+                (flight_uid, gufi, gufi_legacy, callsign, handoff_type, from_facility, from_sector,
                  to_facility, to_sector, boundary_fix, status, initiated_utc, accepted_utc, source_system)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     $log_params = [
         $existing['flight_uid'],
         $existing['gufi'],
+        $existing['gufi_legacy'] ?? null,
         $callsign,
         $handoff_type,
         $from_facility,

@@ -11,7 +11,13 @@ public class Flight {
     
     @JsonProperty("gufi")
     private String gufi;
-    
+
+    @JsonProperty("gufi_legacy")
+    private String gufiLegacy;
+
+    @JsonProperty("gufi_created_utc")
+    private String gufiCreatedUtc;
+
     @JsonProperty("flight_uid")
     private long flightUid;
     
@@ -52,7 +58,11 @@ public class Flight {
     // Standard getters and setters
     public String getGufi() { return gufi; }
     public void setGufi(String gufi) { this.gufi = gufi; }
-    
+    public String getGufiLegacy() { return gufiLegacy; }
+    public void setGufiLegacy(String gufiLegacy) { this.gufiLegacy = gufiLegacy; }
+    public String getGufiCreatedUtc() { return gufiCreatedUtc; }
+    public void setGufiCreatedUtc(String gufiCreatedUtc) { this.gufiCreatedUtc = gufiCreatedUtc; }
+
     public long getFlightUid() { return flightUid; }
     public void setFlightUid(long flightUid) { this.flightUid = flightUid; }
     

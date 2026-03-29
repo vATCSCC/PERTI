@@ -240,7 +240,7 @@ $count_sql = "SELECT COUNT(*) as total FROM $table_name f $where_sql";
 // Main query - single table, no JOINs needed (FIXM columns only)
 $sql = "
     SELECT
-        f.flight_uid, f.flight_key, f.gufi, f.callsign, f.cid, f.flight_id,
+        f.flight_uid, f.flight_key, f.gufi, f.gufi_legacy, f.gufi_created_utc, f.callsign, f.cid, f.flight_id,
         f.lat, f.lon, f.altitude_ft, f.heading_deg, f.groundspeed_kts, f.vertical_rate_fpm,
         f.fp_dept_icao, f.fp_dest_icao, f.fp_alt_icao, f.fp_altitude_ft, f.fp_tas_kts,
         f.fp_route, f.fp_remarks, f.fp_rule,
@@ -305,7 +305,7 @@ SwimResponse::paginatedFormatted($flights, $total, $page, $per_page, $format, 'f
 
 function formatFlightRecord($row, $use_swim_db = false) {
     // Use pre-computed GUFI from swim_flights if available
-    $gufi = $row['gufi'] ?? swim_generate_gufi($row['callsign'], $row['fp_dept_icao'], $row['fp_dest_icao']);
+    $gufi = $row['gufi'] ?? '';
     
     // Calculate time to destination
     $time_to_dest = null;
@@ -317,6 +317,7 @@ function formatFlightRecord($row, $use_swim_db = false) {
     
     $result = [
         'gufi' => $gufi,
+        'gufi_legacy' => $row['gufi_legacy'] ?? null,
         'flight_uid' => $row['flight_uid'],
         'flight_key' => $row['flight_key'],
         'identity' => [
@@ -447,7 +448,7 @@ function formatDT($dt) {
  * @return array FIXM-formatted flight record
  */
 function formatFlightRecordFIXM($row, $use_swim_db = false) {
-    $gufi = $row['gufi'] ?? swim_generate_gufi($row['callsign'], $row['fp_dept_icao'], $row['fp_dest_icao']);
+    $gufi = $row['gufi'] ?? '';
     
     // Calculate time to destination
     $time_to_dest = null;
@@ -458,8 +459,13 @@ function formatFlightRecordFIXM($row, $use_swim_db = false) {
     }
     
     $result = [
-        // Root level - FIXM aligned
-        'gufi' => $gufi,
+        // Root level - FIXM aligned (GUFI as metadata object per EUROCONTROL NM B2B)
+        'gufi' => swim_format_gufi_response(
+            $gufi,
+            $row['gufi_legacy'] ?? null,
+            formatDT($row['gufi_created_utc'] ?? null)
+        ),
+        'gufi_legacy' => $row['gufi_legacy'] ?? null,
         'flight_uid' => $row['flight_uid'],
         'flight_key' => $row['flight_key'],
         

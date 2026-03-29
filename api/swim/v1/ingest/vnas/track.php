@@ -158,10 +158,10 @@ function processVnasTrackUpdate($track, $facility_id, $system_type, $source, $co
     $existing = null;
 
     if (!empty($gufi)) {
+        [$gufi_where, $gufi_params] = swim_gufi_lookup_sql($gufi);
         $check_sql = "SELECT TOP 1 flight_uid, gufi
-                      FROM dbo.swim_flights
-                      WHERE gufi = ? AND is_active = 1";
-        $check_stmt = sqlsrv_query($conn, $check_sql, [$gufi]);
+                      FROM dbo.swim_flights $gufi_where";
+        $check_stmt = sqlsrv_query($conn, $check_sql, $gufi_params);
         if ($check_stmt !== false) {
             $existing = sqlsrv_fetch_array($check_stmt, SQLSRV_FETCH_ASSOC);
             sqlsrv_free_stmt($check_stmt);
