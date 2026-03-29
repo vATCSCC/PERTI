@@ -47,6 +47,37 @@ $$;
 COMMENT ON FUNCTION normalize_lon IS
     'Normalizes longitude from [0,360] back to [-180,180] for display';
 
+-- ----------------------------------------------------------------------------
+-- safe_shift_geom(geometry) -> geometry
+--
+-- Shifts a geometry to [0, 360] longitude space, but ONLY when safe.
+-- Boundaries that straddle the prime meridian (0° longitude) with a span
+-- under 180° must NOT be shifted — doing so moves their negative-longitude
+-- vertices to ~350° while positive vertices stay near 0°, creating invalid
+-- or semantically wrong polygons that wrap the long way around.
+--
+-- Safe cases (shifted):
+--   - Entirely Western hemisphere (all lon < 0) → shifted to [180, 360]
+--   - Entirely Eastern hemisphere (all lon > 0) → no-op
+--   - Straddles antimeridian (span >= 180°) → shifted correctly
+-- Unsafe case (returned as-is):
+--   - Straddles or touches prime meridian (XMin < 0, XMax >= 0, span < 180°)
+--     e.g., BIRD FIR [-70°, 0°] — shifting would create [290°, 0°] wrapping
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION safe_shift_geom(p_geom geometry)
+RETURNS geometry LANGUAGE sql IMMUTABLE AS $$
+    SELECT CASE
+        WHEN ST_XMin(p_geom) < 0 AND ST_XMax(p_geom) >= 0
+             AND (ST_XMax(p_geom) - ST_XMin(p_geom)) < 180
+        THEN ST_MakeValid(p_geom)
+        ELSE ST_MakeValid(ST_ShiftLongitude(p_geom))
+    END;
+$$;
+
+COMMENT ON FUNCTION safe_shift_geom IS
+    'Shifts geometry to [0,360] longitude space, skipping prime-meridian-crossing boundaries to avoid wrapping errors. Always returns ST_MakeValid geometry.';
+
 -- Grants
 GRANT EXECUTE ON FUNCTION crosses_antimeridian TO jpeterson;
 GRANT EXECUTE ON FUNCTION normalize_lon TO jpeterson;
+GRANT EXECUTE ON FUNCTION safe_shift_geom TO jpeterson;
