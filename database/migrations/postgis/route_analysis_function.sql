@@ -79,7 +79,7 @@ BEGIN
                 WHEN ab.artcc_code ~ '^CZ' THEN 'FIR'
                 ELSE 'FIR'
             END AS ftype,
-            normalize_artcc_code(ab.artcc_code) AS fid,
+            normalize_artcc_code(ab.artcc_code)::text AS fid,
             ab.fir_name::text AS fname,
             ST_Intersection(
                 v_route,
