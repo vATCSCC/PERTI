@@ -35,6 +35,8 @@
     "page": {
       "allArtccs": "All FIRs",
       "artcc": "FIR",
+      "destArtccFilter": "Dest FIR",
+      "originArtccFilter": "Origin FIR",
       "showArrivalsByOriginArtcc": "Show arrivals by origin ACC",
       "showDeparturesByDestArtcc": "Show departures by destination ACC",
       "topOriginArtccs": "Top Origin FIRs"

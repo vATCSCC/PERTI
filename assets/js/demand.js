@@ -880,6 +880,13 @@ const DEMAND_STATE = {
     // TMI overlay visibility toggles
     showTmiTimeline: true,    // DOM timeline bar above chart
     showTmiMarkers: true,     // GS/GDP vertical markLines on chart
+    // Enhanced filter state (Feature 2)
+    filterCarriers: [],        // Array of carrier codes, empty = all
+    filterWeightClasses: [],   // Array of weight class letters, empty = all
+    filterEquipment: [],       // Array of equipment type codes, empty = all
+    filterOriginArtccs: [],    // Array of origin ARTCC codes, empty = all
+    filterDestArtccs: [],      // Array of dest ARTCC codes, empty = all
+    summaryData: null,         // Store raw summary.php response for filter population
     // Phase group visibility filters (all checked by default except unknown)
     phaseGroups: {
         prefile: true,      // PREFILE - filed but not connected

@@ -984,6 +984,69 @@ include("load/i18n.php");
 
                     <hr class="my-2">
 
+                    <!-- Enhanced Filters (Feature 2) -->
+                    <div id="enhanced_filters_section">
+                        <!-- Carrier Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.carrierFilter') ?></label>
+                            <select class="form-control form-control-sm" id="filter_carrier" multiple="multiple" style="width: 100%;">
+                            </select>
+                        </div>
+
+                        <!-- Weight Class Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.weightClassFilter') ?></label>
+                            <div class="d-flex flex-wrap" style="gap: 4px 10px;">
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" class="weight-class-filter" value="H" checked style="margin-right: 3px;">
+                                    <span style="background:#dc2626;width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:3px;"></span> H
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" class="weight-class-filter" value="L" checked style="margin-right: 3px;">
+                                    <span style="background:#3b82f6;width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:3px;"></span> L
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" class="weight-class-filter" value="S" checked style="margin-right: 3px;">
+                                    <span style="background:#22c55e;width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:3px;"></span> S
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" class="weight-class-filter" value="+" checked style="margin-right: 3px;">
+                                    <span style="background:#9333ea;width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:3px;"></span> +
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Equipment Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.equipmentFilter') ?></label>
+                            <select class="form-control form-control-sm" id="filter_equipment" multiple="multiple" style="width: 100%;">
+                            </select>
+                        </div>
+
+                        <!-- Origin ARTCC Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.originArtccFilter') ?></label>
+                            <select class="form-control form-control-sm" id="filter_origin_artcc" multiple="multiple" style="width: 100%;">
+                            </select>
+                        </div>
+
+                        <!-- Dest ARTCC Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.destArtccFilter') ?></label>
+                            <select class="form-control form-control-sm" id="filter_dest_artcc" multiple="multiple" style="width: 100%;">
+                            </select>
+                        </div>
+
+                        <!-- Reset Filters Link -->
+                        <div class="text-center" id="reset_filters_container" style="display: none;">
+                            <a href="#" id="reset_filters_link" class="small text-danger">
+                                <i class="fas fa-times-circle mr-1"></i><?= __('demand.page.resetFilters') ?>
+                            </a>
+                        </div>
+                    </div>
+
+                    <hr class="my-2">
+
                     <!-- Flight Status Filter -->
                     <div class="form-group mb-0" id="phase-filter-inline-container">
                         <div class="d-flex align-items-center justify-content-between mb-1">

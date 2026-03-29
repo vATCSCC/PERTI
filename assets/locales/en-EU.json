@@ -32,6 +32,8 @@
     "page": {
       "allArtccs": "All ACCs",
       "artcc": "ACC",
+      "destArtccFilter": "Dest ACC",
+      "originArtccFilter": "Origin ACC",
       "showArrivalsByOriginArtcc": "Show arrivals by origin ACC",
       "showDeparturesByDestArtcc": "Show departures by destination ACC",
       "topOriginArtccs": "Top Origin ACCs"
