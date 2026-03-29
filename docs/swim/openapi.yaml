@@ -44,10 +44,14 @@ info:
     | Public | `swim_pub_` | 100/min | Read-only |
     
     ## GUFI Format
-    
-    Globally Unique Flight Identifier format: `VAT-YYYYMMDD-CALLSIGN-DEPT-DEST`
-    
-    Example: `VAT-20260115-UAL123-KJFK-KLAX`
+
+    Globally Unique Flight Identifier (GUFI) uses UUID v4 format per ICAO Doc 9965
+    and FIXM 4.2+ specifications.
+
+    Example UUID: `dd056de9-0ba9-4d55-82cf-7b976b0b6d29`
+    Legacy format (preserved in gufi_legacy): `VAT-20260329-UAL123-KJFK-KLAX`
+
+    The `?gufi=` parameter accepts both formats — auto-detected at query time.
     
     ## Data Sources
 
@@ -438,10 +442,10 @@ paths:
       parameters:
         - name: gufi
           in: query
-          description: Globally Unique Flight Identifier (VAT-YYYYMMDD-CALLSIGN-DEPT-DEST)
+          description: Globally Unique Flight Identifier (UUID v4 or legacy VAT-YYYYMMDD-CALLSIGN-DEPT-DEST format — auto-detected)
           schema:
             type: string
-          example: VAT-20260115-UAL123-KJFK-KLAX
+          example: dd056de9-0ba9-4d55-82cf-7b976b0b6d29
         - name: flight_uid
           in: query
           description: Internal flight unique identifier
@@ -3963,6 +3967,28 @@ components:
             code: DB_ERROR
 
   schemas:
+    GufiMetadata:
+      type: object
+      description: FIXM-compliant GUFI metadata (per EUROCONTROL NM B2B format)
+      properties:
+        value:
+          type: string
+          format: uuid
+          description: UUID v4 identifier
+          example: dd056de9-0ba9-4d55-82cf-7b976b0b6d29
+        codeSpace:
+          type: string
+          enum: [urn:uuid]
+        creationTime:
+          type: string
+          format: date-time
+          description: UTC timestamp when GUFI was assigned
+        namespaceDomain:
+          type: string
+          enum: [FULLY_QUALIFIED_DOMAIN_NAME]
+        namespaceIdentifier:
+          type: string
+          example: vatcscc.org
     CDR:
       type: object
       description: Coded Departure Route
@@ -4457,9 +4483,20 @@ components:
       description: Flight record with nested data sections
       properties:
         gufi:
+          oneOf:
+            - type: string
+              format: uuid
+              description: UUID v4 (standard response format)
+            - $ref: '#/components/schemas/GufiMetadata'
+          description: Globally Unique Flight Identifier (format depends on response format)
+        gufi_legacy:
           type: string
-          description: Globally Unique Flight Identifier
-          example: VAT-20260115-UAL123-KJFK-KLAX
+          description: Human-readable legacy identifier (VAT-YYYYMMDD-CALLSIGN-DEPT-DEST)
+          example: VAT-20260329-UAL123-KJFK-KLAX
+        gufi_created_utc:
+          type: string
+          format: date-time
+          description: UTC timestamp when the GUFI was first assigned
         flight_uid:
           type: integer
           format: int64
