@@ -151,6 +151,13 @@ $sql = "
         p.scope_json,
         p.rates_hourly_json,
         p.rates_quarter_json,
+        p.reserve_rate,
+        p.flt_incl_carrier,
+        p.flt_incl_type,
+        p.flt_incl_fix,
+        p.scope_type,
+        p.scope_tier,
+        p.scope_distance_nm,
         p.created_by,
         p.created_at,
         p.activated_at,
@@ -207,6 +214,8 @@ if ($include_recent) {
         p.parent_program_id, p.advisory_chain_id, p.transition_type,
         p.revision_number, p.superseded_by_id, p.scope_json, p.rates_hourly_json,
         p.rates_quarter_json,
+        p.reserve_rate, p.flt_incl_carrier, p.flt_incl_type, p.flt_incl_fix,
+        p.scope_type, p.scope_tier, p.scope_distance_nm,
         p.created_by, p.created_at, p.activated_at, p.updated_at,
         CASE p.status
             WHEN 'ACTIVE' THEN 1
