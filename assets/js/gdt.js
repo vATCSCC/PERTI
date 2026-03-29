@@ -752,7 +752,7 @@
         var lines = [];
         lines.push(AdvisoryConfig.getPrefix() + ' ADVZY ' + advNum + ' ' + ctlElement + ' ' + headerDate + ' CDM ' + typeLabel + ' REVISION');
         lines.push('CTL ELEMENT: ' + ctlElement);
-        if (newRate) lines.push('PROGRAM RATE: ' + newRate);
+        if (newRate) lines.push('PROGRAM RATE: ' + newRate + '/HR');
 
         // Show what changed
         var origRate = document.getElementById('gdt_revise_modal').dataset.originalRate;
@@ -946,7 +946,7 @@
             lines.push('CTL ELEMENT: ' + ctlElement);
             lines.push('IMPACTING CONDITION: ' + impacting);
             lines.push('GDP TYPE: ' + gdpType);
-            if (rate) lines.push('PROGRAM RATE: ' + rate);
+            if (rate) lines.push('PROGRAM RATE: ' + rate + '/HR');
             if (delayCap) lines.push('DELAY ASSIGNMENT LIMIT: ' + delayCap + ' MINUTES');
             lines.push('GROUND STOP CURRENTLY IN EFFECT: ' + gsStart + ' - ' + formatZuluFromIso(gsProgram.end_utc));
             lines.push('PROPOSED GDP PERIOD: ' + formatZuluFromIso(gsProgram.end_utc) + ' - ' + gdpEnd);

@@ -205,7 +205,7 @@
 
             const summary = data.summary || data.simulation_data || {};
             document.getElementById('gsgdpProgramRate').textContent =
-                formatRateDisplayTmi(data) + PERTII18n.t('tmiGdp.perHour');
+                formatRateDisplayTmi(data);
             document.getElementById('gsgdpAvgDelay').textContent =
                 (summary.avg_delay_min || summary.avg_delay || summary.avgDelay || '--') + PERTII18n.t('tmiGdp.minutesSuffix');
             document.getElementById('gsgdpMaxDelay').textContent =
