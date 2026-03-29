@@ -136,13 +136,18 @@ if (!file_exists($file_path)) {
 
 // Use Parsedown if available, otherwise use basic conversion
 function render_markdown($text) {
-    // Check if Parsedown is available
-    $parsedown_path = __DIR__ . '/vendor/parsedown/Parsedown.php';
-    if (file_exists($parsedown_path)) {
-        require_once $parsedown_path;
-        $parsedown = new Parsedown();
-        $parsedown->setSafeMode(true);
-        return $parsedown->text($text);
+    // Check if Parsedown is available (Composer path first, then legacy)
+    $paths = [
+        __DIR__ . '/vendor/erusev/parsedown/Parsedown.php',
+        __DIR__ . '/vendor/parsedown/Parsedown.php',
+    ];
+    foreach ($paths as $parsedown_path) {
+        if (file_exists($parsedown_path)) {
+            require_once $parsedown_path;
+            $parsedown = new Parsedown();
+            $parsedown->setSafeMode(true);
+            return $parsedown->text($text);
+        }
     }
 
     // Basic markdown to HTML conversion (fallback)

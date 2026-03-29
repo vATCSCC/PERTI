@@ -5,7 +5,8 @@
     "require": {
         "php": ">=7.4",
         "cboden/ratchet": "^0.4.4",
-        "react/event-loop": "^1.4"
+        "react/event-loop": "^1.4",
+        "erusev/parsedown": "^1.7"
     },
     "autoload": {
         "psr-4": {
