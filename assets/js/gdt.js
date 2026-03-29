@@ -8942,8 +8942,13 @@
                 renderModelGsSummaryTables(data);
             }
 
-            // Initialize and load demand chart
+            // Initialize and load demand chart (with resize after visibility)
             initGsDemandChart();
+
+            // Resize chart after DOM reflow (container was just made visible)
+            if (GS_DEMAND_CHART && GS_DEMAND_CHART.resize) {
+                setTimeout(function() { GS_DEMAND_CHART.resize(); }, 50);
+            }
         }
     }
 

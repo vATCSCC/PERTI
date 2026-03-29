@@ -76,7 +76,9 @@ BEGIN
         RETURN 1;
     END
 
-    -- Delete existing slots (for re-modeling)
+    -- Delete existing flight control + slots (for re-modeling)
+    -- Must delete flight_control first: FK_tmi_flight_control_slot references tmi_slots
+    DELETE FROM dbo.tmi_flight_control WHERE program_id = @program_id;
     DELETE FROM dbo.tmi_slots WHERE program_id = @program_id;
 
     -- ====================================================================

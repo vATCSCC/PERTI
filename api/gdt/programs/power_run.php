@@ -140,9 +140,12 @@ for ($val = $sweep_start; $val <= $sweep_end; $val += $sweep_step) {
             'Cookie: ' . ($_SERVER['HTTP_COOKIE'] ?? ''),
         ],
         CURLOPT_TIMEOUT => 30,
+        CURLOPT_SSL_VERIFYPEER => false,  // Internal self-call: skip SSL verify
+        CURLOPT_SSL_VERIFYHOST => 0,
     ]);
 
     $response = curl_exec($ch);
+    $curl_error = curl_error($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
@@ -158,10 +161,17 @@ for ($val = $sweep_start; $val <= $sweep_end; $val += $sweep_step) {
             'exempt_count' => $result['data']['exempt_count'] ?? 0,
         ];
     } else {
+        $err_detail = $result['message'] ?? 'Simulation failed';
+        if ($curl_error) {
+            $err_detail .= ' (cURL: ' . $curl_error . ')';
+        }
+        if ($httpCode !== 200) {
+            $err_detail .= ' (HTTP ' . $httpCode . ')';
+        }
         $scenarios[] = [
             'param_value' => $val,
             'param_label' => formatParamLabel($sweep_param, $val),
-            'error' => $result['message'] ?? 'Simulation failed',
+            'error' => $err_detail,
         ];
     }
 }
