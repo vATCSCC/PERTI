@@ -429,6 +429,11 @@
             if (el) el.value = p.delay_limit_min || '';
             el = document.getElementById('gs_reserve_rate');
             if (el) el.value = p.reserve_rate || '';
+
+            // Load Edit 15 rates if present
+            loadEdit15FromProgram(p);
+        } else {
+            clearEdit15();
         }
 
         // Populate time fields (convert ISO to datetime-local format)
@@ -1652,6 +1657,9 @@
     window.submitTransitionActivate = submitTransitionActivate;
     window.dashboardRemodel = dashboardRemodel;
     window.exitWhatIfMode = exitWhatIfMode;
+    window.handlePowerRun = handlePowerRun;
+    window.toggleEdit15 = toggleEdit15;
+    window.clearEdit15 = clearEdit15;
 
     // ========================================================================
     // Workflow Stepper
@@ -5642,6 +5650,10 @@
             var delayCapEl = document.getElementById('gs_delay_limit');
             if (rateEl && rateEl.value) createPayload.program_rate = parseInt(rateEl.value, 10);
             if (delayCapEl && delayCapEl.value) createPayload.delay_limit_min = parseInt(delayCapEl.value, 10);
+
+            // Edit 15: per-15-minute rates
+            var quarterRates = getEdit15Json();
+            if (quarterRates) createPayload.rates_quarter_json = quarterRates;
         }
 
         // Orphan prevention: reuse existing MODELING program instead of creating a new one
@@ -5880,6 +5892,219 @@
                 console.error('What-if simulate failed', err);
                 if (statusEl) statusEl.textContent = PERTII18n.t('gdt.dashboard.whatIfFailed') + ': ' + (err && err.message ? err.message : err);
             });
+    }
+
+    // =========================================================================
+    // Power Run: Multi-Scenario Comparison
+    // =========================================================================
+
+    function handlePowerRun() {
+        if (!GS_CURRENT_PROGRAM_ID) {
+            if (window.Swal) {
+                window.Swal.fire({ icon: 'warning', title: 'No Program', text: 'Create and simulate a program first.' });
+            }
+            return;
+        }
+
+        if (window.Swal) {
+            window.Swal.fire({
+                title: '<i class="fas fa-tachometer-alt text-primary mr-2"></i>Power Run',
+                html:
+                    '<div class="text-left">' +
+                    '<div class="form-group"><label class="font-weight-bold">Sweep Parameter</label>' +
+                    '<select class="form-control form-control-sm" id="swal_pr_param">' +
+                    '<option value="rate">Program Rate (flights/hr)</option>' +
+                    '<option value="distance">Distance (nm)</option>' +
+                    '<option value="end_time">End Time Offset (min)</option>' +
+                    '</select></div>' +
+                    '<div class="form-row">' +
+                    '<div class="form-group col-4"><label>Start</label><input type="number" class="form-control form-control-sm" id="swal_pr_start" value="10"></div>' +
+                    '<div class="form-group col-4"><label>End</label><input type="number" class="form-control form-control-sm" id="swal_pr_end" value="50"></div>' +
+                    '<div class="form-group col-4"><label>Step</label><input type="number" class="form-control form-control-sm" id="swal_pr_step" value="5"></div>' +
+                    '</div></div>',
+                showCancelButton: true,
+                confirmButtonText: 'Run Scenarios',
+                showLoaderOnConfirm: true,
+                preConfirm: function() {
+                    var param = document.getElementById('swal_pr_param').value;
+                    var start = parseInt(document.getElementById('swal_pr_start').value) || 10;
+                    var end = parseInt(document.getElementById('swal_pr_end').value) || 50;
+                    var step = parseInt(document.getElementById('swal_pr_step').value) || 5;
+
+                    return apiPostJson('/api/gdt/programs/power_run.php', {
+                        program_id: GS_CURRENT_PROGRAM_ID,
+                        sweep_param: param,
+                        sweep_start: start,
+                        sweep_end: end,
+                        sweep_step: step,
+                    }).then(function(resp) {
+                        if (resp.status !== 'ok') throw new Error(resp.message || 'Power Run failed');
+                        return resp;
+                    });
+                },
+                allowOutsideClick: function() { return !window.Swal.isLoading(); },
+            }).then(function(result) {
+                if (!result.isConfirmed || !result.value) return;
+                renderPowerRunResults(result.value.data);
+            });
+        }
+    }
+
+    function renderPowerRunResults(data) {
+        if (!data || !data.scenarios || !data.scenarios.length) return;
+
+        var scenarios = data.scenarios;
+        var headerCells = '<th>' + escapeHtml(data.sweep_param) + '</th>' +
+            '<th>Total Flts</th><th>Assigned</th><th>Exempt</th><th>Slots</th>' +
+            '<th>Avg Delay</th><th>Max Delay</th><th>P95 Delay</th><th>On-Time%</th>';
+
+        var rows = '';
+        scenarios.forEach(function(s) {
+            if (s.error) {
+                rows += '<tr><td>' + escapeHtml(s.param_label) + '</td><td colspan="8" class="text-danger">' + escapeHtml(s.error) + '</td></tr>';
+                return;
+            }
+            var sm = s.summary || {};
+            rows += '<tr>' +
+                '<td class="font-weight-bold">' + escapeHtml(s.param_label) + '</td>' +
+                '<td>' + (sm.total_flights || 0) + '</td>' +
+                '<td>' + (s.assigned_count || 0) + '</td>' +
+                '<td>' + (s.exempt_count || 0) + '</td>' +
+                '<td>' + (s.slot_count || 0) + '</td>' +
+                '<td>' + (sm.avg_delay_min != null ? sm.avg_delay_min : '-') + '</td>' +
+                '<td>' + (sm.max_delay_min != null ? sm.max_delay_min : '-') + '</td>' +
+                '<td>' + (sm.delay_p95 != null ? sm.delay_p95 : '-') + '</td>' +
+                '<td>' + (sm.on_time_pct != null ? sm.on_time_pct + '%' : '-') + '</td>' +
+                '</tr>';
+        });
+
+        var html = '<div class="table-responsive" style="max-height: 400px; overflow-y: auto;">' +
+            '<table class="table table-sm table-striped table-bordered mb-0">' +
+            '<thead class="thead-dark"><tr>' + headerCells + '</tr></thead>' +
+            '<tbody>' + rows + '</tbody></table></div>';
+
+        if (window.Swal) {
+            window.Swal.fire({
+                title: '<i class="fas fa-tachometer-alt text-primary mr-2"></i>Power Run Results',
+                html: html,
+                width: '80%',
+                showConfirmButton: true,
+                confirmButtonText: 'Close',
+            });
+        }
+    }
+
+    // =========================================================================
+    // Edit 15: Per-15-Minute Rate Editor
+    // =========================================================================
+
+    var edit15_visible = false;
+    var edit15_rates = {}; // { "HH:MM": rate, ... }
+
+    function toggleEdit15() {
+        edit15_visible = !edit15_visible;
+        var grid = document.getElementById('gs_edit15_grid');
+        var clearBtn = document.getElementById('gs_edit15_clear');
+        if (grid) grid.style.display = edit15_visible ? '' : 'none';
+        if (clearBtn) {
+            if (edit15_visible) clearBtn.classList.remove('d-none');
+            else clearBtn.classList.add('d-none');
+        }
+        if (edit15_visible) buildEdit15Grid();
+    }
+
+    function clearEdit15() {
+        edit15_rates = {};
+        edit15_visible = false;
+        var grid = document.getElementById('gs_edit15_grid');
+        var clearBtn = document.getElementById('gs_edit15_clear');
+        if (grid) grid.style.display = 'none';
+        if (clearBtn) clearBtn.classList.add('d-none');
+    }
+
+    function buildEdit15Grid() {
+        var startEl = document.getElementById('gs_start');
+        var endEl = document.getElementById('gs_end');
+        if (!startEl || !endEl || !startEl.value || !endEl.value) return;
+
+        var start = new Date(startEl.value + 'Z');
+        var end = new Date(endEl.value + 'Z');
+        if (isNaN(start.getTime()) || isNaN(end.getTime()) || start >= end) return;
+
+        var defaultRate = parseInt(document.getElementById('gs_program_rate').value) || 30;
+        var headerRow = document.getElementById('gs_edit15_header');
+        var inputRow = document.getElementById('gs_edit15_inputs');
+        if (!headerRow || !inputRow) return;
+
+        headerRow.innerHTML = '';
+        inputRow.innerHTML = '';
+
+        // Generate 15-minute columns from start to end
+        var t = new Date(start.getTime());
+        // Align to quarter-hour boundary
+        var mins = t.getUTCMinutes();
+        var quarterMins = Math.floor(mins / 15) * 15;
+        t.setUTCMinutes(quarterMins, 0, 0);
+
+        var colCount = 0;
+        while (t < end && colCount < 96) { // Max 24h = 96 quarters
+            var hh = String(t.getUTCHours()).padStart(2, '0');
+            var mm = String(t.getUTCMinutes()).padStart(2, '0');
+            var key = hh + ':' + mm;
+
+            var th = document.createElement('th');
+            th.textContent = key;
+            th.style.textAlign = 'center';
+            th.style.minWidth = '50px';
+            headerRow.appendChild(th);
+
+            var td = document.createElement('td');
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'form-control form-control-sm p-1';
+            input.style.width = '50px';
+            input.style.textAlign = 'center';
+            input.style.fontSize = '0.75rem';
+            input.min = '1';
+            input.max = '120';
+            input.value = edit15_rates[key] || defaultRate;
+            input.dataset.quarterKey = key;
+            input.addEventListener('change', function() {
+                var k = this.dataset.quarterKey;
+                var v = parseInt(this.value);
+                if (v > 0) edit15_rates[k] = v;
+            });
+            td.appendChild(input);
+            inputRow.appendChild(td);
+
+            // Initialize in rates map
+            if (!edit15_rates[key]) edit15_rates[key] = defaultRate;
+
+            t.setUTCMinutes(t.getUTCMinutes() + 15);
+            colCount++;
+        }
+    }
+
+    function getEdit15Json() {
+        if (!edit15_visible || Object.keys(edit15_rates).length === 0) return null;
+        return edit15_rates;
+    }
+
+    function loadEdit15FromProgram(program) {
+        if (program && program.rates_quarter_json) {
+            var parsed = typeof program.rates_quarter_json === 'string'
+                ? JSON.parse(program.rates_quarter_json)
+                : program.rates_quarter_json;
+            if (parsed && typeof parsed === 'object') {
+                edit15_rates = parsed;
+                edit15_visible = true;
+                var grid = document.getElementById('gs_edit15_grid');
+                var clearBtn = document.getElementById('gs_edit15_clear');
+                if (grid) grid.style.display = '';
+                if (clearBtn) clearBtn.classList.remove('d-none');
+                buildEdit15Grid();
+            }
+        }
     }
 
     function handleGsSendActual() {
@@ -7356,6 +7581,14 @@
                 var rateRow = document.getElementById('gs_gdp_rate_row');
                 if (rateRow) rateRow.style.display = isGDP ? '' : 'none';
 
+                // Show/hide Power Run button (GDP only)
+                var powerRunBtn = document.getElementById('gs_power_run_btn');
+                if (powerRunBtn) powerRunBtn.style.display = isGDP ? '' : 'none';
+
+                // Show/hide Edit 15 container (GDP only)
+                var edit15Container = document.getElementById('gs_edit15_container');
+                if (edit15Container) edit15Container.style.display = isGDP ? '' : 'none';
+
                 // Update the setup card header label and icon
                 var headerEl = document.getElementById('gs_setup_header_label');
                 if (headerEl) {
@@ -7461,6 +7694,13 @@
             });
         }
 
+        // Rebuild Edit 15 grid when start/end times change
+        var startInput = document.getElementById('gs_start');
+        var endInput = document.getElementById('gs_end');
+        function onTimeChangeEdit15() { if (edit15_visible) buildEdit15Grid(); }
+        if (startInput) startInput.addEventListener('change', onTimeChangeEdit15);
+        if (endInput) endInput.addEventListener('change', onTimeChangeEdit15);
+
         // Initialize Model GS Power Run event handlers
         initModelGsHandlers();
 
@@ -7537,6 +7777,29 @@
                 });
             }
         }
+
+        // === SCOPE TYPE TOGGLE (TIER vs DISTANCE) ===
+        document.querySelectorAll('input[name="gs_scope_type_radio"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                var scopeType = this.value;
+                var hiddenInput = document.getElementById('gs_scope_type');
+                if (hiddenInput) hiddenInput.value = scopeType;
+
+                var tierContainer = document.getElementById('gs_scope_tier_container');
+                var checkboxContainer = document.getElementById('gs_scope_checkboxes_container');
+                var distContainer = document.getElementById('gs_scope_distance_container');
+
+                if (scopeType === 'DISTANCE') {
+                    if (tierContainer) tierContainer.style.display = 'none';
+                    if (checkboxContainer) checkboxContainer.style.display = 'none';
+                    if (distContainer) distContainer.style.display = '';
+                } else {
+                    if (tierContainer) tierContainer.style.display = '';
+                    if (checkboxContainer) checkboxContainer.style.display = '';
+                    if (distContainer) distContainer.style.display = 'none';
+                }
+            });
+        });
 
         // === ECR (EDCT CHANGE REQUEST) EVENT HANDLERS ===
         initializeEcrHandlers();
@@ -7860,34 +8123,59 @@
             update_erta: updateErta,
         };
 
-        // In a real implementation, this would call the ECR API
-        // For now, we'll simulate an update to the local ADL data
-        const responseSection = document.getElementById('ecr_response_section');
-        const responseText = document.getElementById('ecr_response_text');
-
-        if (responseSection && responseText) {
-            responseSection.style.display = 'block';
-
-            const ctlTypeCode = method === 'SCS' ? 'SCS' : (method === 'MANUAL' || method === 'LIMITED' || method === 'UNLIMITED' ? 'UPD' : 'ECR');
-
-            responseText.textContent =
-                PERTII18n.t('gdt.ecr.requestProcessed') + '\n' +
-                '=====================\n' +
-                PERTII18n.t('gdt.flight.flightLabel') + ': ' + payload.acid + '\n' +
-                PERTII18n.t('gdt.ecr.method') + ': ' + method + '\n' +
-                PERTII18n.t('gdt.edct.newEdctLabel') + ': ' + payload.new_edct + '\n' +
-                PERTII18n.t('gdt.flight.controlType') + ': ' + ctlTypeCode + '\n' +
-                PERTII18n.t('gdt.flight.status') + ': ' + PERTII18n.t('gdt.ecr.accepted');
+        // Resolve flight_uid from the current flight data
+        if (!ECR_CURRENT_FLIGHT || !ECR_CURRENT_FLIGHT.flight_uid) {
+            if (window.Swal) {
+                window.Swal.fire({ icon: 'warning', title: PERTII18n.t('gdt.ecr.noFlight'), text: 'Flight UID not available. Get flight data first.' });
+            }
+            return;
         }
 
-        if (window.Swal) {
-            window.Swal.fire({
-                icon: 'success',
-                title: PERTII18n.t('gdt.ecr.requestSent'),
-                text: PERTII18n.t('gdt.ecr.requestProcessedFor', { acid: payload.acid }),
-                timer: 3000,
+        // Determine ECR action from method
+        var ecrAction = 'DELAY';
+        if (method === 'SCS') ecrAction = 'SWAP';
+        else if (method === 'MANUAL' || method === 'LIMITED') ecrAction = 'DELAY';
+        else if (method === 'UNLIMITED') ecrAction = 'ADVANCE';
+
+        var ecrPayload = {
+            program_id: GS_CURRENT_PROGRAM_ID,
+            action: ecrAction,
+            flight_uid: ECR_CURRENT_FLIGHT.flight_uid,
+            target_ctd: payload.new_edct,
+            reason: 'ECR via GDT UI (' + method + ')'
+        };
+
+        var responseSection = document.getElementById('ecr_response_section');
+        var responseText = document.getElementById('ecr_response_text');
+
+        apiPostJson('/api/gdt/programs/ecr.php', ecrPayload)
+            .then(function(resp) {
+                if (responseSection && responseText) {
+                    responseSection.style.display = 'block';
+                    var ctlTypeCode = method === 'SCS' ? 'SCS' : (method === 'MANUAL' || method === 'LIMITED' || method === 'UNLIMITED' ? 'UPD' : 'ECR');
+                    responseText.textContent =
+                        PERTII18n.t('gdt.ecr.requestProcessed') + '\n' +
+                        '=====================\n' +
+                        PERTII18n.t('gdt.flight.flightLabel') + ': ' + payload.acid + '\n' +
+                        PERTII18n.t('gdt.ecr.method') + ': ' + method + '\n' +
+                        PERTII18n.t('gdt.edct.newEdctLabel') + ': ' + (resp.data && resp.data.changes ? (resp.data.changes.new_ctd || payload.new_edct) : payload.new_edct) + '\n' +
+                        PERTII18n.t('gdt.flight.controlType') + ': ' + ctlTypeCode + '\n' +
+                        PERTII18n.t('gdt.flight.status') + ': ' + (resp.status === 'ok' ? PERTII18n.t('gdt.ecr.accepted') : resp.message);
+                }
+                if (window.Swal) {
+                    window.Swal.fire({
+                        icon: resp.status === 'ok' ? 'success' : 'error',
+                        title: resp.status === 'ok' ? PERTII18n.t('gdt.ecr.requestSent') : 'ECR Failed',
+                        text: resp.status === 'ok' ? PERTII18n.t('gdt.ecr.requestProcessedFor', { acid: payload.acid }) : resp.message,
+                        timer: resp.status === 'ok' ? 3000 : undefined,
+                    });
+                }
+            })
+            .catch(function(err) {
+                if (window.Swal) {
+                    window.Swal.fire({ icon: 'error', title: 'ECR Error', text: err.message || 'Network error' });
+                }
             });
-        }
     }
 
     function ecrClearAll() {
@@ -8949,6 +9237,14 @@
         el = document.getElementById('gs_model_horizon_30'); if (el) {el.textContent = PERTII18n.t('gdt.dashboard.flightsCount', { count: count30 });}
         el = document.getElementById('gs_model_horizon_15'); if (el) {el.textContent = PERTII18n.t('gdt.dashboard.flightsCount', { count: count15 });}
 
+        // Enhanced analytics (from simulate.php summary or computed client-side)
+        var simSummary = (flightListData && flightListData.summary) || {};
+        el = document.getElementById('gs_model_slot_util'); if (el) {el.textContent = (simSummary.slot_utilization != null ? simSummary.slot_utilization + '%' : '-');}
+        el = document.getElementById('gs_model_on_time_pct'); if (el) {el.textContent = (simSummary.on_time_pct != null ? simSummary.on_time_pct + '%' : '-');}
+        el = document.getElementById('gs_model_delay_p95'); if (el) {el.textContent = (simSummary.delay_p95 != null ? simSummary.delay_p95 + ' min' : '-');}
+        el = document.getElementById('gs_model_delay_var'); if (el) {el.textContent = (simSummary.delay_variance != null ? simSummary.delay_variance : '-');}
+        el = document.getElementById('gs_model_stack_peak'); if (el) {el.textContent = (simSummary.stack_peak != null ? simSummary.stack_peak : '-');}
+
         el = document.getElementById('gs_model_ctl_element'); if (el) {el.textContent = gsPayload.gs_ctl_element || '-';}
         el = document.getElementById('gs_model_gs_start'); if (el) {el.textContent = gsPayload.gs_start ? formatZuluFromIso(gsPayload.gs_start) : '-';}
         el = document.getElementById('gs_model_gs_end'); if (el) {el.textContent = gsPayload.gs_end ? formatZuluFromIso(gsPayload.gs_end) : '-';}
@@ -9677,6 +9973,21 @@
 
         const status = f.delay_status || f.ctl_type || 'GS';
 
+        // Compliance status (populated by GDP compliance daemon)
+        const compliance = f.compliance_status || '';
+        var complianceBadge = '';
+        if (compliance === 'COMPLIANT') {
+            complianceBadge = '<span class="badge badge-success">COMPLIANT</span>';
+        } else if (compliance === 'EARLY') {
+            complianceBadge = '<span class="badge badge-info">EARLY</span>';
+        } else if (compliance === 'LATE') {
+            complianceBadge = '<span class="badge badge-danger">LATE</span>';
+        } else if (compliance === 'NO_SHOW') {
+            complianceBadge = '<span class="badge badge-dark">NO SHOW</span>';
+        } else if (compliance === 'PENDING') {
+            complianceBadge = '<span class="badge badge-secondary">PENDING</span>';
+        }
+
         // Count statistics
         if (dcenter) {dcenterCounts[dcenter] = (dcenterCounts[dcenter] || 0) + 1;}
         if (orig) {origCounts[orig] = (origCounts[orig] || 0) + 1;}
@@ -9714,6 +10025,7 @@
             '<td>' + etaText + '</td>' +
             '<td>' + ctaText + '</td>' +
             '<td class="' + delayClass + '">' + delayText + '</td>' +
+            '<td>' + complianceBadge + '</td>' +
             '<td><span class="badge badge-warning">' + escapeHtml(status) + '</span></td>' +
             '</tr>';
     }

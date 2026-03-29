@@ -139,6 +139,21 @@ foreach ($revisable_fields as $field => $type) {
     $changes[] = "{$field}: " . ($old_val ?? 'NULL') . " -> {$new_val}";
 }
 
+// Handle rates_quarter_json separately (JSON string, nullable)
+if (array_key_exists('rates_quarter_json', $payload)) {
+    $new_rq = $payload['rates_quarter_json'];
+    if ($new_rq !== null && !is_string($new_rq)) {
+        $new_rq = json_encode($new_rq);
+    }
+    $old_rq = $program['rates_quarter_json'] ?? null;
+    if ($new_rq !== $old_rq) {
+        $sets[] = "rates_quarter_json = ?";
+        $params[] = $new_rq;
+        $label = $new_rq ? 'set (' . substr($new_rq, 0, 40) . '...)' : 'cleared';
+        $changes[] = "rates_quarter_json: {$label}";
+    }
+}
+
 if (empty($sets) && empty($changes)) {
     respond_json(400, [
         'status' => 'error',
