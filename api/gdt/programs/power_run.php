@@ -102,8 +102,9 @@ if ($program_type === 'GS') {
 // ============================================================================
 
 $scenarios = [];
-$base_url = 'https://' .
-    ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/api/gdt/programs/simulate.php';
+// Internal loopback: call nginx directly on port 8080 to avoid Azure reverse proxy
+// roundtrip (which causes 30s+ timeouts on self-referencing HTTPS calls)
+$base_url = 'http://localhost:8080/api/gdt/programs/simulate.php';
 
 for ($val = $sweep_start; $val <= $sweep_end; $val += $sweep_step) {
     // Build the simulate payload for this scenario
@@ -128,8 +129,7 @@ for ($val = $sweep_start; $val <= $sweep_end; $val += $sweep_step) {
             break;
     }
 
-    // Internal call to simulate logic
-    // Use cURL to call our own simulate endpoint (keeps code DRY)
+    // Internal loopback call to simulate endpoint (no HTTPS, no Azure proxy)
     $ch = curl_init($base_url);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
@@ -139,9 +139,7 @@ for ($val = $sweep_start; $val <= $sweep_end; $val += $sweep_step) {
             'Content-Type: application/json',
             'Cookie: ' . ($_SERVER['HTTP_COOKIE'] ?? ''),
         ],
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_SSL_VERIFYPEER => false,  // Internal self-call: skip SSL verify
-        CURLOPT_SSL_VERIFYHOST => 0,
+        CURLOPT_TIMEOUT => 60,
     ]);
 
     $response = curl_exec($ch);
