@@ -1708,6 +1708,20 @@ function setupEventHandlers() {
     // Airport selection
     $('#demand_airport').on('change', function() {
         const airport = $(this).val();
+
+        // Comparison mode: add airport to grid instead of switching
+        if (DEMAND_STATE.comparisonMode) {
+            if (airport && !DEMAND_STATE.comparisonAirports.includes(airport) &&
+                DEMAND_STATE.comparisonAirports.length < 4) {
+                DEMAND_STATE.comparisonAirports.push(airport);
+                renderComparisonChips();
+                rebuildComparisonPanels();
+                loadAllComparisonData();
+                writeUrlState();
+            }
+            return;
+        }
+
         DEMAND_STATE.selectedAirport = airport;
         DEMAND_STATE.demandDataHash = null; // Reset hash on airport change
         DEMAND_STATE.summaryDataHash = null;
@@ -1800,6 +1814,13 @@ function setupEventHandlers() {
         DEMAND_STATE.demandType = $(this).val();
         DEMAND_STATE.facilityCode = null;
         DEMAND_STATE.facilityName = null;
+        // Exit comparison mode for non-airport types
+        if (DEMAND_STATE.comparisonMode && DEMAND_STATE.demandType !== 'airport') {
+            $('#compare_mode_toggle').prop('checked', false);
+            exitComparisonMode();
+        }
+        // Hide comparison toggle for non-airport types
+        $('#compare_toggle_container').toggle(DEMAND_STATE.demandType === 'airport');
         updateFilterVisibility();
         populateFacilityDropdown();
         updateInfoBarForType();
@@ -1980,6 +2001,29 @@ function setupEventHandlers() {
         // Re-render chart to add/remove TMI marker lines
         if (DEMAND_STATE.lastDemandData) {
             renderWithLoading();
+        }
+    });
+
+    // Comparison mode toggle
+    $('#compare_mode_toggle').on('change', function() {
+        if (this.checked) {
+            enterComparisonMode();
+        } else {
+            exitComparisonMode();
+        }
+    });
+
+    // Add airport button
+    $('#compare_add_btn').on('click', function() {
+        $('#demand_airport').select2('open');
+    });
+
+    // Window resize for comparison panels
+    $(window).on('resize', function() {
+        if (DEMAND_STATE.comparisonMode) {
+            DEMAND_STATE.comparisonCharts.forEach(chart => {
+                if (chart && chart.resize) chart.resize();
+            });
         }
     });
 
@@ -6730,6 +6774,500 @@ function showError(message) {
 }
 
 /**
+ * Enter comparison mode: current airport becomes first comparison airport.
+ */
+function enterComparisonMode() {
+    DEMAND_STATE.comparisonMode = true;
+    const current = DEMAND_STATE.selectedAirport;
+    if (current && !DEMAND_STATE.comparisonAirports.includes(current)) {
+        DEMAND_STATE.comparisonAirports.push(current);
+    }
+
+    // Show comparison UI
+    $('#compare_add_btn').show();
+    $('#compare_chip_bar').css('display', '').show();
+    renderComparisonChips();
+
+    // Switch from single chart to grid
+    $('#demand_chart').hide();
+    $('#demand_tmi_timeline').hide();
+    const $grid = $('#demand_chart_grid');
+    $grid.addClass('active');
+
+    // Build panels and load data
+    rebuildComparisonPanels();
+    loadAllComparisonData();
+
+    writeUrlState();
+}
+
+/**
+ * Exit comparison mode: revert to single-airport view.
+ */
+function exitComparisonMode() {
+    const firstAirport = DEMAND_STATE.comparisonAirports[0] || DEMAND_STATE.selectedAirport;
+
+    // Dispose all comparison chart instances
+    DEMAND_STATE.comparisonCharts.forEach((chart) => {
+        if (chart && chart.dispose) chart.dispose();
+    });
+    DEMAND_STATE.comparisonCharts.clear();
+    DEMAND_STATE.comparisonData.clear();
+    DEMAND_STATE.comparisonAirports = [];
+    DEMAND_STATE.comparisonMode = false;
+
+    // Hide comparison UI
+    $('#compare_add_btn').hide();
+    $('#compare_chip_bar').hide();
+    $('#compare_max_msg').hide();
+    const $grid = $('#demand_chart_grid');
+    $grid.removeClass('active').empty();
+
+    // Restore single chart and info bar cards
+    $('#demand_chart').show();
+    $('#demand_config_card').show();
+    $('#demand_atis_card').show();
+
+    // Select the first airport
+    if (firstAirport) {
+        DEMAND_STATE.selectedAirport = firstAirport;
+        $('#demand_airport').val(firstAirport).trigger('change');
+    }
+
+    writeUrlState();
+}
+
+/**
+ * Build/rebuild comparison grid panels. Creates DOM elements and ECharts instances.
+ */
+function rebuildComparisonPanels() {
+    const $grid = $('#demand_chart_grid');
+    $grid.empty();
+
+    const airports = DEMAND_STATE.comparisonAirports;
+    const count = airports.length;
+
+    // Dispose old chart instances
+    DEMAND_STATE.comparisonCharts.forEach((chart) => {
+        if (chart && chart.dispose) chart.dispose();
+    });
+    DEMAND_STATE.comparisonCharts.clear();
+
+    // Adjust grid layout
+    $grid.toggleClass('single-col', count === 1);
+
+    // Determine chart height class
+    const heightClass = count <= 2 ? 'side-by-side' : '';
+
+    airports.forEach(icao => {
+        const panelId = 'compare_panel_' + icao;
+        const chartId = 'compare_chart_' + icao;
+        const timelineId = 'compare_tmi_' + icao;
+
+        const html =
+            '<div class="compare-panel" id="' + panelId + '">' +
+                '<div class="compare-panel-header">' +
+                    '<span class="airport-code">' + icao + '</span>' +
+                    '<span class="airport-meta" id="compare_meta_' + icao + '">--</span>' +
+                '</div>' +
+                '<div id="' + timelineId + '" class="demand-tmi-timeline" style="display:none;">' +
+                    '<div class="tmi-timeline-track" id="compare_tmi_track_' + icao + '"></div>' +
+                '</div>' +
+                '<div id="' + chartId + '" class="compare-panel-chart ' + heightClass + '"></div>' +
+            '</div>';
+
+        $grid.append(html);
+
+        // Initialize ECharts instance for this panel
+        const chartDom = document.getElementById(chartId);
+        if (chartDom) {
+            const chart = echarts.init(chartDom);
+            DEMAND_STATE.comparisonCharts.set(icao, chart);
+
+            // Wire datazoom sync
+            chart.on('datazoom', function(params) {
+                syncDataZoom(icao, params);
+            });
+        }
+    });
+
+    // Add "Add Airport" placeholder if under limit
+    if (count < 4) {
+        $grid.append(
+            '<div class="compare-panel" style="border-style:dashed;border-color:#bdc3c7;display:flex;align-items:center;justify-content:center;min-height:200px;cursor:pointer;" id="compare_add_panel">' +
+                '<div style="text-align:center;color:#aaa;">' +
+                    '<div style="font-size:24px;">+</div>' +
+                    '<div style="font-size:10px;">' + PERTII18n.t('demand.compare.addAirport') + '</div>' +
+                '</div>' +
+            '</div>'
+        );
+        $('#compare_add_panel').on('click', function() {
+            $('#demand_airport').select2('open');
+        });
+    }
+}
+
+/**
+ * Render airport chip/tag bar for comparison mode.
+ */
+function renderComparisonChips() {
+    const $bar = $('#compare_chip_bar');
+    $bar.empty();
+
+    DEMAND_STATE.comparisonAirports.forEach(icao => {
+        const chip = $('<span class="compare-chip">' + icao +
+            ' <span class="chip-remove" data-icao="' + icao + '" title="' +
+            PERTII18n.t('demand.compare.remove', { airport: icao }) + '">&times;</span></span>');
+        $bar.append(chip);
+    });
+
+    // Bind remove handlers
+    $bar.find('.chip-remove').on('click', function() {
+        const icao = $(this).data('icao');
+        removeComparisonAirport(icao);
+    });
+
+    // Show/hide max message
+    $('#compare_max_msg').toggle(DEMAND_STATE.comparisonAirports.length >= 4);
+    $('#compare_add_btn').prop('disabled', DEMAND_STATE.comparisonAirports.length >= 4);
+}
+
+/**
+ * Remove an airport from comparison.
+ */
+function removeComparisonAirport(icao) {
+    const idx = DEMAND_STATE.comparisonAirports.indexOf(icao);
+    if (idx === -1) return;
+
+    DEMAND_STATE.comparisonAirports.splice(idx, 1);
+
+    // Dispose chart instance
+    const chart = DEMAND_STATE.comparisonCharts.get(icao);
+    if (chart && chart.dispose) chart.dispose();
+    DEMAND_STATE.comparisonCharts.delete(icao);
+    DEMAND_STATE.comparisonData.delete(icao);
+
+    // If no airports left, exit comparison mode
+    if (DEMAND_STATE.comparisonAirports.length === 0) {
+        $('#compare_mode_toggle').prop('checked', false);
+        exitComparisonMode();
+        return;
+    }
+
+    renderComparisonChips();
+    rebuildComparisonPanels();
+    loadAllComparisonData();
+    writeUrlState();
+}
+
+/**
+ * Fetch data for all comparison airports in parallel.
+ */
+function loadAllComparisonData() {
+    const airports = DEMAND_STATE.comparisonAirports;
+    if (airports.length === 0) return;
+
+    // Build time range params (same as single mode)
+    const now = new Date();
+    let start, end;
+    if (DEMAND_STATE.timeRangeMode === 'custom' && DEMAND_STATE.customStart && DEMAND_STATE.customEnd) {
+        start = new Date(DEMAND_STATE.customStart);
+        end = new Date(DEMAND_STATE.customEnd);
+    } else {
+        start = new Date(now.getTime() + DEMAND_STATE.timeRangeStart * 3600000);
+        end = new Date(now.getTime() + DEMAND_STATE.timeRangeEnd * 3600000);
+    }
+    DEMAND_STATE.currentStart = start.toISOString();
+    DEMAND_STATE.currentEnd = end.toISOString();
+
+    // Fetch all airports in parallel
+    const fetchPromises = airports.map(icao => {
+        const params = new URLSearchParams({
+            airport: icao,
+            start: start.toISOString(),
+            end: end.toISOString(),
+            direction: DEMAND_STATE.direction,
+            granularity: getGranularityMinutes(),
+        });
+
+        const existing = DEMAND_STATE.comparisonData.get(icao) || {};
+
+        const demandHeaders = {};
+        if (existing.dataHash) demandHeaders['X-If-Data-Hash'] = existing.dataHash;
+        const summaryHeaders = {};
+        if (existing.summaryDataHash) summaryHeaders['X-If-Data-Hash'] = existing.summaryDataHash;
+
+        return Promise.allSettled([
+            $.ajax({ url: 'api/demand/airport.php?' + params.toString(), dataType: 'json', headers: demandHeaders }),
+            $.ajax({ url: 'api/demand/summary.php?' + params.toString(), dataType: 'json', headers: summaryHeaders }),
+            $.getJSON('api/demand/tmi_programs.php?airport=' + encodeURIComponent(icao) + '&start=' + encodeURIComponent(start.toISOString()) + '&end=' + encodeURIComponent(end.toISOString())),
+            $.getJSON('api/demand/rates.php?airport=' + encodeURIComponent(icao)),
+        ]).then(results => ({ icao, results }));
+    });
+
+    Promise.allSettled(fetchPromises).then(outerResults => {
+        outerResults.forEach(outer => {
+            if (outer.status !== 'fulfilled') return;
+            const { icao, results } = outer.value;
+            const [demandR, summaryR, tmiR, rateR] = results;
+
+            const data = DEMAND_STATE.comparisonData.get(icao) || {};
+
+            // Demand data
+            if (demandR.status === 'fulfilled' && demandR.value) {
+                if (!demandR.value.unchanged && demandR.value.success) {
+                    data.demandData = demandR.value;
+                    data.dataHash = demandR.value.data_hash || null;
+                }
+            }
+
+            // Summary data
+            if (summaryR.status === 'fulfilled' && summaryR.value) {
+                if (!summaryR.value.unchanged && summaryR.value.success) {
+                    data.summaryData = summaryR.value;
+                    data.summaryDataHash = summaryR.value.data_hash || null;
+                }
+            }
+
+            // TMI programs
+            if (tmiR.status === 'fulfilled' && tmiR.value && tmiR.value.success) {
+                data.tmiPrograms = tmiR.value.programs || [];
+            }
+
+            // Rate data
+            if (rateR.status === 'fulfilled' && rateR.value && rateR.value.success) {
+                data.rateData = rateR.value;
+            }
+
+            DEMAND_STATE.comparisonData.set(icao, data);
+
+            // Render this airport's panel
+            renderComparisonPanel(icao);
+        });
+
+        // Update info bar with aggregate stats
+        updateComparisonInfoBar();
+    });
+}
+
+/**
+ * Render a single comparison panel (chart + timeline + meta).
+ */
+function renderComparisonPanel(icao) {
+    const ctx = DEMAND_STATE.comparisonData.get(icao);
+    if (!ctx || !ctx.demandData) return;
+
+    const chart = DEMAND_STATE.comparisonCharts.get(icao);
+    if (!chart) return;
+
+    const data = ctx.demandData;
+    const direction = DEMAND_STATE.direction;
+
+    // Apply client filters
+    const filteredData = applyClientFilters(data);
+    const arrivals = filteredData.arrivals || [];
+    const departures = filteredData.departures || [];
+
+    // Build time bins
+    const timeBinSet = new Set();
+    arrivals.forEach(d => timeBinSet.add(normalizeTimeBin(d.time_bin)));
+    departures.forEach(d => timeBinSet.add(normalizeTimeBin(d.time_bin)));
+    const timeBins = [...timeBinSet].sort().map(t => new Date(t).getTime());
+
+    // Build phase series
+    const phaseOrder = DemandChartCore.PHASE_ORDER;
+    const series = [];
+
+    if (direction === 'arr' || direction === 'both') {
+        const arrByBin = {};
+        arrivals.forEach(d => { arrByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
+        phaseOrder.forEach(phase => {
+            const suffix = direction === 'both' ? ' (A)' : '';
+            series.push(buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, arrByBin, phase, 'arrivals', direction));
+        });
+    }
+    if (direction === 'dep' || direction === 'both') {
+        const depByBin = {};
+        departures.forEach(d => { depByBin[normalizeTimeBin(d.time_bin)] = d.breakdown; });
+        phaseOrder.forEach(phase => {
+            const suffix = direction === 'both' ? ' (D)' : '';
+            series.push(buildPhaseSeriesTimeAxis(FSM_PHASE_LABELS[phase] + suffix, timeBins, depByBin, phase, 'departures', direction));
+        });
+    }
+
+    // Build markLines (rate lines + TMI markers)
+    const markLineData = [];
+    const timeMarker = getCurrentTimeMarkLineForTimeAxis();
+    if (timeMarker) markLineData.push(timeMarker);
+
+    // Rate lines from this airport's rate data
+    if (ctx.rateData && ctx.rateData.rates) {
+        const rates = ctx.rateData.rates;
+        const proRate = getGranularityMinutes() / 60;
+        const addRateLine = (value, label, color, lineType) => {
+            if (!value) return;
+            const proRated = Math.round(value * proRate * 10) / 10;
+            markLineData.push({
+                yAxis: proRated,
+                lineStyle: { color: color, width: 2, type: lineType },
+                label: { show: true, formatter: label + ' ' + proRated, position: 'end', fontSize: 9, color: '#fff', backgroundColor: color, padding: [1, 4], borderRadius: 2 },
+            });
+        };
+        if ((direction === 'both' || direction === 'arr') && DEMAND_STATE.showVatsimAar) addRateLine(rates.vatsim_aar, 'AAR', '#000', 'solid');
+        if ((direction === 'both' || direction === 'dep') && DEMAND_STATE.showVatsimAdr) addRateLine(rates.vatsim_adr, 'ADR', '#000', [4, 4]);
+    }
+
+    // TMI markers for this airport
+    if (DEMAND_STATE.showTmiMarkers && ctx.tmiPrograms && ctx.tmiPrograms.length > 0) {
+        const savedPrograms = DEMAND_STATE.tmiPrograms;
+        DEMAND_STATE.tmiPrograms = ctx.tmiPrograms;
+        const tmiLines = buildTmiMarkerLines();
+        DEMAND_STATE.tmiPrograms = savedPrograms;
+        markLineData.push(...tmiLines);
+    }
+
+    if (series.length > 0 && markLineData.length > 0) {
+        series[0].markLine = { silent: true, symbol: ['none', 'none'], data: markLineData };
+    }
+
+    // Build chart options (compact for comparison)
+    const options = {
+        animation: false,
+        grid: { left: 40, right: 10, top: 10, bottom: 30 },
+        xAxis: {
+            type: 'time',
+            min: new Date(DEMAND_STATE.currentStart).getTime(),
+            max: new Date(DEMAND_STATE.currentEnd).getTime(),
+            axisLabel: { fontSize: 9, formatter: '{HH}:{mm}Z' },
+        },
+        yAxis: { type: 'value', axisLabel: { fontSize: 9 } },
+        tooltip: { trigger: 'axis' },
+        series: series,
+        dataZoom: [{ type: 'inside' }],
+    };
+
+    chart.setOption(options, true);
+
+    // Update panel meta (AAR/ADR)
+    const $meta = $('#compare_meta_' + icao);
+    if (ctx.rateData && ctx.rateData.rates) {
+        const r = ctx.rateData.rates;
+        $meta.text('AAR ' + (r.vatsim_aar || '--') + ' | ADR ' + (r.vatsim_adr || '--'));
+    }
+
+    // Render per-panel TMI timeline
+    if (DEMAND_STATE.showTmiTimeline && ctx.tmiPrograms && ctx.tmiPrograms.length > 0) {
+        renderComparisonTmiTimeline(icao, ctx.tmiPrograms);
+    }
+}
+
+/**
+ * Render a compact TMI timeline for a comparison panel.
+ */
+function renderComparisonTmiTimeline(icao, programs) {
+    const container = document.getElementById('compare_tmi_' + icao);
+    const track = document.getElementById('compare_tmi_track_' + icao);
+    if (!container || !track) return;
+
+    const filtered = programs.filter(p => {
+        const t = (p.program_type || '').toUpperCase();
+        return t === 'GS' || t.startsWith('GDP');
+    });
+
+    if (filtered.length === 0) { container.style.display = 'none'; return; }
+
+    container.style.display = '';
+    const chartStartMs = new Date(DEMAND_STATE.currentStart).getTime();
+    const chartEndMs = new Date(DEMAND_STATE.currentEnd).getTime();
+    const range = chartEndMs - chartStartMs;
+    if (range <= 0) return;
+
+    const toPct = (ms) => Math.max(0, Math.min(100, (ms - chartStartMs) / range * 100));
+    const COLORS = {
+        'GS': { bg: '#dc3545' }, 'GDP': { bg: '#ffc107' },
+        'GDP-DAS': { bg: '#ffc107' }, 'GDP-GAAP': { bg: '#ff9800' }, 'GDP-UDP': { bg: '#ff5722' },
+    };
+
+    track.innerHTML = '';
+    track.style.height = '20px';
+    track.style.position = 'relative';
+
+    filtered.forEach(p => {
+        const startMs = new Date(p.start_utc).getTime();
+        const endMs = new Date(p.end_utc || p.purged_at || new Date()).getTime();
+        const pType = (p.program_type || '').toUpperCase();
+        const color = (COLORS[pType] || { bg: '#6c757d' }).bg;
+
+        const bar = document.createElement('div');
+        bar.style.cssText = 'position:absolute;top:2px;height:16px;border-radius:2px;font-size:8px;color:#fff;line-height:16px;padding:0 4px;overflow:hidden;white-space:nowrap;';
+        bar.style.left = toPct(startMs) + '%';
+        bar.style.width = Math.max(0.5, toPct(endMs) - toPct(startMs)) + '%';
+        bar.style.background = color;
+        bar.textContent = pType;
+        track.appendChild(bar);
+    });
+}
+
+/**
+ * Sync datazoom across all comparison panels.
+ */
+let _syncingZoom = false;
+function syncDataZoom(sourceIcao, params) {
+    if (_syncingZoom) return;
+    _syncingZoom = true;
+
+    try {
+        const sourceChart = DEMAND_STATE.comparisonCharts.get(sourceIcao);
+        if (!sourceChart) return;
+
+        const option = sourceChart.getOption();
+        const dz = option.dataZoom && option.dataZoom[0];
+        if (!dz) return;
+
+        DEMAND_STATE.comparisonCharts.forEach((chart, icao) => {
+            if (icao === sourceIcao) return;
+            chart.dispatchAction({
+                type: 'dataZoom',
+                start: dz.start,
+                end: dz.end,
+            });
+        });
+    } finally {
+        setTimeout(() => { _syncingZoom = false; }, 50);
+    }
+}
+
+/**
+ * Update info bar for comparison mode: aggregate stats.
+ */
+function updateComparisonInfoBar() {
+    if (!DEMAND_STATE.comparisonMode) return;
+
+    const airports = DEMAND_STATE.comparisonAirports;
+    $('#demand_selected_airport').text(airports.join(' / '));
+    $('#demand_airport_name').text(PERTII18n.t('demand.compare.aggregate'));
+
+    // Hide config and ATIS cards
+    $('#demand_config_card').hide();
+    $('#demand_atis_card').hide();
+
+    // Aggregate arrival/departure totals
+    let totalArr = 0, totalDep = 0;
+    DEMAND_STATE.comparisonData.forEach((ctx) => {
+        if (!ctx.demandData) return;
+        const filtered = applyClientFilters(ctx.demandData);
+        const sumBins = (bins) => (bins || []).reduce((s, bin) => {
+            return s + (bin.breakdown ? Object.values(bin.breakdown).reduce((a, b) => a + b, 0) : 0);
+        }, 0);
+        totalArr += sumBins(filtered.arrivals);
+        totalDep += sumBins(filtered.departures);
+    });
+
+    $('#demand_arr_total').text(totalArr);
+    $('#demand_dep_total').text(totalDep);
+}
+
+/**
  * Start auto-refresh timer
  */
 function startAutoRefresh() {
@@ -6739,7 +7277,9 @@ function startAutoRefresh() {
         : DEMAND_STATE.facilityCode;
     if (DEMAND_STATE.autoRefresh && hasSelection) {
         DEMAND_STATE.refreshTimer = setInterval(function() {
-            if (DEMAND_STATE.demandType === 'airport') {
+            if (DEMAND_STATE.comparisonMode) {
+                loadAllComparisonData();
+            } else if (DEMAND_STATE.demandType === 'airport') {
                 loadDemandData();
             } else {
                 loadFacilityDemand();
