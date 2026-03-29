@@ -83,6 +83,14 @@ $config = [
     // CTP Oceanic compliance check (runs alongside TMI sync, every 8 cycles = 120s)
     'ctp_compliance_enabled' => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
     'ctp_compliance_interval' => 8,
+
+    // GDP auto-reoptimization (every 16 cycles = ~240s = 4 min)
+    'gdp_reopt_enabled' => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
+    'gdp_reopt_interval' => 16,
+
+    // GDP EDCT compliance monitoring (every 8 cycles = ~120s, alongside CTP)
+    'gdp_compliance_enabled' => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
+    'gdp_compliance_interval' => 8,
     'tmi_db_server'     => defined('TMI_SQL_HOST') ? TMI_SQL_HOST : null,
     'tmi_db_name'       => defined('TMI_SQL_DATABASE') ? TMI_SQL_DATABASE : null,
     'tmi_db_user'       => defined('TMI_SQL_USERNAME') ? TMI_SQL_USERNAME : null,
@@ -2359,6 +2367,246 @@ function executeTmiSyncCleanup($conn_adl, array $activeFuids, float $start, int 
     ];
 }
 
+/**
+ * Auto-reoptimize active GDP/AFP programs on a timer.
+ * Calls sp_TMI_ReoptimizeProgram for each active GDP/AFP program.
+ * Skips programs reoptimized within the last 3 minutes to avoid redundant work.
+ *
+ * @param resource $conn_tmi VATSIM_TMI connection (read-write)
+ * @return array{programs: int, reoptimized: int, ms: int}|null
+ */
+function executeGdpAutoReopt($conn_tmi): ?array {
+    $start = microtime(true);
+
+    // Find active GDP/AFP programs eligible for reoptimization
+    $sql = "
+        SELECT program_id, ctl_element, program_type, last_reopt_utc
+        FROM dbo.tmi_programs
+        WHERE is_active = 1
+          AND program_type IN ('GDP-DAS', 'GDP-GAAP', 'GDP-UDP', 'AFP')
+          AND status = 'ACTIVE'
+    ";
+    $stmt = sqlsrv_query($conn_tmi, $sql, [], ['QueryTimeout' => 10]);
+    if ($stmt === false) {
+        logWarn("GDP auto-reopt: failed to query programs", ['errors' => sqlsrv_errors()]);
+        return null;
+    }
+
+    $programs = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $programs[] = $row;
+    }
+    sqlsrv_free_stmt($stmt);
+
+    if (empty($programs)) {
+        return ['programs' => 0, 'reoptimized' => 0, 'ms' => round((microtime(true) - $start) * 1000)];
+    }
+
+    $reoptimized = 0;
+    $nowTs = time();
+
+    foreach ($programs as $prog) {
+        // Skip if reoptimized within last 3 minutes
+        $lastReopt = $prog['last_reopt_utc'];
+        if ($lastReopt !== null) {
+            $lastReoptStr = formatDatetimeParam($lastReopt);
+            $lastReoptTs = $lastReoptStr ? strtotime($lastReoptStr) : false;
+            if ($lastReoptTs && ($nowTs - $lastReoptTs) < 180) {
+                continue;
+            }
+        }
+
+        $pid = (int)$prog['program_id'];
+
+        // Call the reoptimization SP
+        $reoptSql = "
+            DECLARE @popups_assigned INT, @slots_compressed INT, @delay_saved_min INT,
+                    @reserves_converted INT, @actions_taken BIT;
+            EXEC dbo.sp_TMI_ReoptimizeProgram
+                @program_id = ?,
+                @triggered_by = ?,
+                @popups_assigned = @popups_assigned OUTPUT,
+                @slots_compressed = @slots_compressed OUTPUT,
+                @delay_saved_min = @delay_saved_min OUTPUT,
+                @reserves_converted = @reserves_converted OUTPUT,
+                @actions_taken = @actions_taken OUTPUT;
+            SELECT
+                @popups_assigned AS popups_assigned,
+                @slots_compressed AS slots_compressed,
+                @delay_saved_min AS delay_saved_min,
+                @reserves_converted AS reserves_converted,
+                @actions_taken AS actions_taken;
+        ";
+
+        $reoptStmt = sqlsrv_query($conn_tmi, $reoptSql, [$pid, 'DAEMON']);
+        if ($reoptStmt !== false) {
+            // Read results
+            $row = sqlsrv_fetch_array($reoptStmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($reoptStmt);
+
+            $actionsTaken = (int)($row['actions_taken'] ?? 0);
+            if ($actionsTaken) {
+                $reoptimized++;
+                logInfo("GDP auto-reopt: program {$pid} ({$prog['ctl_element']})", [
+                    'popups' => $row['popups_assigned'] ?? 0,
+                    'compressed' => $row['slots_compressed'] ?? 0,
+                    'delay_saved' => $row['delay_saved_min'] ?? 0,
+                    'reserves' => $row['reserves_converted'] ?? 0,
+                ]);
+            }
+        } else {
+            $errors = sqlsrv_errors();
+            // Filter out info messages
+            $realErrors = array_filter($errors ?? [], fn($e) => !in_array($e['code'] ?? 0, [5701, 5703]));
+            if (!empty($realErrors)) {
+                logWarn("GDP auto-reopt: SP failed for program {$pid}", ['errors' => $realErrors]);
+            }
+        }
+    }
+
+    return [
+        'programs' => count($programs),
+        'reoptimized' => $reoptimized,
+        'ms' => round((microtime(true) - $start) * 1000)
+    ];
+}
+
+/**
+ * GDP EDCT compliance monitoring.
+ * For flights under active GDP programs that have departed, compare actual OFF
+ * time vs assigned CTD and set compliance_status accordingly.
+ *
+ * FAA compliance window: ±5 minutes of assigned EDCT.
+ * - EARLY: OFF < CTD - 5 min
+ * - COMPLIANT: CTD - 5 min <= OFF <= CTD + 5 min
+ * - LATE: OFF > CTD + 5 min
+ * - NO_SHOW: No departure within 30 min of CTD
+ *
+ * @param resource $conn_adl VATSIM_ADL connection (read-only)
+ * @param resource $conn_tmi VATSIM_TMI connection (read-write)
+ * @return array{updated: int, programs: int, ms: int}|null
+ */
+function executeGdpComplianceCheck($conn_adl, $conn_tmi): ?array {
+    $start = microtime(true);
+
+    // 1. Find flights needing compliance check:
+    //    - Active GDP programs, non-exempt, has CTD, compliance not yet final
+    $flightSql = "
+        SELECT fc.control_id, fc.flight_uid, fc.program_id, fc.ctd_utc, fc.compliance_status
+        FROM dbo.tmi_flight_control fc
+        INNER JOIN dbo.tmi_programs p ON fc.program_id = p.program_id
+        WHERE p.is_active = 1
+          AND p.program_type LIKE 'GDP%'
+          AND fc.ctl_exempt = 0
+          AND fc.ctd_utc IS NOT NULL
+          AND (fc.compliance_status IS NULL
+               OR fc.compliance_status IN ('PENDING', ''))
+    ";
+    $flightResult = sqlsrv_query($conn_tmi, $flightSql, [], ['QueryTimeout' => 10]);
+    if (!$flightResult) {
+        logWarn("GDP compliance: query failed", ['errors' => sqlsrv_errors()]);
+        return null;
+    }
+
+    $flights = [];
+    $fuids = [];
+    while ($f = sqlsrv_fetch_array($flightResult, SQLSRV_FETCH_ASSOC)) {
+        $uid = (int)$f['flight_uid'];
+        $flights[$uid] = $f;
+        $fuids[] = $uid;
+    }
+    sqlsrv_free_stmt($flightResult);
+
+    if (empty($fuids)) {
+        return ['updated' => 0, 'programs' => 0, 'ms' => round((microtime(true) - $start) * 1000)];
+    }
+
+    // 2. Batch fetch departure times from ADL
+    $depTimes = [];
+    foreach (array_chunk($fuids, 500) as $chunk) {
+        $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+        $adlSql = "
+            SELECT t.flight_uid, t.off_utc, t.out_utc, c.flight_phase
+            FROM dbo.adl_flight_times t
+            JOIN dbo.adl_flight_core c ON c.flight_uid = t.flight_uid
+            WHERE t.flight_uid IN ($placeholders)
+        ";
+        $adlResult = sqlsrv_query($conn_adl, $adlSql, $chunk);
+        if (!$adlResult) continue;
+        while ($row = sqlsrv_fetch_array($adlResult, SQLSRV_FETCH_ASSOC)) {
+            $depTimes[(int)$row['flight_uid']] = $row;
+        }
+        sqlsrv_free_stmt($adlResult);
+    }
+
+    // 3. Calculate compliance and update
+    $nowTs = time();
+    $updated = 0;
+    $programsSeen = [];
+
+    foreach ($flights as $uid => $f) {
+        $ctdVal = $f['ctd_utc'];
+        $ctdStr = formatDatetimeParam($ctdVal);
+        if (!$ctdStr) continue;
+        $ctdTs = strtotime($ctdStr);
+        if (!$ctdTs) continue;
+
+        $complianceStatus = null;
+
+        if (isset($depTimes[$uid])) {
+            $adl = $depTimes[$uid];
+            $depVal = $adl['off_utc'] ?? $adl['out_utc'] ?? null;
+
+            if ($depVal) {
+                $depStr = formatDatetimeParam($depVal);
+                $depTs = $depStr ? strtotime($depStr) : false;
+                if ($depTs) {
+                    $deltaMin = ($depTs - $ctdTs) / 60;
+                    if ($deltaMin < -5) {
+                        $complianceStatus = 'EARLY';
+                    } elseif ($deltaMin <= 5) {
+                        $complianceStatus = 'COMPLIANT';
+                    } else {
+                        $complianceStatus = 'LATE';
+                    }
+                }
+            }
+
+            // No departure + 30 min past CTD
+            if (!$depVal && ($nowTs - $ctdTs) > 1800) {
+                $phase = $adl['flight_phase'] ?? '';
+                if (in_array($phase, ['COMPLETED', 'CANCELLED'])) {
+                    $complianceStatus = 'NO_SHOW';
+                } elseif ($phase !== 'ACTIVE' && $phase !== 'PREFILED') {
+                    $complianceStatus = 'LATE';
+                }
+            }
+        } elseif (($nowTs - $ctdTs) > 1800) {
+            // Flight not even in ADL anymore + 30 min past CTD
+            $complianceStatus = 'NO_SHOW';
+        }
+
+        if ($complianceStatus !== null) {
+            $updateSql = "UPDATE dbo.tmi_flight_control SET compliance_status = ? WHERE control_id = ?";
+            $upResult = sqlsrv_query($conn_tmi, $updateSql, [
+                $complianceStatus,
+                (int)$f['control_id']
+            ]);
+            if ($upResult) {
+                $updated++;
+                sqlsrv_free_stmt($upResult);
+                $programsSeen[(int)$f['program_id']] = true;
+            }
+        }
+    }
+
+    return [
+        'updated' => $updated,
+        'programs' => count($programsSeen),
+        'ms' => round((microtime(true) - $start) * 1000)
+    ];
+}
+
 function executeSwimSync($conn_adl, $conn_swim): ?array {
     static $syncScriptLoaded = false;
 
@@ -2780,6 +3028,36 @@ function runDaemon(array $config): void {
                         }
                     } catch (Throwable $e) {
                         logWarn("CTP compliance error: " . $e->getMessage());
+                    }
+                }
+            }
+
+            // 4c. GDP auto-reoptimization (runs every gdp_reopt_interval cycles)
+            $reoptResult = null;
+            if ($config['gdp_reopt_enabled'] && ($stats['runs'] % $config['gdp_reopt_interval'] === 0)) {
+                if ($conn_tmi) {
+                    try {
+                        $reoptResult = executeGdpAutoReopt($conn_tmi);
+                        if ($reoptResult !== null && $reoptResult['reoptimized'] > 0) {
+                            logInfo("GDP auto-reopt: {$reoptResult['reoptimized']}/{$reoptResult['programs']} programs reoptimized ({$reoptResult['ms']}ms)");
+                        }
+                    } catch (Throwable $e) {
+                        logWarn("GDP auto-reopt error: " . $e->getMessage());
+                    }
+                }
+            }
+
+            // 4d. GDP EDCT compliance monitoring (runs every gdp_compliance_interval cycles)
+            $gdpComplianceResult = null;
+            if ($config['gdp_compliance_enabled'] && ($stats['runs'] % $config['gdp_compliance_interval'] === 0)) {
+                if ($conn_tmi) {
+                    try {
+                        $gdpComplianceResult = executeGdpComplianceCheck($conn, $conn_tmi);
+                        if ($gdpComplianceResult !== null && $gdpComplianceResult['updated'] > 0) {
+                            logInfo("GDP compliance: {$gdpComplianceResult['updated']} updated across {$gdpComplianceResult['programs']} program(s) ({$gdpComplianceResult['ms']}ms)");
+                        }
+                    } catch (Throwable $e) {
+                        logWarn("GDP compliance error: " . $e->getMessage());
                     }
                 }
             }

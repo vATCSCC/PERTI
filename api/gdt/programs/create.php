@@ -184,6 +184,7 @@ $created_by = $auth_cid;
 // Rate parameters (JSON)
 $rates_hourly_json = isset($payload['rates_hourly_json']) ? (is_string($payload['rates_hourly_json']) ? $payload['rates_hourly_json'] : json_encode($payload['rates_hourly_json'])) : null;
 $reserve_hourly_json = isset($payload['reserve_hourly_json']) ? (is_string($payload['reserve_hourly_json']) ? $payload['reserve_hourly_json'] : json_encode($payload['reserve_hourly_json'])) : null;
+$rates_quarter_json = isset($payload['rates_quarter_json']) ? (is_string($payload['rates_quarter_json']) ? $payload['rates_quarter_json'] : json_encode($payload['rates_quarter_json'])) : null;
 
 // Default rates for GDP types
 $type_info = GDT_PROGRAM_TYPES[$program_type];
@@ -219,7 +220,7 @@ $sql = "
         program_guid, ctl_element, element_type, program_type, program_name,
         adv_number, start_utc, end_utc, cumulative_start, cumulative_end,
         status, is_proposed, is_active, program_rate, reserve_rate,
-        delay_limit_min, target_delay_mult, rates_hourly_json, reserve_hourly_json,
+        delay_limit_min, target_delay_mult, rates_hourly_json, reserve_hourly_json, rates_quarter_json,
         scope_type, scope_tier, scope_distance_nm, scope_json, exemptions_json,
         exempt_airborne, exempt_within_min, flt_incl_carrier, flt_incl_type, flt_incl_fix,
         impacting_condition, cause_text, comments, prob_extension, revision_number,
@@ -229,7 +230,7 @@ $sql = "
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
         'MODELING', 0, 0, ?, ?,
-        ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
         ?, ?, ?, ?, 0,
@@ -256,6 +257,7 @@ $params = [
     $target_delay_mult,
     $rates_hourly_json,
     $reserve_hourly_json,
+    $rates_quarter_json,
     $scope_type,
     $scope_tier,
     $scope_distance_nm,

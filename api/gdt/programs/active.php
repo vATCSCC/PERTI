@@ -150,6 +150,7 @@ $sql = "
         p.superseded_by_id,
         p.scope_json,
         p.rates_hourly_json,
+        p.rates_quarter_json,
         p.created_by,
         p.created_at,
         p.activated_at,

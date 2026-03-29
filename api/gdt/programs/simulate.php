@@ -162,6 +162,14 @@ if (empty($origin_centers) && empty($origin_airports) && !empty($program['scope_
     }
 }
 
+// Fall back to program's flt_incl_* columns if not already set from scope
+if (empty($carriers) && !empty($program['flt_incl_carrier'])) {
+    $carriers = split_codes($program['flt_incl_carrier']);
+}
+if ($aircraft_type === 'ALL' && !empty($program['flt_incl_type']) && strtoupper($program['flt_incl_type']) !== 'ALL') {
+    $aircraft_type = strtoupper(trim($program['flt_incl_type']));
+}
+
 // Exemption rules
 $exempt_airborne = isset($exemptions['airborne']) ? (bool)$exemptions['airborne'] : true;
 $exempt_departing_within_min = isset($exemptions['departing_within_min']) ? (int)$exemptions['departing_within_min'] : 0;
@@ -708,6 +716,86 @@ if (count($flights_for_sp) > 0) {
 } // end if (count($flights_for_sp) > 0)
 
 // ============================================================================
+// Step 4b: Slot Bridging (successor programs only)
+//
+// When this program has a parent_program_id (GS-to-GDP transition or GDP revision),
+// link slots between predecessor and successor via bridge columns so delay
+// assignments are carried forward and the full program chain is traceable.
+// ============================================================================
+
+$parent_id = (int)($program['parent_program_id'] ?? 0);
+$bridged_count = 0;
+if ($parent_id > 0 && $program_type !== 'GS' && !$dry_run) {
+    // Determine bridge reason from transition_type
+    $transition_type = $program['transition_type'] ?? '';
+    $bridge_reason = match($transition_type) {
+        'GS_TO_GDP' => 'TRANSITION',
+        'REVISION'  => 'REVISION',
+        default     => 'BRIDGED',
+    };
+
+    // Get parent program's assigned slots keyed by flight_uid
+    $parent_slots = fetch_all($conn_tmi, "
+        SELECT slot_id, assigned_flight_uid
+        FROM dbo.tmi_slots
+        WHERE program_id = ?
+          AND assigned_flight_uid IS NOT NULL
+          AND slot_status = 'ASSIGNED'
+    ", [$parent_id]);
+
+    if ($parent_slots['success'] && !empty($parent_slots['data'])) {
+        // Build map: flight_uid -> parent slot_id
+        $parent_map = [];
+        foreach ($parent_slots['data'] as $ps) {
+            $parent_map[$ps['assigned_flight_uid']] = (int)$ps['slot_id'];
+        }
+
+        // Get this program's assigned slots
+        $child_slots = fetch_all($conn_tmi, "
+            SELECT slot_id, assigned_flight_uid
+            FROM dbo.tmi_slots
+            WHERE program_id = ?
+              AND assigned_flight_uid IS NOT NULL
+              AND slot_status = 'ASSIGNED'
+        ", [$program_id]);
+
+        if ($child_slots['success'] && !empty($child_slots['data'])) {
+            $bridged_count = 0;
+            foreach ($child_slots['data'] as $cs) {
+                $fuid = $cs['assigned_flight_uid'];
+                if (isset($parent_map[$fuid])) {
+                    $parent_slot_id = $parent_map[$fuid];
+                    $child_slot_id = (int)$cs['slot_id'];
+
+                    // Link child slot back to parent slot
+                    execute_query($conn_tmi,
+                        "UPDATE dbo.tmi_slots SET bridge_from_slot_id = ?, bridge_reason = ? WHERE slot_id = ?",
+                        [$parent_slot_id, $bridge_reason, $child_slot_id]
+                    );
+
+                    // Link parent slot forward to child slot
+                    execute_query($conn_tmi,
+                        "UPDATE dbo.tmi_slots SET bridge_to_slot_id = ?, bridge_reason = ? WHERE slot_id = ?",
+                        [$child_slot_id, $bridge_reason, $parent_slot_id]
+                    );
+
+                    $bridged_count++;
+                }
+            }
+
+            if ($bridged_count > 0) {
+                // Log bridging event
+                execute_query($conn_tmi,
+                    "INSERT INTO dbo.tmi_events (entity_type, entity_id, program_id, event_type, event_detail, source_type, event_utc)
+                     VALUES ('PROGRAM', ?, ?, 'SLOT_BRIDGING', ?, 'SYSTEM', SYSUTCDATETIME())",
+                    [$program_id, $program_id, "Bridged {$bridged_count} slots from program #{$parent_id} ({$bridge_reason})"]
+                );
+            }
+        }
+    }
+}
+
+// ============================================================================
 // Step 5: Fetch Results
 // ============================================================================
 
@@ -737,7 +825,7 @@ if ($program_type !== 'GS') {
     $slots = $slots_result['success'] ? $slots_result['data'] : [];
 }
 
-// Build summary
+// Build summary with enhanced analytics
 $summary = [
     'total_flights' => count($flights_for_sp),
     'assigned_count' => $assigned_count,
@@ -747,6 +835,67 @@ $summary = [
     'max_delay_min' => $program['max_delay_min'] ?? null,
     'total_delay_min' => $program['total_delay_min'] ?? null
 ];
+
+// Enhanced analytical metrics (computed from flight control data)
+$flights_data = $flight_control_result['success'] ? $flight_control_result['data'] : [];
+$delays = [];
+$delayed_count = 0;
+$on_time_count = 0;
+$time_bins = []; // For stack_peak calculation
+
+foreach ($flights_data as $fc) {
+    $delay_val = (int)($fc['program_delay_min'] ?? 0);
+    if (($fc['ctl_exempt'] ?? 0) == 1) continue; // Skip exempt flights
+
+    $delays[] = $delay_val;
+    if ($delay_val > 0) $delayed_count++;
+    if ($delay_val <= 5) $on_time_count++;
+
+    // Track concurrent delays per 15-min bin for stack_peak
+    $ctd = $fc['ctd_utc'] ?? null;
+    if ($ctd && $delay_val > 0) {
+        $ctdStr = ($ctd instanceof DateTimeInterface) ? $ctd->format('Y-m-d H:i') : substr((string)$ctd, 0, 16);
+        // Round to 15-min bin
+        $ts = strtotime(is_string($ctdStr) ? $ctdStr : '');
+        if ($ts) {
+            $bin = $ts - ($ts % 900); // 900s = 15 min
+            $time_bins[$bin] = ($time_bins[$bin] ?? 0) + 1;
+        }
+    }
+}
+
+$total_non_exempt = count($delays);
+$summary['affected_flights'] = $delayed_count;
+$summary['slot_utilization'] = ($slot_count > 0) ? round($assigned_count / $slot_count * 100, 1) : null;
+$summary['on_time_pct'] = ($total_non_exempt > 0) ? round($on_time_count / $total_non_exempt * 100, 1) : null;
+
+// Delay variance (standard deviation)
+if (count($delays) > 1) {
+    $mean = array_sum($delays) / count($delays);
+    $variance = array_sum(array_map(function($d) use ($mean) { return pow($d - $mean, 2); }, $delays)) / count($delays);
+    $summary['delay_variance'] = round(sqrt($variance), 1);
+} else {
+    $summary['delay_variance'] = 0;
+}
+
+// 95th percentile delay
+if (count($delays) > 0) {
+    sort($delays);
+    $p95_index = (int)ceil(count($delays) * 0.95) - 1;
+    $p95_index = max(0, min($p95_index, count($delays) - 1));
+    $summary['delay_p95'] = $delays[$p95_index];
+} else {
+    $summary['delay_p95'] = 0;
+}
+
+// Stack peak: max concurrent delayed flights in any single 15-min bin
+$summary['stack_peak'] = !empty($time_bins) ? max($time_bins) : 0;
+
+// Slot bridging count (flights carried forward from predecessor program)
+if ($bridged_count > 0) {
+    $summary['bridged_flights'] = $bridged_count;
+    $summary['bridge_parent_id'] = $parent_id;
+}
 
 // ============================================================================
 // Dry-Run Rollback: undo all DB changes made during simulation

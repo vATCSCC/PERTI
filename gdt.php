@@ -737,6 +737,29 @@ $is_canoc = (get_org_code() === 'canoc');
                         </div>
                     </div>
 
+                    <!-- Edit 15: Per-15-Minute Rate Editor (GDP only) -->
+                    <div id="gs_edit15_container" style="display: none;">
+                        <div class="d-flex align-items-center mb-1">
+                            <label class="tmi-label mb-0 mr-2">Per-15-Min Rates (Edit 15)</label>
+                            <button type="button" class="btn btn-xs btn-outline-info" id="gs_edit15_toggle" onclick="toggleEdit15();" title="Toggle per-15-minute rate editor">
+                                <i class="fas fa-clock mr-1"></i>Edit 15
+                            </button>
+                            <button type="button" class="btn btn-xs btn-outline-secondary ml-1 d-none" id="gs_edit15_clear" onclick="clearEdit15();" title="Clear per-15-min rates and use flat rate">
+                                <i class="fas fa-times mr-1"></i>Clear
+                            </button>
+                        </div>
+                        <div id="gs_edit15_grid" class="mb-2" style="display: none; overflow-x: auto;">
+                            <table class="table table-sm table-bordered mb-0" style="font-size: 0.75rem; table-layout: fixed;">
+                                <thead class="thead-light">
+                                    <tr id="gs_edit15_header"></tr>
+                                </thead>
+                                <tbody>
+                                    <tr id="gs_edit15_inputs"></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- Period (treated as UTC by JS) -->
                     <div class="form-row">
                         <div class="form-group col-md-6">
@@ -760,8 +783,31 @@ $is_canoc = (get_org_code() === 'canoc');
                         <div id="gs_airports_legend" class="mt-1"></div>
                     </div>
 
-                    <!-- Scope Group + Facility Checkboxes -->
-                    <div class="form-row">
+                    <!-- Scope Type Toggle (Tier vs Distance) -->
+                    <div class="form-row mb-1">
+                        <div class="form-group col-md-6 mb-0">
+                            <label class="tmi-label mb-0">Scope Type</label>
+                            <div class="d-flex align-items-center" style="gap: 12px; margin-top: 2px;">
+                                <div class="custom-control custom-radio custom-control-inline">
+                                    <input type="radio" class="custom-control-input" id="gs_scope_type_tier" name="gs_scope_type_radio" value="TIER" checked>
+                                    <label class="custom-control-label" for="gs_scope_type_tier">Tier (ARTCC)</label>
+                                </div>
+                                <div class="custom-control custom-radio custom-control-inline">
+                                    <input type="radio" class="custom-control-input" id="gs_scope_type_distance" name="gs_scope_type_radio" value="DISTANCE">
+                                    <label class="custom-control-label" for="gs_scope_type_distance">Distance (nm)</label>
+                                </div>
+                            </div>
+                            <input type="hidden" id="gs_scope_type" value="TIER">
+                        </div>
+                        <div class="form-group col-md-6 mb-0" id="gs_scope_distance_container" style="display: none;">
+                            <label class="tmi-label mb-0" for="gs_scope_distance_nm">Distance from Airport (nm)</label>
+                            <input type="number" class="form-control form-control-sm" id="gs_scope_distance_nm"
+                                   min="50" max="2000" step="50" value="200" placeholder="200">
+                        </div>
+                    </div>
+
+                    <!-- Scope Group + Facility Checkboxes (visible when Tier selected) -->
+                    <div class="form-row" id="gs_scope_tier_container">
                         <div class="form-group col-md-4">
                             <label class="tmi-label mb-0" for="gs_scope_group"><?= __('gdt.page.originCentersScope') ?></label>
                             <select class="form-control form-control-sm" id="gs_scope_group">
@@ -1040,6 +1086,9 @@ $is_canoc = (get_org_code() === 'canoc');
                                 </button>
                                 <button class="btn btn-outline-primary" id="gs_open_model_btn" type="button" title="<?= __('gdt.page.openModelTooltip') ?>">
                                     <i class="fas fa-chart-line mr-1"></i><?= __('gdt.page.modelButton') ?>
+                                </button>
+                                <button class="btn btn-outline-info" id="gs_power_run_btn" type="button" title="Sweep rate/distance/time parameters across multiple scenarios" onclick="handlePowerRun();" style="display:none;">
+                                    <i class="fas fa-tachometer-alt mr-1"></i>Power Run
                                 </button>
                             </div>
                             <div class="btn-group btn-group-sm" role="group">
@@ -1413,7 +1462,17 @@ $is_canoc = (get_org_code() === 'canoc');
                                             <tr><td class="text-muted"><?= __('gdt.page.within15min') ?></td><td class="text-right" id="gs_model_horizon_15">0 flts</td></tr>
                                         </tbody>
                                     </table>
-                                    <hr class="my-2">
+                                    <hr class="my-1">
+                                    <table class="table table-sm table-borderless mb-0" style="font-size: 0.75rem;">
+                                        <tbody>
+                                            <tr><td class="text-muted">Slot Utilization</td><td class="text-right" id="gs_model_slot_util">-</td></tr>
+                                            <tr><td class="text-muted">On-Time (&le;5 min)</td><td class="text-right" id="gs_model_on_time_pct">-</td></tr>
+                                            <tr><td class="text-muted">P95 Delay</td><td class="text-right" id="gs_model_delay_p95">-</td></tr>
+                                            <tr><td class="text-muted">Delay StDev</td><td class="text-right" id="gs_model_delay_var">-</td></tr>
+                                            <tr><td class="text-muted">Stack Peak</td><td class="text-right" id="gs_model_stack_peak">-</td></tr>
+                                        </tbody>
+                                    </table>
+                                    <hr class="my-1">
                                     <div class="small">
                                         <strong><?= __('gdt.page.gsProgram') ?></strong> <span id="gs_model_ctl_element" class="text-primary">-</span><br>
                                         <span class="text-muted"><?= __('gdt.page.start') ?></span> <span id="gs_model_gs_start">-</span><br>
@@ -1939,6 +1998,7 @@ $is_canoc = (get_org_code() === 'canoc');
                                 <th class="gs-sortable" data-sort="eta" style="cursor:pointer;">ETA <i class="fas fa-sort fa-xs text-muted"></i></th>
                                 <th>CTA</th>
                                 <th class="gs-sortable" data-sort="delay" style="cursor:pointer;"><?= __('gdt.page.delay') ?> <i class="fas fa-sort fa-xs text-muted"></i></th>
+                                <th>Compliance</th>
                                 <th><?= __('common.status') ?></th>
                             </tr>
                         </thead>
