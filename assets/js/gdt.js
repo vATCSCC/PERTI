@@ -293,6 +293,7 @@
             if (typeLabel !== 'GS') {
                 actions += '<button class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); dashboardCompress(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.compressTitle') + '"><i class="fas fa-compress-arrows-alt mr-1"></i>' + PERTII18n.t('gdt.dashboard.action.compress') + '</button>';
                 actions += '<button class="btn btn-sm btn-outline-info" onclick="event.stopPropagation(); dashboardReoptimize(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.reoptimizeTitle') + '"><i class="fas fa-sync-alt mr-1"></i>' + PERTII18n.t('gdt.dashboard.action.reoptimize') + '</button>';
+                actions += '<button class="btn btn-sm btn-outline-warning" onclick="event.stopPropagation(); dashboardBlanket(' + p.program_id + ');" title="Apply uniform delay adjustment to all flights"><i class="fas fa-arrows-alt-v mr-1"></i>Blanket</button>';
             }
         } else if (p.status === 'PROPOSED' || p.status === 'MODELING' || p.status === 'PENDING_COORD') {
             actions += '<button class="btn btn-sm btn-outline-danger" onclick="event.stopPropagation(); dashboardDelete(' + p.program_id + ');" title="' + PERTII18n.t('gdt.dashboard.action.deleteTitle') + '"><i class="fas fa-trash-alt mr-1"></i>' + PERTII18n.t('gdt.dashboard.action.delete') + '</button>';
@@ -445,6 +446,12 @@
             el = document.getElementById('gs_end');
             if (el) el.value = isoToDatetimeLocal(p.end_utc);
         }
+
+        // Flight inclusion filters
+        el = document.getElementById('gs_flt_incl_carrier');
+        if (el) el.value = p.flt_incl_carrier || '';
+        el = document.getElementById('gs_flt_incl_type');
+        if (el) el.value = p.flt_incl_type || 'ALL';
 
         // Impacting condition
         el = document.getElementById('gs_impacting_condition');
@@ -1642,6 +1649,59 @@
         });
     }
 
+    function dashboardBlanket(programId) {
+        Swal.fire({
+            title: '<i class="fas fa-arrows-alt-v text-warning mr-2"></i>Blanket Adjustment',
+            html:
+                '<div class="text-left">' +
+                '<p class="small text-muted mb-2">Apply a uniform delay offset to all assigned flights in program #' + programId + '.</p>' +
+                '<div class="form-group">' +
+                '<label class="font-weight-bold">Adjustment (minutes)</label>' +
+                '<input type="number" class="form-control" id="swal_blanket_min" value="15" min="-300" max="300" step="5">' +
+                '<small class="form-text text-muted">Positive = add delay, Negative = reduce delay</small>' +
+                '</div>' +
+                '<div class="form-group">' +
+                '<label class="font-weight-bold">Reason</label>' +
+                '<input type="text" class="form-control" id="swal_blanket_reason" placeholder="e.g., Weather improvement">' +
+                '</div>' +
+                '</div>',
+            showCancelButton: true,
+            confirmButtonColor: '#ffc107',
+            confirmButtonText: 'Apply Blanket',
+            showLoaderOnConfirm: true,
+            preConfirm: function() {
+                var adj = parseInt(document.getElementById('swal_blanket_min').value);
+                var reason = document.getElementById('swal_blanket_reason').value || '';
+                if (!adj || adj === 0) {
+                    Swal.showValidationMessage('Adjustment must be non-zero');
+                    return false;
+                }
+                return apiPostJson('api/gdt/programs/blanket.php', {
+                    program_id: programId,
+                    adjustment_min: adj,
+                    reason: reason
+                }).then(function(resp) {
+                    if (resp.status !== 'ok') throw new Error(resp.message || 'Blanket adjustment failed');
+                    return resp;
+                });
+            },
+            allowOutsideClick: function() { return !Swal.isLoading(); }
+        }).then(function(result) {
+            if (result.isConfirmed && result.value) {
+                var d = result.value.data || {};
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Blanket Applied',
+                    html: d.flights_adjusted + ' flights adjusted by ' + d.adjustment_min + ' min<br>' +
+                          '<small>New avg delay: ' + d.new_avg_delay_min + ' min | Max: ' + d.new_max_delay_min + ' min</small>',
+                    timer: 4000,
+                    showConfirmButton: false
+                });
+                loadActiveProgramsDashboard();
+            }
+        });
+    }
+
     window.loadProgramFromDashboard = loadProgramFromDashboard;
     window.resetAndNewProgram = resetAndNewProgram;
     window.dashboardExtend = dashboardExtend;
@@ -1651,6 +1711,7 @@
     window.dashboardDelete = dashboardDelete;
     window.dashboardCompress = dashboardCompress;
     window.dashboardReoptimize = dashboardReoptimize;
+    window.dashboardBlanket = dashboardBlanket;
     window.submitExtend = submitExtend;
     window.submitRevise = submitRevise;
     window.submitTransitionPropose = submitTransitionPropose;
