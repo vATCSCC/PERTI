@@ -1042,6 +1042,24 @@
       "willUpdate": "Publishing will update the existing entry.",
       "yourName": "Your Name"
     },
+    "summary": {
+      "avgDelay": "Avg Delay",
+      "compliance": "Compliance",
+      "exceededBy": "AAR exceeded by {count}",
+      "exempt": "Exempt",
+      "gdpControlled": "GDP Controlled",
+      "gsStopped": "GS Stopped",
+      "maxDelay": "Max Delay",
+      "noData": "No data",
+      "peakHour": "Peak Hour",
+      "tmiControl": "TMI Control",
+      "topArrFixes": "Top Arr Fixes",
+      "topCarriers": "Top Carriers",
+      "topDepFixes": "Top Dep Fixes",
+      "topOrigins": "Top Origins",
+      "weightMix": "Weight Mix",
+      "withinCapacity": "Within capacity"
+    },
     "status": {
       "adlTime": "ADL: {time}",
       "refreshed": "Refreshed: {time}"

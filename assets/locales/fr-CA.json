@@ -1042,6 +1042,24 @@
       "willUpdate": "La publication mettra à jour l’entrée existante.",
       "yourName": "Your Nom"
     },
+    "summary": {
+      "avgDelay": "Retard moy.",
+      "compliance": "Conformite",
+      "exceededBy": "AAR depasse de {count}",
+      "exempt": "Exempte",
+      "gdpControlled": "GDP controle",
+      "gsStopped": "GS arrete",
+      "maxDelay": "Retard max.",
+      "noData": "Aucune donnee",
+      "peakHour": "Heure de pointe",
+      "tmiControl": "Controle TMI",
+      "topArrFixes": "Top Fixes ARR",
+      "topCarriers": "Top Transporteurs",
+      "topDepFixes": "Top Fixes DEP",
+      "topOrigins": "Top Origines",
+      "weightMix": "Classe de poids",
+      "withinCapacity": "Dans la capacite"
+    },
     "status": {
       "adlTime": "ADL : {time}",
       "refreshed": "Refreshed : {time}"

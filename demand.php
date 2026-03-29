@@ -1313,7 +1313,7 @@ include("load/i18n.php");
                 </div>
             </div>
 
-            <!-- Flight Summary Card - TBFM/FSM Style -->
+            <!-- Enhanced Flight Summary Card — 6-Card Grid -->
             <div class="card shadow-sm mt-3 tbfm-chart-card">
                 <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
                     <span class="demand-section-title">
@@ -1325,32 +1325,70 @@ include("load/i18n.php");
                     </button>
                 </div>
                 <div class="card-body p-2" id="demand_flight_summary" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="card border mb-2" style="border-color: #bdc3c7;">
-                                <div class="card-header py-2 px-3" style="background: #ecf0f1; border-bottom: 1px solid #bdc3c7;">
-                                    <span class="demand-label" style="color: #2c3e50;">
-                                        <i class="fas fa-map-marker-alt mr-1 text-danger"></i> <?= __('demand.page.topOriginArtccs') ?>
-                                    </span>
+                    <div class="row" id="summary_card_grid">
+                        <!-- Card 1: Peak Hour -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-clock mr-1"></i> <?= __('demand.summary.peakHour') ?>
                                 </div>
-                                <div class="card-body p-2">
-                                    <table class="table table-sm table-hover mb-0 tbfm-summary-table">
-                                        <tbody id="demand_top_origins"></tbody>
-                                    </table>
+                                <div style="padding: 6px 8px;" id="summary_peak_hour">
+                                    <span class="text-muted small">--</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="card border mb-2" style="border-color: #bdc3c7;">
-                                <div class="card-header py-2 px-3" style="background: #ecf0f1; border-bottom: 1px solid #bdc3c7;">
-                                    <span class="demand-label" style="color: #2c3e50;">
-                                        <i class="fas fa-plane mr-1 text-primary"></i> <?= __('demand.page.topCarriers') ?>
-                                    </span>
+                        <!-- Card 2: TMI Control -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-hand-paper mr-1"></i> <?= __('demand.summary.tmiControl') ?>
                                 </div>
-                                <div class="card-body p-2">
-                                    <table class="table table-sm table-hover mb-0 tbfm-summary-table">
-                                        <tbody id="demand_top_carriers"></tbody>
-                                    </table>
+                                <div style="padding: 6px 8px;" id="summary_tmi_control">
+                                    <span class="text-muted small">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 3: Weight Mix -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-balance-scale mr-1"></i> <?= __('demand.summary.weightMix') ?>
+                                </div>
+                                <div style="padding: 6px 8px;" id="summary_weight_mix">
+                                    <span class="text-muted small">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 4: Top Origins -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-map-marker-alt mr-1"></i> <?= __('demand.summary.topOrigins') ?>
+                                </div>
+                                <div style="padding: 4px 8px;" id="summary_top_origins">
+                                    <span class="text-muted small">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 5: Top Carriers -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-plane mr-1"></i> <?= __('demand.summary.topCarriers') ?>
+                                </div>
+                                <div style="padding: 4px 8px;" id="summary_top_carriers">
+                                    <span class="text-muted small">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 6: Top Fixes -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-thumbtack mr-1"></i> <span id="summary_fixes_title"><?= __('demand.summary.topArrFixes') ?></span>
+                                </div>
+                                <div style="padding: 4px 8px;" id="summary_top_fixes">
+                                    <span class="text-muted small">--</span>
                                 </div>
                             </div>
                         </div>
