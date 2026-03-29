@@ -1854,6 +1854,7 @@ function setupEventHandlers() {
     // Direction toggle - requires fresh data from API
     $('input[name="demand_direction"]').on('change', function() {
         DEMAND_STATE.direction = $(this).val();
+        updateArtccFilterState();
         invalidateCache();
         if (DEMAND_STATE.demandType !== 'airport') {
             if (DEMAND_STATE.facilityCode) loadFacilityDemand();
@@ -2919,6 +2920,27 @@ function readUrlState() {
             viewRadio.prop('checked', true).closest('label').addClass('active').siblings('label').removeClass('active');
         }
     }
+
+    // Restore enhanced filters
+    if (params.has('carriers')) {
+        DEMAND_STATE.filterCarriers = params.get('carriers').split(',').filter(Boolean);
+    }
+    if (params.has('weight')) {
+        DEMAND_STATE.filterWeightClasses = params.get('weight').split(',').filter(Boolean);
+        // Sync weight checkboxes
+        $('.weight-class-filter').each(function() {
+            $(this).prop('checked', DEMAND_STATE.filterWeightClasses.includes($(this).val()));
+        });
+    }
+    if (params.has('equipment')) {
+        DEMAND_STATE.filterEquipment = params.get('equipment').split(',').filter(Boolean);
+    }
+    if (params.has('origins')) {
+        DEMAND_STATE.filterOriginArtccs = params.get('origins').split(',').filter(Boolean);
+    }
+    if (params.has('dests')) {
+        DEMAND_STATE.filterDestArtccs = params.get('dests').split(',').filter(Boolean);
+    }
 }
 
 /**
@@ -2939,6 +2961,23 @@ function writeUrlState() {
     params.set('granularity', DEMAND_STATE.granularity);
     if (DEMAND_STATE.chartView !== 'status') {
         params.set('view', DEMAND_STATE.chartView);
+    }
+
+    // Enhanced filter state
+    if (DEMAND_STATE.filterCarriers.length > 0) {
+        params.set('carriers', DEMAND_STATE.filterCarriers.join(','));
+    }
+    if (DEMAND_STATE.filterWeightClasses.length > 0) {
+        params.set('weight', DEMAND_STATE.filterWeightClasses.join(','));
+    }
+    if (DEMAND_STATE.filterEquipment.length > 0) {
+        params.set('equipment', DEMAND_STATE.filterEquipment.join(','));
+    }
+    if (DEMAND_STATE.filterOriginArtccs.length > 0) {
+        params.set('origins', DEMAND_STATE.filterOriginArtccs.join(','));
+    }
+    if (DEMAND_STATE.filterDestArtccs.length > 0) {
+        params.set('dests', DEMAND_STATE.filterDestArtccs.join(','));
     }
 
     history.replaceState(null, '', '#' + params.toString());
@@ -6898,6 +6937,29 @@ function populateFilterDropdowns(resp) {
         $dest.append(new Option(a, a, false, currentDest.includes(a)));
     });
     $dest.trigger('change.select2');
+
+    // Restore Select2 values from URL state (first load only)
+    if (DEMAND_STATE.filterCarriers.length > 0) {
+        $('#filter_carrier').val(DEMAND_STATE.filterCarriers).trigger('change.select2');
+    }
+    if (DEMAND_STATE.filterEquipment.length > 0) {
+        $('#filter_equipment').val(DEMAND_STATE.filterEquipment).trigger('change.select2');
+    }
+    if (DEMAND_STATE.filterOriginArtccs.length > 0) {
+        $('#filter_origin_artcc').val(DEMAND_STATE.filterOriginArtccs).trigger('change.select2');
+    }
+    if (DEMAND_STATE.filterDestArtccs.length > 0) {
+        $('#filter_dest_artcc').val(DEMAND_STATE.filterDestArtccs).trigger('change.select2');
+    }
+
+    // Show reset link if any filter active
+    const hasActiveFilter =
+        DEMAND_STATE.filterCarriers.length > 0 ||
+        DEMAND_STATE.filterWeightClasses.length > 0 ||
+        DEMAND_STATE.filterEquipment.length > 0 ||
+        DEMAND_STATE.filterOriginArtccs.length > 0 ||
+        DEMAND_STATE.filterDestArtccs.length > 0;
+    $('#reset_filters_container').toggle(hasActiveFilter);
 }
 
 /**
