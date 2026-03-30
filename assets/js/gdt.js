@@ -2225,8 +2225,8 @@
             return lines;
         }
 
-        const words = value.split(/\s+/);
-        let current = label ? (label + ' ') : '';
+        var words = value.split(/\s+/);
+        var current = label ? (label + ' ') : '';
 
         words.forEach(function(word) {
             if (!word) {return;}
