@@ -123,22 +123,19 @@ const TMICompliance = {
 
         $('#ntml_save_status').text(PERTII18n.t('tmiCompliance.saving'));
 
-        $.ajax({
-            url: 'api/analysis/tmi_config.php',
+        fetch('api/analysis/tmi_config.php', {
             method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(config),
-            success: (response) => {
-                if (response.success) {
-                    $('#ntml_save_status').text(PERTII18n.t('dialog.success.saved')).removeClass('text-danger').addClass('text-success');
-                    setTimeout(() => $('#ntml_save_status').text(''), 3000);
-                } else {
-                    $('#ntml_save_status').text(PERTII18n.t('tmiCompliance.saveFailed')).addClass('text-danger');
-                }
-            },
-            error: () => {
-                $('#ntml_save_status').text(PERTII18n.t('tmiCompliance.saveError')).addClass('text-danger');
-            },
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(config),
+        }).then(r => r.json()).then((response) => {
+            if (response.success) {
+                $('#ntml_save_status').text(PERTII18n.t('dialog.success.saved')).removeClass('text-danger').addClass('text-success');
+                setTimeout(() => $('#ntml_save_status').text(''), 3000);
+            } else {
+                $('#ntml_save_status').text(PERTII18n.t('tmiCompliance.saveFailed')).addClass('text-danger');
+            }
+        }).catch(() => {
+            $('#ntml_save_status').text(PERTII18n.t('tmiCompliance.saveError')).addClass('text-danger');
         });
     },
 
@@ -150,28 +147,22 @@ const TMICompliance = {
 
         if (!silent) {$('#ntml_save_status').text(PERTII18n.t('common.loading'));}
 
-        $.ajax({
-            url: `api/analysis/tmi_config.php?p_id=${this.planId}`,
-            method: 'GET',
-            dataType: 'json',
-            success: (response) => {
-                if (response.success && response.data) {
-                    $('#tmi_destinations').val(response.data.destinations || '');
-                    $('#tmi_event_start').val(response.data.event_start || '');
-                    $('#tmi_event_end').val(response.data.event_end || '');
-                    $('#tmi_ntml_input').val(response.data.ntml_text || '');
-                    if (!silent) {
-                        $('#ntml_save_status').text(PERTII18n.t('tmiCompliance.loaded')).removeClass('text-danger').addClass('text-success');
-                        setTimeout(() => $('#ntml_save_status').text(''), 2000);
-                    }
-                } else if (!silent) {
-                    $('#ntml_save_status').text(PERTII18n.t('tmiCompliance.noSavedConfig'));
+        fetch(`api/analysis/tmi_config.php?p_id=${this.planId}`).then(r => r.json()).then((response) => {
+            if (response.success && response.data) {
+                $('#tmi_destinations').val(response.data.destinations || '');
+                $('#tmi_event_start').val(response.data.event_start || '');
+                $('#tmi_event_end').val(response.data.event_end || '');
+                $('#tmi_ntml_input').val(response.data.ntml_text || '');
+                if (!silent) {
+                    $('#ntml_save_status').text(PERTII18n.t('tmiCompliance.loaded')).removeClass('text-danger').addClass('text-success');
                     setTimeout(() => $('#ntml_save_status').text(''), 2000);
                 }
-            },
-            error: () => {
-                if (!silent) {$('#ntml_save_status').text(PERTII18n.t('tmiCompliance.loadError')).addClass('text-danger');}
-            },
+            } else if (!silent) {
+                $('#ntml_save_status').text(PERTII18n.t('tmiCompliance.noSavedConfig'));
+                setTimeout(() => $('#ntml_save_status').text(''), 2000);
+            }
+        }).catch(() => {
+            if (!silent) {$('#ntml_save_status').text(PERTII18n.t('tmiCompliance.loadError')).addClass('text-danger');}
         });
     },
 
@@ -184,38 +175,32 @@ const TMICompliance = {
         $('#tmi_status').text(PERTII18n.t('common.loading'));
         $('#load_tmi_results').prop('disabled', true);
 
-        $.ajax({
-            url: `api/analysis/tmi_compliance.php?p_id=${this.planId}`,
-            method: 'GET',
-            dataType: 'json',
-            success: (response) => {
-                $('#load_tmi_results').prop('disabled', false);
+        fetch(`api/analysis/tmi_compliance.php?p_id=${this.planId}`).then(r => r.json()).then((response) => {
+            $('#load_tmi_results').prop('disabled', false);
 
-                if (response.success && response.data) {
-                    this.results = response.data;
-                    // Store holding results
-                    if (this.results && this.results.holding) {
-                        this.holdingData = this.results.holding;
-                    }
-                    // Start trajectory fetch in parallel (maps will await it)
-                    if (response.data.trajectories_url) {
-                        this.loadTrajectories(this.planId, response.data.trajectories_url);
-                    }
-                    // Check for data gaps before rendering
-                    this.checkDataGaps(() => {
-                        this.renderResults();
-                        $('#tmi_status').text(PERTII18n.t('tmiCompliance.loadedEvent', { event: response.data.event }));
-                    });
-                } else {
-                    $('#tmi_status').text(response.message || PERTII18n.t('tmiCompliance.noResultsFound'));
-                    this.showNoData();
+            if (response.success && response.data) {
+                this.results = response.data;
+                // Store holding results
+                if (this.results && this.results.holding) {
+                    this.holdingData = this.results.holding;
                 }
-            },
-            error: (xhr, status, error) => {
-                $('#load_tmi_results').prop('disabled', false);
-                $('#tmi_status').text(PERTII18n.t('tmiCompliance.errorLoadingResults'));
-                this.showError(PERTII18n.t('tmiCompliance.failedToLoadResults', { error: error }));
-            },
+                // Start trajectory fetch in parallel (maps will await it)
+                if (response.data.trajectories_url) {
+                    this.loadTrajectories(this.planId, response.data.trajectories_url);
+                }
+                // Check for data gaps before rendering
+                this.checkDataGaps(() => {
+                    this.renderResults();
+                    $('#tmi_status').text(PERTII18n.t('tmiCompliance.loadedEvent', { event: response.data.event }));
+                });
+            } else {
+                $('#tmi_status').text(response.message || PERTII18n.t('tmiCompliance.noResultsFound'));
+                this.showNoData();
+            }
+        }).catch((error) => {
+            $('#load_tmi_results').prop('disabled', false);
+            $('#tmi_status').text(PERTII18n.t('tmiCompliance.errorLoadingResults'));
+            this.showError(PERTII18n.t('tmiCompliance.failedToLoadResults', { error: error }));
         });
     },
 
@@ -385,75 +370,76 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         }, 500);
 
         // Launch async analysis, then poll for completion
-        $.ajax({
-            url: `api/analysis/tmi_compliance.php?p_id=${this.planId}&run=true`,
-            method: 'GET',
-            dataType: 'json',
-            timeout: 30000,
-            success: (response) => {
-                if (response.status === 'running') {
-                    // Analysis launched in background - start polling
-                    this._pollForResults(startTime, progressInterval, analysisSteps, currentStep, completedSteps);
-                } else if (response.status === 'error') {
-                    clearInterval(progressInterval);
-                    this.analysisInProgress = false;
-                    Swal.fire({
-                        icon: 'error',
-                        title: PERTII18n.t('tmiCompliance.analysisFailed'),
-                        html: `<p>${response.message || PERTII18n.t('tmiCompliance.failedToStartAnalysis')}</p>`,
-                    });
-                } else if (response.success && response.data) {
-                    // Immediate result (e.g., cached or very fast)
-                    clearInterval(progressInterval);
-                    this._handleAnalysisComplete(response, startTime);
-                }
-            },
-            error: (xhr, status, error) => {
+        const analysisController = new AbortController();
+        setTimeout(() => analysisController.abort(), 30000);
+        fetch(`api/analysis/tmi_compliance.php?p_id=${this.planId}&run=true`, {
+            signal: analysisController.signal,
+        }).then(r => {
+            if (!r.ok) {
+                return r.json().catch(() => ({})).then(body => {
+                    throw new Error(body.message || r.statusText);
+                });
+            }
+            return r.json();
+        }).then((response) => {
+            if (response.status === 'running') {
+                // Analysis launched in background - start polling
+                this._pollForResults(startTime, progressInterval, analysisSteps, currentStep, completedSteps);
+            } else if (response.status === 'error') {
                 clearInterval(progressInterval);
                 this.analysisInProgress = false;
                 Swal.fire({
                     icon: 'error',
                     title: PERTII18n.t('tmiCompliance.analysisFailed'),
-                    html: `<p>${xhr.responseJSON?.message || error || PERTII18n.t('tmiCompliance.failedToStartAnalysis')}</p>`,
+                    html: `<p>${response.message || PERTII18n.t('tmiCompliance.failedToStartAnalysis')}</p>`,
                 });
-            },
+            } else if (response.success && response.data) {
+                // Immediate result (e.g., cached or very fast)
+                clearInterval(progressInterval);
+                this._handleAnalysisComplete(response, startTime);
+            }
+        }).catch((error) => {
+            clearInterval(progressInterval);
+            this.analysisInProgress = false;
+            Swal.fire({
+                icon: 'error',
+                title: PERTII18n.t('tmiCompliance.analysisFailed'),
+                html: `<p>${error.message || PERTII18n.t('tmiCompliance.failedToStartAnalysis')}</p>`,
+            });
         });
     },
 
     _pollForResults: function(startTime, progressInterval, analysisSteps, currentStep, completedSteps) {
         const pollInterval = setInterval(() => {
-            $.ajax({
-                url: `api/analysis/tmi_compliance.php?p_id=${this.planId}&status=true`,
-                method: 'GET',
-                dataType: 'json',
-                timeout: 15000,
-                success: (response) => {
-                    if (response.status === 'complete') {
-                        clearInterval(pollInterval);
-                        clearInterval(progressInterval);
-                        this._handleAnalysisComplete(response, startTime);
-                    } else if (response.status === 'error') {
-                        clearInterval(pollInterval);
-                        clearInterval(progressInterval);
-                        this.analysisInProgress = false;
-                        Swal.fire({
-                            icon: 'error',
-                            title: PERTII18n.t('tmiCompliance.analysisFailed'),
-                            html: `<p>${response.message || PERTII18n.t('tmiCompliance.analysisFailedGeneric')}</p>
-                                   ${response.error_log ? '<pre class="small text-left mt-2" style="max-height:200px;overflow:auto;font-size:0.75rem;">' + $('<span>').text(response.error_log.slice(-500)).html() + '</pre>' : ''}`,
-                        });
-                    }
-                    // 'running' status - keep polling, update elapsed from server
-                    if (response.elapsed_seconds) {
-                        const serverElapsed = response.elapsed_seconds;
-                        // Update progress based on server-reported time
-                        const progress = Math.min(5 + Math.min(serverElapsed / 300, 1) * 85, 90);
-                        $('#analysis_progress').css('width', progress + '%');
-                    }
-                },
-                error: () => {
-                    // Network blip during poll - keep trying
-                },
+            const pollController = new AbortController();
+            setTimeout(() => pollController.abort(), 15000);
+            fetch(`api/analysis/tmi_compliance.php?p_id=${this.planId}&status=true`, {
+                signal: pollController.signal,
+            }).then(r => r.json()).then((response) => {
+                if (response.status === 'complete') {
+                    clearInterval(pollInterval);
+                    clearInterval(progressInterval);
+                    this._handleAnalysisComplete(response, startTime);
+                } else if (response.status === 'error') {
+                    clearInterval(pollInterval);
+                    clearInterval(progressInterval);
+                    this.analysisInProgress = false;
+                    Swal.fire({
+                        icon: 'error',
+                        title: PERTII18n.t('tmiCompliance.analysisFailed'),
+                        html: `<p>${response.message || PERTII18n.t('tmiCompliance.analysisFailedGeneric')}</p>
+                               ${response.error_log ? '<pre class="small text-left mt-2" style="max-height:200px;overflow:auto;font-size:0.75rem;">' + $('<span>').text(response.error_log.slice(-500)).html() + '</pre>' : ''}`,
+                    });
+                }
+                // 'running' status - keep polling, update elapsed from server
+                if (response.elapsed_seconds) {
+                    const serverElapsed = response.elapsed_seconds;
+                    // Update progress based on server-reported time
+                    const progress = Math.min(5 + Math.min(serverElapsed / 300, 1) * 85, 90);
+                    $('#analysis_progress').css('width', progress + '%');
+                }
+            }).catch(() => {
+                // Network blip during poll - keep trying
             });
         }, 4000); // Poll every 4 seconds
 
@@ -6490,26 +6476,20 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             return;
         }
 
-        $.ajax({
-            url: `api/analysis/trajectory_gaps.php?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&include_counts=true`,
-            method: 'GET',
-            dataType: 'json',
-            success: (response) => {
-                this.dataGapsChecked = true;
-                if (response.success) {
-                    this.dataGaps = response.has_gaps ? response : null;
-                    this.hourlyCounts = response.hourly_counts || {};
-                } else {
-                    this.hourlyCounts = {};
-                }
-                if (callback) {callback();}
-            },
-            error: () => {
-                this.dataGapsChecked = true;
-                this.dataGaps = null;
+        fetch(`api/analysis/trajectory_gaps.php?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&include_counts=true`).then(r => r.json()).then((response) => {
+            this.dataGapsChecked = true;
+            if (response.success) {
+                this.dataGaps = response.has_gaps ? response : null;
+                this.hourlyCounts = response.hourly_counts || {};
+            } else {
                 this.hourlyCounts = {};
-                if (callback) {callback();}
             }
+            if (callback) {callback();}
+        }).catch(() => {
+            this.dataGapsChecked = true;
+            this.dataGaps = null;
+            this.hourlyCounts = {};
+            if (callback) {callback();}
         });
     },
 

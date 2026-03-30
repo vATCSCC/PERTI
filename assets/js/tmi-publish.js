@@ -1398,11 +1398,10 @@
         $status.html(`<i class="fas fa-spinner fa-spin"></i> ${PERTII18n.t('tmiPublish.config.loading')}`);
         $preset.html(`<option value="">${PERTII18n.t('tmiPublish.config.loading')}</option>`).prop('disabled', true);
 
-        $.ajax({
-            url: 'api/mgt/tmi/airport_configs.php',
-            method: 'GET',
-            data: { airport: airport, active_only: '1' },
-            success: function(response) {
+        const params = new URLSearchParams({ airport: airport, active_only: '1' });
+        fetch('api/mgt/tmi/airport_configs.php?' + params)
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 if (response.success && response.configs && response.configs.length > 0) {
                     configPresets = response.configs;
 
@@ -1424,14 +1423,13 @@
                     $status.html(`<span class="text-warning">${PERTII18n.t('tmiPublish.config.noPresetsAvailable')}</span>`);
                     configPresets = [];
                 }
-            },
-            error: function(xhr, status, error) {
+            })
+            .catch(function(error) {
                 console.error('[TMI] Config load error:', error);
                 $preset.html(`<option value="">${PERTII18n.t('tmiPublish.config.errorLoading')}</option>`).prop('disabled', true);
                 $status.html(`<span class="text-danger">${PERTII18n.t('tmiPublish.config.errorLoadingConfigs')}</span>`);
                 configPresets = [];
-            },
-        });
+            });
     }
 
     function applyConfigPreset(configId) {
@@ -1490,11 +1488,10 @@
             return;
         }
 
-        $.ajax({
-            url: 'api/util/icao_lookup.php',
-            method: 'GET',
-            data: { faa: code },
-            success: function(response) {
+        const lookupParams = new URLSearchParams({ faa: code });
+        fetch('api/util/icao_lookup.php?' + lookupParams)
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 if (response.success) {
                     icaoLookupCache[code] = response;
                     // Also cache the reverse lookup
@@ -1508,11 +1505,10 @@
                 } else {
                     callback(null);
                 }
-            },
-            error: function() {
+            })
+            .catch(function() {
                 callback(null);
-            },
-        });
+            });
     }
 
     function initAirportLookupHandler($input, $statusEl) {
@@ -2721,12 +2717,9 @@
      */
     function importPertiPlan() {
         // First fetch available plans for the dropdown
-        $.ajax({
-            url: 'api/mgt/plan/get.php',
-            method: 'GET',
-            data: { list: '1' },
-            dataType: 'json',
-            success: function(response) {
+        fetch('api/mgt/plan/get.php?' + new URLSearchParams({ list: '1' }))
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 let planOptions = '<option value="">-- Select a plan --</option>';
                 if (response.success && response.plans) {
                     response.plans.forEach(function(plan) {
@@ -2734,12 +2727,11 @@
                     });
                 }
                 showImportDialog(planOptions);
-            },
-            error: function() {
+            })
+            .catch(function() {
                 // Show dialog without plan list
                 showImportDialog(`<option value="">-- ${PERTII18n.t('tmiPublish.importPlan.noPlansLoaded')} --</option>`);
-            },
-        });
+            });
     }
 
     function showImportDialog(planOptions) {
@@ -2798,12 +2790,9 @@
         else if (type === 'date') {params.date = value;}
         else if (type === 'event') {params.event = value;}
 
-        $.ajax({
-            url: 'api/mgt/plan/get.php',
-            method: 'GET',
-            data: params,
-            dataType: 'json',
-            success: function(response) {
+        fetch('api/mgt/plan/get.php?' + new URLSearchParams(params))
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
 
                 // Handle multiple results from event search
@@ -2837,12 +2826,11 @@
                         text: response.error || PERTII18n.t('tmiPublish.importPlan.importFailedText'),
                     });
                 }
-            },
-            error: function(xhr, status, error) {
+            })
+            .catch(function(error) {
                 PERTIDialog.close();
-                PERTIDialog.error('tmiPublish.importPlan.importFailed', 'error.networkError', { message: error });
-            },
-        });
+                PERTIDialog.error('tmiPublish.importPlan.importFailed', 'error.networkError', { message: error.message });
+            });
     }
 
     /**
@@ -2930,12 +2918,9 @@
      */
     function showHotlineAdvisoryPicker(action) {
         // Fetch active hotline advisories from the API
-        $.ajax({
-            url: 'api/mgt/tmi/active.php',
-            method: 'GET',
-            data: { type: 'advisories', source: 'ALL' },
-            dataType: 'json',
-            success: function(response) {
+        fetch('api/mgt/tmi/active.php?' + new URLSearchParams({ type: 'advisories', source: 'ALL' }))
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 if (!response.success) {
                     console.error('[TMI-Publish] Failed to fetch active advisories');
                     return;
@@ -3034,12 +3019,11 @@
                         $('#adv_hotline_action').val('ACTIVATION');
                     }
                 });
-            },
-            error: function() {
+            })
+            .catch(function() {
                 PERTIDialog.error('common.error', 'error.fetchFailed', { resource: 'advisories' });
                 $('#adv_hotline_action').val('ACTIVATION');
-            },
-        });
+            });
     }
 
     /**
@@ -4212,12 +4196,12 @@
                 userName: CONFIG.userName || 'Unknown',
             };
 
-            const response = await $.ajax({
-                url: 'api/mgt/tmi/publish.php',
+            const r = await fetch('api/mgt/tmi/publish.php', {
                 method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(payload),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
             });
+            const response = await r.json();
 
             console.log('[Direct Publish] Response:', response);
 
@@ -4235,7 +4219,7 @@
         } catch (error) {
             console.error('[Direct Publish] Error:', error);
             PERTIDialog.error('tmiPublish.publish.publishFailed', null, {}, {
-                html: `<p>${error.responseText || error.message || PERTII18n.t('error.connectionFailed')}</p>`,
+                html: `<p>${error.message || PERTII18n.t('error.connectionFailed')}</p>`,
             });
         }
     }
@@ -4251,12 +4235,12 @@
             userName: CONFIG.userName || 'Unknown',
         };
 
-        const response = await $.ajax({
-            url: 'api/mgt/tmi/publish.php',
+        const r = await fetch('api/mgt/tmi/publish.php', {
             method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
         });
+        const response = await r.json();
 
         if (!response || !response.success) {
             throw new Error(response?.error || PERTII18n.t('common.unknownError'));
@@ -4328,11 +4312,9 @@
 
     function checkDuplicateConfig(airport, callback) {
         // Check active TMIs for existing CONFIG for this airport
-        $.ajax({
-            url: 'api/mgt/tmi/active.php',
-            method: 'GET',
-            data: { type: 'ntml', source: 'ALL' },
-            success: function(response) {
+        fetch('api/mgt/tmi/active.php?' + new URLSearchParams({ type: 'ntml', source: 'ALL' }))
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 if (response.success && response.data) {
                     const allItems = [...(response.data.active || []), ...(response.data.scheduled || [])];
                     const existing = allItems.find(item =>
@@ -4345,11 +4327,10 @@
                 } else {
                     callback(null);
                 }
-            },
-            error: function() {
+            })
+            .catch(function() {
                 callback(null);
-            },
-        });
+            });
     }
 
     function showDuplicateConfigPrompt(airport, existingConfig, type) {
@@ -4406,18 +4387,19 @@
 
         PERTIDialog.loading('tmiPublish.cancelTmi.cancelling');
 
-        $.ajax({
-            url: 'api/mgt/tmi/cancel.php',
+        fetch('api/mgt/tmi/cancel.php', {
             method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 entityType: 'ENTRY',
                 entityId: existingId,
                 reason: 'Replaced with updated CONFIG',
                 userCid: userCid,
                 userName: userName,
             }),
-            success: function(response) {
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
                 if (response.success) {
                     // Now add the new CONFIG
@@ -4425,12 +4407,11 @@
                 } else {
                     PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('tmiPublish.cancelTmi.failed') });
                 }
-            },
-            error: function(xhr) {
+            })
+            .catch(function(error) {
                 PERTIDialog.close();
-                PERTIDialog.error('common.error', null, {}, { text: PERTII18n.t('tmiPublish.cancelTmi.failed') + ': ' + (xhr.responseJSON?.error || PERTII18n.t('common.unknown')) });
-            },
-        });
+                PERTIDialog.error('common.error', null, {}, { text: PERTII18n.t('tmiPublish.cancelTmi.failed') + ': ' + (error.message || PERTII18n.t('common.unknown')) });
+            });
     }
 
     // ===========================================
@@ -5087,12 +5068,12 @@
             };
 
             try {
-                const response = await $.ajax({
-                    url: 'api/mgt/tmi/coordinate.php',
+                const coordR = await fetch('api/mgt/tmi/coordinate.php', {
                     method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(payload),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
                 });
+                const response = await coordR.json();
 
                 console.log(`[Coordination] Entry ${i + 1} Response:`, response);
 
@@ -5112,7 +5093,7 @@
             } catch (error) {
                 console.error(`Coordination submit error for entry ${i + 1}:`, error);
                 results.failed.push({
-                    entry, error: error.responseText || error.message || PERTII18n.t('tmiPublish.error.connectionError'),
+                    entry, error: error.message || PERTII18n.t('tmiPublish.error.connectionError'),
                 });
             }
 
@@ -5260,12 +5241,12 @@
             };
 
             try {
-                const response = await $.ajax({
-                    url: 'api/mgt/tmi/coordinate.php',
+                const coordR2 = await fetch('api/mgt/tmi/coordinate.php', {
                     method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(payload),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
                 });
+                const response = await coordR2.json();
 
                 console.log(`[Coordination] Entry ${i + 1} Response:`, response);
 
@@ -5293,7 +5274,7 @@
                 console.error(`Coordination submit error for entry ${i + 1}:`, error);
                 results.failed.push({
                     entry: entry,
-                    error: error.responseText || error.message || PERTII18n.t('tmiPublish.error.connectionError'),
+                    error: error.message || PERTII18n.t('tmiPublish.error.connectionError'),
                 });
             }
 
@@ -5317,12 +5298,12 @@
                     userCid: CONFIG.userCid,
                 };
 
-                const directResponse = await $.ajax({
-                    url: 'api/mgt/tmi/publish.php',
+                const directR = await fetch('api/mgt/tmi/publish.php', {
                     method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(directPayload),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(directPayload),
                 });
+                const directResponse = await directR.json();
 
                 if (directResponse.success) {
                     results.directPublished = entriesToPublishDirect;
@@ -5408,42 +5389,39 @@
         // Show loading
         PERTIDialog.loading('tmiPublish.submit.submitting', PERTII18n.t('tmiPublish.submit.loadingSubtitle'));
 
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                url: 'api/mgt/tmi/publish.php',
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify(payload),
-                success: function(response) {
-                    PERTIDialog.close();
+        return fetch('api/mgt/tmi/publish.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
+                PERTIDialog.close();
 
-                    if (response.success) {
-                        // Clear queue on success
-                        state.queue = [];
-                        saveState();
-                        updateUI();
+                if (response.success) {
+                    // Clear queue on success
+                    state.queue = [];
+                    saveState();
+                    updateUI();
 
-                        showSubmitResults(response);
-                        resolve(response);
-                        return;
-                    }
+                    showSubmitResults(response);
+                    return response;
+                }
 
-                    const errorMsg = response.error || PERTII18n.t('common.unknownError');
-                    PERTIDialog.error('tmiPublish.submit.failed', null, {}, {
-                        text: errorMsg,
-                    });
-                    reject(new Error(errorMsg));
-                },
-                error: function(xhr, status, error) {
-                    PERTIDialog.close();
-                    console.error('Submit error:', xhr.responseText);
-                    PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
-                        html: `<p>${PERTII18n.t('tmiPublish.error.failedToConnect')}</p><p class="small text-muted">${error}</p>`,
-                    });
-                    reject(new Error(xhr.responseText || error || PERTII18n.t('tmiPublish.error.connectionError')));
-                },
+                const errorMsg = response.error || PERTII18n.t('common.unknownError');
+                PERTIDialog.error('tmiPublish.submit.failed', null, {}, {
+                    text: errorMsg,
+                });
+                throw new Error(errorMsg);
+            })
+            .catch(function(error) {
+                PERTIDialog.close();
+                console.error('Submit error:', error.message);
+                PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
+                    html: `<p>${PERTII18n.t('tmiPublish.error.failedToConnect')}</p><p class="small text-muted">${error.message}</p>`,
+                });
+                throw error;
             });
-        });
     }
 
     function showSubmitResults(response) {
@@ -5487,22 +5465,19 @@
             </tr>
         `);
 
-        $.ajax({
-            url: 'api/mgt/tmi/active.php',
-            method: 'GET',
-            data: { type: 'all', include_scheduled: '1', include_cancelled: '1', cancelled_hours: 4 },
-            success: function(response) {
+        fetch('api/mgt/tmi/active.php?' + new URLSearchParams({ type: 'all', include_scheduled: '1', include_cancelled: '1', cancelled_hours: 4 }))
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 if (response.success) {
                     displayActiveTmis(response);
                 } else {
                     showActiveTmiError(PERTII18n.t('tmiPublish.activeTmi.loadFailed') + ': ' + (response.error || PERTII18n.t('common.unknownError')));
                 }
-            },
-            error: function(xhr, status, error) {
+            })
+            .catch(function(error) {
                 console.log('Active TMIs API error:', error);
                 showActiveTmiError(PERTII18n.t('tmiPublish.activeTmi.noActiveTmisDbError'));
-            },
-        });
+            });
     }
 
     function displayActiveTmis(response) {
@@ -5606,11 +5581,9 @@
 
     function viewTmiDetails(id, entityType) {
         const typeParam = (entityType || 'entry').toLowerCase();
-        $.ajax({
-            url: 'api/mgt/tmi/active.php',
-            method: 'GET',
-            data: { type: 'all', include_scheduled: '1', include_cancelled: '1', cancelled_hours: 24 },
-            success: function(response) {
+        fetch('api/mgt/tmi/active.php?' + new URLSearchParams({ type: 'all', include_scheduled: '1', include_cancelled: '1', cancelled_hours: 24 }))
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 if (!response.success) {
                     PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('common.unknownError') });
                     return;
@@ -5655,11 +5628,10 @@
                     showConfirmButton: true,
                     confirmButtonText: PERTII18n.t('common.close'),
                 });
-            },
-            error: function() {
+            })
+            .catch(function() {
                 PERTIDialog.error('tmiPublish.networkError');
-            },
-        });
+            });
     }
 
     function cancelTmi(id, entityType) {
@@ -5679,21 +5651,21 @@
             },
         ).then(function(result) {
             if (result.isConfirmed) {
-                $.ajax({
-                    url: 'api/mgt/tmi/cancel.php',
+                fetch('api/mgt/tmi/cancel.php', {
                     method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ entityType: entityType, entityId: id }),
-                    success: function(resp) {
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ entityType: entityType, entityId: id }),
+                })
+                    .then(function(r) { return r.json(); })
+                    .then(function(resp) {
                         if (resp.success) {
                             PERTIDialog.success('tmiPublish.cancelTmi.success');
                             loadActiveTmis();
                         } else {
                             PERTIDialog.error('common.error', null, {}, { text: resp.error || resp.message });
                         }
-                    },
-                    error: function() { PERTIDialog.error('tmiPublish.networkError'); },
-                });
+                    })
+                    .catch(function() { PERTIDialog.error('tmiPublish.networkError'); });
             }
         });
     }
@@ -5703,18 +5675,16 @@
     // ===========================================
 
     function loadStagedEntries() {
-        $.ajax({
-            url: 'api/mgt/tmi/staged.php',
-            method: 'GET',
-            success: function(response) {
+        fetch('api/mgt/tmi/staged.php')
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 if (response.success) {
                     displayStagedEntries(response.entries);
                 }
-            },
-            error: function() {
+            })
+            .catch(function() {
                 // Silent fail - staged entries API might not exist yet
-            },
-        });
+            });
     }
 
     function displayStagedEntries(entries) {
@@ -5773,18 +5743,19 @@
     }
 
     function performPromotion(entityType, entityId, orgs) {
-        $.ajax({
-            url: 'api/mgt/tmi/promote.php',
+        fetch('api/mgt/tmi/promote.php', {
             method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 entityType: entityType,
                 entityId: entityId,
                 orgs: orgs,
                 deleteStaging: true,
                 userCid: CONFIG.userCid,
             }),
-            success: function(response) {
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
                 if (response.success) {
                     PERTIDialog.success('tmiPublish.promote.promoted', null, {}, {
                         text: PERTII18n.t('tmiPublish.rerouteBuilder.publishedToProduction'),
@@ -5796,11 +5767,10 @@
                         text: response.results?.[0]?.error || response.error || PERTII18n.t('common.unknownError'),
                     });
                 }
-            },
-            error: function() {
+            })
+            .catch(function() {
                 PERTIDialog.error('common.error', 'error.connectionFailed');
-            },
-        });
+            });
     }
 
     // ===========================================
@@ -6553,18 +6523,19 @@
     function submitReopenProposal(proposalId, reason) {
         PERTIDialog.loading('tmiPublish.reopen.reopening');
 
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php',
+        fetch('api/mgt/tmi/coordinate.php', {
             method: 'DELETE',
-            contentType: 'application/json',
-            data: JSON.stringify({
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 proposal_id: proposalId,
                 action: 'REOPEN',
                 user_cid: CONFIG.userCid,
                 user_name: CONFIG.userName || 'DCC',
                 reason: reason,
             }),
-            success: function(response) {
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
                 if (response.success) {
                     PERTIDialog.success('tmiPublish.reopen.reopened', null, {}, {
@@ -6575,12 +6546,11 @@
                 } else {
                     PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('error.updateFailed', { resource: 'proposal' }) });
                 }
-            },
-            error: function(xhr) {
+            })
+            .catch(function(error) {
                 PERTIDialog.close();
-                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.connectionFailed') });
-            },
-        });
+                PERTIDialog.error('common.error', null, {}, { text: error.message || PERTII18n.t('error.connectionFailed') });
+            });
     }
 
     // =========================================
@@ -6618,17 +6588,18 @@
     function submitPublishProposal(proposalId) {
         PERTIDialog.loading('tmiPublish.publish.publishing');
 
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php',
+        fetch('api/mgt/tmi/coordinate.php', {
             method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 action: 'PUBLISH',
                 proposal_id: proposalId,
                 user_cid: CONFIG.userCid,
                 user_name: CONFIG.userName || 'DCC',
             }),
-            success: function(response) {
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
                 if (response.success) {
                     const activation = response.activation || {};
@@ -6644,12 +6615,11 @@
                 } else {
                     PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('tmiPublish.publish.publishFailed') });
                 }
-            },
-            error: function(xhr) {
+            })
+            .catch(function(error) {
                 PERTIDialog.close();
-                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.connectionFailed') });
-            },
-        });
+                PERTIDialog.error('common.error', null, {}, { text: error.message || PERTII18n.t('error.connectionFailed') });
+            });
     }
 
     // =========================================
@@ -6669,18 +6639,19 @@
             if (result.isConfirmed) {
                 PERTIDialog.loading('tmiPublish.publish.publishing');
 
-                $.ajax({
-                    url: 'api/mgt/tmi/coordinate.php',
+                fetch('api/mgt/tmi/coordinate.php', {
                     method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
                         action: 'DCC_ACTION',
                         dcc_action: 'PUBLISH_NOW',
                         proposal_id: proposalId,
                         user_cid: CONFIG.userCid,
                         user_name: CONFIG.userName || 'DCC',
                     }),
-                    success: function(response) {
+                })
+                    .then(function(r) { return r.json(); })
+                    .then(function(response) {
                         PERTIDialog.close();
                         if (response.success) {
                             PERTIDialog.success('tmiPublish.publish.published', null, {}, {
@@ -6692,12 +6663,11 @@
                         } else {
                             PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('tmiPublish.publish.publishFailed') });
                         }
-                    },
-                    error: function(xhr) {
+                    })
+                    .catch(function(error) {
                         PERTIDialog.close();
-                        PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.connectionFailed') });
-                    },
-                });
+                        PERTIDialog.error('common.error', null, {}, { text: error.message || PERTII18n.t('error.connectionFailed') });
+                    });
             }
         });
     }
@@ -6756,17 +6726,18 @@
             didOpen: () => Swal.showLoading(),
         });
 
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php',
+        fetch('api/mgt/tmi/coordinate.php', {
             method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 action: 'BATCH_PUBLISH',
                 proposal_ids: proposalIds,
                 user_cid: CONFIG.userCid,
                 user_name: CONFIG.userName || 'DCC',
             }),
-            success: function(response) {
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
                 if (response.success) {
                     PERTIDialog.success('tmiPublish.publish.batchComplete', null, {}, {
@@ -6799,12 +6770,11 @@
                     });
                     loadProposals();
                 }
-            },
-            error: function(xhr) {
+            })
+            .catch(function(error) {
                 PERTIDialog.close();
-                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.submitFailed', { resource: 'batch publish' }) });
-            },
-        });
+                PERTIDialog.error('common.error', null, {}, { text: error.message || PERTII18n.t('error.submitFailed', { resource: 'batch publish' }) });
+            });
     }
 
     function handleCancelProposal(proposalId, entryType, ctlElement) {
@@ -6839,18 +6809,19 @@
     function submitCancelProposal(proposalId, reason) {
         PERTIDialog.loading('tmiPublish.cancelTmi.cancelling');
 
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php',
+        fetch('api/mgt/tmi/coordinate.php', {
             method: 'DELETE',
-            contentType: 'application/json',
-            data: JSON.stringify({
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 proposal_id: proposalId,
                 action: 'CANCEL',
                 user_cid: CONFIG.userCid,
                 user_name: CONFIG.userName || 'DCC',
                 reason: reason,
             }),
-            success: function(response) {
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
                 if (response.success) {
                     PERTIDialog.success('dialog.success.deleted', null, {}, {
@@ -6861,12 +6832,11 @@
                 } else {
                     PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('tmiPublish.cancelTmi.failed') });
                 }
-            },
-            error: function(xhr) {
+            })
+            .catch(function(error) {
                 PERTIDialog.close();
-                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.connectionFailed') });
-            },
-        });
+                PERTIDialog.error('common.error', null, {}, { text: error.message || PERTII18n.t('error.connectionFailed') });
+            });
     }
 
     // =========================================
@@ -6877,23 +6847,20 @@
         // First, fetch the full proposal data
         PERTIDialog.loading('dialog.loading');
 
-        $.ajax({
-            url: `api/mgt/tmi/coordinate.php?proposal_id=${proposalId}`,
-            method: 'GET',
-            dataType: 'json',
-            success: function(response) {
+        fetch(`api/mgt/tmi/coordinate.php?proposal_id=${proposalId}`)
+            .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
                 if (response.success && response.proposal) {
                     showEditProposalDialog(response.proposal, response.facilities || []);
                 } else {
                     PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('error.loadFailed', { resource: 'proposal' }) });
                 }
-            },
-            error: function(xhr) {
+            })
+            .catch(function() {
                 PERTIDialog.close();
                 PERTIDialog.error('common.error', 'error.loadFailed', { resource: 'proposal data' });
-            },
-        });
+            });
     }
 
     function showEditProposalDialog(proposal, facilities) {
@@ -7101,18 +7068,19 @@
     function submitProposalEdit(proposalId, updates) {
         PERTIDialog.loading('tmiPublish.saving', PERTII18n.t('tmiPublish.editProposal.updatingProposal'));
 
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php',
+        fetch('api/mgt/tmi/coordinate.php', {
             method: 'PATCH',
-            contentType: 'application/json',
-            data: JSON.stringify({
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 action: 'EDIT_PROPOSAL',
                 proposal_id: proposalId,
                 updates: updates,
                 user_cid: CONFIG.userCid,
                 user_name: CONFIG.userName || 'Unknown',
             }),
-            success: function(response) {
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
                 if (response.success) {
                     const updatedText = typeof PERTII18n !== 'undefined'
@@ -7129,12 +7097,11 @@
                 } else {
                     PERTIDialog.error('common.error', null, {}, { text: response.error || PERTII18n.t('error.updateFailed', { resource: 'proposal' }) });
                 }
-            },
-            error: function(xhr) {
+            })
+            .catch(function(error) {
                 PERTIDialog.close();
-                PERTIDialog.error('common.error', null, {}, { text: xhr.responseJSON?.error || PERTII18n.t('error.updateFailed', { resource: 'proposal' }) });
-            },
-        });
+                PERTIDialog.error('common.error', null, {}, { text: error.message || PERTII18n.t('error.updateFailed', { resource: 'proposal' }) });
+            });
     }
 
     function loadProposals() {
@@ -7150,11 +7117,9 @@
 
         const fetchProposalTables = function() {
             // Fetch pending proposals
-            $.ajax({
-                url: 'api/mgt/tmi/coordinate.php?list=pending',
-                method: 'GET',
-                dataType: 'json',
-                success: function(response) {
+            fetch('api/mgt/tmi/coordinate.php?list=pending')
+                .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+                .then(function(response) {
                     if (response.success) {
                         displayProposals(response.proposals || [], 'proposalsTableBody', true);
                         const pendingCount = (response.proposals || []).length;
@@ -7167,34 +7132,30 @@
                     } else {
                         showProposalsError('proposalsTableBody', response.error || PERTII18n.t('tmiPublish.proposals.loadFailed'));
                     }
-                },
-                error: function(xhr, status, error) {
+                })
+                .catch(function() {
                     showProposalsError('proposalsTableBody', PERTII18n.t('tmiPublish.proposals.connectionFailed'));
-                },
-            });
+                });
 
             // Fetch recent proposals (all)
-            $.ajax({
-                url: 'api/mgt/tmi/coordinate.php?list=all',
-                method: 'GET',
-                dataType: 'json',
-                success: function(response) {
+            fetch('api/mgt/tmi/coordinate.php?list=all')
+                .then(function(r) { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+                .then(function(response) {
                     if (response.success) {
                         // Filter to show only resolved (not pending)
                         const resolved = (response.proposals || []).filter(p => p.status !== 'PENDING');
                         displayProposals(resolved, 'recentProposalsTableBody', false);
                         $('#recentCount').text(resolved.length);
                     }
-                },
-                error: function() {
+                })
+                .catch(function() {
                     // Silent fail for recent
-                },
-            });
+                });
         };
 
         // Fire-and-forget cron sync for Discord reactions.
         // Runs in parallel with the proposal list fetch — no blocking wait.
-        $.ajax({ url: 'api/cron.php?type=tmi', method: 'GET', timeout: 7000 });
+        fetch('api/cron.php?type=tmi').catch(function() {});
 
         // Fetch proposal tables immediately (don't wait for cron).
         fetchProposalTables();
@@ -7365,13 +7326,13 @@
             payload.user_roles = [CONFIG.userRole];
         }
 
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php',
+        fetch('api/mgt/tmi/coordinate.php', {
             method: 'PUT',
-            contentType: 'application/json',
-            data: JSON.stringify(payload),
-            dataType: 'json',
-            success: function(resp) {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
                 Swal.close();
                 if (resp.success) {
                     const msgKey = action === 'APPROVE' ? 'tmiPublish.coordination.facilityApproved' : 'tmiPublish.coordination.facilityDenied';
@@ -7384,13 +7345,12 @@
                 } else {
                     PERTIDialog.error(PERTII18n.t('common.error'), resp.error || PERTII18n.t('common.unknownError'));
                 }
-            },
-            error: function(xhr) {
+            })
+            .catch(function(error) {
                 Swal.close();
-                const msg = xhr.responseJSON?.error || PERTII18n.t('common.unknownError');
+                const msg = error.message || PERTII18n.t('common.unknownError');
                 PERTIDialog.error(PERTII18n.t('common.error'), msg);
-            }
-        });
+            });
     }
 
     function displayProposals(proposals, containerId, isPending) {
@@ -7682,17 +7642,18 @@
     function extendDeadline(proposalId, newDeadline) {
         PERTIDialog.loading('tmiPublish.deadline.extending');
 
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php',
+        fetch('api/mgt/tmi/coordinate.php', {
             method: 'PATCH',
-            contentType: 'application/json',
-            data: JSON.stringify({
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 proposal_id: proposalId,
                 new_deadline_utc: newDeadline + ':00.000Z',
                 user_cid: CONFIG.userCid,
                 user_name: CONFIG.userName || 'Unknown',
             }),
-            success: function(response) {
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
                 if (response.success) {
                     PERTIDialog.success('tmiPublish.deadline.extended', null, {}, {
@@ -7705,14 +7666,13 @@
                         text: response.error || PERTII18n.t('common.unknownError'),
                     });
                 }
-            },
-            error: function(xhr, status, error) {
+            })
+            .catch(function(error) {
                 PERTIDialog.close();
                 PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
-                    text: error || PERTII18n.t('tmiPublish.deadlineDialog.failedToExtend'),
+                    text: error.message || PERTII18n.t('tmiPublish.deadlineDialog.failedToExtend'),
                 });
-            },
-        });
+            });
     }
 
     function handleProposalAction(proposalId, action, orgCode) {
@@ -7746,11 +7706,10 @@
             didOpen: () => Swal.showLoading(),
         });
 
-        $.ajax({
-            url: 'api/mgt/tmi/coordinate.php',
+        fetch('api/mgt/tmi/coordinate.php', {
             method: 'PUT',
-            contentType: 'application/json',
-            data: JSON.stringify({
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
                 proposal_id: proposalId,
                 reaction_type: 'DCC_OVERRIDE',
                 dcc_action: action,
@@ -7758,7 +7717,9 @@
                 discord_username: CONFIG.userName || 'DCC',
                 operating_initials: CONFIG.userOI
             }),
-            success: function(response) {
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(response) {
                 PERTIDialog.close();
                 if (response.success) {
                     const successKey = action === 'APPROVE' ? 'tmiPublish.proposal.approved' : 'tmiPublish.proposal.denied';
@@ -7769,14 +7730,13 @@
                         text: response.error || PERTII18n.t('common.unknownError'),
                     });
                 }
-            },
-            error: function(xhr, status, error) {
+            })
+            .catch(function(error) {
                 PERTIDialog.close();
                 PERTIDialog.error('tmiPublish.submit.connectionError', null, {}, {
-                    text: error || PERTII18n.t('tmiPublish.proposalAction.failedToProcess'),
+                    text: error.message || PERTII18n.t('tmiPublish.proposalAction.failedToProcess'),
                 });
-            },
-        });
+            });
     }
 
     function showProposalsError(containerId, message) {

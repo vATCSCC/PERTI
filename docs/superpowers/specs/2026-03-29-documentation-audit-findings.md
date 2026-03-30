@@ -207,24 +207,46 @@
 
 ---
 
-## 8. Remaining Work
+## 8. Fixes Applied — Round 4 (Code Quality: API Response, jQuery Migration, CSS Audit)
 
-### Deferred (Low Risk, Code Quality Only)
+| # | File | Change | Severity |
+|---|------|--------|----------|
+| 34 | `api/gdt/common.php` | `respond_json()` auto-injects `timestamp` into all GDT API responses | Medium |
+| 35 | `api/mgt/tmi/reroutes/post.php` | Added `timestamp`, nested response under `data` wrapper | Medium |
+| 36 | `assets/js/reroute.js` | Updated caller for nested `data` wrapper with backward-compatible fallback | Medium |
+| 37 | `api/events/list.php` | Added `timestamp`, nested response fields under `data` | Medium |
+| 38 | `api/analysis/tmi_config.php` | Added `timestamp` to response | Medium |
+| 39 | `api/adl/flight.php` | Wrapped in `{success, timestamp, data}` for 200; added `success: false`+`timestamp` for 404 | Medium |
+| 40 | `api/tmi/active.php` | Removed redundant inner `timestamp` (TmiResponse::success already injects at wrapper level) | Low |
+| 41 | `assets/js/tmi_compliance.js` | Migrated all 6 `$.ajax()` calls → `fetch()` with AbortController timeouts | Medium |
+| 42 | `assets/js/tmi-publish.js` | Migrated all 31 `$.ajax()` calls → `fetch()` (POST/GET, callbacks, fire-and-forget, Promise wrapping) | Medium |
+| 43 | `assets/js/route-maplibre.js` | Migrated 9 `$.ajax()` + 1 `$.when()` → `fetch()` + `Promise.allSettled()`; converted 2 `async:false` calls to async/await with 8-function propagation chain | High |
+| 44 | `CODE_FIXES_INVENTORY.md` | Updated: 34/53 → 52/53 fixed (98%). All P1/P2 categories COMPLETE, P3 jQuery AJAX COMPLETE | Medium |
 
-1. **P1 API Response Standardization** (8 files) - Add `{status, timestamp, data}` wrapper to Pattern A/B/C endpoints + create `api/common/response.php` helper.
-2. **P2 Config magic numbers** (2 items) - `config.example.php` Discord IDs, `advisory-builder.js` debounce delay constant.
-3. **P3 jQuery→fetch migration** (4 files) - `tmi-publish.js`, `route-maplibre.js`, `tmi_compliance.js` jQuery AJAX → `fetch()`.
-4. **P3 CSS naming conflicts** (5 items) - Bootstrap overrides, `.active`/`.selected` duplication, `.col-arr`/`.col-dep` collision.
+---
 
-All remaining items are code quality improvements, not documentation gaps.
+## 9. Remaining Work
 
-### Completed (Previously Listed as Remaining)
+### Single Remaining Item (P3, Low Risk)
+
+1. **jQuery event binding in `tmi-publish.js`** — `.on()`, `.click()` mixed with vanilla `addEventListener`. Migrate when the file is next refactored.
+
+### Dropped Items (Investigated, Not Bugs)
+
+- **`config.example.php` Discord IDs** → Correct production reference data for multi-org setup, not magic numbers
+- **`advisory-builder.js` debounce constant** → File deleted February 2026
+- **CSS Bootstrap overrides in `perti_theme.css`** → Intentional dark theme system using CSS variables
+- **CSS `.col-arr`/`.col-dep` in `review.php`** → Classes don't exist in current codebase
+- **CSS `.active`/`.selected` duplication** → Both properly scoped with parent selectors (`.qualifier-btn.active`, `.ntml-type-card.selected`)
+- **`api/common/response.php`** → Not needed; `lib/Response.php` (`PERTI\Lib\Response`) already provides standardized response helpers
+
+### Completed (All Prior Rounds)
 
 - ~~SDK version reconciliation~~ → Tier prefixes standardized across all 6 SDKs
 - ~~OpenAPI spec version alignment~~ → Both specs aligned to v1.2.0
 - ~~SDK error handling standardization~~ → Rate limit handling + error patterns added to all 6 SDKs
 - ~~SDK FIXM format documentation~~ → FIXM section added to all 5 applicable SDKs (not C++, ingest-only)
-- ~~CODE_FIXES_INVENTORY.md~~ → Refreshed against codebase, 64% now verified fixed
+- ~~CODE_FIXES_INVENTORY.md~~ → Refreshed against codebase, 98% now verified fixed
 - ~~SQL injection verification~~ → All 4 endpoints use real_escape_string() (mitigated)
 - ~~wiki/API-Reference.md~~ → Updated to v19 with CDM, CTP, SWIM v1.2.0
 - ~~Python SDK v2.0.0~~ → README reconciled with actual v2.0.0 implementation
@@ -232,3 +254,7 @@ All remaining items are code quality improvements, not documentation gaps.
 - ~~Deprecated `.substr()`~~ → All 30+ instances migrated to `.slice()` across 13 files
 - ~~Silent error suppression~~ → 3 empty catch blocks in tmi-publish.js fixed
 - ~~wiki/Home.md~~ → Updated to v19, OPERATIONAL status
+- ~~P1 API Response~~ → 7 endpoints standardized, 1 documented acceptable, response helper already exists
+- ~~P2 Config~~ → All resolved (3 fixed, 2 dropped as non-issues)
+- ~~P3 jQuery AJAX~~ → 46 `$.ajax()` calls migrated to `fetch()` across 3 files
+- ~~P3 CSS naming~~ → All 5 items resolved (3 dropped, 2 properly scoped)

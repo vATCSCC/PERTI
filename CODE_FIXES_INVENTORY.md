@@ -14,13 +14,13 @@ This document tracks all files requiring fixes as identified in `CODE_INCONSISTE
 | P0 - date() bug | 6 | 6 | 0 |
 | P0 - SQL Injection | 4 | 4 | 0 |
 | P1 - Colors | 9 | 9 | 0 |
-| P1 - API Response | 8 | 0 | 8 |
+| P1 - API Response | 8 | 8 | 0 |
 | P2 - Date/Time (JS) | 7 | 7 | 0 |
-| P2 - Config | 5 | 3 | 2 |
+| P2 - Config | 5 | 5 | 0 |
 | P2 - CORS | 4 | 4 | 0 |
-| P3 - JS Patterns | 5 | 1 | 4 |
-| P3 - CSS Naming | 5 | 0 | 5 |
-| **Total** | **53** | **34** | **19** |
+| P3 - JS Patterns | 5 | 4 | 1 |
+| P3 - CSS Naming | 5 | 5 | 0 |
+| **Total** | **53** | **52** | **1** |
 
 ---
 
@@ -68,34 +68,35 @@ CSS migrated to CSS variables (`var(--status-success-text)`, etc.). JS centraliz
 - [x] `assets/js/lib/colors.js` - Centralized color definitions (PERTIColors namespace)
 - [x] `perti_theme.css` updated to use CSS variables
 
-### API Response Format Standardization
+### API Response Format Standardization ✅ COMPLETE
 
-**Target Standard:**
+**De facto standard** (from `lib/Response.php` and `api/tmi/helpers.php`):
 ```json
 {
-  "status": "ok" | "error",
+  "success": true|false,
   "timestamp": "2026-01-21T15:30:45Z",
-  "data": {...},
-  "message": "...",
-  "errors": [...]
+  "data": {...}
 }
 ```
 
-**Pattern A Files** (currently `success` boolean):
-- [ ] `load/tmi_config.php`
-- [ ] `api/events/list.php`
-- [ ] `api/tmi/active.php`
-- [ ] `api/demand/summary.php`
+> **Note:** The original target `{status: "ok"|"error"}` was incorrect — the actual codebase standard
+> uses `{success: bool}` via `PERTI\Lib\Response` and `TmiResponse`. All fixes align to the de facto standard.
 
-**Pattern B Files** (currently `status` string - closest to target):
-- [ ] `api/tmi/reroutes/post.php` - Add timestamp
-- [ ] `api/gdt/programs/*.php` - Add timestamp
+**Pattern A Files** (added `timestamp`, verified `success`+`data` wrapper):
+- [x] `api/analysis/tmi_config.php` (was `load/tmi_config.php` in original inventory — wrong path) - Added `timestamp`
+- [x] `api/events/list.php` - Added `timestamp`, nested under `data`
+- [x] `api/tmi/active.php` - Removed redundant inner timestamp (`TmiResponse::success()` already injects one)
+- [x] `api/demand/summary.php` - ACCEPTABLE AS-IS: already has `success`+`timestamp`; 40+ flat field accesses in `demand.js` make nesting under `data` too risky for zero benefit
 
-**Pattern C Files** (currently no wrapper):
-- [ ] `api/adl/flight.php` - Add wrapper
+**Pattern B Files** (added `timestamp`, nested response under `data`):
+- [x] `api/mgt/tmi/reroutes/post.php` - Added `timestamp`, nested under `data`; updated `assets/js/reroute.js` caller with backward-compatible `resp.data || resp` fallback
+- [x] `api/gdt/common.php` `respond_json()` - Auto-injects `timestamp` into all GDT responses
 
-**New File to Create:**
-- [ ] `api/common/response.php` - Standardized response helper
+**Pattern C Files** (added full wrapper):
+- [x] `api/adl/flight.php` - Wrapped in `{success, timestamp, data}` for 200; added `success: false` + `timestamp` for 404
+
+**Standardized response helper:**
+- [x] `api/common/response.php` - **NOT NEEDED**: `lib/Response.php` (`PERTI\Lib\Response`) already provides `success()`, `error()`, `json()`, `cached()`, `geoJson()` with the standard pattern. `TmiResponse` in `api/tmi/helpers.php` provides TMI-specific wrappers.
 
 ---
 
@@ -139,11 +140,11 @@ DateTimeUtils.toYYYYMMDD(date)  // → "2026-01-21"
 
 - [x] `assets/js/lib/datetime.js` - Centralized UTC date/time utilities (`nowTimeZ()`, `nowTimeShortZ()`, using `.slice()`)
 
-### Configuration Issues
+### Configuration Issues ✅ COMPLETE
 
-- [ ] `load/config.example.php` - Remove/fix Discord IDs that differ from production
+- [x] `load/config.example.php` - DROPPED: Discord channel/guild IDs are correct production reference data for multi-org setup, not magic numbers
 - [x] `load/swim_config.php:37` - Magic number `30000` now documented in `$SWIM_RATE_LIMITS` array with inline comments
-- [ ] `assets/js/advisory-builder.js:184` - Extract `500` to `DEBOUNCE_DELAY_MS`
+- [x] `assets/js/advisory-builder.js:184` - DROPPED: File deleted February 2026 (functionality moved to `tmi-publish.js`)
 - [x] `assets/js/advisory-builder.js:1258` - Duration constant (low risk, single usage)
 - [x] `load/connect.php:327` - Port configured via env/config, not hardcoded
 
@@ -172,26 +173,34 @@ All endpoints now use `perti_set_cors()` from `load/perti_constants.php` (origin
 **Target:** Consolidate on `fetch()` + `async/await`, remove jQuery AJAX.
 
 **Silent error suppression:**
+
 - [x] `assets/js/tmi-publish.js` - 3 empty `catch(e) {}` blocks → `catch(e) { console.warn(...) }` (all were JSON.parse on localStorage)
 
-**Mixed patterns (migrate when refactoring):**
-- [ ] `assets/js/tmi-publish.js:3416` - `await $.ajax()` → `await fetch()`
-- [ ] `assets/js/tmi-publish.js` - jQuery events mixed with vanilla
-- [ ] `assets/js/route-maplibre.js` - `$.ajax` for data loading
-- [ ] `assets/js/tmi_compliance.js` - `$.ajax` callbacks
+**jQuery AJAX → fetch() migration:**
 
-### CSS Class Naming Conflicts
+- [x] `assets/js/tmi-publish.js` - All 31 `$.ajax()` calls migrated to `fetch()` (POST JSON, GET params, AbortController timeouts, fire-and-forget, Promise wrapping)
+- [x] `assets/js/route-maplibre.js` - 9 `$.ajax()` calls + 1 `$.when()` migrated; 2 `async: false` calls required converting entire function chains to async/await (`loadNATTracks`, `expandNATPlaybook` + 6 upstream callers); `forEach` → `for...of` for await support; `$.when()` → `Promise.allSettled()`
+- [x] `assets/js/tmi_compliance.js` - All 6 `$.ajax()` calls migrated to `fetch()` (POST JSON body, GET with query params, AbortController timeouts)
+
+**Remaining (event binding, not AJAX):**
+
+- [ ] `assets/js/tmi-publish.js` - jQuery event binding (`.on()`, `.click()`) mixed with vanilla `addEventListener`
+
+### CSS Class Naming Conflicts ✅ COMPLETE
 
 **Bootstrap override conflicts:**
-- [ ] `assets/css/perti_theme.css` - `.text-success`, `.text-info`, `.btn-primary`, `.bg-dark`
-- [ ] `assets/css/theme.css` - Bootstrap defaults
+
+- [x] `assets/css/perti_theme.css` - INTENTIONAL: Overrides `.text-success`, `.btn-primary`, `.bg-dark` etc. using CSS variables (`var(--status-success-text)`) as part of PERTI dark theme. This IS the theming system, not a conflict.
+- [x] `assets/css/theme.css` - INTENTIONAL: Bootstrap base theme file. `perti_theme.css` loads after and overrides selectively.
 
 **State class duplication:**
-- [ ] `assets/css/tmi-publish.css` - Uses `.active`
-- [ ] `advisory-builder.php` - Uses `.selected` (same concept)
+
+- [x] `assets/css/tmi-publish.css` - `.active` is properly scoped (`.qualifier-btn.active`, `.ntml-type-card.active`) — no conflict with Bootstrap `.active`
+- [x] `advisory-builder.php` - DROPPED: File deleted February 2026. The `.selected` class now lives in `tmi-publish.css` as `.ntml-type-card.selected` — properly scoped, no conflict.
 
 **Semantic collision:**
-- [ ] `review.php` - `.col-arr`, `.col-dep` collide with Bootstrap `.col-*`
+
+- [x] `review.php` - DROPPED: `.col-arr` and `.col-dep` classes do not exist in the current codebase (verified via grep). No collision with Bootstrap `.col-*`.
 
 ---
 
@@ -221,12 +230,20 @@ These are conventions for **new tables only** - do not refactor existing tables.
 |------|---------|----------|--------|
 | `assets/js/lib/colors.js` | Centralized color definitions | P1 | ✅ Created |
 | `assets/js/lib/datetime.js` | Date/time utility functions | P2 | ✅ Created |
-| `api/common/response.php` | Standardized API response helper | P1 | Pending |
-| `load/DateTimeHelper.php` | PHP date/time utilities | P2 | Pending |
+| `api/common/response.php` | Standardized API response helper | P1 | ❌ Not needed — `lib/Response.php` exists |
+| `load/DateTimeHelper.php` | PHP date/time utilities | P2 | Deferred (no current need) |
 
 ---
 
 ## Change Log
+
+### March 29, 2026 (Round 4)
+
+- P1 API Response: 7 endpoints standardized to `{success, timestamp, data}` pattern. `api/demand/summary.php` documented as acceptable (already has success+timestamp; flat structure required by 40+ JS field accesses). `api/common/response.php` not needed — `lib/Response.php` already exists.
+- P2 Config: 2 items dropped — `config.example.php` Discord IDs are correct reference data; `advisory-builder.js` deleted Feb 2026.
+- P3 jQuery→fetch: 46 `$.ajax()` calls migrated across 3 files (`tmi-publish.js` 31, `route-maplibre.js` 9+1, `tmi_compliance.js` 6). Most complex: 2 `async: false` calls in route-maplibre.js required async/await propagation through 8 functions.
+- P3 CSS: 5 items resolved — 3 dropped (intentional theming, deleted file, phantom classes), 2 confirmed properly scoped.
+- Progress: 34/53 → 52/53 fixed (98%). Only remaining: jQuery event binding patterns in tmi-publish.js.
 
 ### March 29, 2026 (Round 3)
 - P2 Date/Time: Migrated ALL `.substr()` → `.slice()` across 13 JS files (30+ instances). Only third-party `datetimepicker.js` retains `.substr()`. Category now COMPLETE.

@@ -21,6 +21,7 @@ if (realpath($_SERVER['SCRIPT_FILENAME']) === realpath(__FILE__)) {
 
     $response = [
         'success' => true,
+        'timestamp' => gmdate('c'),
         'data' => null,
         'message' => ''
     ];

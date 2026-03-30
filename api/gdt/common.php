@@ -26,6 +26,9 @@ if (!defined('GDT_API_INCLUDED')) {
  * Send JSON response and exit
  */
 function respond_json($code, $payload) {
+    if (!isset($payload['timestamp'])) {
+        $payload['timestamp'] = gmdate('c');
+    }
     http_response_code($code);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);

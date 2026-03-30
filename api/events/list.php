@@ -155,18 +155,21 @@ try {
 
     echo json_encode([
         'success' => true,
-        'count' => count($events),
-        'by_source' => $bySource,
-        'by_type' => $byType,
-        'filters' => [
-            'source' => $source,
-            'division' => $division,
-            'type' => $eventType,
-            'days' => $days,
-            'include_past' => $includePast,
-            'logging_only' => $loggingOnly,
+        'timestamp' => gmdate('c'),
+        'data' => [
+            'count' => count($events),
+            'by_source' => $bySource,
+            'by_type' => $byType,
+            'filters' => [
+                'source' => $source,
+                'division' => $division,
+                'type' => $eventType,
+                'days' => $days,
+                'include_past' => $includePast,
+                'logging_only' => $loggingOnly,
+            ],
+            'events' => $events,
         ],
-        'events' => $events,
     ]);
 
 } catch (Exception $e) {

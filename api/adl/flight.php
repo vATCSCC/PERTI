@@ -126,7 +126,9 @@ sqlsrv_close($conn_adl);
 if (!$row) {
     http_response_code(404);
     echo json_encode([
-        "error" => "Flight not found in ADL"
+        "success" => false,
+        "timestamp" => gmdate('c'),
+        "message" => "Flight not found in ADL"
     ]);
     exit;
 }
@@ -138,6 +140,10 @@ foreach ($row as $k => $v) {
     }
 }
 
-echo json_encode($row);
+echo json_encode([
+    'success' => true,
+    'timestamp' => gmdate('c'),
+    'data' => $row
+]);
 
 ?>

@@ -226,14 +226,15 @@
             Object.entries(formData).forEach(([k, v]) => v !== null && v !== undefined && body.append(k, v));
 
             const r = await fetch('api/mgt/tmi/reroutes/post.php', { method: 'POST', body });
-            const data = await r.json();
-            if (data.status !== 'ok') {throw new Error(data.message);}
+            const resp = await r.json();
+            if (resp.status !== 'ok') {throw new Error(resp.message);}
 
-            if (data.action === 'created') {
-                setValue('rr_id', data.id);
-                history.pushState({}, '', `reroutes.php?id=${data.id}`);
+            const result = resp.data || resp;
+            if (result.action === 'created') {
+                setValue('rr_id', result.id);
+                history.pushState({}, '', `reroutes.php?id=${result.id}`);
             }
-            showToast(PERTII18n.t('reroute.rerouteSaved', { action: data.action }), 'success');
+            showToast(PERTII18n.t('reroute.rerouteSaved', { action: result.action }), 'success');
         } catch (e) {
             showToast(PERTII18n.t('reroute.saveError', { message: e.message }), 'danger');
         }

@@ -170,41 +170,42 @@ $(document).ready(function() {
     const natTokenPattern = /^(?:NAT|TRACK|TRAK|TRK)-?([A-Z0-9]{1,5})$/;
 
     /**
-     * Load all NAT tracks from the API into cache (synchronous, called once on first use).
+     * Load all NAT tracks from the API into cache (async, pre-loaded at startup).
      * Populates natTrackCache with all alias variations (NATA, NAT-A, TRACKA, TRKA, etc.)
+     * Called synchronously as a guard only — actual data is pre-loaded via _loadNATTracks promise.
      */
     function loadNATTracks() {
+        // No-op: cache is pre-populated by _loadNATTracks fetch at startup.
+        // Kept for call-site compatibility — expandNATTokens still calls this as a guard.
         if (natTrackCache !== null) return;
         natTrackCache = {};
-        $.ajax({
-            url: 'api/data/playbook/nat_tracks.php',
-            dataType: 'json',
-            async: false,
-            success: function(resp) {
-                if (resp && resp.tracks) {
-                    resp.tracks.forEach(function(trk) {
-                        var name = (trk.name || '').toUpperCase();
-                        var routeStr = trk.route_string || '';
-                        natTrackCache[name] = routeStr;
-                        // Add alias variations so NATA, NAT-A, TRACKA, TRKA, TRAKA, etc. all resolve
-                        var m = name.match(/^NAT([A-Z0-9]{1,5})$/);
-                        if (m) {
-                            natTrackCache['NAT-' + m[1]] = routeStr;
-                            natTrackCache['TRACK' + m[1]] = routeStr;
-                            natTrackCache['TRK' + m[1]] = routeStr;
-                            natTrackCache['TRAK' + m[1]] = routeStr;
-                            natTrackCache['TRACK-' + m[1]] = routeStr;
-                            natTrackCache['TRK-' + m[1]] = routeStr;
-                            natTrackCache['TRAK-' + m[1]] = routeStr;
-                        }
-                    });
+    }
+
+    /**
+     * Populate the NAT track cache from a parsed API response.
+     * @param {object} resp - Parsed JSON response from nat_tracks.php
+     */
+    function populateNATTrackCache(resp) {
+        natTrackCache = {};
+        if (resp && resp.tracks) {
+            resp.tracks.forEach(function(trk) {
+                var name = (trk.name || '').toUpperCase();
+                var routeStr = trk.route_string || '';
+                natTrackCache[name] = routeStr;
+                // Add alias variations so NATA, NAT-A, TRACKA, TRKA, TRAKA, etc. all resolve
+                var m = name.match(/^NAT([A-Z0-9]{1,5})$/);
+                if (m) {
+                    natTrackCache['NAT-' + m[1]] = routeStr;
+                    natTrackCache['TRACK' + m[1]] = routeStr;
+                    natTrackCache['TRK' + m[1]] = routeStr;
+                    natTrackCache['TRAK' + m[1]] = routeStr;
+                    natTrackCache['TRACK-' + m[1]] = routeStr;
+                    natTrackCache['TRK-' + m[1]] = routeStr;
+                    natTrackCache['TRAK-' + m[1]] = routeStr;
                 }
-                console.log('[MAPLIBRE] Loaded NAT tracks:', Object.keys(natTrackCache).length, 'entries');
-            },
-            error: function() {
-                console.warn('[MAPLIBRE] NAT tracks unavailable');
-            }
-        });
+            });
+        }
+        console.log('[MAPLIBRE] Loaded NAT tracks:', Object.keys(natTrackCache).length, 'entries');
     }
 
     /**
@@ -239,40 +240,37 @@ $(document).ready(function() {
      * @param {string|null} color - Override color (null = use per-track palette)
      * @returns {{ routes: string[], tracks: object[], fetchedAt: string|null }}
      */
-    function expandNATPlaybook(isMandatory, color) {
+    async function expandNATPlaybook(isMandatory, color) {
         var result = { routes: [], tracks: [], fetchedAt: null };
-        $.ajax({
-            url: 'api/data/playbook/nat_tracks.php',
-            dataType: 'json',
-            async: false,
-            success: function(resp) {
-                if (resp && resp.tracks) {
-                    result.fetchedAt = resp.fetched_at || null;
-                    resp.tracks.forEach(function(trk, i) {
-                        var routeStr = trk.route_string || '';
-                        if (!routeStr) return;
-                        if (isMandatory) {
-                            var tokens = routeStr.split(/\s+/).filter(Boolean);
-                            if (tokens.length > 0) {
-                                tokens[0] = '>' + tokens[0];
-                                tokens[tokens.length - 1] += '<';
-                                routeStr = tokens.join(' ');
-                            }
+        try {
+            var response = await fetch('api/data/playbook/nat_tracks.php');
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            var resp = await response.json();
+            if (resp && resp.tracks) {
+                result.fetchedAt = resp.fetched_at || null;
+                resp.tracks.forEach(function(trk, i) {
+                    var routeStr = trk.route_string || '';
+                    if (!routeStr) return;
+                    if (isMandatory) {
+                        var tokens = routeStr.split(/\s+/).filter(Boolean);
+                        if (tokens.length > 0) {
+                            tokens[0] = '>' + tokens[0];
+                            tokens[tokens.length - 1] += '<';
+                            routeStr = tokens.join(' ');
                         }
-                        var trackColor = color || NAT_TRACK_COLORS[i % NAT_TRACK_COLORS.length];
-                        result.routes.push(routeStr + ';' + trackColor);
-                        result.tracks.push({
-                            name: trk.name,
-                            direction: trk.direction || '',
-                            flightLevels: trk.flight_levels || '',
-                        });
+                    }
+                    var trackColor = color || NAT_TRACK_COLORS[i % NAT_TRACK_COLORS.length];
+                    result.routes.push(routeStr + ';' + trackColor);
+                    result.tracks.push({
+                        name: trk.name,
+                        direction: trk.direction || '',
+                        flightLevels: trk.flight_levels || '',
                     });
-                }
-            },
-            error: function() {
-                console.warn('[MAPLIBRE] Failed to fetch NAT tracks for PB.NATS');
+                });
             }
-        });
+        } catch (e) {
+            console.warn('[MAPLIBRE] Failed to fetch NAT tracks for PB.NATS', e);
+        }
         return result;
     }
 
@@ -960,7 +958,7 @@ $(document).ready(function() {
         return t;
     }
 
-    function expandPlaybookDirective(bodyUpper, isMandatory, color) {
+    async function expandPlaybookDirective(bodyUpper, isMandatory, color) {
         if (!bodyUpper) {return [];}
         // Pre-expand FIR:XX.. patterns before dot-splitting to avoid conflicts
         // with PB dot-separator syntax (e.g., RR1GNOR.FIR:ED.. → RR1GNOR.EDGG EDMM EDUU EDWW)
@@ -988,7 +986,7 @@ $(document).ready(function() {
 
         // Special handling for PB.NATS — fetch live NAT tracks
         if (playNorm === 'NATS') {
-            var natResult = expandNATPlaybook(isMandatory, color);
+            var natResult = await expandNATPlaybook(isMandatory, color);
             _lastNatPlaybookResult = natResult;
             console.log('[MAPLIBRE] PB.NATS expanded:', natResult.routes.length, 'tracks');
             return natResult.routes;
@@ -1188,71 +1186,80 @@ $(document).ready(function() {
     // DATA LOADING (async — all CSVs load in parallel, map init waits for all)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    var _loadPoints = $.ajax({
-        type: 'GET',
-        url: 'assets/data/points.csv',
-    }).done(function(data) {
-        const lines = data.split('\n');
-        for (const line of lines) {
-            const parts = line.split(',');
-            if (parts.length < 3) {continue;}
-            const idRaw = (parts[0] || '').trim();
-            const lat = parts[1], lon = parts[2];
-            if (!idRaw) {continue;}
-            const id = idRaw.toUpperCase();
-            if (id.startsWith('ZZ_') && id.length > 3) {
-                facilityCodes.add(id.substring(3));
+    var _loadPoints = fetch('assets/data/points.csv')
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.text();
+        })
+        .then(function(data) {
+            const lines = data.split('\n');
+            for (const line of lines) {
+                const parts = line.split(',');
+                if (parts.length < 3) {continue;}
+                const idRaw = (parts[0] || '').trim();
+                const lat = parts[1], lon = parts[2];
+                if (!idRaw) {continue;}
+                const id = idRaw.toUpperCase();
+                if (id.startsWith('ZZ_') && id.length > 3) {
+                    facilityCodes.add(id.substring(3));
+                }
+                if (!points[id]) {points[id] = [];}
+                points[id].push([id, +lat, +lon]);
             }
-            if (!points[id]) {points[id] = [];}
-            points[id].push([id, +lat, +lon]);
-        }
-        window.routePoints = points;
-        console.log('[MAPLIBRE] Loaded points.csv:', Object.keys(points).length, 'fixes');
-    }).fail(function(xhr, status, error) {
-        console.error('[MAPLIBRE] Failed to load points.csv:', error);
-    });
+            window.routePoints = points;
+            console.log('[MAPLIBRE] Loaded points.csv:', Object.keys(points).length, 'fixes');
+        })
+        .catch(function(error) {
+            console.error('[MAPLIBRE] Failed to load points.csv:', error);
+        });
 
     // Load navaid magnetic variation data for FBD bearing correction
-    var _loadMagvar = $.ajax({
-        type: 'GET',
-        url: 'assets/data/navaid_magvar.csv',
-    }).done(function(data) {
-        let count = 0;
-        for (const line of data.split('\n')) {
-            const parts = line.split(',');
-            if (parts.length < 4) continue;
-            const name = (parts[0] || '').trim().toUpperCase();
-            if (!name) continue;
-            if (!navaidMagVar[name]) navaidMagVar[name] = [];
-            navaidMagVar[name].push({ lat: +parts[1], lon: +parts[2], magVar: +parts[3] });
-            count++;
-        }
-        console.log('[MAPLIBRE] Loaded navaid_magvar.csv:', count, 'entries');
-    }).fail(function() {
-        console.warn('[MAPLIBRE] navaid_magvar.csv not available; FBD will use uncorrected bearings');
-    });
-
-    var _loadCdrs = $.ajax({
-        type: 'GET',
-        url: 'assets/data/cdrs.csv',
-    }).done(function(data) {
-        const lines = data.split('\n');
-        lines.forEach(line => {
-            line = line.trim();
-            if (!line) {return;}
-            const idx = line.indexOf(',');
-            if (idx <= 0) {return;}
-            const code = line.slice(0, idx).trim().toUpperCase();
-            const route = line.slice(idx + 1).trim();
-            if (code && route) {cdrMap[code] = route;}
+    var _loadMagvar = fetch('assets/data/navaid_magvar.csv')
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.text();
+        })
+        .then(function(data) {
+            let count = 0;
+            for (const line of data.split('\n')) {
+                const parts = line.split(',');
+                if (parts.length < 4) continue;
+                const name = (parts[0] || '').trim().toUpperCase();
+                if (!name) continue;
+                if (!navaidMagVar[name]) navaidMagVar[name] = [];
+                navaidMagVar[name].push({ lat: +parts[1], lon: +parts[2], magVar: +parts[3] });
+                count++;
+            }
+            console.log('[MAPLIBRE] Loaded navaid_magvar.csv:', count, 'entries');
+        })
+        .catch(function() {
+            console.warn('[MAPLIBRE] navaid_magvar.csv not available; FBD will use uncorrected bearings');
         });
-        console.log('[MAPLIBRE] Loaded cdrs.csv:', Object.keys(cdrMap).length, 'CDRs');
 
-        // Expose to global scope for PlaybookCDRSearch module
-        window.cdrMap = cdrMap;
-    }).fail(function(xhr, status, error) {
-        console.error('[MAPLIBRE] Failed to load cdrs.csv:', error);
-    });
+    var _loadCdrs = fetch('assets/data/cdrs.csv')
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.text();
+        })
+        .then(function(data) {
+            const lines = data.split('\n');
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) {return;}
+                const idx = line.indexOf(',');
+                if (idx <= 0) {return;}
+                const code = line.slice(0, idx).trim().toUpperCase();
+                const route = line.slice(idx + 1).trim();
+                if (code && route) {cdrMap[code] = route;}
+            });
+            console.log('[MAPLIBRE] Loaded cdrs.csv:', Object.keys(cdrMap).length, 'CDRs');
+
+            // Expose to global scope for PlaybookCDRSearch module
+            window.cdrMap = cdrMap;
+        })
+        .catch(function(error) {
+            console.error('[MAPLIBRE] Failed to load cdrs.csv:', error);
+        });
 
     // Helper to parse CSV with quoted fields
     function parseCsvLine(line) {
@@ -1274,101 +1281,118 @@ $(document).ready(function() {
         return result;
     }
 
-    var _loadPlaybook = $.ajax({
-        type: 'GET',
-        url: 'assets/data/playbook_routes.csv',
-    }).done(function(data) {
-        const lines = data.split(/\r?\n/);
-        if (lines.length < 2) {return;}
+    var _loadPlaybook = fetch('assets/data/playbook_routes.csv')
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.text();
+        })
+        .then(function(data) {
+            const lines = data.split(/\r?\n/);
+            if (lines.length < 2) {return;}
 
-        // Parse header to find column indices
-        const header = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim());
+            // Parse header to find column indices
+            const header = parseCsvLine(lines[0]).map(h => h.toLowerCase().trim());
 
-        function idxOf(...names) {
-            for (const name of names) {
-                const i = header.indexOf(name.toLowerCase());
-                if (i !== -1) {return i;}
+            function idxOf(...names) {
+                for (const name of names) {
+                    const i = header.indexOf(name.toLowerCase());
+                    if (i !== -1) {return i;}
+                }
+                return -1;
             }
-            return -1;
-        }
 
-        const idxPlay = idxOf('play_name', 'play');
-        const idxRoute = idxOf('full_route', 'route string', 'route', 'route_string');
-        const idxOrigAirports = idxOf('origins', 'origin', 'origin_airports');
-        const idxOrigTracons = idxOf('origin_tracons', 'origin_tracon');
-        const idxOrigArtccs = idxOf('origin_artccs', 'origin_artcc');
-        const idxDestAirports = idxOf('destinations', 'dest', 'dest_airports');
-        const idxDestTracons = idxOf('dest_tracons', 'dest_tracon');
-        const idxDestArtccs = idxOf('dest_artccs', 'dest_artcc');
+            const idxPlay = idxOf('play_name', 'play');
+            const idxRoute = idxOf('full_route', 'route string', 'route', 'route_string');
+            const idxOrigAirports = idxOf('origins', 'origin', 'origin_airports');
+            const idxOrigTracons = idxOf('origin_tracons', 'origin_tracon');
+            const idxOrigArtccs = idxOf('origin_artccs', 'origin_artcc');
+            const idxDestAirports = idxOf('destinations', 'dest', 'dest_airports');
+            const idxDestTracons = idxOf('dest_tracons', 'dest_tracon');
+            const idxDestArtccs = idxOf('dest_artccs', 'dest_artcc');
 
-        console.log('[MAPLIBRE] Playbook column indices:', {
-            play: idxPlay, route: idxRoute,
-            origAirports: idxOrigAirports, destAirports: idxDestAirports,
+            console.log('[MAPLIBRE] Playbook column indices:', {
+                play: idxPlay, route: idxRoute,
+                origAirports: idxOrigAirports, destAirports: idxDestAirports,
+            });
+
+            if (idxPlay === -1 || idxRoute === -1) {
+                console.error('[MAPLIBRE] playbook_routes.csv missing required columns');
+                return;
+            }
+
+            function splitField(str) {
+                if (!str) {return [];}
+                return String(str).toUpperCase().split(/\s+/).filter(Boolean);
+            }
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) {continue;}
+
+                const cols = parseCsvLine(line);
+                const playNameRaw = (cols[idxPlay] || '').trim();
+                const routeRaw = (cols[idxRoute] || '').trim();
+
+                if (!playNameRaw || !routeRaw || playNameRaw.toLowerCase() === 'nan') {continue;}
+
+                const origAirports = idxOrigAirports >= 0 ? splitField(cols[idxOrigAirports]) : [];
+                const origTracons = idxOrigTracons >= 0 ? splitField(cols[idxOrigTracons]) : [];
+                const origArtccs = idxOrigArtccs >= 0 ? splitField(cols[idxOrigArtccs]) : [];
+                const destAirports = idxDestAirports >= 0 ? splitField(cols[idxDestAirports]) : [];
+                const destTracons = idxDestTracons >= 0 ? splitField(cols[idxDestTracons]) : [];
+                const destArtccs = idxDestArtccs >= 0 ? splitField(cols[idxDestArtccs]) : [];
+
+                const entry = {
+                    playName: playNameRaw,
+                    playNameNorm: normalizePlayName(playNameRaw),
+                    fullRoute: routeRaw.toUpperCase(),
+                    originAirportsSet: new Set(origAirports),
+                    originTraconsSet: new Set(origTracons),
+                    originArtccsSet: new Set(origArtccs),
+                    destAirportsSet: new Set(destAirports),
+                    destTraconsSet: new Set(destTracons),
+                    destArtccsSet: new Set(destArtccs),
+                    // Keep arrays for PlaybookCDRSearch module compatibility
+                    originAirports: origAirports,
+                    originTracons: origTracons,
+                    originArtccs: origArtccs,
+                    destAirports: destAirports,
+                    destTracons: destTracons,
+                    destArtccs: destArtccs,
+                };
+
+                playbookRoutes.push(entry);
+                const pnorm = entry.playNameNorm;
+                if (!playbookByPlayName[pnorm]) {playbookByPlayName[pnorm] = [];}
+                playbookByPlayName[pnorm].push(entry);
+            }
+
+            console.log('[MAPLIBRE] Loaded', playbookRoutes.length, 'playbook routes');
+            console.log('[MAPLIBRE] Unique play names:', Object.keys(playbookByPlayName).length);
+            // Show first 10 play names for debugging
+            console.log('[MAPLIBRE] Sample play names:', Object.keys(playbookByPlayName).slice(0, 10));
+
+            // Expose to global scope for PlaybookCDRSearch module
+            window.playbookRoutes = playbookRoutes;
+            window.playbookByPlayName = playbookByPlayName;
+        })
+        .catch(function(error) {
+            console.error('[MAPLIBRE] Failed to load playbook_routes.csv:', error);
         });
 
-        if (idxPlay === -1 || idxRoute === -1) {
-            console.error('[MAPLIBRE] playbook_routes.csv missing required columns');
-            return;
-        }
-
-        function splitField(str) {
-            if (!str) {return [];}
-            return String(str).toUpperCase().split(/\s+/).filter(Boolean);
-        }
-
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) {continue;}
-
-            const cols = parseCsvLine(line);
-            const playNameRaw = (cols[idxPlay] || '').trim();
-            const routeRaw = (cols[idxRoute] || '').trim();
-
-            if (!playNameRaw || !routeRaw || playNameRaw.toLowerCase() === 'nan') {continue;}
-
-            const origAirports = idxOrigAirports >= 0 ? splitField(cols[idxOrigAirports]) : [];
-            const origTracons = idxOrigTracons >= 0 ? splitField(cols[idxOrigTracons]) : [];
-            const origArtccs = idxOrigArtccs >= 0 ? splitField(cols[idxOrigArtccs]) : [];
-            const destAirports = idxDestAirports >= 0 ? splitField(cols[idxDestAirports]) : [];
-            const destTracons = idxDestTracons >= 0 ? splitField(cols[idxDestTracons]) : [];
-            const destArtccs = idxDestArtccs >= 0 ? splitField(cols[idxDestArtccs]) : [];
-
-            const entry = {
-                playName: playNameRaw,
-                playNameNorm: normalizePlayName(playNameRaw),
-                fullRoute: routeRaw.toUpperCase(),
-                originAirportsSet: new Set(origAirports),
-                originTraconsSet: new Set(origTracons),
-                originArtccsSet: new Set(origArtccs),
-                destAirportsSet: new Set(destAirports),
-                destTraconsSet: new Set(destTracons),
-                destArtccsSet: new Set(destArtccs),
-                // Keep arrays for PlaybookCDRSearch module compatibility
-                originAirports: origAirports,
-                originTracons: origTracons,
-                originArtccs: origArtccs,
-                destAirports: destAirports,
-                destTracons: destTracons,
-                destArtccs: destArtccs,
-            };
-
-            playbookRoutes.push(entry);
-            const pnorm = entry.playNameNorm;
-            if (!playbookByPlayName[pnorm]) {playbookByPlayName[pnorm] = [];}
-            playbookByPlayName[pnorm].push(entry);
-        }
-
-        console.log('[MAPLIBRE] Loaded', playbookRoutes.length, 'playbook routes');
-        console.log('[MAPLIBRE] Unique play names:', Object.keys(playbookByPlayName).length);
-        // Show first 10 play names for debugging
-        console.log('[MAPLIBRE] Sample play names:', Object.keys(playbookByPlayName).slice(0, 10));
-
-        // Expose to global scope for PlaybookCDRSearch module
-        window.playbookRoutes = playbookRoutes;
-        window.playbookByPlayName = playbookByPlayName;
-    }).fail(function(xhr, status, error) {
-        console.error('[MAPLIBRE] Failed to load playbook_routes.csv:', error);
-    });
+    // Pre-load NAT track data alongside CSV data
+    var _loadNATTracks = fetch('api/data/playbook/nat_tracks.php')
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+        })
+        .then(function(resp) {
+            populateNATTrackCache(resp);
+        })
+        .catch(function() {
+            console.warn('[MAPLIBRE] NAT tracks unavailable at startup');
+            natTrackCache = {};
+        });
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MAP INITIALIZATION
@@ -1737,22 +1761,30 @@ $(document).ready(function() {
     }
 
     function loadNavaidsData() {
-        $.ajax({ type: 'GET', url: 'assets/data/navaids.csv', async: true }).done(function(data) {
-            const features = [];
-            data.split('\n').forEach(line => {
-                const parts = line.split(',');
-                if (parts[0] && parts[1] && parts[2]) {
-                    features.push({
-                        type: 'Feature',
-                        properties: { name: parts[0].trim() },
-                        geometry: { type: 'Point', coordinates: [parseFloat(parts[2]), parseFloat(parts[1])] },
-                    });
+        fetch('assets/data/navaids.csv')
+            .then(function(response) {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.text();
+            })
+            .then(function(data) {
+                const features = [];
+                data.split('\n').forEach(line => {
+                    const parts = line.split(',');
+                    if (parts[0] && parts[1] && parts[2]) {
+                        features.push({
+                            type: 'Feature',
+                            properties: { name: parts[0].trim() },
+                            geometry: { type: 'Point', coordinates: [parseFloat(parts[2]), parseFloat(parts[1])] },
+                        });
+                    }
+                });
+                if (graphic_map && graphic_map.getSource('navaids')) {
+                    graphic_map.getSource('navaids').setData({ type: 'FeatureCollection', features });
                 }
+            })
+            .catch(function(error) {
+                console.error('[MAPLIBRE] Failed to load navaids.csv:', error);
             });
-            if (graphic_map && graphic_map.getSource('navaids')) {
-                graphic_map.getSource('navaids').setData({ type: 'FeatureCollection', features });
-            }
-        });
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1997,22 +2029,27 @@ $(document).ready(function() {
         if (suaDataLoaded) {return;}
 
         console.log('[SUA-MAPLIBRE] Fetching SUA data...');
-        $.ajax({
-            type: 'GET',
-            url: 'api/data/sua',
-            dataType: 'json',
-            timeout: 60000,
-        }).done(function(data) {
-            if (data && data.features && graphic_map && graphic_map.getSource('sua')) {
-                graphic_map.getSource('sua').setData(data);
-                suaDataLoaded = true;
-                console.log('[SUA-MAPLIBRE] Loaded ' + data.features.length + ' SUA features');
-            } else {
-                console.warn('[SUA-MAPLIBRE] No SUA features returned or source not ready');
-            }
-        }).fail(function(xhr, status, error) {
-            console.warn('[SUA-MAPLIBRE] Failed to fetch SUA data:', error);
-        });
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function() { controller.abort(); }, 60000);
+        fetch('api/data/sua', { signal: controller.signal })
+            .then(function(response) {
+                clearTimeout(timeoutId);
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            })
+            .then(function(data) {
+                if (data && data.features && graphic_map && graphic_map.getSource('sua')) {
+                    graphic_map.getSource('sua').setData(data);
+                    suaDataLoaded = true;
+                    console.log('[SUA-MAPLIBRE] Loaded ' + data.features.length + ' SUA features');
+                } else {
+                    console.warn('[SUA-MAPLIBRE] No SUA features returned or source not ready');
+                }
+            })
+            .catch(function(error) {
+                clearTimeout(timeoutId);
+                console.warn('[SUA-MAPLIBRE] Failed to fetch SUA data:', error);
+            });
     }
 
     function startSuaRefresh() {
@@ -2680,7 +2717,7 @@ $(document).ready(function() {
     // ROUTE PROCESSING AND DISPLAY
     // ═══════════════════════════════════════════════════════════════════════════
 
-    function processAndDisplayRoutes() {
+    async function processAndDisplayRoutes() {
         if (!mapReady || !graphic_map) {
             console.warn('[MAPLIBRE] processAndDisplayRoutes called but map not ready');
             return;
@@ -2734,9 +2771,10 @@ $(document).ready(function() {
             routeStrings = routeStrings.concat(advStrings);
         } else {
             const expanded = expandGroupsInRouteInput(rawInput);
-            expanded.split(/\r?\n/).forEach(line => {
+            const expandedLines = expanded.split(/\r?\n/);
+            for (const line of expandedLines) {
                 const trimmed = line.trim();
-                if (!trimmed) {return;}
+                if (!trimmed) {continue;}
 
                 let body = trimmed, color = null;
                 const semiIdx = trimmed.indexOf(';');
@@ -2755,7 +2793,7 @@ $(document).ready(function() {
                 if (specUpper.startsWith('PB.')) {
                     const pbDirective = specUpper.slice(3).trim();
                     console.log('[MAPLIBRE] Expanding playbook directive:', pbDirective);
-                    const pbRoutes = expandPlaybookDirective(pbDirective, isMandatory, color);
+                    const pbRoutes = await expandPlaybookDirective(pbDirective, isMandatory, color);
                     console.log('[MAPLIBRE] Playbook returned', pbRoutes ? pbRoutes.length : 0, 'routes');
                     if (pbRoutes && pbRoutes.length) {
                         if (_lastNatPlaybookResult && _lastNatPlaybookResult.tracks.length) {
@@ -2779,7 +2817,7 @@ $(document).ready(function() {
                     }
                     routeStrings.push(color ? rteBody + ';' + color : rteBody);
                 }
-            });
+            }
         }
 
         console.log('[MAPLIBRE] Parsed routeStrings:', routeStrings.length, routeStrings.slice(0, 5));
@@ -5970,48 +6008,50 @@ $(document).ready(function() {
             // Store previous data for buffered update
             const previousFlights = state.flights ? state.flights.slice() : [];
 
-            return $.ajax({
-                url: 'api/adl/current.php?limit=10000&active=1',
-                method: 'GET',
-                dataType: 'json',
-            }).done(function(data) {
-                if (data.error) {
-                    console.error('[ADL-ML] API error:', data.error);
+            return fetch('api/adl/current.php?limit=10000&active=1')
+                .then(function(response) {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (data.error) {
+                        console.error('[ADL-ML] API error:', data.error);
+                        updateRefreshStatus('Error');
+                        // BUFFERED: Keep previous data on error
+                        return;
+                    }
+
+                    const allFlights = data.flights || data.rows || [];
+                    console.log('[ADL-ML] Total flights from API:', allFlights.length);
+
+                    const validFlights = allFlights.filter(f =>
+                        f.lat != null && f.lon != null &&
+                        !isNaN(parseFloat(f.lat)) && !isNaN(parseFloat(f.lon)),
+                    );
+                    console.log('[ADL-ML] Flights with valid lat/lon:', validFlights.length);
+
+                    // BUFFERED: Only update if we got data, or had no prior data
+                    if (validFlights.length > 0 || previousFlights.length === 0) {
+                        state.flights = validFlights;
+                    } else {
+                        console.log('[ADL-ML] Empty response, keeping previous data (' + previousFlights.length + ' flights)');
+                        // Keep previous flights - don't update state.flights
+                    }
+
+                    state.lastRefresh = new Date();
+                    applyFilters();
+                    console.log('[ADL-ML] Filtered flights:', state.filteredFlights.length);
+
+                    updateDisplay();
+                    updateStats();
+                    updateRefreshStatus();
+                })
+                .catch(function(err) {
+                    console.error('[ADL-ML] Fetch failed:', err);
                     updateRefreshStatus('Error');
-                    // BUFFERED: Keep previous data on error
-                    return;
-                }
-
-                const allFlights = data.flights || data.rows || [];
-                console.log('[ADL-ML] Total flights from API:', allFlights.length);
-
-                const validFlights = allFlights.filter(f =>
-                    f.lat != null && f.lon != null &&
-                    !isNaN(parseFloat(f.lat)) && !isNaN(parseFloat(f.lon)),
-                );
-                console.log('[ADL-ML] Flights with valid lat/lon:', validFlights.length);
-
-                // BUFFERED: Only update if we got data, or had no prior data
-                if (validFlights.length > 0 || previousFlights.length === 0) {
-                    state.flights = validFlights;
-                } else {
-                    console.log('[ADL-ML] Empty response, keeping previous data (' + previousFlights.length + ' flights)');
-                    // Keep previous flights - don't update state.flights
-                }
-
-                state.lastRefresh = new Date();
-                applyFilters();
-                console.log('[ADL-ML] Filtered flights:', state.filteredFlights.length);
-
-                updateDisplay();
-                updateStats();
-                updateRefreshStatus();
-            }).fail(function(xhr, status, err) {
-                console.error('[ADL-ML] Fetch failed:', status, err);
-                updateRefreshStatus('Error');
-                // BUFFERED: Don't clear state.flights on error - keep showing old data
-                console.log('[ADL-ML] Keeping previous data due to error (' + previousFlights.length + ' flights)');
-            });
+                    // BUFFERED: Don't clear state.flights on error - keep showing old data
+                    console.log('[ADL-ML] Keeping previous data due to error (' + previousFlights.length + ' flights)');
+                });
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -7170,7 +7210,7 @@ $(document).ready(function() {
         $field.val(origins.join('/') + ' DEPARTURES TO ' + dests.join('/'));
     }
 
-    function collectRouteStringsForAdvisory(rawInput) {
+    async function collectRouteStringsForAdvisory(rawInput) {
         let routeStrings = [];
         const usedProcedures = new Set();  // Track playbook and CDR names
         const text = (rawInput || '').toString();
@@ -7186,9 +7226,9 @@ $(document).ready(function() {
             // Use same expansion as map plotting
             const expanded = expandGroupsInRouteInput(text);
             const lines = expanded.split(/\r?\n/);
-            lines.forEach(line => {
+            for (const line of lines) {
                 const trimmed = line.trim();
-                if (!trimmed) {return;}
+                if (!trimmed) {continue;}
 
                 let body = trimmed;
                 let color = null;
@@ -7197,7 +7237,7 @@ $(document).ready(function() {
                     body = trimmed.slice(0, semiIdx).trim();
                     color = trimmed.slice(semiIdx + 1).trim().toUpperCase();
                 }
-                if (!body) {return;}
+                if (!body) {continue;}
 
                 // Check for whole-line mandatory wrapper >...<
                 let isMandatory = false;
@@ -7216,7 +7256,7 @@ $(document).ready(function() {
                     const playName = (pbParts[0] || '').trim();
                     if (playName) {usedProcedures.add('PB: ' + playName);}
 
-                    const pbRoutes = expandPlaybookDirective(pbDirective, isMandatory, null);
+                    const pbRoutes = await expandPlaybookDirective(pbDirective, isMandatory, null);
                     if (pbRoutes && pbRoutes.length) {
                         routeStrings = routeStrings.concat(pbRoutes);
                     }
@@ -7236,7 +7276,7 @@ $(document).ready(function() {
                         routeStrings.push(specUpper);
                     }
                 }
-            });
+            }
         }
         // CDR expansion
         routeStrings = routeStrings.map(rte => {
@@ -7612,9 +7652,9 @@ $(document).ready(function() {
         return routes;
     }
 
-    function generateRerouteAdvisory() {
+    async function generateRerouteAdvisory() {
         const rawInput = $('#routeSearch').val() || '';
-        const collectResult = collectRouteStringsForAdvisory(rawInput);
+        const collectResult = await collectRouteStringsForAdvisory(rawInput);
         const routeStrings = collectResult.routes || [];
         const usedProcedures = collectResult.procedures || [];
 
@@ -8129,7 +8169,7 @@ $(document).ready(function() {
         console.log('[DRAFT-TMI] draftRerouteAdvisory() called');
 
         const rawInput = $('#routeSearch').val() || '';
-        const collectResult = collectRouteStringsForAdvisory(rawInput);
+        const collectResult = await collectRouteStringsForAdvisory(rawInput);
         const routeStrings = collectResult.routes || [];
         const usedProcedures = collectResult.procedures || [];
 
@@ -8150,7 +8190,7 @@ $(document).ready(function() {
 
         try {
             // Collect comprehensive route data
-            const exportData = collectExportData();
+            const exportData = await collectExportData();
             const parsedRoutes = advParseRoutesEnhanced(routeStrings);
 
             // Calculate facilities from GIS
@@ -8536,13 +8576,13 @@ $(document).ready(function() {
     // Allow deep links like /route.php?routes=... or /route.php?s=share-code
     var seedResult = seedRouteInputFromUrl();
 
-    // Wait for all CSV data to load before initializing the map
-    var _dataReady = $.when(_loadPoints, _loadMagvar, _loadCdrs, _loadPlaybook);
+    // Wait for all CSV data + NAT tracks to load before initializing the map
+    var _dataReady = Promise.allSettled([_loadPoints, _loadMagvar, _loadCdrs, _loadPlaybook, _loadNATTracks]);
 
     if (USE_MAPLIBRE) {
         console.log('[MAPLIBRE] Feature flag enabled, initializing MapLibre GL JS');
         // Gate map init on both data loads and any URL seed resolution
-        _dataReady.always(function() {
+        _dataReady.then(function() {
             console.log('[MAPLIBRE] All CSV data loaded, proceeding with map init');
             if (seedResult && typeof seedResult.then === 'function') {
                 seedResult.then(function(seeded) {
@@ -8641,7 +8681,7 @@ $(document).ready(function() {
     /**
      * Parse route input and collect comprehensive metadata for export
      */
-    function collectExportData() {
+    async function collectExportData() {
         const rawInput = $('#routeSearch').val() || '';
         const routes = [];
         const lines = rawInput.split(/\r?\n/);
@@ -8699,7 +8739,7 @@ $(document).ready(function() {
 
         // Process each route entry — use 1-based counter matching map plotter's ++currentRouteId
         let exportRouteId = 0;
-        routeEntries.forEach((entry, routeIdx) => {
+        for (const entry of routeEntries) {
             let baseLine = entry.line;
             let color = entry.groupColor;
             let isMandatory = entry.groupMandatory;
@@ -8731,7 +8771,7 @@ $(document).ready(function() {
                 playbookDests = pbParts[2] || null;
 
                 // Expand playbook routes
-                const pbRoutes = expandPlaybookDirective(routeUpper.slice(3), isMandatory, color);
+                const pbRoutes = await expandPlaybookDirective(routeUpper.slice(3), isMandatory, color);
                 pbRoutes.forEach((pbRoute, pbIdx) => {
                     exportRouteId++;
                     const routeMeta = parseRouteMetadata(pbRoute, exportRouteId);
@@ -8742,7 +8782,7 @@ $(document).ready(function() {
                     routeMeta.isMandatory = isMandatory;
                     routes.push(routeMeta);
                 });
-                return;
+                continue;
             }
 
             // Detect CDR
@@ -8759,7 +8799,7 @@ $(document).ready(function() {
             routeMeta.cdrCode = cdrCode;
             routeMeta.isMandatory = isMandatory;
             routes.push(routeMeta);
-        });
+        }
 
         // Enrich routes with facility data
         routes.forEach(routeMeta => {
@@ -9332,8 +9372,8 @@ $(document).ready(function() {
     /**
      * Export routes to GeoJSON format
      */
-    function exportToGeoJSON() {
-        const data = collectExportData();
+    async function exportToGeoJSON() {
+        const data = await collectExportData();
 
         // Build comprehensive feature collection
         const features = [];
@@ -9624,8 +9664,8 @@ $(document).ready(function() {
     /**
      * Export routes to KML format
      */
-    function exportToKML() {
-        const data = collectExportData();
+    async function exportToKML() {
+        const data = await collectExportData();
 
         // Build unique routes with their features grouped
         const routeGroups = {};
@@ -9751,7 +9791,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
      * Note: GPKG is a SQLite-based format. We'll create a simplified version using sql.js if available,
      * or fall back to a well-structured GeoJSON that can be converted.
      */
-    function exportToGPKG() {
+    async function exportToGPKG() {
         // Check if sql.js is available for native GPKG creation
         if (typeof initSqlJs !== 'undefined') {
             exportToGPKGNative();
@@ -9760,7 +9800,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
 
         // Fallback: Create a zip with GeoJSON + conversion instructions
         // For now, we'll create a comprehensive GeoJSON that tools like QGIS can easily convert
-        const data = collectExportData();
+        const data = await collectExportData();
 
         // Create separate layers as GeoJSON files bundled info
         const exportBundle = {

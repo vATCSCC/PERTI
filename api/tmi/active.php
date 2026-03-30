@@ -38,9 +38,7 @@ $org_params = tmi_org_scope_params();
 $include_param = tmi_param('include', 'entries,programs,advisories,reroutes,routes');
 $include = array_map('trim', explode(',', strtolower($include_param)));
 
-$response = [
-    'timestamp' => gmdate('c')
-];
+$response = [];
 
 // Active NTML Entries
 if (in_array('entries', $include)) {

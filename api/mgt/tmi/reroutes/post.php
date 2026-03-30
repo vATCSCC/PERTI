@@ -130,10 +130,13 @@ try {
 
         echo json_encode([
             'status' => 'ok',
-            'action' => 'updated',
-            'id' => $id,
-            'affected_rows' => $rowsAffected,
-            'routes_updated' => $routesUpdated
+            'timestamp' => gmdate('c'),
+            'data' => [
+                'action' => 'updated',
+                'id' => $id,
+                'affected_rows' => $rowsAffected,
+                'routes_updated' => $routesUpdated
+            ]
         ]);
 
     } else {
@@ -203,9 +206,12 @@ try {
 
         echo json_encode([
             'status' => 'ok',
-            'action' => 'created',
-            'id' => $newId,
-            'routes_saved' => $routesSaved
+            'timestamp' => gmdate('c'),
+            'data' => [
+                'action' => 'created',
+                'id' => $newId,
+                'routes_saved' => $routesSaved
+            ]
         ]);
     }
 
