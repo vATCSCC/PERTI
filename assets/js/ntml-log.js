@@ -52,15 +52,15 @@
                 var time = (e.event_utc || '').substring(0, 19).replace('T', ' ');
                 var icon = severityIcons[e.severity] || severityIcons['INFO'];
                 html += '<tr class="log-row" data-logid="' + e.log_id + '">'
-                    + '<td class="small">' + time + '</td>'
+                    + '<td class="small">' + escHtml(time) + '</td>'
                     + '<td>' + icon + '</td>'
-                    + '<td><span class="badge badge-secondary">' + (e.action_category || '') + '</span></td>'
-                    + '<td class="small">' + (e.action_type || '') + '</td>'
-                    + '<td class="small">' + (e.program_type || '') + '</td>'
-                    + '<td class="small font-weight-bold">' + (e.ctl_element || '') + '</td>'
+                    + '<td><span class="badge badge-secondary">' + escHtml(e.action_category || '') + '</span></td>'
+                    + '<td class="small">' + escHtml(e.action_type || '') + '</td>'
+                    + '<td class="small">' + escHtml(e.program_type || '') + '</td>'
+                    + '<td class="small font-weight-bold">' + escHtml(e.ctl_element || '') + '</td>'
                     + '<td class="small">' + escHtml(e.summary || '') + '</td>'
-                    + '<td class="small">' + (e.issuing_facility || '') + '</td>'
-                    + '<td class="small">' + (e.user_name || e.user_cid || '') + '</td>'
+                    + '<td class="small">' + escHtml(e.issuing_facility || '') + '</td>'
+                    + '<td class="small">' + escHtml(e.user_name || e.user_cid || '') + '</td>'
                     + '</tr>';
 
                 // Expandable detail row (hidden by default)
@@ -79,16 +79,16 @@
 
     function buildDetail(e) {
         var parts = [];
-        if (e.effective_start_utc) parts.push('<b>Start:</b> ' + e.effective_start_utc);
-        if (e.effective_end_utc) parts.push('<b>End:</b> ' + e.effective_end_utc);
-        if (e.rate_value) parts.push('<b>Rate:</b> ' + e.rate_value + ' ' + (e.rate_unit || ''));
-        if (e.total_flights) parts.push('<b>Flights:</b> ' + e.total_flights + ' (ctl: ' + (e.controlled_flights || 0) + ')');
-        if (e.avg_delay_min) parts.push('<b>Avg delay:</b> ' + e.avg_delay_min + ' min');
-        if (e.max_delay_min) parts.push('<b>Max delay:</b> ' + e.max_delay_min + ' min');
-        if (e.param_cause_category) parts.push('<b>Cause:</b> ' + e.param_cause_category + (e.cause_detail ? ' - ' + e.cause_detail : ''));
-        if (e.cancellation_reason) parts.push('<b>Cancel reason:</b> ' + e.cancellation_reason);
-        if (e.program_id) parts.push('<b>Program:</b> #' + e.program_id);
-        if (e.advisory_number) parts.push('<b>Advisory:</b> ' + e.advisory_number);
+        if (e.effective_start_utc) parts.push('<b>Start:</b> ' + escHtml(e.effective_start_utc));
+        if (e.effective_end_utc) parts.push('<b>End:</b> ' + escHtml(e.effective_end_utc));
+        if (e.rate_value) parts.push('<b>Rate:</b> ' + escHtml('' + e.rate_value) + ' ' + escHtml(e.rate_unit || ''));
+        if (e.total_flights) parts.push('<b>Flights:</b> ' + escHtml('' + e.total_flights) + ' (ctl: ' + escHtml('' + (e.controlled_flights || 0)) + ')');
+        if (e.avg_delay_min) parts.push('<b>Avg delay:</b> ' + escHtml('' + e.avg_delay_min) + ' min');
+        if (e.max_delay_min) parts.push('<b>Max delay:</b> ' + escHtml('' + e.max_delay_min) + ' min');
+        if (e.param_cause_category) parts.push('<b>Cause:</b> ' + escHtml(e.param_cause_category) + (e.cause_detail ? ' - ' + escHtml(e.cause_detail) : ''));
+        if (e.cancellation_reason) parts.push('<b>Cancel reason:</b> ' + escHtml(e.cancellation_reason));
+        if (e.program_id) parts.push('<b>Program:</b> #' + escHtml('' + e.program_id));
+        if (e.advisory_number) parts.push('<b>Advisory:</b> ' + escHtml('' + e.advisory_number));
         if (e.ntml_formatted) parts.push('<hr><pre class="mb-0 small">' + escHtml(e.ntml_formatted).substring(0, 500) + '</pre>');
         return parts.length ? parts.join(' &middot; ') : '<em>No additional details</em>';
     }
@@ -118,7 +118,11 @@
         $(document).on('click', '.log-row', function() {
             var id = $(this).data('logid');
             var detail = $('.log-detail[data-logid="' + id + '"]');
-            detail.toggle();
+            if (detail.is(':visible')) {
+                detail.css('display', '');
+            } else {
+                detail.css('display', 'table-row');
+            }
         });
 
         // Auto-refresh toggle

@@ -82,7 +82,7 @@ $nav_config = [
             ['label' => __('nav.jatoc'), 'path' => './jatoc'],
             ['label' => __('nav.eventAar'), 'path' => './event-aar', 'hibernated' => $_h],
             ['label' => __('nav.tmiPublisher'), 'path' => './tmi-publish'],
-            ['label' => 'NAS Event Log', 'path' => './ntml-log', 'hibernated' => $_h],
+            ['label' => __('nav.nasEventLog'), 'path' => './ntml-log', 'hibernated' => $_h],
             ['label' => __('nav.ctpOceanic'), 'path' => './ctp'],
             ['label' => __('nav.status'), 'path' => './status'],
         ]

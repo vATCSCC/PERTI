@@ -155,7 +155,7 @@ function run_attribution_cycle($conn_adl, $conn_tmi, bool $debug): int {
 
     // Step 4: Mark old attributions as superseded
     if (!empty($batch)) {
-        $uids = array_unique(array_column($batch, 0));
+        $uids = array_map('intval', array_unique(array_column($batch, 0)));
         $uid_list = implode(',', $uids);
         $supersede_sql = "UPDATE dbo.tmi_delay_attribution SET is_current = 0 WHERE flight_uid IN ({$uid_list}) AND is_current = 1";
         $s_stmt = sqlsrv_query($conn_tmi, $supersede_sql);
