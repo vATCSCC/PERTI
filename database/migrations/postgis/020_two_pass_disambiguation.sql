@@ -28,6 +28,18 @@
 
 
 -- ============================================================================
+-- 0. Drop stale 5-parameter overload from migration 008
+-- ============================================================================
+-- Migration 008 created resolve_waypoint(VARCHAR, NUMERIC, NUMERIC, NUMERIC, NUMERIC)
+-- with p_prev_lat/p_prev_lon/p_next_lat/p_next_lon. Migration 009 replaced it with
+-- the 3-parameter version (p_context_lat/p_context_lon) but didn't DROP the old one.
+-- Both overloads accept 1 VARCHAR arg (rest default NULL), causing PostgreSQL error
+-- "function resolve_waypoint(varchar) is not unique" on unqualified calls.
+-- ============================================================================
+DROP FUNCTION IF EXISTS public.resolve_waypoint(character varying, numeric, numeric, numeric, numeric);
+
+
+-- ============================================================================
 -- 1. resolve_waypoint() — deterministic no-context fallback
 -- ============================================================================
 -- Base: migration 009 (area_centers-first when no context).
