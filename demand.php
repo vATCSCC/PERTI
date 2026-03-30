@@ -1220,6 +1220,11 @@ include("load/i18n.php");
                                     <span style="background:#f97316;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
                                     <?= __('demand.page.disconnected') ?>
                                 </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" id="phase_controlled" checked style="margin-right: 6px;">
+                                    <span style="background:#b45309;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
+                                    <?= __('demand.phase.controlled') ?>
+                                </label>
                                 <label class="mb-0 d-flex align-items-center text-muted" style="cursor: pointer; font-size: 0.75rem;">
                                     <input type="checkbox" id="phase_unknown" style="margin-right: 6px;">
                                     <span style="background:#9333ea;width:10px;height:10px;display:inline-block;border-radius:2px;margin-right:4px;"></span>
@@ -1267,6 +1272,7 @@ include("load/i18n.php");
                             <i class="fas fa-question-circle mr-1"></i> <?= __('demand.page.other') ?>
                         </div>
                         <div class="d-flex flex-wrap" style="gap: 2px 10px;">
+                            <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #b45309;"></span><?= __('demand.phase.controlled') ?></div>
                             <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #f97316;"></span><?= __('demand.page.disconnected') ?></div>
                             <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #6b7280;"></span><?= __('demand.page.exempt') ?></div>
                             <div class="demand-legend-item"><span class="demand-legend-color" style="background-color: #9333ea;"></span><?= __('demand.page.unknown') ?></div>

@@ -2227,7 +2227,7 @@ function setupEventHandlers() {
     });
 
     // Phase group filter toggles
-    ['prefile', 'departing', 'active', 'arrived', 'disconnected', 'unknown'].forEach(group => {
+    ['prefile', 'departing', 'active', 'arrived', 'disconnected', 'controlled', 'unknown'].forEach(group => {
         $(`#phase_${group}`).on('change', function() {
             DEMAND_STATE.phaseGroups[group] = $(this).is(':checked');
             renderWithLoading();
