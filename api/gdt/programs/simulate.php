@@ -679,6 +679,28 @@ if (count($flights_for_sp) > 0) {
         // Note: sp_TMI_AssignFlightsFPFS already updates tmi_programs metrics
         // (excluding UNASSIGNED flights from delay averages via slot_id IS NOT NULL)
 
+        // Auto-extend: if flights got NO_SLOT, add 15-min slot increments until all are assigned
+        $extend_sql = "
+            DECLARE @ext_applied INT, @ext_slots INT, @ext_flights INT;
+            EXEC dbo.sp_TMI_AutoExtendSlots
+                @program_id = ?,
+                @max_extension_quarters = 48,
+                @extensions_applied = @ext_applied OUTPUT,
+                @slots_added = @ext_slots OUTPUT,
+                @flights_reassigned = @ext_flights OUTPUT;
+            SELECT @ext_applied AS extensions_applied,
+                   @ext_slots AS slots_added,
+                   @ext_flights AS flights_reassigned;
+        ";
+        $extend_stmt = sqlsrv_query($conn_tmi, $extend_sql, [$program_id]);
+        if ($extend_stmt !== false) {
+            $ext_row = sqlsrv_fetch_array($extend_stmt, SQLSRV_FETCH_ASSOC);
+            if ($ext_row && (int)($ext_row['extensions_applied'] ?? 0) > 0) {
+                $slot_count += (int)($ext_row['slots_added'] ?? 0);
+            }
+            sqlsrv_free_stmt($extend_stmt);
+        }
+
         // Populate filing_time_utc from ADL (cross-DB bridge for fairness metrics)
         // filing_time_utc = adl_flight_core.first_seen_utc (best proxy on VATSIM)
         if (!$dry_run) {
