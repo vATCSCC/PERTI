@@ -14,6 +14,30 @@ class AdlQueryHelper {
     const SOURCE_VIEW = 'view';
     const SOURCE_NORMALIZED = 'normalized';
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // TFMS Time Hierarchies — Canonical SQL COALESCE expressions
+    //
+    // These define the "best available time" for demand and display queries.
+    // Priority: Actual > Controlled (GDP/GS) > Estimated > Scheduled
+    //
+    // NOTE: GDP algorithm queries (simulate, model, power_run, reoptimize)
+    //       intentionally use ORIGINAL times (eta_utc/etd_utc) to calculate
+    //       delay against the uncontrolled baseline. Do NOT use these there.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Arrival: actual wheels-down > GDP/GS slot > runway estimate > general ETA
+    const TIME_ARR = "COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)";
+
+    // Departure: actual wheels-up > GDP/GS EDCT > runway estimate > general ETD
+    const TIME_DEP = "COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)";
+
+    // Arrival with meter fix: actual > controlled > meter fix > runway > ETA
+    const TIME_ARR_METER = "COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_meterfix_utc, t.eta_runway_utc, t.eta_utc)";
+
+    // Original (uncontrolled) — for GDP algorithms and delay calculation
+    const TIME_ARR_ORIGINAL = "COALESCE(t.eta_runway_utc, t.eta_utc)";
+    const TIME_DEP_ORIGINAL = "COALESCE(t.etd_runway_utc, t.etd_utc)";
+
     private $source;
 
     /**
@@ -599,9 +623,8 @@ class AdlQueryHelper {
         $startSQL = $options['startSQL'] ?? '';
         $endSQL = $options['endSQL'] ?? '';
 
-        // Time column with COALESCE fallback: prefer runway time, fall back to general ETA/ETD
-        $arrTimeExpr = "COALESCE(t.eta_runway_utc, t.eta_utc)";
-        $depTimeExpr = "COALESCE(t.etd_runway_utc, t.etd_utc)";
+        $arrTimeExpr = self::TIME_ARR;
+        $depTimeExpr = self::TIME_DEP;
         $timeExpr = $direction === 'arr' ? $arrTimeExpr : $depTimeExpr;
 
         // Time bin SQL based on granularity (15min, 30min, hourly)
@@ -1821,8 +1844,8 @@ class AdlQueryHelper {
         $endSQL = $options['endSQL'] ?? '';
         $programId = isset($options['program_id']) ? (int)$options['program_id'] : null;
 
-        // Time column: Use CTA if available (controlled), otherwise fall back to ETA
-        $timeExpr = "COALESCE(tmi.cta_utc, t.eta_runway_utc, t.eta_utc)";
+        // TMI view uses tmi.cta_utc (from JOIN) instead of t.cta_utc for program-filtered queries
+        $timeExpr = "COALESCE(t.ata_runway_utc, tmi.cta_utc, t.eta_runway_utc, t.eta_utc)";
 
         // Time bin SQL based on granularity
         if ($granularity === '15min') {

@@ -321,7 +321,7 @@ function getTopCarriers($conn, $helper, $airport, $startSQL, $endSQL, $direction
  */
 function getOriginARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granularity = 60) {
     $phaseAgg = getPhaseAggregationSQL('c.phase');
-    $timeBinSQL = getTimeBinSQL('COALESCE(t.eta_runway_utc, t.eta_utc)', $granularity);
+    $timeBinSQL = getTimeBinSQL('COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)', $granularity);
     $fromClause = getNormalizedFrom();
     $sql = "
         SELECT
@@ -331,8 +331,8 @@ function getOriginARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $
             {$phaseAgg}
         {$fromClause}
         WHERE fp.fp_dest_icao = ?
-          AND COALESCE(t.eta_runway_utc, t.eta_utc) >= ?
-          AND COALESCE(t.eta_runway_utc, t.eta_utc) < ?
+          AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) >= ?
+          AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) < ?
         GROUP BY {$timeBinSQL}, ISNULL(fp.fp_dept_artcc, 'UNKN')
         ORDER BY time_bin, count DESC
     ";
@@ -366,7 +366,7 @@ function getOriginARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $
  */
 function getDestARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granularity = 60) {
     $phaseAgg = getPhaseAggregationSQL('c.phase');
-    $timeBinSQL = getTimeBinSQL('COALESCE(t.etd_runway_utc, t.etd_utc)', $granularity);
+    $timeBinSQL = getTimeBinSQL('COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)', $granularity);
     $fromClause = getNormalizedFrom();
     $sql = "
         SELECT
@@ -376,8 +376,8 @@ function getDestARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $gr
             {$phaseAgg}
         {$fromClause}
         WHERE fp.fp_dept_icao = ?
-          AND COALESCE(t.etd_runway_utc, t.etd_utc) >= ?
-          AND COALESCE(t.etd_runway_utc, t.etd_utc) < ?
+          AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) >= ?
+          AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) < ?
         GROUP BY {$timeBinSQL}, ISNULL(fp.fp_dest_artcc, 'UNKN')
         ORDER BY time_bin, count DESC
     ";
@@ -411,8 +411,8 @@ function getDestARTCCBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $gr
  */
 function getWeightBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL, $granularity = 60) {
     $fromClause = getNormalizedFrom(true); // includes aircraft table
-    $timeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' :
-               ($direction === 'dep' ? 'COALESCE(t.etd_runway_utc, t.etd_utc)' : 'COALESCE(t.eta_runway_utc, t.eta_utc)');
+    $timeCol = $direction === 'arr' ? 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)' :
+               ($direction === 'dep' ? 'COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)' : 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)');
     $airportCol = $direction === 'arr' ? 'fp.fp_dest_icao' :
                   ($direction === 'dep' ? 'fp.fp_dept_icao' : 'fp.fp_dest_icao');
 
@@ -421,10 +421,10 @@ function getWeightBreakdown($conn, $helper, $airport, $direction, $startSQL, $en
         $timeBinSQL = getTimeBinSQL('op_time', $granularity);
         $sql = "
             WITH Combined AS (
-                SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, ac.weight_class, c.phase
+                SELECT COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) AS op_time, ac.weight_class, c.phase
                 {$fromClause} WHERE fp.fp_dest_icao = ?
                 UNION ALL
-                SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, ac.weight_class, c.phase
+                SELECT COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) AS op_time, ac.weight_class, c.phase
                 {$fromClause} WHERE fp.fp_dept_icao = ?
             )
             SELECT
@@ -489,8 +489,8 @@ function getWeightBreakdown($conn, $helper, $airport, $direction, $startSQL, $en
 function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL, $granularity = 60) {
     $fromClause = getNormalizedFrom(true); // includes aircraft table
 
-    $timeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' :
-               ($direction === 'dep' ? 'COALESCE(t.etd_runway_utc, t.etd_utc)' : 'COALESCE(t.eta_runway_utc, t.eta_utc)');
+    $timeCol = $direction === 'arr' ? 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)' :
+               ($direction === 'dep' ? 'COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)' : 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)');
     $airportCol = $direction === 'arr' ? 'fp.fp_dest_icao' :
                   ($direction === 'dep' ? 'fp.fp_dept_icao' : 'fp.fp_dest_icao');
 
@@ -499,10 +499,10 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
         $timeBinSQL = getTimeBinSQL('op_time', $granularity);
         $sql = "
             WITH Combined AS (
-                SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, ac.airline_icao, c.phase
+                SELECT COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) AS op_time, ac.airline_icao, c.phase
                 {$fromClause} WHERE fp.fp_dest_icao = ?
                 UNION ALL
-                SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, ac.airline_icao, c.phase
+                SELECT COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) AS op_time, ac.airline_icao, c.phase
                 {$fromClause} WHERE fp.fp_dept_icao = ?
             )
             SELECT
@@ -569,8 +569,8 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
  */
 function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL, $granularity = 60) {
     $fromClause = getNormalizedFrom(); // aircraft_type is on plan table
-    $timeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' :
-               ($direction === 'dep' ? 'COALESCE(t.etd_runway_utc, t.etd_utc)' : 'COALESCE(t.eta_runway_utc, t.eta_utc)');
+    $timeCol = $direction === 'arr' ? 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)' :
+               ($direction === 'dep' ? 'COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)' : 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)');
     $airportCol = $direction === 'arr' ? 'fp.fp_dest_icao' :
                   ($direction === 'dep' ? 'fp.fp_dept_icao' : 'fp.fp_dest_icao');
 
@@ -579,10 +579,10 @@ function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, 
         $timeBinSQL = getTimeBinSQL('op_time', $granularity);
         $sql = "
             WITH Combined AS (
-                SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, fp.aircraft_type, c.phase
+                SELECT COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) AS op_time, fp.aircraft_type, c.phase
                 {$fromClause} WHERE fp.fp_dest_icao = ?
                 UNION ALL
-                SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, fp.aircraft_type, c.phase
+                SELECT COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) AS op_time, fp.aircraft_type, c.phase
                 {$fromClause} WHERE fp.fp_dept_icao = ?
             )
             SELECT
@@ -649,8 +649,8 @@ function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, 
  */
 function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL, $granularity = 60) {
     $fromClause = getNormalizedFrom();
-    $timeCol = $direction === 'arr' ? 'COALESCE(t.eta_runway_utc, t.eta_utc)' :
-               ($direction === 'dep' ? 'COALESCE(t.etd_runway_utc, t.etd_utc)' : 'COALESCE(t.eta_runway_utc, t.eta_utc)');
+    $timeCol = $direction === 'arr' ? 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)' :
+               ($direction === 'dep' ? 'COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)' : 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)');
     $airportCol = $direction === 'arr' ? 'fp.fp_dest_icao' :
                   ($direction === 'dep' ? 'fp.fp_dept_icao' : 'fp.fp_dest_icao');
 
@@ -659,10 +659,10 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
         $timeBinSQL = getTimeBinSQL('op_time', $granularity);
         $sql = "
             WITH Combined AS (
-                SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, fp.fp_rule, c.phase
+                SELECT COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) AS op_time, fp.fp_rule, c.phase
                 {$fromClause} WHERE fp.fp_dest_icao = ?
                 UNION ALL
-                SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, fp.fp_rule, c.phase
+                SELECT COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) AS op_time, fp.fp_rule, c.phase
                 {$fromClause} WHERE fp.fp_dept_icao = ?
             )
             SELECT
@@ -730,7 +730,7 @@ function getRuleBreakdown($conn, $helper, $airport, $direction, $startSQL, $endS
 function getDepFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granularity = 60) {
     $phaseAgg = getPhaseAggregationSQL('c.phase');
     $fromClause = getNormalizedFrom();
-    $timeBinSQL = getTimeBinSQL('COALESCE(t.etd_runway_utc, t.etd_utc)', $granularity);
+    $timeBinSQL = getTimeBinSQL('COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)', $granularity);
     $sql = "
         SELECT
             {$timeBinSQL} AS time_bin,
@@ -739,9 +739,9 @@ function getDepFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granu
             {$phaseAgg}
         {$fromClause}
         WHERE fp.fp_dept_icao = ?
-          AND COALESCE(t.etd_runway_utc, t.etd_utc) IS NOT NULL
-          AND COALESCE(t.etd_runway_utc, t.etd_utc) >= ?
-          AND COALESCE(t.etd_runway_utc, t.etd_utc) < ?
+          AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) IS NOT NULL
+          AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) >= ?
+          AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) < ?
         GROUP BY {$timeBinSQL}, COALESCE(fp.dfix, 'UNKNOWN')
         ORDER BY time_bin, count DESC
     ";
@@ -781,7 +781,7 @@ function getDepFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granu
 function getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granularity = 60) {
     $phaseAgg = getPhaseAggregationSQL('c.phase');
     $fromClause = getNormalizedFrom();
-    $timeBinSQL = getTimeBinSQL('COALESCE(t.eta_runway_utc, t.eta_utc)', $granularity);
+    $timeBinSQL = getTimeBinSQL('COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)', $granularity);
     $sql = "
         SELECT
             {$timeBinSQL} AS time_bin,
@@ -790,9 +790,9 @@ function getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granu
             {$phaseAgg}
         {$fromClause}
         WHERE fp.fp_dest_icao = ?
-          AND COALESCE(t.eta_runway_utc, t.eta_utc) IS NOT NULL
-          AND COALESCE(t.eta_runway_utc, t.eta_utc) >= ?
-          AND COALESCE(t.eta_runway_utc, t.eta_utc) < ?
+          AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) IS NOT NULL
+          AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) >= ?
+          AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) < ?
         GROUP BY {$timeBinSQL}, COALESCE(fp.afix, 'UNKNOWN')
         ORDER BY time_bin, count DESC
     ";
@@ -833,7 +833,7 @@ function getArrFixBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granu
 function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granularity = 60) {
     $phaseAgg = getPhaseAggregationSQL('c.phase');
     $fromClause = getNormalizedFrom();
-    $timeBinSQL = getTimeBinSQL('COALESCE(t.etd_runway_utc, t.etd_utc)', $granularity);
+    $timeBinSQL = getTimeBinSQL('COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)', $granularity);
     // Strip trailing digits from procedure names to group versions together
     // BNFSH2 + BNFSH3 -> BNFSH#
     $dpBaseSQL = "CASE
@@ -849,9 +849,9 @@ function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granulari
             {$phaseAgg}
         {$fromClause}
         WHERE fp.fp_dept_icao = ?
-          AND COALESCE(t.etd_runway_utc, t.etd_utc) IS NOT NULL
-          AND COALESCE(t.etd_runway_utc, t.etd_utc) >= ?
-          AND COALESCE(t.etd_runway_utc, t.etd_utc) < ?
+          AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) IS NOT NULL
+          AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) >= ?
+          AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) < ?
         GROUP BY {$timeBinSQL}, {$dpBaseSQL}
         ORDER BY time_bin, count DESC
     ";
@@ -892,7 +892,7 @@ function getDPBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granulari
 function getSTARBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granularity = 60) {
     $phaseAgg = getPhaseAggregationSQL('c.phase');
     $fromClause = getNormalizedFrom();
-    $timeBinSQL = getTimeBinSQL('COALESCE(t.eta_runway_utc, t.eta_utc)', $granularity);
+    $timeBinSQL = getTimeBinSQL('COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)', $granularity);
     // Strip trailing digits from procedure names to group versions together
     // BNFSH2 + BNFSH3 -> BNFSH#
     $starBaseSQL = "CASE
@@ -908,9 +908,9 @@ function getSTARBreakdown($conn, $helper, $airport, $startSQL, $endSQL, $granula
             {$phaseAgg}
         {$fromClause}
         WHERE fp.fp_dest_icao = ?
-          AND COALESCE(t.eta_runway_utc, t.eta_utc) IS NOT NULL
-          AND COALESCE(t.eta_runway_utc, t.eta_utc) >= ?
-          AND COALESCE(t.eta_runway_utc, t.eta_utc) < ?
+          AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) IS NOT NULL
+          AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) >= ?
+          AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) < ?
         GROUP BY {$timeBinSQL}, {$starBaseSQL}
         ORDER BY time_bin, count DESC
     ";

@@ -330,8 +330,8 @@ function buildGroupWhereClause($group, $directionSide) {
  * with facility-level WHERE filters.
  */
 function executeAirportAggregationQuery($conn, $type, $code, $group, $direction, $granularity, $startSQL, $endSQL, &$response) {
-    $arrTimeExpr = "COALESCE(t.eta_runway_utc, t.eta_utc)";
-    $depTimeExpr = "COALESCE(t.etd_runway_utc, t.etd_utc)";
+    $arrTimeExpr = "COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)";
+    $depTimeExpr = "COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)";
 
     // Arrivals query
     if ($direction === 'arr' || $direction === 'both') {
