@@ -87,6 +87,9 @@ function log_tmi_action($conn, array $core, ?array $scope = null,
         ];
         _tmi_log_exec($conn, $is_pdo, $core_sql, $core_params);
 
+        // Broadcast TMI event via WebSocket IPC
+        _tmi_log_ws_broadcast($core, $scope);
+
         // Insert scope row (optional)
         if ($scope) {
             $scope_sql = "INSERT INTO dbo.tmi_log_scope
@@ -325,4 +328,97 @@ function _tmi_log_exec($conn, bool $is_pdo, string $sql, array $params): void
         throw new RuntimeException('[tmi_log] sqlsrv_query failed: ' . $msg);
     }
     sqlsrv_free_stmt($stmt);
+}
+
+/**
+ * Broadcast a TMI event to the SWIM WebSocket via IPC file.
+ *
+ * Lightweight inline implementation of the swim_ws_events.json IPC pattern.
+ * The WebSocket server (scripts/swim_ws_server.php) polls this file every 0.1s
+ * and broadcasts events to all connected clients.
+ *
+ * Failures are silently caught so the logging pipeline is never broken.
+ * Only runs on Linux (the App Service); skipped on Windows dev environments.
+ *
+ * @internal
+ * @param array      $core  The core fields passed to log_tmi_action()
+ * @param array|null $scope Optional scope fields (for ctl_element extraction)
+ */
+function _tmi_log_ws_broadcast(array $core, ?array $scope = null): void
+{
+    // Only run on the App Service (Linux); WS server does not run on Windows
+    if (PHP_OS_FAMILY === 'Windows') {
+        return;
+    }
+
+    try {
+        // Map action_category/action_type to a dotted event type
+        $category = strtolower($core['action_category'] ?? '');
+        $actionType = strtolower($core['action_type'] ?? '');
+
+        $categoryMap = [
+            'program'      => 'tmi.program',
+            'advisory'     => 'tmi.advisory',
+            'entry'        => 'tmi.entry',
+            'reroute'      => 'tmi.reroute',
+            'slot'         => 'tmi.slot',
+            'coordination' => 'tmi.coordination',
+            'flow_measure' => 'tmi.flow_measure',
+        ];
+
+        if (isset($categoryMap[$category]) && $actionType !== '') {
+            $eventType = $categoryMap[$category] . '.' . $actionType;
+        } else {
+            $eventType = 'tmi.action';
+        }
+
+        // Build the event payload (subset of core + scope fields)
+        $event = [
+            'type'    => $eventType,
+            'channel' => 'tmi',
+            'data'    => [
+                'action_category' => $core['action_category'] ?? null,
+                'action_type'     => $core['action_type'] ?? null,
+                'program_type'    => $core['program_type'] ?? null,
+                'summary'         => $core['summary'] ?? null,
+                'event_utc'       => $core['event_utc'] ?? gmdate('Y-m-d\TH:i:s\Z'),
+                'issuing_org'     => $core['issuing_org'] ?? null,
+            ],
+            '_received_at' => gmdate('Y-m-d\TH:i:s.v\Z'),
+        ];
+
+        // Include ctl_element from scope if available
+        if ($scope && !empty($scope['ctl_element'])) {
+            $event['data']['ctl_element'] = $scope['ctl_element'];
+        }
+
+        // IPC file path (same as swim_ws_events.php)
+        $eventFile = sys_get_temp_dir() . '/swim_ws_events.json';
+
+        // Read existing events
+        $existing = [];
+        if (file_exists($eventFile)) {
+            $content = @file_get_contents($eventFile);
+            if ($content) {
+                $existing = json_decode($content, true) ?: [];
+            }
+        }
+
+        // Append and cap at 10,000 entries
+        $existing[] = $event;
+        if (count($existing) > 10000) {
+            $existing = array_slice($existing, -5000);
+        }
+
+        // Atomic write: temp file + rename
+        $tmpFile = $eventFile . '.tmp.' . getmypid();
+        if (file_put_contents($tmpFile, json_encode($existing)) !== false) {
+            @rename($tmpFile, $eventFile);
+        } else {
+            @unlink($tmpFile);
+        }
+    } catch (\Throwable $e) {
+        // Never break the logging pipeline
+        error_log('[tmi_log] WebSocket broadcast failed (non-fatal): ' . $e->getMessage());
+    }
 }
