@@ -8,6 +8,7 @@
  *
  * Tier 1 (Operational, every 5 minutes):
  *   - NTML, TMI programs, entries, advisories, reroutes, flow events, CDM tables
+ *   - TMI analytics: log (core/scope/parameters/impact/references), delay attribution, facility stats
  *   - Delta sync via updated_at/created_at watermark
  *   - Offset by 1 minute from flight sync to avoid DTU contention
  *
@@ -816,6 +817,153 @@ function getTier1FlowConfigs(): array {
 }
 
 // ============================================================================
+// Table Configurations — Tier 1 (Analytics tables from VATSIM_TMI)
+// ============================================================================
+
+function getTier1AnalyticsConfigs(): array {
+    return [
+        // Source: VATSIM_TMI.dbo.tmi_log_core
+        // PK: log_id (UNIQUEIDENTIFIER), watermark: event_utc
+        'swim_tmi_log_core' => [
+            'swim_table' => 'swim_tmi_log_core',
+            'pk' => 'log_id',
+            'watermark' => 'event_utc',
+            'source_query' => 'SELECT log_id, log_seq, action_category, action_type, program_type, severity, source_system, summary, event_utc, user_cid, user_name, issuing_facility, issuing_org FROM dbo.tmi_log_core',
+            'columns' => [
+                'log_id' => 'UNIQUEIDENTIFIER', 'log_seq' => 'BIGINT',
+                'action_category' => 'NVARCHAR(32)', 'action_type' => 'NVARCHAR(32)',
+                'program_type' => 'NVARCHAR(32)', 'severity' => 'NVARCHAR(16)',
+                'source_system' => 'NVARCHAR(32)', 'summary' => 'NVARCHAR(512)',
+                'event_utc' => 'DATETIME2',
+                'user_cid' => 'NVARCHAR(16)', 'user_name' => 'NVARCHAR(128)',
+                'issuing_facility' => 'NVARCHAR(64)', 'issuing_org' => 'NVARCHAR(64)',
+            ],
+        ],
+
+        // Source: VATSIM_TMI.dbo.tmi_log_scope
+        // Satellite of tmi_log_core — JOIN to core for event_utc watermark
+        'swim_tmi_log_scope' => [
+            'swim_table' => 'swim_tmi_log_scope',
+            'pk' => 'log_id',
+            'watermark' => 'c.event_utc',
+            'source_query' => 'SELECT s.log_id, s.ctl_element, s.element_type, s.facility, s.traffic_flow, s.via_fix, s.scope_airports, s.scope_tiers FROM dbo.tmi_log_scope s INNER JOIN dbo.tmi_log_core c ON c.log_id = s.log_id',
+            'columns' => [
+                'log_id' => 'UNIQUEIDENTIFIER',
+                'ctl_element' => 'NVARCHAR(64)', 'element_type' => 'NVARCHAR(16)',
+                'facility' => 'NVARCHAR(64)', 'traffic_flow' => 'NVARCHAR(32)',
+                'via_fix' => 'NVARCHAR(64)',
+                'scope_airports' => 'NVARCHAR(MAX)', 'scope_tiers' => 'NVARCHAR(MAX)',
+            ],
+        ],
+
+        // Source: VATSIM_TMI.dbo.tmi_log_parameters
+        // Satellite of tmi_log_core — JOIN to core for event_utc watermark
+        'swim_tmi_log_parameters' => [
+            'swim_table' => 'swim_tmi_log_parameters',
+            'pk' => 'log_id',
+            'watermark' => 'c.event_utc',
+            'source_query' => 'SELECT s.log_id, s.effective_start_utc, s.effective_end_utc, s.rate_value, s.rate_unit, s.program_rate, s.cause_category, s.cause_detail, s.cancellation_reason, s.ntml_formatted, s.detail_json FROM dbo.tmi_log_parameters s INNER JOIN dbo.tmi_log_core c ON c.log_id = s.log_id',
+            'columns' => [
+                'log_id' => 'UNIQUEIDENTIFIER',
+                'effective_start_utc' => 'DATETIME2', 'effective_end_utc' => 'DATETIME2',
+                'rate_value' => 'INT', 'rate_unit' => 'NVARCHAR(16)', 'program_rate' => 'INT',
+                'cause_category' => 'NVARCHAR(32)', 'cause_detail' => 'NVARCHAR(256)',
+                'cancellation_reason' => 'NVARCHAR(256)',
+                'ntml_formatted' => 'NVARCHAR(MAX)', 'detail_json' => 'NVARCHAR(MAX)',
+            ],
+        ],
+
+        // Source: VATSIM_TMI.dbo.tmi_log_impact
+        // Satellite of tmi_log_core — JOIN to core for event_utc watermark
+        'swim_tmi_log_impact' => [
+            'swim_table' => 'swim_tmi_log_impact',
+            'pk' => 'log_id',
+            'watermark' => 'c.event_utc',
+            'source_query' => 'SELECT s.log_id, s.total_flights, s.controlled_flights, s.avg_delay_min, s.max_delay_min, s.total_delay_min, s.demand_rate, s.capacity_rate, s.compliance_rate FROM dbo.tmi_log_impact s INNER JOIN dbo.tmi_log_core c ON c.log_id = s.log_id',
+            'columns' => [
+                'log_id' => 'UNIQUEIDENTIFIER',
+                'total_flights' => 'INT', 'controlled_flights' => 'INT',
+                'avg_delay_min' => 'DECIMAL(8,1)', 'max_delay_min' => 'DECIMAL(8,1)',
+                'total_delay_min' => 'DECIMAL(12,1)',
+                'demand_rate' => 'INT', 'capacity_rate' => 'INT',
+                'compliance_rate' => 'DECIMAL(5,2)',
+            ],
+        ],
+
+        // Source: VATSIM_TMI.dbo.tmi_log_references
+        // Satellite of tmi_log_core — JOIN to core for event_utc watermark
+        'swim_tmi_log_references' => [
+            'swim_table' => 'swim_tmi_log_references',
+            'pk' => 'log_id',
+            'watermark' => 'c.event_utc',
+            'source_query' => 'SELECT s.log_id, s.program_id, s.entry_id, s.advisory_id, s.reroute_id, s.slot_id, s.flight_uid, s.advisory_number FROM dbo.tmi_log_references s INNER JOIN dbo.tmi_log_core c ON c.log_id = s.log_id',
+            'columns' => [
+                'log_id' => 'UNIQUEIDENTIFIER',
+                'program_id' => 'INT', 'entry_id' => 'INT',
+                'advisory_id' => 'INT', 'reroute_id' => 'INT',
+                'slot_id' => 'BIGINT', 'flight_uid' => 'BIGINT',
+                'advisory_number' => 'NVARCHAR(32)',
+            ],
+        ],
+
+        // Source: VATSIM_TMI.dbo.tmi_delay_attribution
+        // PK: attribution_id (BIGINT), watermark: computed_utc
+        'swim_tmi_delay_attribution' => [
+            'swim_table' => 'swim_tmi_delay_attribution',
+            'pk' => 'attribution_id',
+            'watermark' => 'computed_utc',
+            'source_query' => 'SELECT attribution_id, flight_uid, callsign, dep_icao, arr_icao, delay_phase, delay_minutes, cause_category, cause_subcategory, attributed_program_id, attributed_facility, computation_method, computed_utc, is_current FROM dbo.tmi_delay_attribution',
+            'columns' => [
+                'attribution_id' => 'BIGINT', 'flight_uid' => 'BIGINT',
+                'callsign' => 'NVARCHAR(16)',
+                'dep_icao' => 'NVARCHAR(8)', 'arr_icao' => 'NVARCHAR(8)',
+                'delay_phase' => 'NVARCHAR(16)', 'delay_minutes' => 'DECIMAL(8,1)',
+                'cause_category' => 'NVARCHAR(32)', 'cause_subcategory' => 'NVARCHAR(32)',
+                'attributed_program_id' => 'INT', 'attributed_facility' => 'NVARCHAR(64)',
+                'computation_method' => 'NVARCHAR(32)', 'computed_utc' => 'DATETIME2',
+                'is_current' => 'BIT',
+            ],
+        ],
+
+        // Source: VATSIM_TMI.dbo.tmi_facility_stats_hourly
+        // PK: stat_id (BIGINT), watermark: computed_utc
+        'swim_tmi_facility_stats_hourly' => [
+            'swim_table' => 'swim_tmi_facility_stats_hourly',
+            'pk' => 'stat_id',
+            'watermark' => 'computed_utc',
+            'source_query' => 'SELECT stat_id, facility, facility_type, airport_icao, hour_utc, total_operations, total_arrivals, total_departures, ontime_arrivals, delayed_arrivals, avg_arr_delay_min, max_arr_delay_min, delay_min_total, computed_utc FROM dbo.tmi_facility_stats_hourly',
+            'columns' => [
+                'stat_id' => 'BIGINT',
+                'facility' => 'NVARCHAR(64)', 'facility_type' => 'NVARCHAR(16)',
+                'airport_icao' => 'NVARCHAR(8)', 'hour_utc' => 'DATETIME2',
+                'total_operations' => 'INT', 'total_arrivals' => 'INT', 'total_departures' => 'INT',
+                'ontime_arrivals' => 'INT', 'delayed_arrivals' => 'INT',
+                'avg_arr_delay_min' => 'DECIMAL(8,1)', 'max_arr_delay_min' => 'DECIMAL(8,1)',
+                'delay_min_total' => 'DECIMAL(12,1)', 'computed_utc' => 'DATETIME2',
+            ],
+        ],
+
+        // Source: VATSIM_TMI.dbo.tmi_facility_stats_daily
+        // PK: stat_id (BIGINT), watermark: computed_utc
+        'swim_tmi_facility_stats_daily' => [
+            'swim_table' => 'swim_tmi_facility_stats_daily',
+            'pk' => 'stat_id',
+            'watermark' => 'computed_utc',
+            'source_query' => 'SELECT stat_id, facility, facility_type, airport_icao, date_utc, total_operations, total_arrivals, total_departures, ontime_arr_pct, avg_arr_delay_min, delay_min_total, programs_issued, computed_utc FROM dbo.tmi_facility_stats_daily',
+            'columns' => [
+                'stat_id' => 'BIGINT',
+                'facility' => 'NVARCHAR(64)', 'facility_type' => 'NVARCHAR(16)',
+                'airport_icao' => 'NVARCHAR(8)', 'date_utc' => 'DATE',
+                'total_operations' => 'INT', 'total_arrivals' => 'INT', 'total_departures' => 'INT',
+                'ontime_arr_pct' => 'DECIMAL(5,2)', 'avg_arr_delay_min' => 'DECIMAL(8,1)',
+                'delay_min_total' => 'DECIMAL(12,1)', 'programs_issued' => 'INT',
+                'computed_utc' => 'DATETIME2',
+            ],
+        ],
+    ];
+}
+
+// ============================================================================
 // Table Configurations — Tier 2 (Reference, daily)
 // ============================================================================
 
@@ -913,6 +1061,23 @@ function runTier1Sync($conn_tmi, $conn_adl, $conn_swim, bool $debug): array {
     // Flow tables from VATSIM_TMI
     $flowConfigs = getTier1FlowConfigs();
     foreach ($flowConfigs as $name => $config) {
+        $lastSync = getLastSyncTime($conn_swim, $name);
+        $stats = syncTableToSwim($conn_tmi, $conn_swim, $config, $lastSync);
+        $results[$name] = $stats;
+
+        if ($stats['error']) {
+            tmi_log("  $name: ERROR - {$stats['error']}", 'ERROR');
+        } elseif ($stats['rows_read'] > 0 || $debug) {
+            tmi_log("  $name: {$stats['rows_read']} read, {$stats['updated']} merged in {$stats['duration_ms']}ms");
+        }
+
+        updateSyncState($conn_swim, $name, $stats['rows_read'], $stats['duration_ms'],
+            $lastSync ? 'delta' : 'full', $stats['error']);
+    }
+
+    // Analytics tables from VATSIM_TMI
+    $analyticsConfigs = getTier1AnalyticsConfigs();
+    foreach ($analyticsConfigs as $name => $config) {
         $lastSync = getLastSyncTime($conn_swim, $name);
         $stats = syncTableToSwim($conn_tmi, $conn_swim, $config, $lastSync);
         $results[$name] = $stats;
