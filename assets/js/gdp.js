@@ -1412,8 +1412,8 @@ const GDP = (function() {
             const hourStr = hour.toString().padStart(2, '0');
 
             headerHtml += `<th class="text-center small">${hourStr}Z</th>`;
-            prHtml += `<td><input type="number" class="form-control form-control-sm text-center gdp-hourly-rate" data-hour="${hour}" value="${defaultRate}" min="0" max="120" style="width: 45px;"></td>`;
-            reserveHtml += `<td><input type="number" class="form-control form-control-sm text-center gdp-hourly-reserve" data-hour="${hour}" value="0" min="0" max="20" style="width: 45px;"></td>`;
+            prHtml += `<td><input type="number" class="form-control form-control-sm text-center gdp-hourly-rate" data-hour="${hour}" value="${defaultRate}" min="0" max="120"></td>`;
+            reserveHtml += `<td><input type="number" class="form-control form-control-sm text-center gdp-hourly-reserve" data-hour="${hour}" value="0" min="0" max="20"></td>`;
 
             current.setUTCHours(current.getUTCHours() + 1);
             hourCount++;

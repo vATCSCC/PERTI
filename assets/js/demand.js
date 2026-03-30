@@ -433,6 +433,7 @@ window.DemandChartCore = (function() {
             lastData: null,
             rateData: null,
             showRateLines: options.showRateLines !== false,
+            originalDemand: null,  // Original (pre-program) demand for overlay comparison
         };
 
         // Handle window resize
@@ -450,6 +451,7 @@ window.DemandChartCore = (function() {
                 }
 
                 state.airport = airport;
+                state.originalDemand = null; // Clear overlay when fetching fresh API data
                 if (opts.direction) {state.direction = opts.direction;}
                 if (opts.granularity) {state.granularity = opts.granularity;}
                 if (opts.timeBasis) {state.timeBasis = opts.timeBasis;}
@@ -560,6 +562,28 @@ window.DemandChartCore = (function() {
                     });
                 }
 
+                // Original demand overlay (pre-program comparison line)
+                if (state.originalDemand && state.originalDemand.data) {
+                    const origArrivals = state.originalDemand.data.arrivals || [];
+                    const origByBin = {};
+                    origArrivals.forEach(function(d) {
+                        origByBin[normalizeTimeBin(d.time_bin)] = d.total || 0;
+                    });
+                    const origLineData = timeBins.map(function(bin) {
+                        return [new Date(bin).getTime(), origByBin[normalizeTimeBin(bin)] || 0];
+                    });
+                    series.push({
+                        name: PERTII18n.t('demand.chart.originalDemand'),
+                        type: 'line',
+                        step: 'middle',
+                        symbol: 'none',
+                        lineStyle: { color: '#ff6b35', width: 2.5, type: 'dashed' },
+                        itemStyle: { color: '#ff6b35' },
+                        data: origLineData,
+                        z: 10,
+                    });
+                }
+
                 const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
                 const rateMarkLines = buildRateMarkLinesForChart(state.rateData, direction, state.showRateLines);
 
@@ -599,14 +623,29 @@ window.DemandChartCore = (function() {
                             const timeStr = formatTimeLabelFromTimestamp(timestamp, gran);
                             let tooltip = '<strong style="font-size:12px;">' + timeStr + '</strong><br/>';
                             let total = 0;
+                            let origOverlay = null;
                             params.forEach(function(p) {
                                 const val = p.value[1] || 0;
                                 if (val > 0) {
-                                    tooltip += p.marker + ' ' + p.seriesName + ': <strong>' + val + '</strong><br/>';
-                                    total += val;
+                                    // Separate original demand overlay line from stacked bar total
+                                    if (p.seriesType === 'line') {
+                                        origOverlay = { marker: p.marker, name: p.seriesName, val: val };
+                                    } else {
+                                        tooltip += p.marker + ' ' + p.seriesName + ': <strong>' + val + '</strong><br/>';
+                                        total += val;
+                                    }
                                 }
                             });
                             tooltip += '<hr style="margin:4px 0;border-color:#ddd;"/><strong>' + PERTII18n.t('demand.chart.total') + ': ' + total + '</strong>';
+                            if (origOverlay) {
+                                tooltip += '<br/>' + origOverlay.marker + ' ' + origOverlay.name + ': <strong>' + origOverlay.val + '</strong>';
+                                const delta = total - origOverlay.val;
+                                if (delta !== 0) {
+                                    const sign = delta > 0 ? '+' : '';
+                                    const clr = delta > 0 ? '#28a745' : '#dc3545';
+                                    tooltip += ' <span style="color:' + clr + ';">(' + sign + delta + ')</span>';
+                                }
+                            }
                             // Add rate information if available
                             if (state.rateData && state.rateData.rates) {
                                 const rates = state.rateData.rates;
@@ -742,6 +781,7 @@ window.DemandChartCore = (function() {
             clear: function() {
                 state.lastData = null;
                 state.rateData = null;
+                state.originalDemand = null;
                 state.airport = null;
                 if (state.chart) {state.chart.clear();}
             },
@@ -784,6 +824,7 @@ window.DemandChartCore = (function() {
                 // event-based time range when creating the chart.
                 state.lastData = snapshot.demandData;
                 state.rateData = snapshot.rateData || null;
+                state.originalDemand = snapshot.originalDemand || null;
                 this.render();
             },
             dispose: function() {
@@ -1670,9 +1711,10 @@ function populateAirportDropdown(airports) {
         select.append(`<option value="${apt.icao}" data-name="${apt.name}" data-artcc="${apt.artcc}">${apt.icao}</option>`);
     });
 
-    // Restore selection if still valid
-    if (currentValue && select.find(`option[value="${currentValue}"]`).length) {
-        select.val(currentValue);
+    // Restore selection: prefer URL state, then previous value
+    const restoreValue = DEMAND_STATE.selectedAirport || currentValue;
+    if (restoreValue && select.find(`option[value="${restoreValue}"]`).length) {
+        select.val(restoreValue);
     }
 
     // Refresh bootstrap-select if used
@@ -7586,10 +7628,12 @@ function renderWeightMixCard() {
     // Aggregate weight counts across all time bins
     const totals = {};
     Object.values(breakdown).forEach(bin => {
-        if (bin && typeof bin === 'object') {
-            for (const [wc, count] of Object.entries(bin)) {
+        if (Array.isArray(bin)) {
+            bin.forEach(entry => {
+                const wc = entry.weight_class || 'UNKNOWN';
+                const count = entry.count || 0;
                 totals[wc] = (totals[wc] || 0) + count;
-            }
+            });
         }
     });
 
@@ -7716,10 +7760,12 @@ function renderTopFixesCard() {
     // Aggregate across bins and sort by count
     const totals = {};
     Object.values(breakdown).forEach(bin => {
-        if (bin && typeof bin === 'object') {
-            for (const [fix, count] of Object.entries(bin)) {
+        if (Array.isArray(bin)) {
+            bin.forEach(entry => {
+                const fix = entry.fix || 'UNKNOWN';
+                const count = entry.count || 0;
                 totals[fix] = (totals[fix] || 0) + count;
-            }
+            });
         }
     });
 

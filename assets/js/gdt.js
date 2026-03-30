@@ -6113,7 +6113,7 @@
             var input = document.createElement('input');
             input.type = 'number';
             input.className = 'form-control form-control-sm p-1';
-            input.style.cssText = 'width:50px; text-align:center; font-size:0.75rem;';
+            input.className += ' text-center';
             input.min = '1';
             input.max = '120';
             input.dataset.hour = hh;
@@ -6171,7 +6171,7 @@
             var input = document.createElement('input');
             input.type = 'number';
             input.className = 'form-control form-control-sm p-1';
-            input.style.cssText = 'width:50px; text-align:center; font-size:0.75rem;';
+            input.className += ' text-center';
             input.min = '1';
             input.max = '120';
             input.dataset.quarterKey = key;
@@ -6298,7 +6298,7 @@
 
     /**
      * Format rate display for advisory text.
-     * Fixed rate: "30/HR", Variable: "25 / 30 / 35 / 40/HR"
+     * Fixed rate: "30", Variable: "25/30/35/40"
      */
     function formatRateDisplayForAdvisory() {
         var flatRate = document.getElementById('gs_program_rate');
@@ -6311,11 +6311,11 @@
             var rates = hourlyKeys.map(function(k) { return rateEditor.hourlyRates[k]; });
             var allSame = rates.every(function(r) { return r === rates[0]; });
             if (!allSame) {
-                return rates.join(' / ') + '/HR';
+                return rates.join('/');
             }
         }
 
-        return baseRate + '/HR';
+        return baseRate;
     }
 
     /**
@@ -9048,11 +9048,11 @@
             var trStart = chartState.timeRangeStart !== undefined ? chartState.timeRangeStart : -2;
             var trEnd = chartState.timeRangeEnd !== undefined ? chartState.timeRangeEnd : 14;
 
-            var localDemand = buildDemandFromModelFlights(
+            var localResult = buildDemandFromModelFlights(
                 GS_RAW_MODEL_FLIGHTS, airport, GS_DEMAND_GRANULARITY, trStart, trEnd
             );
 
-            if (localDemand) {
+            if (localResult && localResult.demand) {
                 // Load into chart via snapshot (bypasses API fetch)
                 GS_DEMAND_CHART.loadFromSnapshot({
                     airport: airport,
@@ -9061,7 +9061,8 @@
                     timeBasis: 'ctd',
                     timeRangeStart: trStart,
                     timeRangeEnd: trEnd,
-                    demandData: localDemand,
+                    demandData: localResult.demand,
+                    originalDemand: localResult.originalDemand || null,
                     rateData: null
                 });
 
@@ -9283,8 +9284,12 @@
         var timeBins = window.DemandChartCore.generateAllTimeBins(granularity, timeRangeStart, timeRangeEnd);
         var minsPerBin = window.DemandChartCore.getGranularityMinutes(granularity);
 
-        // Initialize bins
+        // Check if simulate data with CTA is available (post-simulate has controlled times)
+        var hasCTA = flights.some(function(f) { return f.cta_utc || f.cta_epoch; });
+
+        // Initialize bins for controlled demand (bars)
         var binMap = {};
+        var origBinMap = hasCTA ? {} : null;
         timeBins.forEach(function(bin) {
             var normalized = window.DemandChartCore.normalizeTimeBin(bin);
             binMap[normalized] = {
@@ -9295,6 +9300,9 @@
                 arrived: 0, disconnected: 0, descending: 0,
                 enroute: 0, departed: 0, taxiing: 0, prefile: 0
             };
+            if (origBinMap) {
+                origBinMap[normalized] = { total: 0 };
+            }
         });
 
         // Determine status key based on program type and status
@@ -9307,33 +9315,51 @@
             statusKey = isGS ? 'simulated_gs' : 'simulated_gdp';
         }
 
-        // Bin each flight by ETA
+        // Helper: round timestamp to bin boundary
+        function toBinKey(ms) {
+            var d = new Date(ms);
+            d.setUTCMinutes(Math.floor(d.getUTCMinutes() / minsPerBin) * minsPerBin, 0, 0);
+            return d.toISOString().replace('.000Z', 'Z');
+        }
+
+        // Bin each flight
         flights.forEach(function(f) {
-            var etaStr = f.eta_runway_utc || f.eta_utc || '';
-            if (!etaStr) {return;}
+            // Controlled demand: use CTA when available (resultant arrival time), else ETA
+            var ctlTimeStr = hasCTA
+                ? (f.cta_utc || f.eta_runway_utc || f.eta_utc || '')
+                : (f.eta_runway_utc || f.eta_utc || '');
+            if (!ctlTimeStr) {return;}
 
-            var etaMs = new Date(etaStr).getTime();
-            if (isNaN(etaMs)) {return;}
+            var ctlMs = new Date(ctlTimeStr).getTime();
+            if (isNaN(ctlMs)) {return;}
 
-            // Round down to bin boundary
-            var etaDate = new Date(etaMs);
-            var roundedMin = Math.floor(etaDate.getUTCMinutes() / minsPerBin) * minsPerBin;
-            etaDate.setUTCMinutes(roundedMin, 0, 0);
-            var binKey = etaDate.toISOString().replace('.000Z', 'Z');
+            var binKey = toBinKey(ctlMs);
+            if (binMap[binKey]) {
+                binMap[binKey].total++;
+                var exempt = parseInt(f.ctl_exempt || 0, 10);
+                if (exempt === 1) {
+                    binMap[binKey].exempt++;
+                } else {
+                    binMap[binKey][statusKey]++;
+                }
+            }
 
-            if (!binMap[binKey]) {return;} // Outside time range
-
-            binMap[binKey].total++;
-
-            var exempt = parseInt(f.ctl_exempt || 0, 10);
-            if (exempt === 1) {
-                binMap[binKey].exempt++;
-            } else {
-                binMap[binKey][statusKey]++;
+            // Original demand: bin by original ETA (pre-program arrival time)
+            if (origBinMap) {
+                var origTimeStr = f.orig_eta_utc || f.eta_runway_utc || f.eta_utc || '';
+                if (origTimeStr) {
+                    var origMs = new Date(origTimeStr).getTime();
+                    if (!isNaN(origMs)) {
+                        var origKey = toBinKey(origMs);
+                        if (origBinMap[origKey]) {
+                            origBinMap[origKey].total++;
+                        }
+                    }
+                }
             }
         });
 
-        // Build arrivals array
+        // Build arrivals array for controlled demand
         var arrivals = [];
         timeBins.forEach(function(bin) {
             var normalized = window.DemandChartCore.normalizeTimeBin(bin);
@@ -9343,13 +9369,30 @@
             }
         });
 
+        // Build original demand overlay (only when simulate data has CTA)
+        var originalDemand = null;
+        if (origBinMap) {
+            var origArrivals = [];
+            timeBins.forEach(function(bin) {
+                var normalized = window.DemandChartCore.normalizeTimeBin(bin);
+                var data = origBinMap[normalized];
+                if (data) {
+                    origArrivals.push({ time_bin: normalized, total: data.total, breakdown: {} });
+                }
+            });
+            originalDemand = { data: { arrivals: origArrivals, departures: [] } };
+        }
+
         return {
-            success: true,
-            airport: airport,
-            timestamp: new Date().toISOString(),
-            time_basis: 'ctd',
-            granularity: granularity,
-            data: { arrivals: arrivals, departures: [] }
+            demand: {
+                success: true,
+                airport: airport,
+                timestamp: new Date().toISOString(),
+                time_basis: 'ctd',
+                granularity: granularity,
+                data: { arrivals: arrivals, departures: [] }
+            },
+            originalDemand: originalDemand
         };
     }
 
