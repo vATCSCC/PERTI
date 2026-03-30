@@ -10,6 +10,7 @@ if (session_status() == PHP_SESSION_NONE) {
 include("../../../../load/config.php");
 include("../../../../load/connect.php");
 require_once __DIR__ . '/../../../../load/coordination_log.php';
+require_once __DIR__ . '/../../../../load/tmi_log.php';
 
 $domain = strip_tags(SITE_DOMAIN);
 
@@ -119,6 +120,16 @@ try {
         } catch (Exception $logEx) {
             // Don't fail the request if logging fails
         }
+
+        // Log to unified log (using get_conn_tmi for PDO connection)
+        log_tmi_action(get_conn_tmi(), [
+            'action_category' => 'PROGRAM',
+            'action_type'     => 'CREATE',
+            'summary'         => "Ground Stop program created: {$name} at {$ctl_element}",
+            'user_cid'        => $_SESSION['VATSIM_CID'] ?? null,
+        ], null, null, null, [
+            'program_id' => $id,
+        ]);
     }
 
     header('Content-Type: application/json');

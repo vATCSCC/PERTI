@@ -13,6 +13,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../../../load/connect.php';
 require_once __DIR__ . '/../../../../sessions/handler.php';
+require_once __DIR__ . '/../../../../load/tmi_log.php';
 
 if (!isset($_SESSION['VATSIM_CID']) && !defined('DEV')) {
     http_response_code(401);
@@ -195,7 +196,19 @@ try {
             ]);
             exit;
     }
-    
+
+    // Log to unified log (summary for bulk operation)
+    if ($results['success'] > 0) {
+        log_tmi_action(get_conn_tmi(), [
+            'action_category' => 'REROUTE',
+            'action_type'     => strtoupper($action),
+            'summary'         => "Bulk {$action}: {$results['success']} reroutes affected",
+            'user_cid'        => $_SESSION['VATSIM_CID'] ?? null,
+        ], null, null, null, [
+            'affected_count' => $results['success'],
+        ]);
+    }
+
     echo json_encode([
         'status' => 'ok',
         'results' => $results
