@@ -20,6 +20,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../../../../load/connect.php';
 require_once __DIR__ . '/../../../../sessions/handler.php';
 require_once __DIR__ . '/../../../../load/coordination_log.php';
+require_once __DIR__ . '/../../../../load/tmi_log.php';
 
 // Permission check
 if (!isset($_SESSION['VATSIM_CID']) && !defined('DEV')) {
@@ -128,6 +129,16 @@ try {
             $routesUpdated = saveRerouteRoutes($conn_tmi ?? $conn_adl, $id, $_POST['routes']);
         }
 
+        // Log to unified log (using get_conn_tmi for PDO connection)
+        log_tmi_action(get_conn_tmi(), [
+            'action_category' => 'REROUTE',
+            'action_type'     => 'UPDATE',
+            'summary'         => "Reroute #{$id} updated",
+            'user_cid'        => $_SESSION['VATSIM_CID'] ?? null,
+        ], null, null, null, [
+            'reroute_id' => $id,
+        ]);
+
         echo json_encode([
             'status' => 'ok',
             'timestamp' => gmdate('c'),
@@ -202,6 +213,16 @@ try {
             } catch (Exception $logEx) {
                 // Don't fail the request if logging fails
             }
+
+            // Log to unified log (using get_conn_tmi for PDO connection)
+            log_tmi_action(get_conn_tmi(), [
+                'action_category' => 'REROUTE',
+                'action_type'     => 'CREATE',
+                'summary'         => "Reroute created: " . ($_POST['name'] ?? "#{$newId}"),
+                'user_cid'        => $_SESSION['VATSIM_CID'] ?? null,
+            ], null, null, null, [
+                'reroute_id' => $newId,
+            ]);
         }
 
         echo json_encode([

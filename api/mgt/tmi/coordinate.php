@@ -19,6 +19,7 @@ require_once __DIR__ . '/../../../load/perti_constants.php';
 require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
 require_once __DIR__ . '/../../../load/discord/TMIDiscord.php';
 require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
+require_once __DIR__ . '/../../../load/tmi_log.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-cache, must-revalidate');
@@ -800,6 +801,17 @@ function handleSubmitForCoordination() {
             // Activate the proposal immediately
             $activationResult = activateProposal($conn, $proposalId);
 
+            // Log to unified log
+            log_tmi_action($conn, [
+                'action_category' => 'COORDINATION',
+                'action_type'     => 'SUBMIT',
+                'summary'         => "Internal TMI auto-approved for {$reqArtcc}",
+                'user_cid'        => $userCid,
+            ], null, null, null, [
+                'proposal_id' => $proposalId,
+                'entry_id'    => $activationResult['tmi_entry_id'] ?? null,
+            ]);
+
             echo json_encode([
                 'success' => true,
                 'proposal_id' => $proposalId,
@@ -882,6 +894,16 @@ function handleSubmitForCoordination() {
                 ?? $discordResult['last_discord_error']
                 ?? 'Failed to post to Discord';
         }
+
+        // Log to unified log
+        log_tmi_action($conn, [
+            'action_category' => 'COORDINATION',
+            'action_type'     => 'SUBMIT',
+            'summary'         => "TMI submitted for coordination: " . ($entry['ctl_element'] ?? 'unknown'),
+            'user_cid'        => $userCid,
+        ], null, null, null, [
+            'proposal_id' => $proposalId,
+        ]);
 
         echo json_encode([
             'success' => true,
@@ -1605,6 +1627,17 @@ function handleProcessReaction() {
             // Edit the Discord coordination message to indicate approval
             updateCoordinationMessageOnApproval($conn, $proposalId, $proposal);
         }
+
+        // Log to unified log
+        $actionType = ($reactionType === 'APPROVE') ? 'APPROVE' : (($reactionType === 'DENY') ? 'DENY' : 'RESCIND');
+        log_tmi_action($conn, [
+            'action_category' => 'COORDINATION',
+            'action_type'     => $actionType,
+            'summary'         => "Coordination {$actionType} by facility " . ($webFacilityCode ?? 'unknown'),
+            'user_cid'        => $input['web_user_cid'] ?? null,
+        ], null, null, null, [
+            'proposal_id' => $proposalId,
+        ]);
 
         echo json_encode([
             'success' => true,
@@ -2598,6 +2631,16 @@ function handleRescindProposal() {
             'entry_type' => $proposal['entry_type'] ?? '',
             'ctl_element' => $proposal['ctl_element'] ?? '',
             'via' => 'web'
+        ]);
+
+        // Log to unified log
+        log_tmi_action($conn, [
+            'action_category' => 'COORDINATION',
+            'action_type'     => strtoupper($action),
+            'summary'         => "Coordination {$action}: {$oldStatus} → {$newStatus}",
+            'user_cid'        => $userCid,
+        ], null, null, null, [
+            'proposal_id' => $proposalId,
         ]);
 
         echo json_encode([

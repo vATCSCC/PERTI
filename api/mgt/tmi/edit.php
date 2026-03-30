@@ -21,6 +21,7 @@
 try {
     require_once __DIR__ . '/../../../load/config.php';
     require_once __DIR__ . '/../../../load/perti_constants.php';
+    require_once __DIR__ . '/../../../load/tmi_log.php';
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Config load error']);
@@ -487,6 +488,20 @@ try {
         // Log event (to TMI events table)
         logEditEvent($tmiConn, 'REROUTE', $entityId, $updates, $userCid, $userName);
     }
+
+    // Log to unified log
+    $updatedFields = array_keys($updates);
+    log_tmi_action($tmiConn, [
+        'action_category' => $entityType,
+        'action_type'     => 'UPDATE',
+        'summary'         => "{$entityType} #{$entityId} updated: " . implode(', ', array_slice($updatedFields, 0, 5)),
+        'user_cid'        => $userCid,
+    ], null, null, null, [
+        'program_id'  => ($entityType === 'PROGRAM' ? $entityId : null),
+        'entry_id'    => ($entityType === 'ENTRY' ? $entityId : null),
+        'advisory_id' => ($entityType === 'ADVISORY' ? $entityId : null),
+        'reroute_id'  => ($entityType === 'REROUTE' ? $entityId : null),
+    ]);
 
     echo json_encode([
         'success' => true,

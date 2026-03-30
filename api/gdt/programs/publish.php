@@ -331,6 +331,26 @@ log_coordination_action($conn_tmi, $program_id, $proposal_id ?: null, $action_ty
     'user_name' => $user_name
 ], $advisory_number, 'ACTUAL');
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'PUBLISH',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'GDP published: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $user_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, [
+    'flight_list_count' => $flight_list_count,
+    'dcc_override'      => $dcc_override,
+], [
+    'program_id'      => $program_id,
+    'proposal_id'     => $proposal_id ?: null,
+    'advisory_number' => $advisory_number,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => $dcc_override ? 'Program published directly (DCC override)' : 'Program published and activated',

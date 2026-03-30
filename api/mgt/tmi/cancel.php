@@ -18,6 +18,7 @@ try {
     require_once __DIR__ . '/../../../load/config.php';
     require_once __DIR__ . '/../../../load/perti_constants.php';
     require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
+    require_once __DIR__ . '/../../../load/tmi_log.php';
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Config load error']);
@@ -339,6 +340,19 @@ try {
     if ($postAdvisory) {
         $advisoryResult = postCancellationAdvisory($entityType, $entityId, $tmiConn, $adlConn, $advisoryChannel, $reason);
     }
+
+    // Log to unified log
+    log_tmi_action($tmiConn, [
+        'action_category' => $entityType,
+        'action_type'     => 'CANCEL',
+        'summary'         => "{$entityType} #{$entityId} cancelled: " . substr($reason, 0, 100),
+        'user_cid'        => $userCid,
+    ], null, null, null, [
+        'program_id'  => ($entityType === 'PROGRAM' ? $entityId : null),
+        'entry_id'    => ($entityType === 'ENTRY' ? $entityId : null),
+        'advisory_id' => ($entityType === 'ADVISORY' ? $entityId : null),
+        'reroute_id'  => (in_array($entityType, ['REROUTE', 'PUBLICROUTE']) ? $entityId : null),
+    ]);
 
     $response = [
         'success' => true,

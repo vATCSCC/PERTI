@@ -36,6 +36,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GS_API_INCLUDED', true);
 require_once(__DIR__ . '/common.php');
+require_once(__DIR__ . '/../../../load/tmi_log.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -125,13 +126,27 @@ $program = $program_result['success'] ? $program_result['data'] : null;
 $new_end_dt = new DateTime($new_end_utc);
 $new_end_fmt = $new_end_dt->format('dHi') . 'Z';
 
+// Log the action
+log_tmi_action(get_tmi_conn(), [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'EXTEND',
+    'program_type'    => 'GS',
+    'summary'         => 'GS extended: ' . ($current['ctl_element'] ?? 'UNKNOWN'),
+    'user_cid'        => $_SESSION['VATSIM_CID'] ?? null,
+], [
+    'ctl_element'  => $current['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, null, [
+    'program_id' => $program_id,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => "Ground Stop extended to {$new_end_fmt}",
     'data' => [
         'program' => $program,
-        'previous_end_utc' => $previous_end instanceof DateTimeInterface 
-            ? $previous_end->format("Y-m-d\\TH:i:s\\Z") 
+        'previous_end_utc' => $previous_end instanceof DateTimeInterface
+            ? $previous_end->format("Y-m-d\\TH:i:s\\Z")
             : $previous_end,
         'new_end_utc' => $new_end_utc,
         'server_utc' => get_server_utc($conn)

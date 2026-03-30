@@ -54,6 +54,7 @@ try {
     require_once __DIR__ . '/../../../load/connect.php';
     require_once __DIR__ . '/../../../load/discord/TMIDiscord.php';
     require_once __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
+    require_once __DIR__ . '/../../../load/tmi_log.php';
     promote_debug_log('Dependencies loaded');
 } catch (Exception $e) {
     promote_debug_log('ERROR loading dependencies', ['error' => $e->getMessage()]);
@@ -254,6 +255,20 @@ foreach ($items as $index => $item) {
     }
     
     $results[] = $result;
+}
+
+// Log to unified log for each successful promotion
+foreach ($results as $result) {
+    if ($result['success'] ?? false) {
+        log_tmi_action($tmiConn, [
+            'action_category' => strtoupper($result['entityType']),
+            'action_type'     => 'PROMOTE',
+            'summary'         => "{$result['entityType']} #{$result['entityId']} promoted to production",
+            'user_cid'        => $userCid,
+        ], null, null, null, [
+            ($result['entityType'] === 'ADVISORY' ? 'advisory_id' : 'entry_id') => $result['entityId'],
+        ]);
+    }
 }
 
 // Response

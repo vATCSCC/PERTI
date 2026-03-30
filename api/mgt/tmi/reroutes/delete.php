@@ -13,6 +13,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../../../load/connect.php';
 require_once __DIR__ . '/../../../../sessions/handler.php';
+require_once __DIR__ . '/../../../../load/tmi_log.php';
 
 // Permission check
 if (!isset($_SESSION['VATSIM_CID']) && !defined('DEV')) {
@@ -73,7 +74,17 @@ try {
     }
     
     sqlsrv_free_stmt($deleteStmt);
-    
+
+    // Log to unified log (using get_conn_tmi for PDO connection)
+    log_tmi_action(get_conn_tmi(), [
+        'action_category' => 'REROUTE',
+        'action_type'     => 'CANCEL',
+        'summary'         => "Reroute deleted: " . ($existing['name'] ?? "#{$id}"),
+        'user_cid'        => $_SESSION['VATSIM_CID'] ?? null,
+    ], null, null, null, [
+        'reroute_id' => $id,
+    ]);
+
     echo json_encode([
         'status' => 'ok',
         'action' => 'deleted',

@@ -85,6 +85,21 @@ if (in_array($status, ['PURGED', 'COMPLETED', 'CANCELLED', 'TRANSITIONED'])) {
 // MODELING programs: hard-delete (ephemeral, no history to preserve)
 // ============================================================================
 if ($status === 'MODELING') {
+    // Log before delete — program_id will no longer exist after hard delete
+    log_tmi_action($conn_tmi, [
+        'action_category' => 'PROGRAM',
+        'action_type'     => 'PURGE',
+        'program_type'    => $program['program_type'] ?? null,
+        'summary'         => 'GDP purged (modeling): ' . ($program['ctl_element'] ?? ''),
+        'user_cid'        => $auth_cid,
+        'issuing_org'     => $program['org_code'] ?? null,
+    ], [
+        'ctl_element' => $program['ctl_element'] ?? null,
+        'element_type' => 'AIRPORT',
+    ], null, null, [
+        'program_id' => $program_id,
+    ]);
+
     sqlsrv_begin_transaction($conn_tmi);
 
     // Clear non-cascading FK refs first (order matters: tmi_flight_control before tmi_slots cascade)
@@ -187,6 +202,23 @@ execute_query($conn_tmi,
 
 // Fetch updated record
 $program = get_program($conn_tmi, $program_id);
+
+// Log to TMI unified log (standard purge)
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'PURGE',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'GDP purged: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, [
+    'flights_removed' => $flights_removed,
+], [
+    'program_id' => $program_id,
+]);
 
 respond_json(200, [
     'status' => 'ok',

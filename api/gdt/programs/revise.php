@@ -220,6 +220,24 @@ execute_query($conn_tmi, $event_sql, [
 
 $updated = get_program($conn_tmi, $program_id);
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'REVISE',
+    'program_type'    => $updated['program_type'] ?? null,
+    'summary'         => 'GDP revised: ' . ($updated['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $updated['org_code'] ?? null,
+], [
+    'ctl_element' => $updated['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, [
+    'revision_number' => $new_rev ?? null,
+    'changes'         => $changes ?? [],
+], [
+    'program_id' => $program_id,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => 'Program revised',

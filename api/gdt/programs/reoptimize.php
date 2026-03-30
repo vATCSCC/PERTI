@@ -446,6 +446,28 @@ $message = $actions_taken
     ? 'Re-optimization complete: ' . implode(', ', $message_parts)
     : 'Re-optimization complete: no actions needed';
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'REOPTIMIZE',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'GDP reoptimized: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, [
+    'popups_detected'    => $popups_detected,
+    'popups_assigned'    => $popups_assigned,
+    'slots_compressed'   => $slots_compressed,
+    'delay_saved_min'    => $delay_saved_min,
+    'reserves_converted' => $reserves_converted,
+    'actions_taken'      => $actions_taken,
+], [
+    'program_id' => $program_id,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => $message,

@@ -49,6 +49,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 define('GS_API_INCLUDED', true);
 require_once(__DIR__ . '/common.php');
 require_once(__DIR__ . '/../../../load/airport_aliases.php');
+require_once(__DIR__ . '/../../../load/tmi_log.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -318,6 +319,21 @@ if ($publish_swim) {
 // ============================================================================
 // BUILD RESPONSE
 // ============================================================================
+
+// Log the action
+log_tmi_action(get_tmi_conn(), [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'ACTIVATE',
+    'program_type'    => 'GS',
+    'summary'         => 'GS activated: ' . ($program['ctl_element'] ?? 'UNKNOWN'),
+    'user_cid'        => $_SESSION['VATSIM_CID'] ?? null,
+], [
+    'ctl_element'  => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, null, [
+    'program_id' => $program_id,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => 'Ground Stop activated',

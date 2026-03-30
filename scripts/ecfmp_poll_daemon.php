@@ -41,6 +41,7 @@ if (!defined('PERTI_LOADED')) {
     define('PERTI_LOADED', true);
     require_once __DIR__ . '/../load/config.php';
     require_once __DIR__ . '/../load/connect.php';
+    require_once __DIR__ . '/../load/tmi_log.php';
 }
 
 // ============================================================================
@@ -384,8 +385,22 @@ function ecfmp_poll(array $fir_map, bool $debug = false): array {
                 sqlsrv_free_stmt($upd_stmt);
                 $stats['updated']++;
 
+                // Log status changes
+                $old_status = $existing['status'] ?? '';
+                if ($status !== $old_status && in_array($status, ['ACTIVE', 'EXPIRED', 'WITHDRAWN'])) {
+                    log_tmi_action($conn_tmi, [
+                        'action_category' => 'FLOW_MEASURE',
+                        'action_type'     => strtoupper($status),
+                        'summary'         => 'ECFMP measure ' . strtolower($status) . ': ' . ($m['ident'] ?? $ext_id),
+                        'source_system'   => 'ECFMP_DAEMON',
+                        'issuing_org'     => $ctl_element,
+                    ], null, null, null, [
+                        'flow_measure_id' => $existing['measure_id'] ?? null,
+                    ]);
+                }
+
                 // Track withdrawals
-                if ($status === 'WITHDRAWN' && ($existing['status'] ?? '') !== 'WITHDRAWN') {
+                if ($status === 'WITHDRAWN' && $old_status !== 'WITHDRAWN') {
                     $stats['withdrawn']++;
                     if ($debug) ecfmp_log("  Withdrawn: {$m['ident']}");
                 }
@@ -403,7 +418,8 @@ function ecfmp_poll(array $fir_map, bool $debug = false): array {
                             start_utc, end_utc, status,
                             withdrawn_at, raw_data_json,
                             synced_at, created_at, updated_at
-                        ) VALUES (
+                        ) OUTPUT INSERTED.measure_id
+                        VALUES (
                             ?, ?, ?, ?,
                             ?, ?,
                             ?, ?, ?,
@@ -435,9 +451,28 @@ function ecfmp_poll(array $fir_map, bool $debug = false): array {
 
             $ins_stmt = sqlsrv_query($conn_tmi, $ins_sql, $ins_params);
             if ($ins_stmt !== false) {
+                // Get the inserted measure_id
+                $measure_id = null;
+                if ($row = sqlsrv_fetch_array($ins_stmt, SQLSRV_FETCH_ASSOC)) {
+                    $measure_id = $row['measure_id'] ?? null;
+                }
                 sqlsrv_free_stmt($ins_stmt);
+
                 $stats['inserted']++;
                 if ($debug) ecfmp_log("  Inserted: {$m['ident']} ($measure_type $status)");
+
+                // Log the creation
+                log_tmi_action($conn_tmi, [
+                    'action_category' => 'FLOW_MEASURE',
+                    'action_type'     => 'CREATE',
+                    'summary'         => 'ECFMP flow measure: ' . ($m['ident'] ?? $ext_id),
+                    'source_system'   => 'ECFMP_DAEMON',
+                    'issuing_org'     => $ctl_element,
+                ], null, null, null, [
+                    'flow_measure_id' => $measure_id,
+                    'source_type'     => 'ecfmp',
+                    'source_id'       => $ext_id,
+                ]);
             } else {
                 $stats['errors']++;
                 if ($debug) ecfmp_log("  Insert error for $ext_id: " . json_encode(sqlsrv_errors()), 'ERROR');

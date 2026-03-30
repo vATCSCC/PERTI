@@ -234,6 +234,38 @@ $program_type = $program['program_type'] ?? 'GS';
 $adv_type = strpos($program_type, 'GDP') !== false ? 'GDP' : 'GS';
 write_advisory_record($conn_tmi, $program, $adv_number, $adv_type, $advisory_text, $activated_by);
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'ACTIVATE',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'GDP activated: ' . ($program['ctl_element'] ?? '') . ' (' . ($program['program_type'] ?? '') . ')',
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element'  => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+    'facility'     => $program['ctl_element'] ?? null,
+], [
+    'effective_start_utc' => $program['start_utc'] ?? null,
+    'effective_end_utc'   => $program['end_utc'] ?? null,
+    'program_rate'        => $program['program_rate'] ?? null,
+    'rates_hourly_json'   => $program['rates_hourly_json'] ?? null,
+    'rates_quarter_json'  => $program['rates_quarter_json'] ?? null,
+    'cause_category'      => $program['impacting_condition'] ?? null,
+], [
+    'total_flights'      => $total_flights ?? null,
+    'controlled_flights' => $controlled_count ?? null,
+    'exempt_flights'     => $exempt_count ?? null,
+    'airborne_flights'   => $airborne_count ?? null,
+    'avg_delay_min'      => $avg_delay ?? null,
+    'max_delay_min'      => $max_delay ?? null,
+    'total_delay_min'    => $total_delay ?? null,
+], [
+    'program_id'      => $program_id,
+    'advisory_number' => $adv_number ?? null,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => 'Program activated',
