@@ -48,6 +48,13 @@ const PHASE_COLORS = {
     // Uncontrolled (not assigned to any TMI)
     'uncontrolled': '#94a3b8',      // Light Gray - Not controlled by any TMI
 
+    // TMI controlled
+    'controlled': '#b45309',         // Amber/brown - TMI controlled (GDP/GS)
+
+    // Grouped phases (for chart series — match sidebar filter groups)
+    'active': '#dc2626',             // Red - departed+enroute+descending
+    'departing': '#22c55e',          // Green - taxiing
+
     // Unknown/other
     'unknown': '#9333ea',            // Purple - Unknown/other phase (changed from yellow)
 };
@@ -71,6 +78,9 @@ const PHASE_LABELS = {
     'gdp': 'GDP',
     'exempt': 'Exempt',
     'uncontrolled': 'Uncontrolled',
+    'controlled': 'TMI Controlled',
+    'active': 'Active',
+    'departing': 'Departing',
     'unknown': 'Unknown',
 };
 
@@ -93,6 +103,9 @@ const PHASE_LABEL_KEYS = {
     'gdp': 'tmi.gdpShort',
     'exempt': 'tmi.exempt',
     'uncontrolled': 'tmi.uncontrolled',
+    'controlled': 'demand.phase.controlled',
+    'active': 'demand.page.active',
+    'departing': 'demand.page.departing',
     'unknown': 'common.unknown',
 };
 

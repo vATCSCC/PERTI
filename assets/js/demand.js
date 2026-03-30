@@ -5677,7 +5677,7 @@ function buildTmiMarkerLines() {
 
         const prefix = isGS ? 'gs' : 'gdp';
 
-        // Start line
+        // Start line — label at TOP of chart
         if (p.start_utc) {
             const style = TMI_MARKER_STYLES[prefix + '_start'];
             lines.push({
@@ -5694,13 +5694,12 @@ function buildTmiMarkerLines() {
                     padding: [1, 4],
                     borderRadius: 2,
                     distance: 5,
-                    offset: [0, 0],
                 },
                 _tmiMarker: true,
             });
         }
 
-        // End/cancel line
+        // End/cancel line — label at BOTTOM of chart (avoids overlap with start labels)
         const endTime = p.purged_at || p.end_utc;
         if (endTime) {
             const isCancelled = !!p.purged_at && p.status === 'cancelled';
@@ -5712,7 +5711,7 @@ function buildTmiMarkerLines() {
                 label: {
                     show: true,
                     formatter: style.label,
-                    position: 'end',
+                    position: 'start',
                     fontSize: 9,
                     fontWeight: 'bold',
                     color: '#fff',
@@ -5720,7 +5719,6 @@ function buildTmiMarkerLines() {
                     padding: [1, 4],
                     borderRadius: 2,
                     distance: 5,
-                    offset: [0, 0],
                 },
                 _tmiMarker: true,
             });
@@ -7449,7 +7447,7 @@ function renderComparisonPanel(icao) {
     const timeBinSet = new Set();
     arrivals.forEach(d => timeBinSet.add(normalizeTimeBin(d.time_bin)));
     departures.forEach(d => timeBinSet.add(normalizeTimeBin(d.time_bin)));
-    const timeBins = [...timeBinSet].sort().map(t => new Date(t).getTime());
+    const timeBins = [...timeBinSet].sort();
 
     // Build phase series — use same groups as main renderChart(), filtered by sidebar toggles
     const allPhases = ['arrived', 'disconnected', 'active', 'departing', 'prefile', 'controlled', 'unknown'];
