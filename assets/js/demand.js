@@ -555,9 +555,9 @@ window.DemandChartCore = (function() {
                         'actual_gdp', 'simulated_gdp', 'proposed_gdp',   // GDP statuses
                     ];
                 } else {
-                    // Standard flight phases when using ETA
-                    phasesToRender = ['arrived', 'disconnected', 'descending', 'enroute',
-                        'departed', 'taxiing', 'prefile', 'unknown'];
+                    // Standard phase groups when using ETA (matches sidebar filter groups)
+                    phasesToRender = ['arrived', 'disconnected', 'active', 'departing',
+                        'prefile', 'controlled', 'unknown'];
                 }
                 console.log('[DemandChart] phasesToRender:', phasesToRender);
 
@@ -7451,8 +7451,9 @@ function renderComparisonPanel(icao) {
     departures.forEach(d => timeBinSet.add(normalizeTimeBin(d.time_bin)));
     const timeBins = [...timeBinSet].sort().map(t => new Date(t).getTime());
 
-    // Build phase series
-    const phaseOrder = DemandChartCore.PHASE_ORDER;
+    // Build phase series — use same groups as main renderChart(), filtered by sidebar toggles
+    const allPhases = ['arrived', 'disconnected', 'active', 'departing', 'prefile', 'controlled', 'unknown'];
+    const phaseOrder = allPhases.filter(phase => isPhaseEnabled(phase));
     const series = [];
 
     if (direction === 'arr' || direction === 'both') {
