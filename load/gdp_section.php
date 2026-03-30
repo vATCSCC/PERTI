@@ -144,25 +144,15 @@
                                     <button class="btn btn-outline-secondary btn-sm" id="gdp_hist_popups_btn">Historical Pop-Ups...</button>
                                 </div>
                             </div>
-                            <div class="form-row align-items-center mb-1">
-                                <div class="col-auto">
-                                    <label class="small mb-0 text-dark">Fill</label>
-                                </div>
-                                <div class="col-3">
-                                    <select class="form-control form-control-sm" id="gdp_fill_row">
-                                        <option value="PR">Program Rate</option>
-                                        <option value="Reserve">Reserve</option>
-                                    </select>
-                                </div>
-                                <div class="col-auto">
-                                    <label class="small mb-0 text-dark">With</label>
-                                </div>
-                                <div class="col-auto">
-                                    <input type="number" class="form-control form-control-sm gdt-fill-input" id="gdp_fill_value" value="40">
-                                </div>
-                                <div class="col-auto">
-                                    <button class="btn btn-sm btn-outline-primary" id="gdp_fill_btn">Fill</button>
-                                </div>
+                            <div class="gdp-fill-row mb-1">
+                                <label class="text-dark">Fill</label>
+                                <select class="form-control form-control-sm" id="gdp_fill_row">
+                                    <option value="PR">Program Rate</option>
+                                    <option value="Reserve">Reserve</option>
+                                </select>
+                                <label class="text-dark">With</label>
+                                <input type="number" class="form-control form-control-sm" id="gdp_fill_value" value="40">
+                                <button class="btn btn-outline-primary" id="gdp_fill_btn">Fill</button>
                             </div>
                             <div class="table-responsive" style="max-height: 120px; overflow-y: auto;">
                                 <table class="table table-sm table-bordered mb-0 gdt-rate-table" id="gdp_rate_table">

@@ -403,6 +403,91 @@ $is_canoc = (get_org_code() === 'canoc');
         #gs_open_model_btn i {
             font-size: 0.875rem;
         }
+
+        /* ========== Rate Table Styles (GDP + GS) ========== */
+        .gdt-rate-table {
+            table-layout: auto;
+            font-size: 0.75rem;
+        }
+        .gdt-rate-table thead th {
+            white-space: nowrap;
+            text-align: center;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.3rem;
+            vertical-align: middle;
+        }
+        .gdt-rate-table tbody td {
+            white-space: nowrap;
+            padding: 0.15rem 0.25rem;
+            vertical-align: middle;
+            text-align: center;
+        }
+        .gdt-rate-table tbody td:first-child {
+            text-align: left;
+            min-width: 55px;
+        }
+        .gdt-rate-table input[type="number"] {
+            width: 50px;
+            padding: 0.15rem 0.25rem;
+            font-size: 0.75rem;
+            text-align: center;
+            -moz-appearance: textfield;
+        }
+        .gdt-rate-table input[type="number"]::-webkit-inner-spin-button,
+        .gdt-rate-table input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* GS rate editor toolbar */
+        .gdt-rate-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 0.75rem;
+        }
+        .gdt-rate-toolbar .btn {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            line-height: 1.4;
+        }
+        .gdt-rate-toolbar .gdt-fill-input {
+            width: 50px;
+            font-size: 0.75rem;
+            padding: 0.15rem 0.25rem;
+            text-align: center;
+        }
+
+        /* GDP fill row */
+        .gdp-fill-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .gdp-fill-row label {
+            margin-bottom: 0;
+            font-size: 0.75rem;
+        }
+        .gdp-fill-row select {
+            width: auto;
+            min-width: 100px;
+            font-size: 0.75rem;
+            padding: 0.15rem 0.4rem;
+        }
+        .gdp-fill-row input[type="number"] {
+            width: 50px;
+            font-size: 0.75rem;
+            padding: 0.15rem 0.25rem;
+            text-align: center;
+        }
+        .gdp-fill-row .btn {
+            font-size: 0.7rem;
+            padding: 0.15rem 0.5rem;
+            line-height: 1.4;
+        }
     </style>
 
 </head>
@@ -741,36 +826,34 @@ $is_canoc = (get_org_code() === 'canoc');
                     <div id="gs_rate_editor_container" style="display: none;">
                         <!-- Hourly rate table (always visible when container shown) -->
                         <div class="mb-1" style="overflow-x: auto;">
-                            <table class="table table-sm table-bordered mb-0" style="font-size: 0.75rem; table-layout: fixed;">
+                            <table class="table table-sm table-bordered mb-0 gdt-rate-table">
                                 <thead class="thead-light">
-                                    <tr id="gs_hourly_header"><th style="min-width:70px; font-size:0.65rem;"><?= __('gdt.page.rateEditorHourlyLabel') ?></th></tr>
+                                    <tr id="gs_hourly_header"><th><?= __('gdt.page.rateEditorHourlyLabel') ?></th></tr>
                                 </thead>
                                 <tbody>
-                                    <tr id="gs_hourly_inputs"><td class="font-weight-bold small">AAR</td></tr>
+                                    <tr id="gs_hourly_inputs"><td class="font-weight-bold small">PR</td></tr>
                                 </tbody>
                             </table>
                         </div>
                         <!-- Toolbar: Edit 15 toggle + Fill controls -->
-                        <div class="d-flex align-items-center mb-1">
-                            <button type="button" class="btn btn-xs btn-outline-info mr-2" id="gs_edit15_toggle" title="Toggle per-15-minute rate editor">
+                        <div class="gdt-rate-toolbar mb-1">
+                            <button type="button" class="btn btn-outline-info" id="gs_edit15_toggle" title="Toggle per-15-minute rate editor">
                                 <i class="fas fa-clock mr-1"></i><span id="gs_edit15_toggle_label"><?= __('gdt.page.rateEditorEdit15') ?></span>
                             </button>
-                            <button type="button" class="btn btn-xs btn-outline-secondary mr-2 d-none" id="gs_edit15_clear" title="Clear per-15-min rates">
+                            <button type="button" class="btn btn-outline-secondary d-none" id="gs_edit15_clear" title="Clear per-15-min rates">
                                 <i class="fas fa-times mr-1"></i><?= __('gdt.page.rateEditorClear') ?>
                             </button>
-                            <div class="d-inline-flex align-items-center">
-                                <input type="number" class="form-control form-control-sm mr-1" id="gs_rate_fill_value"
-                                       style="width:60px; font-size:0.75rem;" min="1" max="120" placeholder="<?= __('gdt.page.rateEditorFillPlaceholder') ?>">
-                                <button type="button" class="btn btn-xs btn-outline-secondary" id="gs_rate_fill_btn">
-                                    <?= __('gdt.page.rateEditorFillAll') ?>
-                                </button>
-                            </div>
+                            <input type="number" class="form-control form-control-sm gdt-fill-input" id="gs_rate_fill_value"
+                                   min="1" max="120" placeholder="<?= __('gdt.page.rateEditorFillPlaceholder') ?>">
+                            <button type="button" class="btn btn-outline-secondary" id="gs_rate_fill_btn">
+                                <?= __('gdt.page.rateEditorFillAll') ?>
+                            </button>
                         </div>
                         <!-- Per-15-min rate table (hidden until Edit 15 toggled) -->
                         <div id="gs_quarter_grid" class="mb-2" style="display: none; overflow-x: auto;">
-                            <table class="table table-sm table-bordered mb-0" style="font-size: 0.75rem; table-layout: fixed;">
+                            <table class="table table-sm table-bordered mb-0 gdt-rate-table">
                                 <thead class="thead-light">
-                                    <tr id="gs_quarter_header"><th style="min-width:70px; font-size:0.65rem;"><?= __('gdt.page.rateEditorQuarterLabel') ?></th></tr>
+                                    <tr id="gs_quarter_header"><th><?= __('gdt.page.rateEditorQuarterLabel') ?></th></tr>
                                 </thead>
                                 <tbody>
                                     <tr id="gs_quarter_inputs"><td class="font-weight-bold small">Rate</td></tr>
@@ -1665,11 +1748,6 @@ $is_canoc = (get_org_code() === 'canoc');
     </div>
 </div>
 
-<!-- ============================================================================ -->
-<!-- GDP Section (Ground Delay Program) - FSM User Guide Chapter 15-17 -->
-<!-- ============================================================================ -->
-<?php include 'load/gdp_section.php'; ?>
-
 <!-- ECR (EDCT Change Request) Modal - FSM User Guide Chapter 14 -->
 <div class="modal fade" id="ecr_modal" tabindex="-1" role="dialog" aria-labelledby="ecr_modal_label" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
@@ -2095,8 +2173,6 @@ $is_canoc = (get_org_code() === 'canoc');
 <!-- Chart.js CDN for Data Graph -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1/dist/chartjs-plugin-annotation.min.js"></script>
-<!-- D3.js for GDP Demand/Capacity visualization -->
-<script src="https://cdn.jsdelivr.net/npm/d3@7.8.5/dist/d3.min.js"></script>
 <!-- ECharts for Demand Visualization -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
 <!-- Shared Phase Color Configuration -->
@@ -2372,7 +2448,6 @@ $is_canoc = (get_org_code() === 'canoc');
 <script src="assets/js/fir-scope.js<?= _v('assets/js/fir-scope.js') ?>"></script>
 <script src="assets/js/fir-integration.js<?= _v('assets/js/fir-integration.js') ?>"></script>
 <script src="assets/js/gdt.js<?= _v('assets/js/gdt.js') ?>"></script>
-<script src="assets/js/gdp.js<?= _v('assets/js/gdp.js') ?>"></script>
 
 </body>
 </html>
