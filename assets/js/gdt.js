@@ -1105,14 +1105,46 @@
 
                     if (resp.status === 'ok') {
                         $('#gdt_transition_modal').modal('hide');
+
+                        // Auto-simulate the new GDP to generate slots and assign flights
                         Swal.fire({
-                            icon: 'success',
+                            icon: 'info',
                             title: PERTII18n.t('gdt.dashboard.transitionComplete'),
-                            html: 'GS #' + gsProgramId + ' &rarr; TRANSITIONED<br>GDP #' + gdpProgramId + ' &rarr; ACTIVE',
-                            timer: 4000,
+                            html: 'GS #' + gsProgramId + ' &rarr; TRANSITIONED<br>GDP #' + gdpProgramId + ' &rarr; ACTIVE<br><br><i class="fas fa-spinner fa-spin mr-1"></i> Generating slots and assigning flights...',
+                            allowOutsideClick: false,
                             showConfirmButton: false
                         });
-                        loadActiveProgramsDashboard();
+
+                        $.ajax({
+                            url: GS_API.simulate,
+                            method: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ program_id: gdpProgramId }),
+                            success: function(simResp) {
+                                var slots = simResp.data ? (simResp.data.slot_count || 0) : 0;
+                                var assigned = simResp.data ? (simResp.data.assigned_count || 0) : 0;
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: PERTII18n.t('gdt.dashboard.transitionComplete'),
+                                    html: 'GS #' + gsProgramId + ' &rarr; TRANSITIONED<br>GDP #' + gdpProgramId + ' &rarr; ACTIVE<br>' +
+                                          '<small>' + slots + ' slots, ' + assigned + ' flights assigned</small>',
+                                    timer: 5000,
+                                    showConfirmButton: false
+                                });
+                                loadActiveProgramsDashboard();
+                            },
+                            error: function() {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: PERTII18n.t('gdt.dashboard.transitionComplete'),
+                                    html: 'GS #' + gsProgramId + ' &rarr; TRANSITIONED<br>GDP #' + gdpProgramId + ' &rarr; ACTIVE<br>' +
+                                          '<small class="text-warning">Slot generation failed. Use Remodel to simulate.</small>',
+                                    timer: 5000,
+                                    showConfirmButton: true
+                                });
+                                loadActiveProgramsDashboard();
+                            }
+                        });
 
                         // If the GS was loaded in the form, reset
                         if (GS_CURRENT_PROGRAM_ID === gsProgramId) {
