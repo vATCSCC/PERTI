@@ -46,6 +46,15 @@ else
     echo "WARNING: ${WWWROOT}/default not found, using container default"
 fi
 
+# Ensure CSV files get correct MIME type for gzip compression
+# Azure container's mime.types may not include text/csv, causing 28 MB of
+# uncompressed CSV data to be served as application/octet-stream
+if ! grep -q "text/csv" /etc/nginx/mime.types 2>/dev/null; then
+    sed -i '/^}$/i\    text/csv                              csv;' /etc/nginx/mime.types 2>/dev/null && \
+        echo "Added text/csv MIME type to nginx" || \
+        echo "WARNING: Could not add text/csv MIME type"
+fi
+
 # Reload nginx to apply config
 service nginx reload 2>/dev/null && echo "nginx reloaded via service" || \
 nginx -s reload 2>/dev/null && echo "nginx reloaded via signal" || \

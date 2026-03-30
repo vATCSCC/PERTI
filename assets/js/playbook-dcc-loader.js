@@ -4,12 +4,13 @@
  * on both route.php and playbook.php.
  *
  * Must be loaded AFTER route-maplibre.js (which creates the globals from CSV).
+ *
+ * Uses a single bulk_routes.php request instead of N+1 individual get.php calls.
  */
 (function() {
     'use strict';
 
-    var API_LIST = 'api/data/playbook/list.php';
-    var API_GET  = 'api/data/playbook/get.php';
+    var API_BULK = 'api/data/playbook/bulk_routes.php';
 
     function csvSplit(s) {
         return (s || '').split(',').map(function(x) { return x.trim().toUpperCase(); }).filter(Boolean);
@@ -58,23 +59,16 @@
     }
 
     function loadNonFaaPlays() {
-        // Fetch all non-archived plays; skip FAA plays client-side
-        // (the list API filters by exact source, but we want DCC+ECFMP+CANOC)
-        $.getJSON(API_LIST + '?per_page=500&hide_legacy=1', function(data) {
-            if (!data || !data.success) return;
+        // Single bulk request replaces the old pattern of 1 list.php + 95 get.php calls
+        $.getJSON(API_BULK + '?source_exclude=FAA&hide_legacy=1', function(data) {
+            if (!data || !data.success || !data.plays) return;
 
-            var nonFaa = (data.data || []).filter(function(p) {
-                return p.source !== 'FAA';
-            });
+            console.log('[DCC-Loader] Injecting', data.plays.length, 'non-FAA plays (' + data.count + ' with routes)');
 
-            console.log('[DCC-Loader] Found', nonFaa.length, 'non-FAA plays to inject');
-
-            nonFaa.forEach(function(p) {
-                $.getJSON(API_GET + '?id=' + p.play_id, function(d) {
-                    if (d && d.success && d.routes) {
-                        injectPlay(d.play, d.routes);
-                    }
-                });
+            data.plays.forEach(function(p) {
+                if (p.routes && p.routes.length) {
+                    injectPlay(p, p.routes);
+                }
             });
         });
     }
