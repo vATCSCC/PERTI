@@ -743,7 +743,8 @@ class AdlQueryHelper {
                 SUM(CASE WHEN phase = 'departed' THEN 1 ELSE 0 END) AS departed,
                 SUM(CASE WHEN phase = 'taxiing' THEN 1 ELSE 0 END) AS taxiing,
                 SUM(CASE WHEN phase = 'prefile' THEN 1 ELSE 0 END) AS prefile,
-                SUM(CASE WHEN phase NOT IN ('arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR phase IS NULL THEN 1 ELSE 0 END) AS unknown
+                SUM(CASE WHEN phase NOT IN ('arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR phase IS NULL THEN 1 ELSE 0 END) AS unknown,
+                SUM(CASE WHEN cta_utc IS NOT NULL OR ctd_utc IS NOT NULL THEN 1 ELSE 0 END) AS controlled
             FROM dbo.vw_adl_flights
             WHERE {$airportCol} = ?
               AND {$timeCol} IS NOT NULL
@@ -785,7 +786,8 @@ class AdlQueryHelper {
                 SUM(CASE WHEN c.phase = 'departed' THEN 1 ELSE 0 END) AS departed,
                 SUM(CASE WHEN c.phase = 'taxiing' THEN 1 ELSE 0 END) AS taxiing,
                 SUM(CASE WHEN c.phase = 'prefile' THEN 1 ELSE 0 END) AS prefile,
-                SUM(CASE WHEN c.phase NOT IN ('arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR c.phase IS NULL THEN 1 ELSE 0 END) AS unknown
+                SUM(CASE WHEN c.phase NOT IN ('arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile') OR c.phase IS NULL THEN 1 ELSE 0 END) AS unknown,
+                SUM(CASE WHEN t.cta_utc IS NOT NULL OR t.ctd_utc IS NOT NULL THEN 1 ELSE 0 END) AS controlled
             FROM dbo.adl_flight_core c
             INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
             LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid

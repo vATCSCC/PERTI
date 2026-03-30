@@ -659,8 +659,8 @@
                 if (f.is_excluded) rowClass += ' ctp-row-excluded';
                 if (f.is_priority) rowClass += ' ctp-row-priority';
 
-                var entryUtc = f.oceanic_entry_utc ? FlightTable.formatUtcShort(f.oceanic_entry_utc) : '--';
-                var edctUtc = f.edct_utc ? FlightTable.formatUtcShort(f.edct_utc) : '--';
+                var entryUtc = f.oceanic_entry_utc ? 'E' + FlightTable.formatUtcShort(f.oceanic_entry_utc) : '--';
+                var edctUtc = f.edct_utc ? 'C' + FlightTable.formatUtcShort(f.edct_utc) : '--';
 
                 var row = '<tr class="' + rowClass + '" data-id="' + f.ctp_control_id + '">' +
                     '<td class="ctp-col-check"><input type="checkbox" class="ctp-row-check" data-id="' + f.ctp_control_id + '"' + (isSelected ? ' checked' : '') + '></td>' +
@@ -687,10 +687,10 @@
         },
 
         buildExpandRow: function(f) {
-            var exitUtc = f.oceanic_exit_utc ? FlightTable.formatUtcFull(f.oceanic_exit_utc) : '--';
-            var entryUtcFull = f.oceanic_entry_utc ? FlightTable.formatUtcFull(f.oceanic_entry_utc) : '--';
-            var edctFull = f.edct_utc ? FlightTable.formatUtcFull(f.edct_utc) : '--';
-            var origEtd = f.original_etd_utc ? FlightTable.formatUtcFull(f.original_etd_utc) : '--';
+            var exitUtc = f.oceanic_exit_utc ? 'E' + FlightTable.formatUtcFull(f.oceanic_exit_utc) : '--';
+            var entryUtcFull = f.oceanic_entry_utc ? 'E' + FlightTable.formatUtcFull(f.oceanic_entry_utc) : '--';
+            var edctFull = f.edct_utc ? 'C' + FlightTable.formatUtcFull(f.edct_utc) : '--';
+            var origEtd = f.original_etd_utc ? 'E' + FlightTable.formatUtcFull(f.original_etd_utc) : '--';
             var delay = f.slot_delay_min !== null && f.slot_delay_min !== undefined ? f.slot_delay_min + ' min' : '--';
             var compliance = f.compliance_status || '--';
 

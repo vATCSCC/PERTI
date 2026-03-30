@@ -351,6 +351,11 @@ include("load/i18n.php");
             font-size: 10px;
             text-shadow: 0 0 2px rgba(255,255,255,0.6);
             pointer-events: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            display: inline-block;
         }
 
         .tmi-timeline-bar.tmi-status-completed,
@@ -378,12 +383,13 @@ include("load/i18n.php");
         .tmi-timeline-bar .tmi-update-marker {
             position: absolute;
             top: 50%;
-            width: 6px;
-            height: 6px;
+            width: 5px;
+            height: 5px;
             background: #000;
             transform: translate(-50%, -50%) rotate(45deg);
             z-index: 3;
             pointer-events: none;
+            opacity: 0.7;
         }
 
         .tmi-timeline-now {
@@ -719,6 +725,37 @@ include("load/i18n.php");
             background: #2c3e50;
             color: #fff;
             border-color: #2c3e50;
+        }
+
+        /* Select2 dark theme overrides */
+        .select2-container--default .select2-selection--multiple {
+            background-color: #2d2d2d;
+            border: 1px solid #495057;
+            color: #e0e0e0;
+            min-height: calc(1.5em + .5rem + 2px);
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #495057;
+            border: 1px solid #6c757d;
+            color: #e0e0e0;
+        }
+        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            color: #adb5bd;
+        }
+        .select2-dropdown {
+            background-color: #2d2d2d;
+            border-color: #495057;
+        }
+        .select2-results__option {
+            color: #e0e0e0;
+        }
+        .select2-results__option--highlighted[aria-selected] {
+            background-color: #495057 !important;
+        }
+        .select2-search--dropdown .select2-search__field {
+            background-color: #1e1e1e;
+            border-color: #495057;
+            color: #e0e0e0;
         }
     </style>
 

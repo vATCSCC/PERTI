@@ -133,6 +133,7 @@ window.PERTI_ORG = {
 <script src="<?= $filepath; ?>assets/locales/index.js<?= _v('assets/locales/index.js') ?>"></script>
 
 <script src="<?= $filepath; ?>assets/js/lib/dialog.js<?= _v('assets/js/lib/dialog.js') ?>"></script>
+<script src="<?= $filepath; ?>assets/js/lib/datetime.js<?= _v('assets/js/lib/datetime.js') ?>"></script>
 
 <!-- Deep Link Utility -->
 <script defer src="<?= $filepath; ?>assets/js/lib/deeplink.js<?= _v('assets/js/lib/deeplink.js') ?>"></script>

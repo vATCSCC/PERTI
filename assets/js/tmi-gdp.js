@@ -244,13 +244,15 @@
             const delay = f.delay_minutes || f.delayMin || f.program_delay_min || 0;
             const delayClass = delay > 60 ? 'text-danger' : (delay > 30 ? 'text-warning' : '');
 
+            var depSrc = f.dep_time_source || '';
+            var edctVal = f.edct_utc || f.edct || f.ctd_utc || f.ctd;
             html += '<tr>' +
                 '<td class="font-weight-bold">' + escapeHtml(f.callsign || f.acid || '--') + '</td>' +
                 '<td>' + escapeHtml(f.dep_airport || f.origin || f.orig || f.dep || '--') + '</td>' +
                 '<td>' + escapeHtml(f.arr_airport || f.destination || f.dest || f.arr || '--') + '</td>' +
                 '<td>' + escapeHtml(f.aircraft_type || f.acType || f.aircraft_icao || '--') + '</td>' +
-                '<td>' + formatTime(f.original_etd_utc || f.oetd_utc || f.etd || f.scheduledDep) + '</td>' +
-                '<td class="font-weight-bold">' + formatTime(f.edct_utc || f.edct || f.ctd_utc || f.ctd) + '</td>' +
+                '<td>' + depSrc + formatTime(f.original_etd_utc || f.oetd_utc || f.etd || f.scheduledDep) + '</td>' +
+                '<td class="font-weight-bold">' + (edctVal ? 'C' + formatTime(edctVal) : '--') + '</td>' +
                 '<td class="' + delayClass + '">' + delay + '</td>' +
                 '</tr>';
         });

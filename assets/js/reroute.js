@@ -478,8 +478,8 @@
                 <td>${f.fp_dept_icao || f.dep_icao || '--'}</td>
                 <td>${f.fp_dest_icao || f.dest_icao || '--'}</td>
                 <td>${f.aircraft_type || f.ac_type || '--'}</td>
-                <td>${fmtTime(f.etd_runway_utc || f.assigned_utc)}</td>
-                <td>${fmtTime(f.eta_runway_utc)}</td>
+                <td>${(f.dep_time_source || '') + fmtTime(f.etd_runway_utc || f.assigned_utc)}</td>
+                <td>${(f.arr_time_source || '') + fmtTime(f.eta_runway_utc)}</td>
                 <td><span class="badge ${STATUS_CLASSES[s]}"><i class="fas ${STATUS_ICONS[s]} me-1"></i>${s}</span></td>
                 <td>${pct}</td>
                 <td>

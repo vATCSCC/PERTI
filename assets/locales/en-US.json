@@ -991,6 +991,7 @@
     "phase": {
       "actualGdp": "GDP (EDCT)",
       "actualGs": "GS (EDCT)",
+      "controlled": "TMI Controlled",
       "exempt": "Exempt",
       "proposedGdp": "GDP (Proposed)",
       "proposedGs": "GS (Proposed)",
