@@ -201,6 +201,8 @@ SCHED_PID="HIBERNATED"
 EVENT_SYNC_PID="HIBERNATED"
 CDM_PID="HIBERNATED"
 VACDM_PID="HIBERNATED"
+DELAY_ATTR_PID="HIBERNATED"
+FACILITY_STATS_PID="HIBERNATED"
 
 if [ "$HIBERNATION" != "1" ]; then
 
@@ -301,10 +303,26 @@ if [ "$HIBERNATION" != "1" ]; then
     # VNAS_CTRL_PID=$!
     # echo "  vnas_controller_poll.php started (PID: $VNAS_CTRL_PID)"
 
+    # Start the TMI delay attribution daemon
+    # Computes per-flight delay from EDCT/OOOI baselines, writes to VATSIM_TMI
+    # 60-second cycle for active controlled flights
+    echo "Starting delay_attribution_daemon.php (cycle every 60s)..."
+    nohup php "${WWWROOT}/scripts/tmi/delay_attribution_daemon.php" --loop --interval=60 >> /home/LogFiles/delay_attribution.log 2>&1 &
+    DELAY_ATTR_PID=$!
+    echo "  delay_attribution_daemon.php started (PID: $DELAY_ATTR_PID)"
+
+    # Start the TMI facility statistics daemon
+    # Computes hourly/daily facility stats from flight data + delay attributions
+    # Hourly cycle with 2-hour lookback
+    echo "Starting facility_stats_daemon.php (cycle every 3600s)..."
+    nohup php "${WWWROOT}/scripts/tmi/facility_stats_daemon.php" --loop --interval=3600 --hours=2 >> /home/LogFiles/facility_stats.log 2>&1 &
+    FACILITY_STATS_PID=$!
+    echo "  facility_stats_daemon.php started (PID: $FACILITY_STATS_PID)"
+
 else
     echo ""
     echo "  Downstream daemons SKIPPED (hibernation mode)"
-    echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, scheduler, event sync, CDM, vACDM"
+    echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, scheduler, event sync, CDM, vACDM, delay attribution, facility stats"
     echo "  Running: SWIM (ws/sync/SimTraffic/reverse sync) — VATSWIM exempt from hibernation"
     echo ""
 fi
@@ -357,6 +375,7 @@ else
     echo "  sched=$SCHED_PID, arch=$ARCH_PID, mon=$MON_PID"
     echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
     echo "  ecfmp=$ECFMP_PID, viff=$VIFF_PID, cdm=$CDM_PID, vacdm=$VACDM_PID"
+    echo "  delay_attr=$DELAY_ATTR_PID, facility_stats=$FACILITY_STATS_PID"
     echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
     echo "  refdata=$REFDATA_PID (daily reimport at 06:00Z)"
     echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"
