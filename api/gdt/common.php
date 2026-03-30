@@ -64,6 +64,7 @@ if (!defined('PERTI_LOADED')) {
 }
 require_once(__DIR__ . '/../../load/config.php');
 require_once(__DIR__ . '/../../load/connect.php');
+require_once(__DIR__ . '/../../load/tmi_log.php');
 
 // ============================================================================
 // Authentication

@@ -262,6 +262,26 @@ write_advisory_record($conn_tmi, $program, $advisory_number, $cancel_adv_type, $
 // Get updated program
 $program = get_program($conn_tmi, $program_id);
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'CANCEL',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'GDP cancelled: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], [
+    'cancellation_reason'      => $cancel_reason ?? null,
+    'cancellation_edct_action' => $edct_action ?? null,
+    'cancellation_notes'       => $cancel_notes ?? null,
+], null, [
+    'program_id'          => $program_id,
+    'cancel_advisory_num' => $advisory_number ?? null,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => 'Program cancelled',

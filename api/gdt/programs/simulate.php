@@ -909,6 +909,27 @@ if ($dry_run) {
 // Response
 // ============================================================================
 
+// Log to TMI unified log (only if not dry-run)
+if (!$dry_run) {
+    log_tmi_action($conn_tmi, [
+        'action_category' => 'PROGRAM',
+        'action_type'     => 'SIMULATE',
+        'program_type'    => $program['program_type'] ?? null,
+        'summary'         => 'GDP simulation: ' . ($program['ctl_element'] ?? ''),
+        'user_cid'        => $auth_cid,
+        'issuing_org'     => $program['org_code'] ?? null,
+    ], [
+        'ctl_element' => $program['ctl_element'] ?? null,
+        'element_type' => 'AIRPORT',
+    ], null, [
+        'slot_count'     => $slot_count,
+        'assigned_count' => $assigned_count,
+        'exempt_count'   => $exempt_count,
+    ], [
+        'program_id' => $program_id,
+    ]);
+}
+
 respond_json(200, [
     'status' => 'ok',
     'message' => $dry_run ? 'What-if simulation complete (no changes persisted)' : 'Simulation complete',

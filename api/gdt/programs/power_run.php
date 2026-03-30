@@ -533,6 +533,27 @@ for ($val = $sweep_start; $val <= $sweep_end; $val += $sweep_step) {
 // Response
 // ============================================================================
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'SIMULATE',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'GDP power run: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, [
+    'sweep_param'     => $sweep_param,
+    'sweep_start'     => $sweep_start,
+    'sweep_end'       => $sweep_end,
+    'sweep_step'      => $sweep_step,
+    'scenario_count'  => count($scenarios),
+], [
+    'program_id' => $program_id,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => 'Power Run complete: ' . count($scenarios) . ' scenarios evaluated',

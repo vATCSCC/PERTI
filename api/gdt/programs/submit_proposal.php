@@ -339,6 +339,29 @@ log_coordination_action($conn_tmi, $program_id, $proposal_id, 'PROPOSAL_SUBMITTE
 // Get updated program
 $program = get_program($conn_tmi, $program_id);
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'COORDINATION',
+    'action_type'     => 'SUBMIT',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'Proposal submitted: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $user_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], [
+    'coordination_mode'         => $coordination_mode,
+    'coordination_deadline_utc' => $deadline->format('Y-m-d H:i:s'),
+], [
+    'facilities'     => $facilities,
+    'discord_posted' => $discord_posted,
+], [
+    'program_id'      => $program_id,
+    'proposal_id'     => $proposal_id,
+    'advisory_number' => $advisory_number,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => $discord_posted

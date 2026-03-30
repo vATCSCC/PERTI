@@ -128,6 +128,25 @@ sqlsrv_free_stmt($stmt);
 
 $program = get_program($conn_tmi, $program_id);
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'EXTEND',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'GDP extended: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], [
+    'effective_end_utc' => $new_end_utc,
+], [
+    'new_slots_count' => $new_slots_count,
+], [
+    'program_id' => $program_id,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => 'Program extended',

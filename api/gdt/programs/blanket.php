@@ -191,6 +191,27 @@ execute_query($conn_tmi,
 // Response
 // ============================================================================
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'SLOT',
+    'action_type'     => 'BLANKET',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'Blanket EDCT issued: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, [
+    'adjustment_min'      => $adjustment_min,
+    'flights_adjusted'    => $flights_adjusted,
+    'new_avg_delay_min'   => $new_avg,
+    'new_max_delay_min'   => $new_max,
+    'new_total_delay_min' => $new_total,
+], [
+    'program_id' => $program_id,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => "Blanket adjustment of {$adjustment_min} min applied to {$flights_adjusted} flights",

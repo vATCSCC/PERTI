@@ -277,6 +277,25 @@ execute_query($conn_tmi, "
 // Refresh program data for response
 $program = get_program($conn_tmi, $program_id);
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'SLOT',
+    'action_type'     => 'ECR',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'ECR applied: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, [
+    'ecr_action'    => $action,
+    'flight_uid'    => $flight_uid,
+    'changes'       => $changes,
+], [
+    'program_id' => $program_id,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => "ECR {$action} processed successfully",

@@ -125,6 +125,24 @@ sqlsrv_free_stmt($exec_stmt);
 // Refresh program metrics
 $program = get_program($conn_tmi, $program_id);
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'COMPRESS',
+    'program_type'    => $program['program_type'] ?? null,
+    'summary'         => 'GDP compressed: ' . ($program['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+    'issuing_org'     => $program['org_code'] ?? null,
+], [
+    'ctl_element' => $program['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], null, [
+    'slots_compressed' => $slots_compressed,
+    'delay_saved_min'  => $delay_saved_min,
+], [
+    'program_id' => $program_id,
+]);
+
 respond_json(200, [
     'status' => 'ok',
     'message' => $slots_compressed > 0

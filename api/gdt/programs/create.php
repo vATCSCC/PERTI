@@ -310,6 +310,24 @@ if ($program_id === null || $program_id <= 0) {
 
 $program = get_program($conn_tmi, $program_id);
 
+// Log to TMI unified log
+log_tmi_action($conn_tmi, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'CREATE',
+    'program_type'    => $payload['program_type'] ?? null,
+    'summary'         => 'GDP created: ' . ($payload['ctl_element'] ?? ''),
+    'user_cid'        => $auth_cid,
+], [
+    'ctl_element' => $payload['ctl_element'] ?? null,
+    'element_type' => 'AIRPORT',
+], [
+    'effective_start_utc' => $payload['start_utc'] ?? null,
+    'effective_end_utc'   => $payload['end_utc'] ?? null,
+    'program_rate'        => $payload['program_rate'] ?? null,
+], null, [
+    'program_id' => $program_id,
+]);
+
 respond_json(201, [
     'status' => 'ok',
     'message' => 'Program created',

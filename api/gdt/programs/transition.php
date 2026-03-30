@@ -209,6 +209,23 @@ if ($phase === 'propose') {
 
     $gdp_program = get_program($conn_tmi, $gdp_program_id);
 
+    // Log to TMI unified log (propose phase)
+    log_tmi_action($conn_tmi, [
+        'action_category' => 'PROGRAM',
+        'action_type'     => 'TRANSITION',
+        'program_type'    => 'GS',
+        'summary'         => 'GS→GDP transition proposed: ' . ($gs_program['ctl_element'] ?? ''),
+        'user_cid'        => $auth_cid,
+        'issuing_org'     => $gs_program['org_code'] ?? null,
+    ], [
+        'ctl_element' => $gs_program['ctl_element'] ?? null,
+        'element_type' => 'AIRPORT',
+    ], null, null, [
+        'program_id'     => $gs_program_id,
+        'gdp_program_id' => $gdp_program_id,
+        'phase'          => 'propose',
+    ]);
+
     respond_json(200, [
         'status' => 'ok',
         'message' => 'GDP proposed',
@@ -304,6 +321,23 @@ if ($phase === 'activate') {
     // Fetch updated records
     $gs_program = get_program($conn_tmi, $gs_program_id);
     $gdp_program = get_program($conn_tmi, $gdp_program_id);
+
+    // Log to TMI unified log (activate phase)
+    log_tmi_action($conn_tmi, [
+        'action_category' => 'PROGRAM',
+        'action_type'     => 'TRANSITION',
+        'program_type'    => 'GDP',
+        'summary'         => 'GS→GDP transition activated: ' . ($gdp_program['ctl_element'] ?? ''),
+        'user_cid'        => $auth_cid,
+        'issuing_org'     => $gdp_program['org_code'] ?? null,
+    ], [
+        'ctl_element' => $gdp_program['ctl_element'] ?? null,
+        'element_type' => 'AIRPORT',
+    ], null, null, [
+        'program_id'     => $gdp_program_id,
+        'gs_program_id'  => $gs_program_id,
+        'phase'          => 'activate',
+    ]);
 
     respond_json(200, [
         'status' => 'ok',
