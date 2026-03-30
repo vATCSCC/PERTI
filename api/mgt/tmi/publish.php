@@ -85,6 +85,7 @@ try {
     require_once __DIR__ . '/../../../load/discord/DiscordAPI.php';
     require_once __DIR__ . '/../../../load/coordination_log.php';
     require_once __DIR__ . '/../../tmi/AdvisoryNumber.php';
+    require_once __DIR__ . '/../../../load/tmi_log.php';
 
     // Check if MultiDiscordAPI exists
     $multiDiscordPath = __DIR__ . '/../../../load/discord/MultiDiscordAPI.php';
@@ -283,6 +284,67 @@ foreach ($entries as $index => $entry) {
 
                 $result['databaseId'] = $databaseId;
                 tmi_debug_log("Entry {$index} saved to database", ['id' => $databaseId, 'is_update' => $result['is_update'] ?? false]);
+
+                // Log to TMI unified log
+                if ($databaseId && $tmiConn) {
+                    try {
+                        $actionCategory = 'ENTRY';
+                        $actionType = 'CREATE';
+                        if ($isAdvisory) {
+                            $actionCategory = 'ADVISORY';
+                        } elseif ($entrySubType === 'DELAY') {
+                            $actionCategory = 'DELAY_REPORT';
+                        } elseif ($entrySubType === 'CONFIG') {
+                            $actionCategory = 'CONFIG_CHANGE';
+                        } elseif ($entrySubType === 'CANCEL') {
+                            $actionType = 'CANCEL';
+                        }
+
+                        $entryData = $entry['data'] ?? [];
+                        $ctlElement = strtoupper($entryData['ctl_element'] ?? '');
+
+                        log_tmi_action($tmiConn, [
+                            'action_category' => $actionCategory,
+                            'action_type'     => $actionType,
+                            'program_type'    => $entrySubType,
+                            'summary'         => $actionCategory . ' ' . $actionType . ': '
+                                               . $entrySubType . ' ' . $ctlElement,
+                            'source_system'   => $production ? 'PERTI_WEB' : 'PERTI_STAGING',
+                            'user_cid'        => $userCid,
+                            'user_name'       => $userName,
+                            'issuing_org'     => $org_code ?? null,
+                        ], [
+                            'ctl_element'  => $ctlElement ?: null,
+                            'element_type' => !empty($ctlElement) ? 'AIRPORT' : null,
+                            'facility'     => $entryData['facility'] ?? null,
+                            'via_fix'      => $entryData['via_fix'] ?? null,
+                            'scope_airports' => $entryData['scope_airports'] ?? null,
+                        ], [
+                            'effective_start_utc' => $entryData['effective_start'] ?? null,
+                            'effective_end_utc'   => $entryData['effective_end'] ?? null,
+                            'rate_value'          => $entryData['rate_value'] ?? null,
+                            'rate_unit'           => $entryData['rate_unit'] ?? null,
+                            'spacing_type'        => $entryData['spacing_type'] ?? null,
+                            'cause_category'      => $entryData['cause_category'] ?? null,
+                            'cause_detail'        => $entryData['cause_detail'] ?? null,
+                            'impacting_condition' => $entryData['impacting_condition'] ?? null,
+                            'delay_type'          => $entryData['delay_type'] ?? null,
+                            'delay_minutes'       => $entryData['delay_minutes'] ?? null,
+                            'delay_trend'         => $entryData['delay_trend'] ?? null,
+                            'weather_conditions'  => $entryData['weather_conditions'] ?? null,
+                            'arrival_runways'     => $entryData['arrival_runways'] ?? null,
+                            'departure_runways'   => $entryData['departure_runways'] ?? null,
+                            'ntml_formatted'      => $messageContent ?? null,
+                            'remarks'             => $entryData['remarks'] ?? null,
+                        ], null, [
+                            'entry_id'    => $isAdvisory ? null : $databaseId,
+                            'advisory_id' => $isAdvisory ? $databaseId : null,
+                            'source_type' => $production ? 'production' : 'staging',
+                        ]);
+                    } catch (Exception $e) {
+                        tmi_debug_log("TMI log failed for entry {$index}: " . $e->getMessage());
+                    }
+                }
 
                 // Log to coordination channel (only for new entries in production, not updates)
                 if ($databaseId && $production && !($result['is_update'] ?? false)) {
