@@ -42,6 +42,25 @@ class CDMService
     const MSG_CANCEL       = 'CANCEL';
     const MSG_INFO         = 'INFO';
 
+    // Extended TMI message types (Bridge 1: HoppieWriter)
+    const MSG_EDCT_AMENDED  = 'EDCT_AMENDED';
+    const MSG_EDCT_CANCEL   = 'EDCT_CANCEL';
+    const MSG_CTOT          = 'CTOT';
+    const MSG_GS_HOLD       = 'GS_HOLD';
+    const MSG_GS_RELEASE    = 'GS_RELEASE';
+    const MSG_REROUTE       = 'REROUTE';
+    const MSG_FLOW_MEASURE  = 'FLOW_MEASURE';
+    const MSG_MIT           = 'MIT';
+    const MSG_AFP           = 'AFP';
+    const MSG_METERING      = 'METERING';
+    const MSG_HOLD          = 'HOLD';
+    const MSG_CTP_SLOT      = 'CTP_SLOT';
+    const MSG_WEATHER_REROUTE = 'WEATHER_REROUTE';
+    const MSG_TOS_QUERY     = 'TOS_QUERY';
+    const MSG_TOS_ACK       = 'TOS_ACK';
+    const MSG_TOS_ASSIGN    = 'TOS_ASSIGN';
+    const MSG_TRAFFIC_ADV   = 'TRAFFIC_ADVISORY';
+
     // Delivery channel constants
     const CHANNEL_CPDLC   = 'cpdlc';
     const CHANNEL_VPILOT  = 'vpilot';
