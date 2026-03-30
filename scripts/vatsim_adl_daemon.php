@@ -2131,11 +2131,23 @@ function executeDeferredTMISync($conn_adl, $conn_tmi): ?array {
     }
 
     // ── Step 5: Mirror control times to adl_flight_times ─────────────────
+    // Also freeze OETA/OETD: when CTA/CTD is first assigned, capture the current
+    // uncontrolled ETA/ETD. Write-once — never overwrite once set.
     $timesSql = "
         UPDATE ft SET
             ft.ctd_utc = s.ctd_utc,
             ft.cta_utc = s.cta_utc,
-            ft.edct_utc = s.edct_utc
+            ft.edct_utc = s.edct_utc,
+            ft.oeta_utc = CASE
+                WHEN ft.oeta_utc IS NOT NULL THEN ft.oeta_utc
+                WHEN s.cta_utc IS NOT NULL THEN COALESCE(ft.eta_runway_utc, ft.eta_utc)
+                ELSE ft.oeta_utc
+            END,
+            ft.oetd_utc = CASE
+                WHEN ft.oetd_utc IS NOT NULL THEN ft.oetd_utc
+                WHEN s.ctd_utc IS NOT NULL THEN COALESCE(ft.etd_runway_utc, ft.etd_utc)
+                ELSE ft.oetd_utc
+            END
         FROM dbo.adl_flight_times ft
         INNER JOIN #TmiSync s ON ft.flight_uid = s.flight_uid
     ";

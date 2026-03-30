@@ -253,6 +253,26 @@ const PERTIDateTime = (function() {
         return new Date(date.getTime() + minutes * 60000);
     }
 
+    /**
+     * Format a time with TFMS source prefix (A/C/E/S)
+     * @param {Date|string} date - Date object or ISO string
+     * @param {string} source - Single char: 'A' (actual), 'C' (controlled), 'E' (estimated), 'S' (scheduled)
+     * @param {string} [format='short'] - 'short' for HH:MMZ, 'adl' for HHMMZ, 'full' for HH:MM:SSZ
+     * @returns {string} e.g. "E14:30Z", "C1430Z", "A14:30:00Z"
+     */
+    function formatTimeWithSource(date, source, format) {
+        if (!date) return '--:--Z';
+        if (typeof date === 'string') date = new Date(date);
+        if (!(date instanceof Date) || isNaN(date)) return '--:--Z';
+        var prefix = (source && source.length === 1) ? source : '';
+        if (format === 'adl') {
+            return prefix + formatAdlTime(date);
+        } else if (format === 'full') {
+            return prefix + formatTimeZ(date);
+        }
+        return prefix + formatTimeShortZ(date);
+    }
+
     // Public API
     return {
         nowIso,
@@ -275,6 +295,7 @@ const PERTIDateTime = (function() {
         isPast,
         isFuture,
         addMinutes,
+        formatTimeWithSource,
     };
 })();
 

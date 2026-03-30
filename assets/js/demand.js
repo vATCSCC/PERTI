@@ -592,11 +592,31 @@ window.DemandChartCore = (function() {
                         var d = new Date(bin);
                         var dd = String(d.getUTCDate()).padStart(2, '0');
                         var hh = String(d.getUTCHours()).padStart(2, '0');
-                        // Try DD_HH key first (date-aware), fall back to bare HH key
-                        var rate = state.programRates[dd + '_' + hh];
-                        if (rate == null) rate = state.programRates[hh];
-                        // Pro-rate hourly rate to bin granularity
-                        var binRate = rate != null ? Math.round(rate * minsPerBin / 60) : null;
+                        var mm = String(d.getUTCMinutes()).padStart(2, '0');
+                        var binRate = null;
+
+                        if (state.programRates._hasQuarter) {
+                            // Quarter-rate data: sum contributing quarters within this bin
+                            var sum = 0;
+                            var found = false;
+                            for (var q = 0; q < minsPerBin; q += 15) {
+                                var qd = new Date(d.getTime() + q * 60 * 1000);
+                                var qdd = String(qd.getUTCDate()).padStart(2, '0');
+                                var qhh = String(qd.getUTCHours()).padStart(2, '0');
+                                var qmm = String(qd.getUTCMinutes()).padStart(2, '0');
+                                var qKey = qdd + '_' + qhh + ':' + qmm;
+                                if (state.programRates[qKey] != null) {
+                                    sum += state.programRates[qKey];
+                                    found = true;
+                                }
+                            }
+                            binRate = found ? sum : null;
+                        } else {
+                            // Hourly rate path: try DD_HH key first, fall back to bare HH
+                            var rate = state.programRates[dd + '_' + hh];
+                            if (rate == null) rate = state.programRates[hh];
+                            binRate = rate != null ? Math.round(rate * minsPerBin / 60) : null;
+                        }
                         return [d.getTime(), binRate];
                     });
                     series.push({
@@ -3908,11 +3928,31 @@ function renderChart(data) {
             const d = new Date(bin);
             const dd = String(d.getUTCDate()).padStart(2, '0');
             const hh = String(d.getUTCHours()).padStart(2, '0');
-            // Try DD_HH key first (date-aware), fall back to bare HH key
-            var rate = DEMAND_STATE.programRates[dd + '_' + hh];
-            if (rate == null) rate = DEMAND_STATE.programRates[hh];
-            // Pro-rate hourly rate to bin granularity
-            const binRate = rate != null ? Math.round(rate * minsPerBin / 60) : null;
+            const mm = String(d.getUTCMinutes()).padStart(2, '0');
+            var binRate = null;
+
+            if (DEMAND_STATE.programRates._hasQuarter) {
+                // Quarter-rate data: sum contributing quarters within this bin
+                var sum = 0;
+                var found = false;
+                for (var q = 0; q < minsPerBin; q += 15) {
+                    var qd = new Date(d.getTime() + q * 60 * 1000);
+                    var qdd = String(qd.getUTCDate()).padStart(2, '0');
+                    var qhh = String(qd.getUTCHours()).padStart(2, '0');
+                    var qmm = String(qd.getUTCMinutes()).padStart(2, '0');
+                    var qKey = qdd + '_' + qhh + ':' + qmm;
+                    if (DEMAND_STATE.programRates[qKey] != null) {
+                        sum += DEMAND_STATE.programRates[qKey];
+                        found = true;
+                    }
+                }
+                binRate = found ? sum : null;
+            } else {
+                // Hourly rate path: try DD_HH key first, fall back to bare HH
+                var rate = DEMAND_STATE.programRates[dd + '_' + hh];
+                if (rate == null) rate = DEMAND_STATE.programRates[hh];
+                binRate = rate != null ? Math.round(rate * minsPerBin / 60) : null;
+            }
             return [d.getTime(), binRate];
         });
 
@@ -5466,14 +5506,15 @@ function buildProgramRatesFromTMI(programs) {
         return null;
     }
 
-    var rateMap = {};  // { 'DD_HH': rate }
+    var rateMap = {};  // { 'DD_HH:MM': rate } for quarter, { 'DD_HH': rate } for hourly
     var hasAny = false;
+    var hasQuarter = false;
 
     programs.forEach(function(p) {
         var pType = (p.program_type || '').toUpperCase();
         if (!pType.startsWith('GDP')) return;
         // Must have rate data
-        if (p.program_rate == null && !p.rates_hourly) return;
+        if (p.program_rate == null && !p.rates_hourly && !p.rates_quarter) return;
 
         var startMs = p.start_utc ? new Date(p.start_utc).getTime() : null;
         var endMs = p.end_utc ? new Date(p.end_utc).getTime() : null;
@@ -5481,41 +5522,81 @@ function buildProgramRatesFromTMI(programs) {
         // Default end to 24h after start if missing
         if (!endMs) endMs = startMs + 24 * 60 * 60 * 1000;
 
-        // Walk each hour in the program window
-        var cursor = new Date(startMs);
-        cursor.setUTCMinutes(0, 0, 0); // Snap to hour start
-        var endDate = new Date(endMs);
+        // Quarter-hour rates take priority when available
+        if (p.rates_quarter && typeof p.rates_quarter === 'object') {
+            var cursor = new Date(startMs);
+            cursor.setUTCMinutes(0, 0, 0); // Snap to hour start
+            var endDate = new Date(endMs);
 
-        while (cursor < endDate) {
-            var dd = String(cursor.getUTCDate()).padStart(2, '0');
-            var hh = String(cursor.getUTCHours()).padStart(2, '0');
-            var key = dd + '_' + hh;
+            while (cursor < endDate) {
+                var dd = String(cursor.getUTCDate()).padStart(2, '0');
+                var hh = String(cursor.getUTCHours()).padStart(2, '0');
+                var mm = String(cursor.getUTCMinutes()).padStart(2, '0');
+                var qKey = dd + '_' + hh + ':' + mm;
 
-            // Determine rate for this hour
-            var rate = null;
-            if (p.rates_hourly && typeof p.rates_hourly === 'object') {
-                // rates_hourly keys are bare hour strings like "14", "15" etc.
-                rate = p.rates_hourly[hh] != null ? Number(p.rates_hourly[hh])
-                     : p.rates_hourly[String(cursor.getUTCHours())] != null ? Number(p.rates_hourly[String(cursor.getUTCHours())])
-                     : (p.program_rate != null ? Number(p.program_rate) : null);
-            } else if (p.program_rate != null) {
-                rate = Number(p.program_rate);
-            }
+                // rates_quarter keys are "HH:MM" format (e.g., "14:00", "14:15")
+                var timeKey = hh + ':' + mm;
+                var rate = p.rates_quarter[timeKey] != null ? Number(p.rates_quarter[timeKey]) : null;
 
-            if (rate != null) {
-                // If multiple programs overlap, keep the lowest (most restrictive)
-                if (rateMap[key] == null || rate < rateMap[key]) {
-                    rateMap[key] = rate;
+                // Fall back to hourly rate / 4 for missing quarters
+                if (rate == null && p.rates_hourly && typeof p.rates_hourly === 'object') {
+                    var hourlyRate = p.rates_hourly[hh] != null ? Number(p.rates_hourly[hh])
+                        : p.rates_hourly[String(cursor.getUTCHours())] != null ? Number(p.rates_hourly[String(cursor.getUTCHours())])
+                        : null;
+                    if (hourlyRate != null) rate = Math.round(hourlyRate / 4);
                 }
-                hasAny = true;
-            }
+                // Fall back to flat rate / 4
+                if (rate == null && p.program_rate != null) {
+                    rate = Math.round(Number(p.program_rate) / 4);
+                }
 
-            cursor.setUTCHours(cursor.getUTCHours() + 1);
+                if (rate != null) {
+                    if (rateMap[qKey] == null || rate < rateMap[qKey]) {
+                        rateMap[qKey] = rate;
+                    }
+                    hasAny = true;
+                    hasQuarter = true;
+                }
+
+                cursor.setTime(cursor.getTime() + 15 * 60 * 1000); // advance 15 min
+            }
+        } else {
+            // Hourly path (existing logic)
+            var cursor = new Date(startMs);
+            cursor.setUTCMinutes(0, 0, 0); // Snap to hour start
+            var endDate = new Date(endMs);
+
+            while (cursor < endDate) {
+                var dd = String(cursor.getUTCDate()).padStart(2, '0');
+                var hh = String(cursor.getUTCHours()).padStart(2, '0');
+                var key = dd + '_' + hh;
+
+                // Determine rate for this hour
+                var rate = null;
+                if (p.rates_hourly && typeof p.rates_hourly === 'object') {
+                    rate = p.rates_hourly[hh] != null ? Number(p.rates_hourly[hh])
+                         : p.rates_hourly[String(cursor.getUTCHours())] != null ? Number(p.rates_hourly[String(cursor.getUTCHours())])
+                         : (p.program_rate != null ? Number(p.program_rate) : null);
+                } else if (p.program_rate != null) {
+                    rate = Number(p.program_rate);
+                }
+
+                if (rate != null) {
+                    if (rateMap[key] == null || rate < rateMap[key]) {
+                        rateMap[key] = rate;
+                    }
+                    hasAny = true;
+                }
+
+                cursor.setUTCHours(cursor.getUTCHours() + 1);
+            }
         }
     });
 
     if (!hasAny) return null;
-    console.log('[Demand] Built programRates map with', Object.keys(rateMap).length, 'hourly entries from GDP programs');
+    rateMap._hasQuarter = hasQuarter;
+    console.log('[Demand] Built programRates map with', Object.keys(rateMap).length,
+        hasQuarter ? 'quarter-hour' : 'hourly', 'entries from GDP programs');
     return rateMap;
 }
 
@@ -8578,7 +8659,10 @@ function buildFlightListHtml(flights, clickedSeries) {
         const dirIcon = flight.direction === 'arrival'
             ? '<i class="fas fa-plane-arrival text-success"></i>'
             : '<i class="fas fa-plane-departure text-warning"></i>';
-        const time = flight.time ? formatTimeLabelZ(flight.time) : '--';
+        const timeSource = flight.time_source || '';
+        const time = flight.time
+            ? (timeSource ? timeSource : '') + formatTimeLabelZ(flight.time)
+            : '--';
 
         // Check if this row should be emphasized (matches clicked series)
         let rowStyle = '';

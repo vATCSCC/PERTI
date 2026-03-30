@@ -129,7 +129,8 @@ $sql = "
         purged_at,
         comments,
         program_rate,
-        rates_hourly_json
+        rates_hourly_json,
+        rates_quarter_json
     FROM dbo.tmi_programs
     WHERE (program_type = 'GS' OR program_type LIKE 'GDP%')
       AND (UPPER(ctl_element) = :airport1 OR UPPER(ctl_element) = :airport2 OR UPPER(ctl_element) = :airport3)
@@ -208,7 +209,8 @@ try {
 
             // GDP rate data (for program rate overlay on demand chart)
             "program_rate" => $row['program_rate'] !== null ? (int)$row['program_rate'] : null,
-            "rates_hourly" => $row['rates_hourly_json'] !== null ? json_decode($row['rates_hourly_json'], true) : null
+            "rates_hourly" => $row['rates_hourly_json'] !== null ? json_decode($row['rates_hourly_json'], true) : null,
+            "rates_quarter" => $row['rates_quarter_json'] !== null ? json_decode($row['rates_quarter_json'], true) : null
         ];
     }
 
