@@ -373,15 +373,16 @@ const GDP = (function() {
             if (delay > 0) {delayed++;}
             if (isExempt) {exempt++;}
 
+            const ts = PERTIDateTime.deriveTimeSource(f);
             html += `<tr class="${statusClass}">
                 <td>${f.callsign || '--'}</td>
                 <td>${f.origin || '--'}</td>
                 <td>${f.destination || '--'}</td>
                 <td>${f.origin_artcc || '--'}</td>
                 <td>${f.aircraft_type || '--'}</td>
-                <td>${formatUtcTime(f.eta_runway_utc)}</td>
-                <td>${formatUtcTime(f.cta_utc)}</td>
-                <td>${formatUtcTime(f.ctd_utc)}</td>
+                <td>${PERTIDateTime.formatTimeWithSource(f.eta_runway_utc, ts.arr)}</td>
+                <td>${f.cta_utc ? 'C' + formatUtcTime(f.cta_utc) : '--'}</td>
+                <td>${f.ctd_utc ? 'C' + formatUtcTime(f.ctd_utc) : '--'}</td>
                 <td class="${getDelayClass(delay)}">${formatDelay(delay)}</td>
                 <td>${statusText}</td>
             </tr>`;
@@ -999,12 +1000,13 @@ const GDP = (function() {
             const delay = f.program_delay_min || 0;
             const delayClass = getDelayClass(delay);
 
+            const ts = PERTIDateTime.deriveTimeSource(f);
             tr.innerHTML = `
                 <td><strong>${f.callsign || '--'}</strong></td>
                 <td>${f.fp_dept_icao || '--'}</td>
-                <td>${formatUtcTime(f.gdp_original_eta_utc || f.eta_runway_utc)}</td>
-                <td>${formatUtcTime(f.cta_utc)}</td>
-                <td>${formatUtcTime(f.ctd_utc)}</td>
+                <td>${PERTIDateTime.formatTimeWithSource(f.gdp_original_eta_utc || f.eta_runway_utc, ts.arr)}</td>
+                <td>${f.cta_utc ? 'C' + formatUtcTime(f.cta_utc) : '--'}</td>
+                <td>${f.ctd_utc ? 'C' + formatUtcTime(f.ctd_utc) : '--'}</td>
                 <td class="${delayClass}">${formatDelay(delay)}</td>
                 <td>${f.gdp_slot_index || '--'}</td>
                 <td><span class="badge badge-${f.ctl_type === 'GDP' ? 'success' : 'secondary'}">${f.ctl_type || 'PEND'}</span></td>

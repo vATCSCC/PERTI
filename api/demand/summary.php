@@ -499,15 +499,16 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
         $timeBinSQL = getTimeBinSQL('op_time', $granularity);
         $sql = "
             WITH Combined AS (
-                SELECT COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) AS op_time, ac.airline_icao, c.phase
+                SELECT COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) AS op_time, ac.airline_icao, ac.airline_name, c.phase
                 {$fromClause} WHERE fp.fp_dest_icao = ?
                 UNION ALL
-                SELECT COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) AS op_time, ac.airline_icao, c.phase
+                SELECT COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) AS op_time, ac.airline_icao, ac.airline_name, c.phase
                 {$fromClause} WHERE fp.fp_dept_icao = ?
             )
             SELECT
                 {$timeBinSQL} AS time_bin,
                 COALESCE(airline_icao, 'UNKNOWN') AS carrier,
+                MAX(airline_name) AS airline_name,
                 COUNT(*) AS count,
                 {$phaseAgg}
             FROM Combined
@@ -523,6 +524,7 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
             SELECT
                 {$timeBinSQL} AS time_bin,
                 COALESCE(ac.airline_icao, 'UNKNOWN') AS carrier,
+                MAX(ac.airline_name) AS airline_name,
                 COUNT(*) AS count,
                 {$phaseAgg}
             {$fromClause}
@@ -555,6 +557,7 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
         }
         $results[$timeBin][] = [
             "carrier" => $row['carrier'],
+            "airline_name" => $row['airline_name'] ?? $row['carrier'],
             "count" => (int)$row['count'],
             "phases" => extractPhases($row)
         ];
@@ -569,6 +572,7 @@ function getCarrierBreakdown($conn, $helper, $airport, $direction, $startSQL, $e
  */
 function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, $endSQL, $granularity = 60) {
     $fromClause = getNormalizedFrom(); // aircraft_type is on plan table
+    $acdJoin = " LEFT JOIN dbo.ACD_Data acd ON acd.ICAO_Code = fp.aircraft_type";
     $timeCol = $direction === 'arr' ? 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)' :
                ($direction === 'dep' ? 'COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)' : 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)');
     $airportCol = $direction === 'arr' ? 'fp.fp_dest_icao' :
@@ -579,15 +583,18 @@ function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, 
         $timeBinSQL = getTimeBinSQL('op_time', $granularity);
         $sql = "
             WITH Combined AS (
-                SELECT COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) AS op_time, fp.aircraft_type, c.phase
-                {$fromClause} WHERE fp.fp_dest_icao = ?
+                SELECT COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) AS op_time, fp.aircraft_type, c.phase,
+                       COALESCE(acd.Manufacturer + ' ' + acd.Model_FAA, fp.aircraft_type) AS aircraft_name
+                {$fromClause}{$acdJoin} WHERE fp.fp_dest_icao = ?
                 UNION ALL
-                SELECT COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) AS op_time, fp.aircraft_type, c.phase
-                {$fromClause} WHERE fp.fp_dept_icao = ?
+                SELECT COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) AS op_time, fp.aircraft_type, c.phase,
+                       COALESCE(acd.Manufacturer + ' ' + acd.Model_FAA, fp.aircraft_type) AS aircraft_name
+                {$fromClause}{$acdJoin} WHERE fp.fp_dept_icao = ?
             )
             SELECT
                 {$timeBinSQL} AS time_bin,
                 COALESCE(aircraft_type, 'UNKNOWN') AS equipment,
+                MAX(aircraft_name) AS aircraft_name,
                 COUNT(*) AS count,
                 {$phaseAgg}
             FROM Combined
@@ -603,9 +610,10 @@ function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, 
             SELECT
                 {$timeBinSQL} AS time_bin,
                 COALESCE(fp.aircraft_type, 'UNKNOWN') AS equipment,
+                MAX(COALESCE(acd.Manufacturer + ' ' + acd.Model_FAA, fp.aircraft_type)) AS aircraft_name,
                 COUNT(*) AS count,
                 {$phaseAgg}
-            {$fromClause}
+            {$fromClause}{$acdJoin}
             WHERE $airportCol = ?
               AND $timeCol IS NOT NULL
               AND $timeCol >= ?
@@ -635,6 +643,7 @@ function getEquipmentBreakdown($conn, $helper, $airport, $direction, $startSQL, 
         }
         $results[$timeBin][] = [
             "equipment" => $row['equipment'],
+            "aircraft_name" => $row['aircraft_name'] ?? $row['equipment'],
             "count" => (int)$row['count'],
             "phases" => extractPhases($row)
         ];

@@ -254,6 +254,20 @@ const PERTIDateTime = (function() {
     }
 
     /**
+     * Derive time source indicators (A/C/E/S) from raw flight time columns.
+     * Use when API doesn't provide precomputed arr_time_source/dep_time_source.
+     * @param {Object} f - Flight object with time columns
+     * @returns {{ arr: string, dep: string }} Single-char source indicators
+     */
+    function deriveTimeSource(f) {
+        if (!f) return { arr: '', dep: '' };
+        return {
+            arr: f.ata_runway_utc ? 'A' : f.cta_utc ? 'C' : (f.eta_runway_utc || f.eta_utc) ? 'E' : f.sta_utc ? 'S' : '',
+            dep: f.atd_runway_utc ? 'A' : f.ctd_utc ? 'C' : (f.etd_runway_utc || f.etd_utc) ? 'E' : f.std_utc ? 'S' : ''
+        };
+    }
+
+    /**
      * Format a time with TFMS source prefix (A/C/E/S)
      * @param {Date|string} date - Date object or ISO string
      * @param {string} source - Single char: 'A' (actual), 'C' (controlled), 'E' (estimated), 'S' (scheduled)
@@ -295,6 +309,7 @@ const PERTIDateTime = (function() {
         isPast,
         isFuture,
         addMinutes,
+        deriveTimeSource,
         formatTimeWithSource,
     };
 })();

@@ -994,6 +994,7 @@ const DEMAND_STATE = {
         active: true,       // ACTIVE - departed/enroute/descending (airborne)
         arrived: true,      // ARRIVED - landed at destination
         disconnected: true, // DISCONNECTED - disconnected mid-flight
+        controlled: true,   // CONTROLLED - TMI controlled (GDP/GS with CTA/CTD)
         unknown: false,      // UNKNOWN - other/unknown (hidden by default)
     },
     atisData: null, // Store ATIS data from API
@@ -1029,6 +1030,7 @@ const FSM_PHASE_COLORS = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : 
     'departed': '#f87171',      // Light Red - Just took off from origin
     'taxiing': '#22c55e',       // Green - Taxiing at origin airport
     'prefile': '#3b82f6',       // Blue - Filed flight plan
+    'controlled': '#b45309',    // Amber/brown - TMI controlled (GDP/GS)
     'unknown': '#9333ea',        // Purple - Unknown/other phase (top)
 };
 
@@ -1041,6 +1043,7 @@ const FSM_PHASE_LABELS = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : 
     'departed': PERTII18n.t('phase.departed'),
     'taxiing': PERTII18n.t('phase.taxiing'),
     'prefile': PERTII18n.t('phase.prefile'),
+    'controlled': PERTII18n.t('demand.phase.controlled'),
     'unknown': PERTII18n.t('phase.unknown'),
 };
 
@@ -1051,6 +1054,7 @@ const PHASE_GROUP_MAP = {
     active: ['departed', 'enroute', 'descending'],
     arrived: ['arrived'],
     disconnected: ['disconnected'],
+    controlled: ['controlled'],
     unknown: ['unknown'],
 };
 
@@ -1063,6 +1067,7 @@ const PHASE_TO_GROUP = {
     descending: 'active',
     arrived: 'arrived',
     disconnected: 'disconnected',
+    controlled: 'controlled',
     unknown: 'unknown',
 };
 
@@ -2710,7 +2715,7 @@ function renderFacilityStatusChart(data) {
 
     // Build series based on direction, filtering by enabled phase groups
     const series = [];
-    const allPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+    const allPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'controlled', 'unknown'];
     const phaseOrder = allPhases.filter(phase => isPhaseEnabled(phase));
 
     if (renderDirection === 'arr' || renderDirection === 'both' || renderDirection === 'thru') {
@@ -3890,7 +3895,7 @@ function renderChart(data) {
     // Phase stacking order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile, unknown
     // Filter by enabled phase groups
     const series = [];
-    const allPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'unknown'];
+    const allPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'controlled', 'unknown'];
     const phaseOrder = allPhases.filter(phase => isPhaseEnabled(phase));
 
     if (direction === 'arr' || direction === 'both') {
@@ -5639,7 +5644,7 @@ function buildTmiMarkerLines() {
                 label: {
                     show: true,
                     formatter: style.label,
-                    position: 'start',
+                    position: 'end',
                     fontSize: 9,
                     fontWeight: 'bold',
                     color: '#fff',
@@ -5665,7 +5670,7 @@ function buildTmiMarkerLines() {
                 label: {
                     show: true,
                     formatter: style.label,
-                    position: 'start',
+                    position: 'end',
                     fontSize: 9,
                     fontWeight: 'bold',
                     color: '#fff',
@@ -5688,7 +5693,7 @@ function buildTmiMarkerLines() {
                 label: {
                     show: true,
                     formatter: style.label,
-                    position: 'start',
+                    position: 'end',
                     fontSize: 8,
                     fontWeight: 'normal',
                     color: '#fff',
@@ -6436,6 +6441,12 @@ function renderTmiTimeline() {
         labelSpan.className = 'tmi-timeline-bar-label';
         labelSpan.textContent = `${typeLabel} #${p.program_id} ${p.ctl_element || ''}`;
         bar.appendChild(labelSpan);
+
+        // Hide label text on narrow bars (< 60px effective width)
+        // Use percentage-based estimate: if widthPct < 5% of track, likely too narrow
+        if (widthPct < 5) {
+            labelSpan.style.display = 'none';
+        }
 
         // CNX label for cancelled programs
         if (isCancelled) {
@@ -7311,7 +7322,7 @@ function loadAllComparisonData() {
             start: start.toISOString(),
             end: end.toISOString(),
             direction: DEMAND_STATE.direction,
-            granularity: getGranularityMinutes(),
+            granularity: DEMAND_STATE.granularity,
         });
 
         const existing = DEMAND_STATE.comparisonData.get(icao) || {};
@@ -7493,9 +7504,15 @@ function renderComparisonTmiTimeline(icao, programs) {
     const track = document.getElementById('compare_tmi_track_' + icao);
     if (!container || !track) return;
 
+    // Filter to GS/GDP types and ensure programs match this airport
+    const icaoUpper = icao.toUpperCase();
+    const icaoStripped = icaoUpper.replace(/^K/, '');
     const filtered = programs.filter(p => {
         const t = (p.program_type || '').toUpperCase();
-        return t === 'GS' || t.startsWith('GDP');
+        if (t !== 'GS' && !t.startsWith('GDP')) return false;
+        // Ensure program belongs to this airport (safety filter)
+        const el = (p.airport || p.ctl_element || '').toUpperCase();
+        return !el || el === icaoUpper || el === icaoStripped;
     });
 
     if (filtered.length === 0) { container.style.display = 'none'; return; }
@@ -8114,21 +8131,34 @@ function loadFlightSummary(renderOriginChartAfter) {
  */
 function populateFilterDropdowns(resp) {
     // Extract unique carriers from carrier_breakdown
-    const carriers = new Set();
+    // API returns arrays of objects per time bin: [{carrier: 'AAL', count: 5, airline_name: 'American Airlines'}, ...]
+    const carrierMap = new Map(); // carrier code -> airline name
     if (resp.carrier_breakdown) {
         Object.values(resp.carrier_breakdown).forEach(bin => {
-            if (bin && typeof bin === 'object') {
-                Object.keys(bin).forEach(k => carriers.add(k));
+            if (Array.isArray(bin)) {
+                bin.forEach(item => {
+                    if (item.carrier && !carrierMap.has(item.carrier)) {
+                        carrierMap.set(item.carrier, item.airline_name || item.carrier);
+                    }
+                });
+            } else if (bin && typeof bin === 'object') {
+                Object.keys(bin).forEach(k => { if (!carrierMap.has(k)) carrierMap.set(k, k); });
             }
         });
     }
 
     // Extract unique equipment from equipment_breakdown
-    const equipment = new Set();
+    const equipMap = new Map(); // equipment code -> aircraft name
     if (resp.equipment_breakdown) {
         Object.values(resp.equipment_breakdown).forEach(bin => {
-            if (bin && typeof bin === 'object') {
-                Object.keys(bin).forEach(k => equipment.add(k));
+            if (Array.isArray(bin)) {
+                bin.forEach(item => {
+                    if (item.equipment && !equipMap.has(item.equipment)) {
+                        equipMap.set(item.equipment, item.aircraft_name || item.equipment);
+                    }
+                });
+            } else if (bin && typeof bin === 'object') {
+                Object.keys(bin).forEach(k => { if (!equipMap.has(k)) equipMap.set(k, k); });
             }
         });
     }
@@ -8137,7 +8167,9 @@ function populateFilterDropdowns(resp) {
     const originArtccs = new Set();
     if (resp.origin_artcc_breakdown) {
         Object.values(resp.origin_artcc_breakdown).forEach(bin => {
-            if (bin && typeof bin === 'object') {
+            if (Array.isArray(bin)) {
+                bin.forEach(item => { if (item.artcc) originArtccs.add(item.artcc); });
+            } else if (bin && typeof bin === 'object') {
                 Object.keys(bin).forEach(k => originArtccs.add(k));
             }
         });
@@ -8147,27 +8179,33 @@ function populateFilterDropdowns(resp) {
     const destArtccs = new Set();
     if (resp.dest_artcc_breakdown) {
         Object.values(resp.dest_artcc_breakdown).forEach(bin => {
-            if (bin && typeof bin === 'object') {
+            if (Array.isArray(bin)) {
+                bin.forEach(item => { if (item.artcc) destArtccs.add(item.artcc); });
+            } else if (bin && typeof bin === 'object') {
                 Object.keys(bin).forEach(k => destArtccs.add(k));
             }
         });
     }
 
-    // Populate carrier Select2
+    // Populate carrier Select2 with airline names
     const $carrier = $('#filter_carrier');
     const currentCarriers = $carrier.val() || [];
     $carrier.empty();
-    [...carriers].sort().forEach(c => {
-        $carrier.append(new Option(c, c, false, currentCarriers.includes(c)));
+    [...carrierMap.keys()].sort().forEach(code => {
+        const name = carrierMap.get(code);
+        const label = name !== code ? name + ' (' + code + ')' : code;
+        $carrier.append(new Option(label, code, false, currentCarriers.includes(code)));
     });
     $carrier.trigger('change.select2');
 
-    // Populate equipment Select2
+    // Populate equipment Select2 with aircraft names
     const $equip = $('#filter_equipment');
     const currentEquip = $equip.val() || [];
     $equip.empty();
-    [...equipment].sort().forEach(e => {
-        $equip.append(new Option(e, e, false, currentEquip.includes(e)));
+    [...equipMap.keys()].sort().forEach(code => {
+        const name = equipMap.get(code);
+        const label = name !== code ? name + ' (' + code + ')' : code;
+        $equip.append(new Option(label, code, false, currentEquip.includes(code)));
     });
     $equip.trigger('change.select2');
 
