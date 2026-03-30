@@ -391,6 +391,28 @@ function run_scenario($conn_tmi, $program_id, $flights_for_sp, $overrides = []) 
             $exempt_count = (int)($result_row['exempt_count'] ?? 0);
         }
         sqlsrv_free_stmt($exec_stmt);
+
+        // Auto-extend: if flights got NO_SLOT, add 15-min slot increments until all are assigned
+        $extend_sql = "
+            DECLARE @ext_applied INT, @ext_slots INT, @ext_flights INT;
+            EXEC dbo.sp_TMI_AutoExtendSlots
+                @program_id = ?,
+                @max_extension_quarters = 48,
+                @extensions_applied = @ext_applied OUTPUT,
+                @slots_added = @ext_slots OUTPUT,
+                @flights_reassigned = @ext_flights OUTPUT;
+            SELECT @ext_applied AS extensions_applied,
+                   @ext_slots AS slots_added,
+                   @ext_flights AS flights_reassigned;
+        ";
+        $extend_stmt = sqlsrv_query($conn_tmi, $extend_sql, [$program_id]);
+        if ($extend_stmt !== false) {
+            $ext_row = sqlsrv_fetch_array($extend_stmt, SQLSRV_FETCH_ASSOC);
+            if ($ext_row && (int)($ext_row['extensions_applied'] ?? 0) > 0) {
+                $slot_count += (int)($ext_row['slots_added'] ?? 0);
+            }
+            sqlsrv_free_stmt($extend_stmt);
+        }
     }
 
     // Step 4: Compute analytics from tmi_flight_control (before rollback)
