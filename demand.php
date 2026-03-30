@@ -637,6 +637,89 @@ include("load/i18n.php");
             color: rgba(255, 255, 255, 0.8);
             margin-bottom: 2px;
         }
+
+        /* Comparison Mode Grid */
+        #demand_chart_grid {
+            display: none;
+        }
+        #demand_chart_grid.active {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        #demand_chart_grid.single-col {
+            grid-template-columns: 1fr;
+        }
+        .compare-panel {
+            border: 2px solid #2c3e50;
+            border-radius: 4px;
+            background: #f8f9fa;
+            overflow: hidden;
+        }
+        .compare-panel-header {
+            background: #ecf0f1;
+            border-bottom: 1px solid #bdc3c7;
+            padding: 4px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .compare-panel-header .airport-code {
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: #2c3e50;
+        }
+        .compare-panel-header .airport-meta {
+            font-size: 0.65rem;
+            color: #666;
+            font-family: 'Roboto Mono', monospace;
+        }
+        .compare-panel-chart {
+            height: 340px;
+        }
+        .compare-panel-chart.side-by-side {
+            height: 380px;
+        }
+        .compare-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: #2c3e50;
+            color: #fff;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .compare-chip .chip-remove {
+            cursor: pointer;
+            opacity: 0.7;
+            font-size: 0.6rem;
+        }
+        .compare-chip .chip-remove:hover {
+            opacity: 1;
+        }
+        /* Stats tab strip for comparison mode */
+        .summary-tab-strip {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        .summary-tab {
+            padding: 2px 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: #fff;
+            color: #2c3e50;
+        }
+        .summary-tab.active {
+            background: #2c3e50;
+            color: #fff;
+            border-color: #2c3e50;
+        }
     </style>
 
 </head>
@@ -880,6 +963,22 @@ include("load/i18n.php");
                         </select>
                     </div>
 
+                    <!-- Comparison Mode Toggle -->
+                    <div class="form-group mb-2" id="compare_toggle_container">
+                        <div class="d-flex align-items-center" style="gap: 8px;">
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.8rem;">
+                                <input type="checkbox" id="compare_mode_toggle" style="margin-right: 4px;">
+                                <i class="fas fa-columns mr-1 text-muted"></i> <?= __('demand.compare.enable') ?>
+                            </label>
+                            <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="compare_add_btn" style="display: none; font-size: 0.7rem;">
+                                + <?= __('demand.compare.addAirport') ?>
+                            </button>
+                        </div>
+                        <!-- Chip bar for selected airports -->
+                        <div id="compare_chip_bar" class="d-flex flex-wrap mt-1" style="gap: 4px; display: none;"></div>
+                        <small class="text-danger" id="compare_max_msg" style="display: none;"><?= __('demand.compare.maxReached') ?></small>
+                    </div>
+
                     <!-- Facility Selection (hidden by default, shown for non-airport types) -->
                     <div class="form-group" id="facility_selector_container" style="display: none;">
                         <label class="demand-label mb-1" for="demand_facility"><?= __('demand.facility.infoBar.facilityName') ?></label>
@@ -979,6 +1078,69 @@ include("load/i18n.php");
                             <label class="btn btn-outline-secondary" id="direction_thru_label" style="display: none;">
                                 <input type="radio" name="demand_direction" id="direction_thru" value="thru" autocomplete="off"> <?= __('demand.facility.direction.thru') ?>
                             </label>
+                        </div>
+                    </div>
+
+                    <hr class="my-2">
+
+                    <!-- Enhanced Filters (Feature 2) -->
+                    <div id="enhanced_filters_section">
+                        <!-- Carrier Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.carrierFilter') ?></label>
+                            <select class="form-control form-control-sm" id="filter_carrier" multiple="multiple" style="width: 100%;">
+                            </select>
+                        </div>
+
+                        <!-- Weight Class Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.weightClassFilter') ?></label>
+                            <div class="d-flex flex-wrap" style="gap: 4px 10px;">
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" class="weight-class-filter" value="H" checked style="margin-right: 3px;">
+                                    <span style="background:#dc2626;width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:3px;"></span> H
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" class="weight-class-filter" value="L" checked style="margin-right: 3px;">
+                                    <span style="background:#3b82f6;width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:3px;"></span> L
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" class="weight-class-filter" value="S" checked style="margin-right: 3px;">
+                                    <span style="background:#22c55e;width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:3px;"></span> S
+                                </label>
+                                <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                    <input type="checkbox" class="weight-class-filter" value="+" checked style="margin-right: 3px;">
+                                    <span style="background:#9333ea;width:8px;height:8px;display:inline-block;border-radius:50%;margin-right:3px;"></span> +
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Equipment Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.equipmentFilter') ?></label>
+                            <select class="form-control form-control-sm" id="filter_equipment" multiple="multiple" style="width: 100%;">
+                            </select>
+                        </div>
+
+                        <!-- Origin ARTCC Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.originArtccFilter') ?></label>
+                            <select class="form-control form-control-sm" id="filter_origin_artcc" multiple="multiple" style="width: 100%;">
+                            </select>
+                        </div>
+
+                        <!-- Dest ARTCC Filter -->
+                        <div class="form-group mb-2">
+                            <label class="demand-label mb-1"><?= __('demand.page.destArtccFilter') ?></label>
+                            <select class="form-control form-control-sm" id="filter_dest_artcc" multiple="multiple" style="width: 100%;">
+                            </select>
+                        </div>
+
+                        <!-- Reset Filters Link -->
+                        <div class="text-center" id="reset_filters_container" style="display: none;">
+                            <a href="#" id="reset_filters_link" class="small text-danger">
+                                <i class="fas fa-times-circle mr-1"></i><?= __('demand.page.resetFilters') ?>
+                            </a>
                         </div>
                     </div>
 
@@ -1127,6 +1289,25 @@ include("load/i18n.php");
                             </div>
                         </div>
                     </div>
+                    <hr class="my-2">
+                    <!-- TMI Overlay Toggles -->
+                    <div class="legend-group">
+                        <div class="legend-group-title text-muted small mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <i class="fas fa-layer-group mr-1"></i> <?= __('demand.tmiToggles.overlays') ?>
+                        </div>
+                        <div class="d-flex flex-column" style="gap: 4px;">
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="tmi_toggle_timeline" checked style="margin-right: 4px;">
+                                <span style="display: inline-block; width: 16px; height: 4px; background: #ffc107; margin-right: 4px; vertical-align: middle; border-radius: 1px;"></span>
+                                <?= __('demand.tmiToggles.timeline') ?>
+                            </label>
+                            <label class="mb-0 d-flex align-items-center" style="cursor: pointer; font-size: 0.75rem;">
+                                <input type="checkbox" id="tmi_toggle_markers" checked style="margin-right: 4px;">
+                                <span style="display: inline-block; width: 0; height: 12px; border-left: 2px solid #dc3545; margin-right: 4px; vertical-align: middle;"></span>
+                                <?= __('demand.tmiToggles.markers') ?>
+                            </label>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1213,6 +1394,8 @@ include("load/i18n.php");
                         <div id="demand_tmi_timeline" class="demand-tmi-timeline" style="display: none;">
                             <div class="tmi-timeline-track" id="tmi_timeline_track"></div>
                         </div>
+                        <!-- Comparison grid (hidden by default, replaces single chart in comparison mode) -->
+                        <div id="demand_chart_grid" style="display: none; gap: 8px;"></div>
                         <div id="demand_chart" class="demand-chart-container" style="display: none;"></div>
                         <div class="chart-loading-overlay" id="chart_loading_overlay">
                             <div class="chart-loading-content">
@@ -1231,7 +1414,7 @@ include("load/i18n.php");
                 </div>
             </div>
 
-            <!-- Flight Summary Card - TBFM/FSM Style -->
+            <!-- Enhanced Flight Summary Card — 6-Card Grid -->
             <div class="card shadow-sm mt-3 tbfm-chart-card">
                 <div class="card-header tbfm-card-header d-flex justify-content-between align-items-center">
                     <span class="demand-section-title">
@@ -1243,32 +1426,70 @@ include("load/i18n.php");
                     </button>
                 </div>
                 <div class="card-body p-2" id="demand_flight_summary" style="display: none;">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="card border mb-2" style="border-color: #bdc3c7;">
-                                <div class="card-header py-2 px-3" style="background: #ecf0f1; border-bottom: 1px solid #bdc3c7;">
-                                    <span class="demand-label" style="color: #2c3e50;">
-                                        <i class="fas fa-map-marker-alt mr-1 text-danger"></i> <?= __('demand.page.topOriginArtccs') ?>
-                                    </span>
+                    <div class="row" id="summary_card_grid">
+                        <!-- Card 1: Peak Hour -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-clock mr-1"></i> <?= __('demand.summary.peakHour') ?>
                                 </div>
-                                <div class="card-body p-2">
-                                    <table class="table table-sm table-hover mb-0 tbfm-summary-table">
-                                        <tbody id="demand_top_origins"></tbody>
-                                    </table>
+                                <div style="padding: 6px 8px;" id="summary_peak_hour">
+                                    <span class="text-muted small">--</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="card border mb-2" style="border-color: #bdc3c7;">
-                                <div class="card-header py-2 px-3" style="background: #ecf0f1; border-bottom: 1px solid #bdc3c7;">
-                                    <span class="demand-label" style="color: #2c3e50;">
-                                        <i class="fas fa-plane mr-1 text-primary"></i> <?= __('demand.page.topCarriers') ?>
-                                    </span>
+                        <!-- Card 2: TMI Control -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-hand-paper mr-1"></i> <?= __('demand.summary.tmiControl') ?>
                                 </div>
-                                <div class="card-body p-2">
-                                    <table class="table table-sm table-hover mb-0 tbfm-summary-table">
-                                        <tbody id="demand_top_carriers"></tbody>
-                                    </table>
+                                <div style="padding: 6px 8px;" id="summary_tmi_control">
+                                    <span class="text-muted small">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 3: Weight Mix -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-balance-scale mr-1"></i> <?= __('demand.summary.weightMix') ?>
+                                </div>
+                                <div style="padding: 6px 8px;" id="summary_weight_mix">
+                                    <span class="text-muted small">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 4: Top Origins -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-map-marker-alt mr-1"></i> <?= __('demand.summary.topOrigins') ?>
+                                </div>
+                                <div style="padding: 4px 8px;" id="summary_top_origins">
+                                    <span class="text-muted small">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 5: Top Carriers -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-plane mr-1"></i> <?= __('demand.summary.topCarriers') ?>
+                                </div>
+                                <div style="padding: 4px 8px;" id="summary_top_carriers">
+                                    <span class="text-muted small">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Card 6: Top Fixes -->
+                        <div class="col-md-4 mb-2">
+                            <div class="border" style="border-color: #bdc3c7; border-radius: 4px; overflow: hidden;">
+                                <div style="background: #2c3e50; color: #fff; padding: 4px 8px; font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em;">
+                                    <i class="fas fa-thumbtack mr-1"></i> <span id="summary_fixes_title"><?= __('demand.summary.topArrFixes') ?></span>
+                                </div>
+                                <div style="padding: 4px 8px;" id="summary_top_fixes">
+                                    <span class="text-muted small">--</span>
                                 </div>
                             </div>
                         </div>
