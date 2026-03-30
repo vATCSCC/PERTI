@@ -33,6 +33,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GS_API_INCLUDED', true);
 require_once(__DIR__ . '/common.php');
+require_once(__DIR__ . '/../../../load/tmi_log.php');
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     respond_json(405, [
@@ -108,6 +109,20 @@ sqlsrv_free_stmt($stmt);
 // Fetch updated program
 $program_result = fetch_one($conn, "SELECT * FROM dbo.ntml WHERE program_id = ?", [$program_id]);
 $program = $program_result['success'] ? $program_result['data'] : null;
+
+// Log the action
+log_tmi_action(get_tmi_conn(), [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'PURGE',
+    'program_type'    => 'GS',
+    'summary'         => 'GS purged: ' . $current['ctl_element'],
+    'user_cid'        => $_SESSION['VATSIM_CID'] ?? null,
+], [
+    'ctl_element'  => $current['ctl_element'],
+    'element_type' => 'AIRPORT',
+], null, null, [
+    'program_id' => $program_id,
+]);
 
 respond_json(200, [
     'status' => 'ok',

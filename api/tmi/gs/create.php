@@ -48,6 +48,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 
 define('GS_API_INCLUDED', true);
 require_once(__DIR__ . '/common.php');
+require_once(__DIR__ . '/../../../load/tmi_log.php');
 
 // Only allow POST
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -220,6 +221,20 @@ if ($program_id === null || $program_id <= 0) {
 
 // Fetch the created program
 $program_result = fetch_one($conn, "SELECT * FROM dbo.tmi_programs WHERE program_id = ?", [$program_id]);
+
+// Log the action
+log_tmi_action($conn, [
+    'action_category' => 'PROGRAM',
+    'action_type'     => 'CREATE',
+    'program_type'    => 'GS',
+    'summary'         => 'GS created: ' . $ctl_element,
+    'user_cid'        => $_SESSION['VATSIM_CID'] ?? null,
+], [
+    'ctl_element'  => $ctl_element,
+    'element_type' => 'AIRPORT',
+], null, null, [
+    'program_id' => $program_id,
+]);
 
 respond_json(200, [
     'status' => 'ok',
