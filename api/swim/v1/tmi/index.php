@@ -24,7 +24,10 @@ $counts = [
     'active_reroutes' => 0,
     'active_public_routes' => 0,
     'active_flow_events' => 0,
-    'active_flow_measures' => 0
+    'active_flow_measures' => 0,
+    'event_log_entries_24h' => 0,
+    'delay_attributions' => 0,
+    'facility_stats_airports' => 0
 ];
 
 if ($conn_swim) {
@@ -83,6 +86,30 @@ if ($conn_swim) {
         $counts['active_flow_measures'] = $row['cnt'];
     }
     if ($stmt) sqlsrv_free_stmt($stmt);
+
+    // Count event log entries in last 24 hours
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.swim_tmi_log_core WHERE event_utc >= DATEADD(HOUR, -24, GETUTCDATE())";
+    $stmt = sqlsrv_query($conn_swim, $sql);
+    if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $counts['event_log_entries_24h'] = $row['cnt'];
+    }
+    if ($stmt) sqlsrv_free_stmt($stmt);
+
+    // Count current delay attributions
+    $sql = "SELECT COUNT(*) as cnt FROM dbo.swim_tmi_delay_attribution WHERE is_current = 1";
+    $stmt = sqlsrv_query($conn_swim, $sql);
+    if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $counts['delay_attributions'] = $row['cnt'];
+    }
+    if ($stmt) sqlsrv_free_stmt($stmt);
+
+    // Count distinct airports in facility stats (hourly, last 24h)
+    $sql = "SELECT COUNT(DISTINCT airport_icao) as cnt FROM dbo.swim_tmi_facility_stats_hourly WHERE hour_utc >= DATEADD(HOUR, -24, GETUTCDATE())";
+    $stmt = sqlsrv_query($conn_swim, $sql);
+    if ($stmt && $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $counts['facility_stats_airports'] = $row['cnt'];
+    }
+    if ($stmt) sqlsrv_free_stmt($stmt);
 } else {
     SwimResponse::error('SWIM database connection not available', 503, 'SERVICE_UNAVAILABLE');
 }
@@ -135,6 +162,24 @@ $response = [
             'path' => '/api/swim/v1/tmi/measures',
             'methods' => ['GET'],
             'description' => 'Unified TMI measures (USA + external providers)',
+            'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/event-log',
+            'methods' => ['GET'],
+            'description' => 'TMI event log with scope, parameters, impact, and references',
+            'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/delay-attribution',
+            'methods' => ['GET'],
+            'description' => 'Delay attribution linking delays to causes, programs, and phases',
+            'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/facility-stats',
+            'methods' => ['GET'],
+            'description' => 'Aggregated TMI facility statistics (hourly/daily)',
             'auth' => 'optional'
         ],
         [
