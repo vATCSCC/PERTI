@@ -262,6 +262,175 @@
         setInterval(loadActiveTmis, 60000);
         // Refresh staged entries every 30 seconds
         setInterval(loadStagedEntries, 30000);
+
+        // Check for GDT handoff (GS/GDP submit to TMI)
+        loadGdtHandoff();
+    }
+
+    /**
+     * Load GDT handoff data from sessionStorage when navigating from GDT page.
+     * Populates the GDP or GS advisory form with pre-built data.
+     */
+    function loadGdtHandoff() {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('source') !== 'gdt') return;
+
+            const handoffStr = sessionStorage.getItem('tmi_gs_handoff');
+            if (!handoffStr) {
+                console.log('[GDT-HANDOFF] No handoff data found in sessionStorage');
+                return;
+            }
+
+            const handoff = JSON.parse(handoffStr);
+            if (!handoff || !handoff.type) {
+                console.log('[GDT-HANDOFF] Invalid handoff data');
+                return;
+            }
+
+            console.log('[GDT-HANDOFF] Loaded handoff data:', handoff.type, 'program_id:', handoff.program_id);
+
+            // Determine advisory type from handoff
+            const advType = (handoff.type || '').toUpperCase() === 'GDP' ? 'GDP' : 'GS';
+
+            // Select the advisory type card
+            const $typeCards = $('#advisoryTypeCards .advisory-type-card');
+            $typeCards.removeClass('selected');
+            $typeCards.filter('[data-type="' + advType + '"]').addClass('selected');
+
+            // Load the form
+            state.selectedAdvisoryType = advType;
+            loadAdvisoryForm(advType);
+
+            // Use setTimeout to ensure DOM is ready after form load
+            setTimeout(function() {
+                if (advType === 'GDP') {
+                    populateGdpFromHandoff(handoff);
+                } else {
+                    populateGsFromHandoff(handoff);
+                }
+
+                // Update preview
+                updateAdvisoryPreview();
+
+                // If advisory_preview text exists, offer to use it directly
+                if (handoff.advisory_preview) {
+                    console.log('[GDT-HANDOFF] Advisory preview available from GDT');
+                }
+
+                // Clean up sessionStorage
+                sessionStorage.removeItem('tmi_gs_handoff');
+            }, 100);
+
+            // Switch to advisory tab
+            $('#advisory-tab').tab('show');
+
+        } catch (e) {
+            console.error('[GDT-HANDOFF] Failed to load handoff:', e);
+        }
+    }
+
+    function populateGdpFromHandoff(handoff) {
+        // Airport (convert ICAO to FAA if needed)
+        var airport = (handoff.ctl_element || handoff.airports || '').toUpperCase().trim();
+        if (airport) {
+            // Strip K prefix for US airports for form display
+            var faaCode = airport;
+            if (airport.length === 4 && airport.charAt(0) === 'K') {
+                faaCode = airport.substring(1);
+            }
+            $('#adv_airport').val(faaCode);
+        }
+
+        // Program times
+        if (handoff.start_time) $('#adv_program_start').val(handoff.start_time);
+        if (handoff.end_time) $('#adv_program_end').val(handoff.end_time);
+
+        // Arrivals period (use start/end as default, or compute from flights)
+        if (handoff.start_time) $('#adv_arrivals_start').val(handoff.start_time);
+        if (handoff.end_time) $('#adv_arrivals_end').val(handoff.end_time);
+
+        // Program rate
+        if (handoff.program_rate) {
+            $('#adv_program_rate').val(handoff.program_rate);
+        }
+        // Variable rates: build rate string from rates_quarter_json hourly values
+        if (handoff.rates_quarter_json && typeof handoff.rates_quarter_json === 'object') {
+            var hourlyVals = {};
+            Object.keys(handoff.rates_quarter_json).forEach(function(key) {
+                var hh = key.split(':')[0];
+                if (!hourlyVals[hh]) hourlyVals[hh] = handoff.rates_quarter_json[key];
+            });
+            var sortedHours = Object.keys(hourlyVals).sort();
+            if (sortedHours.length > 1) {
+                var rates = sortedHours.map(function(h) { return hourlyVals[h]; });
+                var allSame = rates.every(function(r) { return r === rates[0]; });
+                if (!allSame) {
+                    $('#adv_program_rate').val(rates.join('/'));
+                }
+            }
+        }
+
+        // Dep scope
+        if (handoff.dep_facilities) {
+            $('#adv_dep_scope').val(handoff.dep_facilities);
+        }
+
+        // Delay stats from summary
+        if (handoff.summary) {
+            if (handoff.summary.max_delay != null) $('#adv_max_delay').val(Math.round(handoff.summary.max_delay));
+            if (handoff.summary.avg_delay != null) $('#adv_avg_delay').val(Math.round(handoff.summary.avg_delay));
+        }
+
+        // Impacting condition
+        if (handoff.impacting_condition) {
+            $('#adv_impacting_condition').val(handoff.impacting_condition);
+        }
+
+        // Comments
+        if (handoff.comments) {
+            $('#adv_comments').val(handoff.comments);
+        }
+
+        // Flight inclusion
+        if (handoff.flt_incl_type && handoff.flt_incl_type !== 'ALL') {
+            $('#adv_flight_inclusion').val(handoff.flt_incl_type);
+        }
+
+        console.log('[GDT-HANDOFF] GDP form populated from handoff data');
+    }
+
+    function populateGsFromHandoff(handoff) {
+        // Airport
+        var airport = (handoff.ctl_element || handoff.airports || '').toUpperCase().trim();
+        if (airport) {
+            var faaCode = airport;
+            if (airport.length === 4 && airport.charAt(0) === 'K') {
+                faaCode = airport.substring(1);
+            }
+            $('#adv_airport').val(faaCode);
+        }
+
+        // GS period
+        if (handoff.start_time) $('#adv_gs_start').val(handoff.start_time);
+        if (handoff.end_time) $('#adv_gs_end').val(handoff.end_time);
+
+        // Dep facilities
+        if (handoff.dep_facilities) {
+            $('#adv_dep_facilities').val(handoff.dep_facilities);
+        }
+
+        // Impacting condition
+        if (handoff.impacting_condition) {
+            $('#adv_impacting_condition').val(handoff.impacting_condition);
+        }
+
+        // Comments
+        if (handoff.comments) {
+            $('#adv_comments').val(handoff.comments);
+        }
+
+        console.log('[GDT-HANDOFF] GS form populated from handoff data');
     }
 
     function initClock() {

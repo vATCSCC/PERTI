@@ -434,6 +434,7 @@ window.DemandChartCore = (function() {
             rateData: null,
             showRateLines: options.showRateLines !== false,
             originalDemand: null,  // Original (pre-program) demand for overlay comparison
+            programRates: null,   // Program rate (PR) per-hour map: { 'DD_HH': rate } for stepped line
         };
 
         // Handle window resize
@@ -575,12 +576,39 @@ window.DemandChartCore = (function() {
                     series.push({
                         name: PERTII18n.t('demand.chart.originalDemand'),
                         type: 'line',
-                        step: 'middle',
+                        step: 'start',
                         symbol: 'none',
                         lineStyle: { color: '#ff6b35', width: 2.5, type: 'dashed' },
                         itemStyle: { color: '#ff6b35' },
                         data: origLineData,
                         z: 10,
+                    });
+                }
+
+                // Program Rate (PR) stepped line overlay
+                if (state.programRates && typeof state.programRates === 'object') {
+                    var minsPerBin = getGranularityMinutes(state.granularity);
+                    var prLineData = timeBins.map(function(bin) {
+                        var d = new Date(bin);
+                        var dd = String(d.getUTCDate()).padStart(2, '0');
+                        var hh = String(d.getUTCHours()).padStart(2, '0');
+                        // Try DD_HH key first (date-aware), fall back to bare HH key
+                        var rate = state.programRates[dd + '_' + hh];
+                        if (rate == null) rate = state.programRates[hh];
+                        // Pro-rate hourly rate to bin granularity
+                        var binRate = rate != null ? Math.round(rate * minsPerBin / 60) : null;
+                        return [d.getTime(), binRate];
+                    });
+                    series.push({
+                        name: PERTII18n.t('demand.chart.programRate'),
+                        type: 'line',
+                        step: 'start',
+                        symbol: 'none',
+                        lineStyle: { color: '#28a745', width: 2, type: 'solid' },
+                        itemStyle: { color: '#28a745' },
+                        data: prLineData,
+                        z: 11,
+                        connectNulls: false,
                     });
                 }
 
@@ -623,13 +651,13 @@ window.DemandChartCore = (function() {
                             const timeStr = formatTimeLabelFromTimestamp(timestamp, gran);
                             let tooltip = '<strong style="font-size:12px;">' + timeStr + '</strong><br/>';
                             let total = 0;
-                            let origOverlay = null;
+                            var overlayLines = [];
                             params.forEach(function(p) {
-                                const val = p.value[1] || 0;
-                                if (val > 0) {
-                                    // Separate original demand overlay line from stacked bar total
+                                const val = p.value[1];
+                                if (val != null && val > 0) {
+                                    // Separate overlay lines (original demand, program rate) from stacked bars
                                     if (p.seriesType === 'line') {
-                                        origOverlay = { marker: p.marker, name: p.seriesName, val: val };
+                                        overlayLines.push({ marker: p.marker, name: p.seriesName, val: val });
                                     } else {
                                         tooltip += p.marker + ' ' + p.seriesName + ': <strong>' + val + '</strong><br/>';
                                         total += val;
@@ -637,15 +665,18 @@ window.DemandChartCore = (function() {
                                 }
                             });
                             tooltip += '<hr style="margin:4px 0;border-color:#ddd;"/><strong>' + PERTII18n.t('demand.chart.total') + ': ' + total + '</strong>';
-                            if (origOverlay) {
-                                tooltip += '<br/>' + origOverlay.marker + ' ' + origOverlay.name + ': <strong>' + origOverlay.val + '</strong>';
-                                const delta = total - origOverlay.val;
-                                if (delta !== 0) {
-                                    const sign = delta > 0 ? '+' : '';
-                                    const clr = delta > 0 ? '#28a745' : '#dc3545';
-                                    tooltip += ' <span style="color:' + clr + ';">(' + sign + delta + ')</span>';
+                            overlayLines.forEach(function(ov) {
+                                tooltip += '<br/>' + ov.marker + ' ' + ov.name + ': <strong>' + ov.val + '</strong>';
+                                // Show delta for demand overlays (not rate lines)
+                                if (ov.name === PERTII18n.t('demand.chart.originalDemand')) {
+                                    const delta = total - ov.val;
+                                    if (delta !== 0) {
+                                        const sign = delta > 0 ? '+' : '';
+                                        const clr = delta > 0 ? '#28a745' : '#dc3545';
+                                        tooltip += ' <span style="color:' + clr + ';">(' + sign + delta + ')</span>';
+                                    }
                                 }
-                            }
+                            });
                             // Add rate information if available
                             if (state.rateData && state.rateData.rates) {
                                 const rates = state.rateData.rates;
@@ -782,6 +813,7 @@ window.DemandChartCore = (function() {
                 state.lastData = null;
                 state.rateData = null;
                 state.originalDemand = null;
+                state.programRates = null;
                 state.airport = null;
                 if (state.chart) {state.chart.clear();}
             },
@@ -825,6 +857,7 @@ window.DemandChartCore = (function() {
                 state.lastData = snapshot.demandData;
                 state.rateData = snapshot.rateData || null;
                 state.originalDemand = snapshot.originalDemand || null;
+                state.programRates = snapshot.programRates || null;
                 this.render();
             },
             dispose: function() {
@@ -912,6 +945,7 @@ const DEMAND_STATE = {
     tmiConfig: null, // Store active TMI CONFIG entry if any
     scheduledConfigs: null, // Store all scheduled TMI CONFIG entries for time-bounded rate lines
     tmiPrograms: null, // Store GS/GDP programs for timeline bar
+    programRates: null, // GDP program rate per-hour map: { 'DD_HH': rate } for stepped line
     showRateLines: true, // Master toggle for rate line visibility
     // Individual rate line visibility toggles
     showVatsimAar: true,
@@ -3356,6 +3390,9 @@ function loadDemandData() {
                 }
             }
 
+            // Build programRates map from active GDP programs for the stepped rate line
+            DEMAND_STATE.programRates = buildProgramRatesFromTMI(DEMAND_STATE.tmiPrograms);
+
             // Handle summary data (parallel-loaded for filter population)
             if (summaryResult.status === 'fulfilled' && summaryResult.value) {
                 const summaryResponse = summaryResult.value;
@@ -3864,6 +3901,34 @@ function renderChart(data) {
         });
     }
 
+    // Add GDP Program Rate (PR) stepped line overlay if available
+    if (DEMAND_STATE.programRates && typeof DEMAND_STATE.programRates === 'object') {
+        const minsPerBin = getGranularityMinutes();
+        const prLineData = timeBins.map(function(bin) {
+            const d = new Date(bin);
+            const dd = String(d.getUTCDate()).padStart(2, '0');
+            const hh = String(d.getUTCHours()).padStart(2, '0');
+            // Try DD_HH key first (date-aware), fall back to bare HH key
+            var rate = DEMAND_STATE.programRates[dd + '_' + hh];
+            if (rate == null) rate = DEMAND_STATE.programRates[hh];
+            // Pro-rate hourly rate to bin granularity
+            const binRate = rate != null ? Math.round(rate * minsPerBin / 60) : null;
+            return [d.getTime(), binRate];
+        });
+
+        series.push({
+            name: PERTII18n.t('demand.chart.programRate', { defaultValue: 'GDP Rate' }),
+            type: 'line',
+            step: 'start',
+            symbol: 'none',
+            lineStyle: { color: '#28a745', width: 2, type: 'solid' },
+            itemStyle: { color: '#28a745' },
+            data: prLineData,
+            z: 11,
+            connectNulls: false,
+        });
+    }
+
     // Add current time marker and rate lines to first series
     const timeMarkLineData = getCurrentTimeMarkLineForTimeAxis();
     const rateMarkLines = (DEMAND_STATE.scheduledConfigs && DEMAND_STATE.scheduledConfigs.length > 0)
@@ -3977,6 +4042,15 @@ function renderChart(data) {
             (rates.rw_aar || 0) * proRateFactor,
             (rates.rw_adr || 0) * proRateFactor,
         );
+    }
+
+    // Include GDP program rate in y-axis scaling so the stepped line is visible
+    if (DEMAND_STATE.programRates && typeof DEMAND_STATE.programRates === 'object') {
+        const prMax = Math.max(...Object.values(DEMAND_STATE.programRates).map(Number).filter(v => !isNaN(v)));
+        if (prMax > 0) {
+            const prScaled = prMax * proRateFactor;
+            if (prScaled > maxRate) maxRate = prScaled;
+        }
     }
 
     // Use the higher of max demand or max rate, with padding
@@ -5379,6 +5453,73 @@ function getRatesForTimestamp(timestamp) {
 }
 
 /**
+ * Build a per-hour program rate map from active GDP programs.
+ * Produces a DD_HH-keyed object suitable for stepped rate line rendering.
+ * When a program has rates_hourly (per-hour JSON), those keys are used with
+ * date awareness; otherwise the flat program_rate is applied across all hours
+ * within the program's start/end window.
+ * If multiple GDP programs overlap an hour, the lowest rate wins (most restrictive).
+ * Returns null if no GDP rate data is available.
+ */
+function buildProgramRatesFromTMI(programs) {
+    if (!programs || !Array.isArray(programs) || programs.length === 0) {
+        return null;
+    }
+
+    var rateMap = {};  // { 'DD_HH': rate }
+    var hasAny = false;
+
+    programs.forEach(function(p) {
+        var pType = (p.program_type || '').toUpperCase();
+        if (!pType.startsWith('GDP')) return;
+        // Must have rate data
+        if (p.program_rate == null && !p.rates_hourly) return;
+
+        var startMs = p.start_utc ? new Date(p.start_utc).getTime() : null;
+        var endMs = p.end_utc ? new Date(p.end_utc).getTime() : null;
+        if (!startMs) return;
+        // Default end to 24h after start if missing
+        if (!endMs) endMs = startMs + 24 * 60 * 60 * 1000;
+
+        // Walk each hour in the program window
+        var cursor = new Date(startMs);
+        cursor.setUTCMinutes(0, 0, 0); // Snap to hour start
+        var endDate = new Date(endMs);
+
+        while (cursor < endDate) {
+            var dd = String(cursor.getUTCDate()).padStart(2, '0');
+            var hh = String(cursor.getUTCHours()).padStart(2, '0');
+            var key = dd + '_' + hh;
+
+            // Determine rate for this hour
+            var rate = null;
+            if (p.rates_hourly && typeof p.rates_hourly === 'object') {
+                // rates_hourly keys are bare hour strings like "14", "15" etc.
+                rate = p.rates_hourly[hh] != null ? Number(p.rates_hourly[hh])
+                     : p.rates_hourly[String(cursor.getUTCHours())] != null ? Number(p.rates_hourly[String(cursor.getUTCHours())])
+                     : (p.program_rate != null ? Number(p.program_rate) : null);
+            } else if (p.program_rate != null) {
+                rate = Number(p.program_rate);
+            }
+
+            if (rate != null) {
+                // If multiple programs overlap, keep the lowest (most restrictive)
+                if (rateMap[key] == null || rate < rateMap[key]) {
+                    rateMap[key] = rate;
+                }
+                hasAny = true;
+            }
+
+            cursor.setUTCHours(cursor.getUTCHours() + 1);
+        }
+    });
+
+    if (!hasAny) return null;
+    console.log('[Demand] Built programRates map with', Object.keys(rateMap).length, 'hourly entries from GDP programs');
+    return rateMap;
+}
+
+/**
  * Build TMI GS/GDP vertical marker lines from tmiPrograms data.
  * Returns array of markLine data objects for ECharts xAxis markers.
  */
@@ -6573,7 +6714,7 @@ function getDataZoomConfig() {
 function getStandardLegendConfig(visible) {
     return {
         show: visible,
-        bottom: 55,  // Fixed position above dataZoom slider
+        bottom: 45,  // Fixed position above dataZoom slider
         left: 'center',
         width: '90%',
         type: 'scroll',
@@ -6628,7 +6769,7 @@ function getStandardGridConfig() {
     return {
         left: 10,
         right: 100,  // Room for vertical dataZoom slider (30px) + rate labels (70px)
-        bottom: 100, // Room for x-axis title + legend + dataZoom slider
+        bottom: 120, // Room for x-axis title + legend + dataZoom slider
         top: 40,
         containLabel: true,
     };

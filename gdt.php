@@ -302,6 +302,7 @@ $is_canoc = (get_org_code() === 'canoc');
 
         .gdt-program-card .gdt-card-actions {
             display: flex;
+            flex-wrap: wrap;
             gap: 4px;
             margin-top: 8px;
         }

@@ -723,6 +723,7 @@
     },
     "chart": {
       "originalDemand": "Original Demand",
+      "programRate": "Program Rate",
       "total": "Total",
       "xAxisLabel": "Time in {minutes}-Minute Increments",
       "yAxisLabel": "Demand"
@@ -1335,6 +1336,7 @@
     },
     "badge": {
       "adlGs": "ADL-GS",
+      "adlGdp": "ADL-GDP",
       "adlLive": "ADL-LIVE"
     },
     "chart": {
@@ -1477,6 +1479,7 @@
       "yesCancelIt": "Yes, Cancel It"
     },
     "dataSource": {
+      "gdpProgramMode": "GDP Program Mode",
       "gsProgramMode": "GS Program Mode",
       "label": "{mode} | {programInfo} | Cache: {cache}",
       "liveAdl": "Live ADL",
@@ -2048,6 +2051,7 @@
       "simulate": "Simulate",
       "simulateFirstTooltipShort": "Run 'Simulate' first to enable",
       "simulateTooltip": "Simulate GS and calculate EDCTs",
+      "show": "Show",
       "slotCreditSubstitution": "Slot Credit Substitution",
       "sortBy": "Sort By:",
       "southCentralTooltip": "South Central",

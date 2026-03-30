@@ -393,18 +393,61 @@ function run_scenario($conn_tmi, $program_id, $flights_for_sp, $overrides = []) 
         sqlsrv_free_stmt($exec_stmt);
     }
 
-    // Step 4: Read results (program metrics updated by SP)
-    $prog = get_program($conn_tmi, $program_id);
+    // Step 4: Compute analytics from tmi_flight_control (before rollback)
+    $analytics_sql = "
+        SELECT
+            COUNT(*) AS total_controlled,
+            AVG(CAST(delay_minutes AS FLOAT)) AS avg_delay_min,
+            MAX(delay_minutes) AS max_delay_min,
+            SUM(delay_minutes) AS total_delay_min,
+            SUM(CASE WHEN delay_minutes <= 0 THEN 1 ELSE 0 END) AS on_time_count
+        FROM dbo.tmi_flight_control
+        WHERE program_id = ? AND is_exempt = 0
+    ";
+    $analytics_stmt = sqlsrv_query($conn_tmi, $analytics_sql, [$program_id]);
+    $analytics = null;
+    if ($analytics_stmt !== false) {
+        $analytics = sqlsrv_fetch_array($analytics_stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($analytics_stmt);
+    }
+
+    // Compute P95 delay
+    $p95_delay = null;
+    $delay_p95_sql = "
+        SELECT delay_minutes FROM (
+            SELECT delay_minutes,
+                   PERCENT_RANK() OVER (ORDER BY delay_minutes) AS pct
+            FROM dbo.tmi_flight_control
+            WHERE program_id = ? AND is_exempt = 0 AND delay_minutes IS NOT NULL
+        ) t
+        WHERE pct >= 0.95
+        ORDER BY delay_minutes ASC
+        OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY
+    ";
+    $p95_stmt = sqlsrv_query($conn_tmi, $delay_p95_sql, [$program_id]);
+    if ($p95_stmt !== false) {
+        $p95_row = sqlsrv_fetch_array($p95_stmt, SQLSRV_FETCH_ASSOC);
+        if ($p95_row) {
+            $p95_delay = (float)($p95_row['delay_minutes'] ?? 0);
+        }
+        sqlsrv_free_stmt($p95_stmt);
+    }
+
+    $total_controlled = ($analytics && isset($analytics['total_controlled'])) ? (int)$analytics['total_controlled'] : 0;
+    $on_time_count = ($analytics && isset($analytics['on_time_count'])) ? (int)$analytics['on_time_count'] : 0;
+    $on_time_pct = $total_controlled > 0 ? round(($on_time_count / $total_controlled) * 100, 1) : null;
 
     $summary = [
         'total_flights' => count($flights_for_sp),
         'assigned_count' => $assigned_count,
         'exempt_count' => $exempt_count,
         'slot_count' => $slot_count,
-        'avg_delay_min' => $prog['avg_delay_min'] ?? null,
-        'max_delay_min' => $prog['max_delay_min'] ?? null,
-        'total_delay_min' => $prog['total_delay_min'] ?? null,
-        'controlled_flights' => $prog['controlled_flights'] ?? null,
+        'avg_delay_min' => ($analytics && $analytics['avg_delay_min'] !== null) ? round((float)$analytics['avg_delay_min'], 1) : null,
+        'max_delay_min' => ($analytics && $analytics['max_delay_min'] !== null) ? (int)$analytics['max_delay_min'] : null,
+        'total_delay_min' => ($analytics && $analytics['total_delay_min'] !== null) ? (int)$analytics['total_delay_min'] : null,
+        'controlled_flights' => $total_controlled,
+        'delay_p95' => $p95_delay,
+        'on_time_pct' => $on_time_pct,
     ];
 
     // Rollback all changes

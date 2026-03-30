@@ -2202,8 +2202,30 @@
             return lines;
         }
 
-        const words = value.split(/\s+/);
         const indent = label ? (label.length + 1) : 0; // +1 for the space after the colon-style label
+
+        // Rate-style values (digits separated by /): wrap at / boundaries
+        if (/^\d+(?:\/\d+)+$/.test(value)) {
+            var segments = value.split('/');
+            var current = label ? (label + ' ') : '';
+
+            segments.forEach(function(seg, idx) {
+                var token = seg + (idx < segments.length - 1 ? '/' : '');
+                var tentative = current + token;
+                // Wrap if adding this segment exceeds maxWidth (but not on the first segment)
+                if (tentative.length > maxWidth && current.length > (indent + 1)) {
+                    lines.push(current);
+                    current = (indent > 0 ? ' '.repeat(indent) : '') + token;
+                } else {
+                    current = tentative;
+                }
+            });
+
+            if (current) { lines.push(current); }
+            return lines;
+        }
+
+        const words = value.split(/\s+/);
         let current = label ? (label + ' ') : '';
 
         words.forEach(function(word) {
@@ -2235,10 +2257,10 @@
         const elemType = elemTypeEl ? elemTypeEl.value : 'APT';
         const airportsRaw = getValue('gs_airports') || '';
         const depFacilities = getValue('gs_dep_facilities') || 'ALL';
+        const originAirports = getValue('gs_origin_airports') || '';
         const carriers = getValue('gs_flt_incl_carrier');
         const acTypeEl = document.getElementById('gs_flt_incl_type');
         const acType = acTypeEl ? acTypeEl.value : 'ALL';
-        const probExt = getValue('gs_prob_ext') || '';
         const impacting = getValue('gs_impacting_condition') || '';
         const comments = getValue('gs_comments') || '';
 
@@ -2254,12 +2276,11 @@
         const nowZ = String(now.getUTCHours()).padStart(2, '0') +
                String(now.getUTCMinutes()).padStart(2, '0') + 'Z';
 
-        const gsPeriod = formatZuluFromLocal(start) + ' – ' + formatZuluFromLocal(end);
+        const programPeriod = formatZuluFromLocal(start) + ' - ' + formatZuluFromLocal(end);
 
         // Parse airports and convert ICAO to FAA codes
         const airportTokens = (airportsRaw || '').toUpperCase().split(/[\s,]+/).filter(function(t) { return t.length > 0; });
         const faaAirports = airportTokens.map(function(icao) {
-            // Convert ICAO to FAA/IATA (region-aware: handles AK, HI, Canada, etc.)
             if (typeof PERTI !== 'undefined' && PERTI.denormalizeIcao) {
                 return AIRPORT_IATA_MAP[icao] || PERTI.denormalizeIcao(icao);
             }
@@ -2283,17 +2304,12 @@
             }
         });
 
-        // Build CTL Element: just {FAA airports} (no responsible ARTCCs)
-        // If user has manually entered a value, use that; otherwise compute from airports
+        // Build CTL Element
         let ctlElement = getValue('gs_ctl_element');
         if (!ctlElement && faaAirports.length > 0) {
             ctlElement = faaAirports.join('/');
         }
         ctlElement = ctlElement || 'XXX';
-
-        // Note: We don't auto-update the CTL Element textbox to avoid issues with
-        // partial input on keyup. The computed value is used for the advisory preview.
-        // User can manually fill in the CTL Element field if they want to override.
 
         // Determine scope tier name from scope group dropdown
         let scopeTierName = '';
@@ -2302,29 +2318,71 @@
             scopeTierName = scopeGroupSel.value;
         }
 
-        // Build DEP FACILITIES line with scope tier prefix
-        let depFacilitiesValue = depFacilities;
+        // Build DEP SCOPE: (tier) + ARTCC codes only (no Canadian airports)
+        var depTokens = (depFacilities || '').toUpperCase().split(/[\s,]+/).filter(function(t) { return t.length > 0; });
+        var artccCodes = depTokens.filter(function(t) { return !t.startsWith('CY') && !t.startsWith('CZ') && t !== 'ALL'; });
+        var depScopeValue = depFacilities;
         if (scopeTierName) {
-            depFacilitiesValue = '(' + scopeTierName + ') ' + depFacilities;
+            depScopeValue = '(' + scopeTierName + ') ' + (artccCodes.length > 0 ? artccCodes.join(' ') : depFacilities);
         }
 
-        // Flight-inclusion lines
-        const fltInclValues = [];
-        if (carriers) {
-            fltInclValues.push('CARRIERS ' + carriers.toUpperCase());
-        }
+        // Canadian airports: from origin_airports field or extracted from dep_facilities
+        var canadianAirports = [];
+        var originTokens = (originAirports || '').toUpperCase().split(/[\s,]+/).filter(function(t) { return t.length > 0; });
+        originTokens.forEach(function(t) {
+            if (t.startsWith('CY') || t.startsWith('CZ')) { canadianAirports.push(t); }
+        });
+        // Also check dep_facilities for Canadian ICAO codes
+        depTokens.forEach(function(t) {
+            if ((t.startsWith('CY') || t.startsWith('CZ')) && canadianAirports.indexOf(t) === -1) {
+                canadianAirports.push(t);
+            }
+        });
+
+        // Flight-inclusion line
+        const fltInclParts = [];
         if (acType && acType !== 'ALL') {
-            fltInclValues.push(acType + ' DEP ONLY');
+            fltInclParts.push(acType);
+        } else {
+            fltInclParts.push('ALL');
         }
+        if (carriers) {
+            fltInclParts.push('CARRIERS ' + carriers.toUpperCase());
+        }
+        const fltInclValue = fltInclParts.join(', ');
 
         // Delay statistics from the current table / time filter
         function readDelaySpan(id) {
             const el = document.getElementById(id);
             return el ? (el.textContent || '').trim() : '';
         }
-        const delayTotal = readDelaySpan('gs_delay_total') || '0';
         const delayMax = readDelaySpan('gs_delay_max') || '0';
         const delayAvg = readDelaySpan('gs_delay_avg') || '0';
+
+        // Compute arrivals estimated period from flight data (first & last arrival)
+        var arrivalsEstimated = '';
+        var flightsForRange = GS_RAW_MODEL_FLIGHTS || GS_MATCHING_FLIGHTS || [];
+        if (flightsForRange.length > 0) {
+            var minEta = Infinity, maxEta = -Infinity;
+            flightsForRange.forEach(function(f) {
+                var etaStr = f.cta_utc || f.eta_runway_utc || f.eta_utc || '';
+                if (!etaStr) return;
+                var ms = new Date(etaStr).getTime();
+                if (!isNaN(ms)) {
+                    if (ms < minEta) minEta = ms;
+                    if (ms > maxEta) maxEta = ms;
+                }
+            });
+            if (minEta < Infinity && maxEta > -Infinity) {
+                function fmtDdHhmmZ(ms) {
+                    var d = new Date(ms);
+                    return String(d.getUTCDate()).padStart(2, '0') + '/' +
+                           String(d.getUTCHours()).padStart(2, '0') +
+                           String(d.getUTCMinutes()).padStart(2, '0') + 'Z';
+                }
+                arrivalsEstimated = fmtDdHhmmZ(minEta) + ' - ' + fmtDdHhmmZ(maxEta);
+            }
+        }
 
         // Valid period line (ddhhmm-ddhhmm format, no Z)
         const validStart = formatDdHhMm(start);
@@ -2350,7 +2408,6 @@
         var programType = programTypeEl ? programTypeEl.value : 'GS';
         var isGdp = programType !== 'GS';
         var typeName = isGdp ? 'CDM GROUND DELAY PROGRAM' : 'CDM GROUND STOP';
-        var periodLabel = isGdp ? 'GDP PERIOD:' : 'GROUND STOP PERIOD:';
 
         let lines = [];
 
@@ -2361,48 +2418,48 @@
         lines = lines.concat(wrapAdvisoryLabelValue('CTL ELEMENT:', ctlElement));
         lines = lines.concat(wrapAdvisoryLabelValue('ELEMENT TYPE:', elemType));
         lines = lines.concat(wrapAdvisoryLabelValue('ADL TIME:', nowZ));
-        lines = lines.concat(wrapAdvisoryLabelValue(periodLabel, gsPeriod));
 
-        fltInclValues.forEach(function(v) {
-            lines = lines.concat(wrapAdvisoryLabelValue('FLT INCL:', v));
-        });
-
-        lines = lines.concat(
-            wrapAdvisoryLabelValue('DEP FACILITIES INCLUDED:', depFacilitiesValue),
-        );
-
-        // GDP-specific fields
+        // GDP: delay assignment mode right after ADL TIME
         if (isGdp) {
-            var rateDisplay = formatRateDisplayForAdvisory();
-            lines = lines.concat(wrapAdvisoryLabelValue('PROGRAM RATE:', rateDisplay));
             lines = lines.concat(wrapAdvisoryLabelValue('DELAY ASSIGNMENT MODE:', 'UDP'));
         }
 
-        // Delay line
-        lines = lines.concat(
-            wrapAdvisoryLabelValue(
-                'NEW TOTAL, MAXIMUM, AVERAGE DELAYS:',
-                delayTotal + ' / ' + delayMax + ' / ' + delayAvg,
-            ),
-        );
-
-        // GDP: controlled flights count
-        if (isGdp) {
-            var controlledEl = document.getElementById('gs_flight_count_badge');
-            var controlledCount = controlledEl ? (controlledEl.textContent || '0') : '0';
-            lines = lines.concat(wrapAdvisoryLabelValue('CONTROLLED FLIGHTS:', controlledCount));
+        // Arrivals estimated period (from flight data)
+        if (arrivalsEstimated) {
+            lines = lines.concat(wrapAdvisoryLabelValue('ARRIVALS ESTIMATED FOR:', arrivalsEstimated));
         }
 
-        // Always show these lines (blank if empty)
-        lines = lines.concat(
-            wrapAdvisoryLabelValue('PROBABILITY OF EXTENSION:', probExt),
-        );
-        lines = lines.concat(
-            wrapAdvisoryLabelValue('IMPACTING CONDITION:', impacting),
-        );
-        lines = lines.concat(
-            wrapAdvisoryLabelValue('COMMENTS:', comments),
-        );
+        // Cumulative program period
+        lines = lines.concat(wrapAdvisoryLabelValue('CUMULATIVE PROGRAM PERIOD:', programPeriod));
+
+        // GDP: program rate
+        if (isGdp) {
+            var rateDisplay = formatRateDisplayForAdvisory();
+            lines = lines.concat(wrapAdvisoryLabelValue('PROGRAM RATE:', rateDisplay));
+        }
+
+        // Flight inclusion
+        lines = lines.concat(wrapAdvisoryLabelValue('FLT INCL:', fltInclValue));
+
+        // DEP SCOPE
+        lines = lines.concat(wrapAdvisoryLabelValue('DEP SCOPE:', depScopeValue));
+
+        // Canadian dep airports (if any)
+        if (canadianAirports.length > 0) {
+            lines = lines.concat(wrapAdvisoryLabelValue('CANADIAN DEP ARPTS INCLUDED:', canadianAirports.join(' ')));
+        }
+
+        // Delay assignment table applies to (responsible center)
+        if (isGdp && responsibleCenters.length > 0) {
+            lines = lines.concat(wrapAdvisoryLabelValue('DELAY ASSIGNMENT TABLE APPLIES TO:', responsibleCenters.join(' ')));
+        }
+
+        // Maximum and average delay (separate lines)
+        lines = lines.concat(wrapAdvisoryLabelValue('MAXIMUM DELAY:', delayMax));
+        lines = lines.concat(wrapAdvisoryLabelValue('AVERAGE DELAY:', delayAvg));
+
+        lines = lines.concat(wrapAdvisoryLabelValue('IMPACTING CONDITION:', impacting));
+        lines = lines.concat(wrapAdvisoryLabelValue('COMMENTS:', comments));
 
         // Signature block
         lines.push('');
@@ -4912,18 +4969,22 @@
 
     function setGsTableMode(mode) {
         mode = (mode || '').toUpperCase();
-        if (mode !== 'GS') {mode = 'LIVE';}
+        if (mode !== 'GS' && mode !== 'GDP') {mode = 'LIVE';}
         GS_TABLE_MODE = mode;
 
         const badge = document.getElementById('gs_adl_mode_badge');
         if (badge) {
             if (mode === 'GS') {
                 badge.textContent = PERTII18n.t('gdt.badge.adlGs');
-                badge.classList.remove('badge-secondary', 'badge-success');
+                badge.classList.remove('badge-secondary', 'badge-success', 'badge-info');
                 badge.classList.add('badge-warning');
+            } else if (mode === 'GDP') {
+                badge.textContent = PERTII18n.t('gdt.badge.adlGdp');
+                badge.classList.remove('badge-secondary', 'badge-success', 'badge-warning');
+                badge.classList.add('badge-info');
             } else {
                 badge.textContent = PERTII18n.t('gdt.badge.adlLive');
-                badge.classList.remove('badge-secondary', 'badge-warning');
+                badge.classList.remove('badge-secondary', 'badge-warning', 'badge-info');
                 badge.classList.add('badge-success');
             }
         }
@@ -5337,7 +5398,18 @@
         const allRows = rows.slice(); // Keep copy for counts
         if (!GS_SHOW_ALL_FLIGHTS) {
             rows = rows.filter(function(r) {
-                return r.gsFlag === 1;
+                if (r.gsFlag !== 1) return false;
+                // After simulation, exclude zero-delay flights (not actually affected)
+                if (r.edctEpoch != null && r.depEpoch != null) {
+                    var delayMs = r.edctEpoch - r.depEpoch;
+                    if (delayMs <= 0) return false;
+                }
+                // Also check raw program_delay_min from simulate response
+                var raw = r._adl && r._adl.raw;
+                if (raw && typeof raw.program_delay_min !== 'undefined' && parseInt(raw.program_delay_min, 10) === 0) {
+                    return false;
+                }
+                return true;
             });
         }
 
@@ -5361,8 +5433,15 @@
             }
         }
 
-        // Count eligible vs exempt for display
-        const eligibleCount = allRows.filter(function(r) { return r.gsFlag === 1; }).length;
+        // Count eligible (with actual delay) vs exempt for display
+        const eligibleCount = allRows.filter(function(r) {
+            if (r.gsFlag !== 1) return false;
+            // Exclude zero-delay flights from eligible count
+            if (r.edctEpoch != null && r.depEpoch != null && r.edctEpoch - r.depEpoch <= 0) return false;
+            var raw = r._adl && r._adl.raw;
+            if (raw && typeof raw.program_delay_min !== 'undefined' && parseInt(raw.program_delay_min, 10) === 0) return false;
+            return true;
+        }).length;
         const exemptCount = allRows.filter(function(r) { return r.gsFlag !== 1; }).length;
 
         // Update flight count display
@@ -6080,16 +6159,17 @@
 
         var defaultRate = parseInt(document.getElementById('gs_program_rate').value) || 30;
 
-        // Determine hour range (with day context for cross-midnight display)
+        // Determine hour range with full date context (DD_HH keys for cross-midnight)
         rateEditor.hours = [];
-        rateEditor.hourDates = {}; // { "HH": "DD" } for display labels
+        rateEditor.hourDates = {};
         var t = new Date(start.getTime());
         t.setUTCMinutes(0, 0, 0);
         while (t < end) {
             var hh = String(t.getUTCHours()).padStart(2, '0');
             var dd = String(t.getUTCDate()).padStart(2, '0');
-            rateEditor.hours.push(hh);
-            rateEditor.hourDates[hh] = dd;
+            var hourKey = dd + '_' + hh; // e.g., "25_23", "26_00"
+            rateEditor.hours.push(hourKey);
+            rateEditor.hourDates[hourKey] = dd;
             t.setTime(t.getTime() + 3600000);
         }
 
@@ -6101,9 +6181,11 @@
         while (hourlyHeader.children.length > 1) hourlyHeader.removeChild(hourlyHeader.lastChild);
         while (hourlyInputs.children.length > 1) hourlyInputs.removeChild(hourlyInputs.lastChild);
 
-        rateEditor.hours.forEach(function(hh) {
+        rateEditor.hours.forEach(function(hourKey) {
+            var dd = hourKey.substring(0, 2);
+            var hh = hourKey.substring(3);
             var th = document.createElement('th');
-            th.textContent = (rateEditor.hourDates[hh] || '') + '/' + hh + '00Z';
+            th.textContent = dd + '/' + hh + '00Z';
             th.style.textAlign = 'center';
             th.style.minWidth = '65px';
             th.style.fontSize = '0.65rem';
@@ -6116,11 +6198,11 @@
             input.className += ' text-center';
             input.min = '1';
             input.max = '120';
-            input.dataset.hour = hh;
+            input.dataset.hour = hourKey;
 
-            var existingHourly = rateEditor.hourlyRates[hh];
+            var existingHourly = rateEditor.hourlyRates[hourKey];
             input.value = existingHourly != null ? existingHourly : defaultRate;
-            if (existingHourly == null) rateEditor.hourlyRates[hh] = defaultRate;
+            if (existingHourly == null) rateEditor.hourlyRates[hourKey] = defaultRate;
 
             input.addEventListener('change', function() {
                 var h = this.dataset.hour;
@@ -6157,9 +6239,10 @@
         while (t < end && colCount < 96) {
             var hh = String(t.getUTCHours()).padStart(2, '0');
             var mm = String(t.getUTCMinutes()).padStart(2, '0');
-            var key = hh + ':' + mm;
-
             var dd = String(t.getUTCDate()).padStart(2, '0');
+            var key = dd + '_' + hh + ':' + mm;       // e.g., "26_14:00"
+            var parentHourKey = dd + '_' + hh;         // e.g., "26_14"
+
             var th = document.createElement('th');
             th.textContent = dd + '/' + hh + mm + 'Z';
             th.style.textAlign = 'center';
@@ -6175,14 +6258,16 @@
             input.min = '1';
             input.max = '120';
             input.dataset.quarterKey = key;
-            input.dataset.parentHour = hh;
+            input.dataset.parentHour = parentHourKey;
 
             var existing = rateEditor.quarterRates[key];
             if (existing != null) {
                 input.value = existing;
             } else {
-                var hourlyVal = rateEditor.hourlyRates[hh];
-                var seedVal = hourlyVal != null ? hourlyVal : defaultRate;
+                var hourlyVal = rateEditor.hourlyRates[parentHourKey];
+                var seedHourly = hourlyVal != null ? hourlyVal : defaultRate;
+                // Quarter rate = hourly / 4 (per-15-min rate)
+                var seedVal = Math.round(seedHourly / 4);
                 input.value = seedVal;
                 rateEditor.quarterRates[key] = seedVal;
             }
@@ -6205,7 +6290,8 @@
     }
 
     /**
-     * When a quarter cell changes, update parent hourly to average of its 4 quarters.
+     * When a quarter cell changes, update parent hourly to SUM of its 4 quarters.
+     * Quarter rates are per-15-min; hourly rate = sum of all 4 quarters.
      */
     function syncHourlyFromQuarters(hour) {
         var quarters = [':00', ':15', ':30', ':45'];
@@ -6216,24 +6302,28 @@
             if (val != null) { sum += val; count++; }
         });
         if (count === 0) return;
-        var avg = Math.round(sum / count);
-        rateEditor.hourlyRates[hour] = avg;
+        rateEditor.hourlyRates[hour] = sum;
 
         var hourlyInput = document.querySelector('#gs_hourly_inputs input[data-hour="' + hour + '"]');
-        if (hourlyInput) hourlyInput.value = avg;
+        if (hourlyInput) hourlyInput.value = sum;
     }
 
     /**
-     * When an hourly cell changes, set all 4 quarter cells to the new value.
+     * When an hourly cell changes, distribute evenly across 4 quarter cells.
+     * Hourly rate is per-hour; each quarter gets value/4 (remainder spread to early quarters).
      */
     function syncQuartersFromHourly(hour, value) {
         var quarters = [':00', ':15', ':30', ':45'];
-        quarters.forEach(function(suffix) {
+        var base = Math.floor(value / 4);
+        var remainder = value % 4;
+        quarters.forEach(function(suffix, idx) {
             var key = hour + suffix;
-            rateEditor.quarterRates[key] = value;
+            // Distribute remainder to first N quarters (e.g., 30/4 = 7,7,8,8 → first 2 get +1)
+            var qVal = base + (idx < remainder ? 1 : 0);
+            rateEditor.quarterRates[key] = qVal;
 
             var qInput = document.querySelector('#gs_quarter_inputs input[data-quarter-key="' + key + '"]');
-            if (qInput) qInput.value = value;
+            if (qInput) qInput.value = qVal;
         });
     }
 
@@ -6289,11 +6379,20 @@
         var keys = Object.keys(rateEditor.quarterRates);
         if (keys.length === 0) return null;
 
-        var flatRate = parseInt(document.getElementById('gs_program_rate').value) || 30;
-        var allSame = keys.every(function(k) { return rateEditor.quarterRates[k] === flatRate; });
+        // Check if all quarters are equal (flat rate = no variable rates needed)
+        var vals = keys.map(function(k) { return rateEditor.quarterRates[k]; });
+        var allSame = vals.every(function(v) { return v === vals[0]; });
         if (allSame) return null;
 
-        return rateEditor.quarterRates;
+        // Convert DD_HH:MM keys to HH:MM for SP compatibility
+        var spRates = {};
+        keys.forEach(function(k) {
+            // Key format: "DD_HH:MM" → strip "DD_" prefix for SP
+            var spKey = k.indexOf('_') >= 0 ? k.substring(k.indexOf('_') + 1) : k;
+            spRates[spKey] = rateEditor.quarterRates[k];
+        });
+
+        return spRates;
     }
 
     /**
@@ -6331,18 +6430,47 @@
                 ? JSON.parse(program.rates_quarter_json)
                 : program.rates_quarter_json;
             if (parsed && typeof parsed === 'object') {
-                rateEditor.quarterRates = parsed;
-
-                // Derive hourly rates from quarter averages
+                // Convert SP-format HH:MM keys to DD_HH:MM using program time window
+                var startUtc = program.start_utc ? new Date(program.start_utc) : null;
+                var endUtc = program.end_utc ? new Date(program.end_utc) : null;
+                var dateAwareRates = {};
                 var hourBuckets = {};
-                Object.keys(parsed).forEach(function(key) {
-                    var hh = key.substring(0, 2);
-                    if (!hourBuckets[hh]) hourBuckets[hh] = [];
-                    hourBuckets[hh].push(parsed[key]);
-                });
-                Object.keys(hourBuckets).forEach(function(hh) {
-                    var vals = hourBuckets[hh];
-                    rateEditor.hourlyRates[hh] = Math.round(vals.reduce(function(a, b) { return a + b; }, 0) / vals.length);
+
+                if (startUtc && endUtc && !isNaN(startUtc.getTime())) {
+                    // Walk through time window to map HH:MM → DD_HH:MM
+                    var t = new Date(startUtc.getTime());
+                    t.setUTCMinutes(Math.floor(t.getUTCMinutes() / 15) * 15, 0, 0);
+                    while (t < endUtc) {
+                        var hh = String(t.getUTCHours()).padStart(2, '0');
+                        var mm = String(t.getUTCMinutes()).padStart(2, '0');
+                        var dd = String(t.getUTCDate()).padStart(2, '0');
+                        var spKey = hh + ':' + mm;
+                        var fullKey = dd + '_' + hh + ':' + mm;
+                        var hourKey = dd + '_' + hh;
+
+                        if (parsed[spKey] != null) {
+                            dateAwareRates[fullKey] = parsed[spKey];
+                            if (!hourBuckets[hourKey]) hourBuckets[hourKey] = [];
+                            hourBuckets[hourKey].push(parsed[spKey]);
+                        }
+                        t.setUTCMinutes(t.getUTCMinutes() + 15);
+                    }
+                } else {
+                    // No valid times — use HH:MM keys directly (legacy fallback)
+                    Object.keys(parsed).forEach(function(key) {
+                        dateAwareRates[key] = parsed[key];
+                        var hh = key.substring(0, 2);
+                        if (!hourBuckets[hh]) hourBuckets[hh] = [];
+                        hourBuckets[hh].push(parsed[key]);
+                    });
+                }
+
+                rateEditor.quarterRates = dateAwareRates;
+
+                // Derive hourly rates from quarter sums (hourly = sum of 4 quarters)
+                Object.keys(hourBuckets).forEach(function(hourKey) {
+                    var vals = hourBuckets[hourKey];
+                    rateEditor.hourlyRates[hourKey] = vals.reduce(function(a, b) { return a + b; }, 0);
                 });
 
                 // Auto-show Edit 15 if quarters vary
@@ -6559,8 +6687,9 @@
 
             if (statusEl) {statusEl.textContent = PERTII18n.t('gdt.gs.redirectingToTmi');}
 
-            // Navigate to TMI Publishing page with GS/GDP tab active
-            window.location.href = 'tmi-publish.php?tab=gdp&source=gdt&type=' + encodeURIComponent(handoffProgramType.toLowerCase()) + '&program_id=' + GS_CURRENT_PROGRAM_ID + '#gsgdpPanel';
+            // Navigate to TMI Publishing page with GS/GDP tab active (new tab)
+            var tmiUrl = 'tmi-publish.php?tab=gdp&source=gdt&type=' + encodeURIComponent(handoffProgramType.toLowerCase()) + '&program_id=' + GS_CURRENT_PROGRAM_ID + '#gsgdpPanel';
+            window.open(tmiUrl, '_blank');
 
         } catch (err) {
             console.error('Failed to store TMI handoff data:', err);
@@ -6592,7 +6721,7 @@
 
         // Program Info
         html += '<div class="mb-3">';
-        html += '<strong>' + PERTII18n.t('gdt.gs.program') + ':</strong> ' + escapeHtml(program.program_name || 'GS-' + program.ctl_element) + '<br>';
+        html += '<strong>' + PERTII18n.t('gdt.gs.program') + ':</strong> ' + escapeHtml(program.program_name || (program.program_type || 'GS') + '-' + program.ctl_element) + '<br>';
         html += '<strong>' + PERTII18n.t('gdt.gs.airport') + ':</strong> ' + escapeHtml(program.ctl_element) + '<br>';
         html += '<strong>' + PERTII18n.t('gdt.gs.period') + ':</strong> ' + formatZuluFromIso(program.start_utc) + ' - ' + formatZuluFromIso(program.end_utc);
         html += '</div>';
@@ -6885,7 +7014,9 @@
 
         const flightListLabel = (GS_TABLE_MODE === 'GS')
             ? PERTII18n.t('gdt.dataSource.gsProgramMode')
-            : PERTII18n.t('gdt.dataSource.liveAdl');
+            : (GS_TABLE_MODE === 'GDP')
+                ? PERTII18n.t('gdt.dataSource.gdpProgramMode')
+                : PERTII18n.t('gdt.dataSource.liveAdl');
 
         let adlCache = PERTII18n.t('gdt.dataSource.notLoaded');
         if (GS_ADL && (GS_ADL.snapshotUtc || (GS_ADL.raw && (GS_ADL.raw.snapshot_utc || GS_ADL.raw.snapshotUtc)))) {
@@ -7838,6 +7969,19 @@
             });
         }
 
+        // Flight Counts summary toggle (Hide/Show)
+        var countsToggleBtn = document.getElementById('gs_toggle_counts_btn');
+        var countsRow = document.getElementById('gs_counts_row');
+        if (countsToggleBtn && countsRow) {
+            countsToggleBtn.addEventListener('click', function() {
+                var isHidden = countsRow.style.display === 'none';
+                countsRow.style.display = isHidden ? '' : 'none';
+                countsToggleBtn.textContent = isHidden
+                    ? PERTII18n.t('gdt.page.hide')
+                    : PERTII18n.t('gdt.page.show');
+            });
+        }
+
         // Program type selector: show/hide GDP rate fields and update labels
         var programTypeSelect = document.getElementById('gs_program_type');
         if (programTypeSelect) {
@@ -8208,19 +8352,29 @@
             return;
         }
 
-        // Search in the current ADL data
+        // Search in the current flight data (ADL, model flights, or matching flights)
         let flight = null;
-        if (GS_ADL && Array.isArray(GS_ADL)) {
-            flight = GS_ADL.find(function(f) {
-                const cs = (f.callsign || f.CALLSIGN || '').toUpperCase();
-                const fOrig = (f.fp_dept_icao || f.FP_DEPT_ICAO || f.dep_icao || '').toUpperCase();
-                const fDest = (f.fp_dest_icao || f.FP_DEST_ICAO || f.arr_icao || '').toUpperCase();
-
-                if (cs !== acid) {return false;}
-                if (orig && fOrig !== orig) {return false;}
-                if (dest && fDest !== dest) {return false;}
-                return true;
-            });
+        var searchSources = [];
+        if (GS_ADL && GS_ADL.flights && Array.isArray(GS_ADL.flights)) {
+            searchSources.push(GS_ADL.flights);
+        }
+        if (GS_RAW_MODEL_FLIGHTS && Array.isArray(GS_RAW_MODEL_FLIGHTS)) {
+            searchSources.push(GS_RAW_MODEL_FLIGHTS);
+        }
+        if (GS_MATCHING_FLIGHTS && Array.isArray(GS_MATCHING_FLIGHTS)) {
+            searchSources.push(GS_MATCHING_FLIGHTS);
+        }
+        function matchFlight(f) {
+            const cs = (f.callsign || f.CALLSIGN || '').toUpperCase();
+            const fOrig = (f.fp_dept_icao || f.FP_DEPT_ICAO || f.dep_icao || f.dep || '').toUpperCase();
+            const fDest = (f.fp_dest_icao || f.FP_DEST_ICAO || f.arr_icao || f.arr || '').toUpperCase();
+            if (cs !== acid) {return false;}
+            if (orig && fOrig !== orig) {return false;}
+            if (dest && fDest !== dest) {return false;}
+            return true;
+        }
+        for (var si = 0; si < searchSources.length && !flight; si++) {
+            flight = searchSources[si].find(matchFlight);
         }
 
         if (!flight) {
@@ -9053,6 +9207,19 @@
             );
 
             if (localResult && localResult.demand) {
+                // Build program rates map (hour key -> rate) for PR line on demand chart
+                var prMap = null;
+                var programTypeEl2 = document.getElementById('gs_program_type');
+                var isGdp2 = programTypeEl2 && programTypeEl2.value !== 'GS';
+                if (isGdp2 && rateEditor.hourlyRates && Object.keys(rateEditor.hourlyRates).length > 0) {
+                    // hourlyRates keys are DD_HH format (e.g., "26_14")
+                    // Pass through directly — demand.js PR line will use DD_HH lookup
+                    prMap = {};
+                    Object.keys(rateEditor.hourlyRates).forEach(function(k) {
+                        prMap[k] = parseInt(rateEditor.hourlyRates[k], 10) || 0;
+                    });
+                }
+
                 // Load into chart via snapshot (bypasses API fetch)
                 GS_DEMAND_CHART.loadFromSnapshot({
                     airport: airport,
@@ -9063,6 +9230,7 @@
                     timeRangeEnd: trEnd,
                     demandData: localResult.demand,
                     originalDemand: localResult.originalDemand || null,
+                    programRates: prMap,
                     rateData: null
                 });
 
@@ -9700,7 +9868,10 @@
                     if (timeStr) {
                         try {
                             const d = new Date(timeStr);
-                            if (!isNaN(d.getTime())) {key = String(d.getUTCHours()).padStart(2, '0') + '00Z';}
+                            if (!isNaN(d.getTime())) {
+                                key = String(d.getUTCDate()).padStart(2, '0') + '/' +
+                                      String(d.getUTCHours()).padStart(2, '0') + '00Z';
+                            }
                         } catch (e) { }
                     }
                     break;
