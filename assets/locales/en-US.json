@@ -7830,6 +7830,16 @@
       "gatePush": "Gate Push (OUT)",
       "wheelsOff": "Wheels-Off (OFF)"
     },
+    "tfmsTimeSource": {
+      "actual": "A",
+      "controlled": "C",
+      "estimated": "E",
+      "scheduled": "S",
+      "tooltipActual": "Actual time (wheels-on/off)",
+      "tooltipControlled": "Controlled time (GDP/GS)",
+      "tooltipEstimated": "Estimated time",
+      "tooltipScheduled": "Scheduled time"
+    },
     "tmiWindowLabel": "{hours}h window",
     "tmiWindowTitle": "Hours covered by this TMI",
     "trackedSummary": "{count} tracked",

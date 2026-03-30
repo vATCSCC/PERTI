@@ -10489,10 +10489,14 @@
         const ctdVal = f.ctd_utc || f.edct_utc || f.gs_release_utc || '';
         const etaVal = f.eta_utc || f.orig_eta_utc || f.eta || f.eta_runway_utc || '';
         const ctaVal = f.cta_utc || f.cta || '';
-        const etdText = etdVal ? formatZuluFromIso(etdVal) : '';
-        const ctdText = ctdVal ? formatZuluFromIso(ctdVal) : '';
-        const etaText = etaVal ? formatZuluFromIso(etaVal) : '';
-        const ctaText = ctaVal ? formatZuluFromIso(ctaVal) : '';
+
+        // Time source prefix (A/C/E/S) from API
+        const arrSrc = f.arr_time_source || '';
+        const depSrc = f.dep_time_source || '';
+        const etdText = etdVal ? (depSrc && !ctdVal ? depSrc : '') + formatZuluFromIso(etdVal) : '';
+        const ctdText = ctdVal ? 'C' + formatZuluFromIso(ctdVal) : '';
+        const etaText = etaVal ? (arrSrc && !ctaVal ? arrSrc : '') + formatZuluFromIso(etaVal) : '';
+        const ctaText = ctaVal ? 'C' + formatZuluFromIso(ctaVal) : '';
 
         const delay = f.program_delay_min || f.absolute_delay_min || 0;
         const delayText = delay > 0 ? String(delay) : '0';

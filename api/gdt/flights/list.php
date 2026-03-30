@@ -149,44 +149,57 @@ $params_paged = $params;
 $params_paged[] = $offset;
 $params_paged[] = $limit;
 
+// Prefix WHERE clause with fc. alias for the flights query
+$where_sql_fc = preg_replace('/\b(program_id|ctl_exempt|gs_held|dep_airport|dep_center|carrier|callsign)\b/', 'fc.$1', $where_sql);
+
 $flights_sql = "
-    SELECT 
-        control_id,
-        flight_uid,
-        callsign,
-        program_id,
-        slot_id,
-        aslot,
-        ctl_elem,
-        ctl_type,
-        ctl_exempt,
-        ctl_exempt_reason,
-        gs_held,
-        gs_release_utc,
-        is_popup,
-        is_ecr,
-        is_sub,
-        ctd_utc,
-        cta_utc,
-        octd_utc,
-        octa_utc,
-        orig_eta_utc,
-        orig_etd_utc,
-        orig_ete_min,
-        program_delay_min,
-        delay_capped,
-        dep_airport,
-        arr_airport,
-        dep_center,
-        arr_center,
-        carrier,
-        control_assigned_utc,
-        control_released_utc,
-        created_at,
-        updated_at
-    FROM dbo.tmi_flight_control
-    WHERE {$where_sql}
-    ORDER BY cta_utc ASC, orig_eta_utc ASC, callsign ASC
+    SELECT
+        fc.control_id,
+        fc.flight_uid,
+        fc.callsign,
+        fc.program_id,
+        fc.slot_id,
+        fc.aslot,
+        fc.ctl_elem,
+        fc.ctl_type,
+        fc.ctl_exempt,
+        fc.ctl_exempt_reason,
+        fc.gs_held,
+        fc.gs_release_utc,
+        fc.is_popup,
+        fc.is_ecr,
+        fc.is_sub,
+        fc.ctd_utc,
+        fc.cta_utc,
+        fc.octd_utc,
+        fc.octa_utc,
+        fc.orig_eta_utc,
+        fc.orig_etd_utc,
+        fc.orig_ete_min,
+        fc.program_delay_min,
+        fc.delay_capped,
+        fc.dep_airport,
+        fc.arr_airport,
+        fc.dep_center,
+        fc.arr_center,
+        fc.carrier,
+        fc.control_assigned_utc,
+        fc.control_released_utc,
+        fc.created_at,
+        fc.updated_at,
+        CASE
+            WHEN fc.cta_utc IS NOT NULL THEN 'C'
+            WHEN fc.orig_eta_utc IS NOT NULL THEN 'E'
+            ELSE NULL
+        END AS arr_time_source,
+        CASE
+            WHEN fc.ctd_utc IS NOT NULL THEN 'C'
+            WHEN fc.orig_etd_utc IS NOT NULL THEN 'E'
+            ELSE NULL
+        END AS dep_time_source
+    FROM dbo.tmi_flight_control fc
+    WHERE {$where_sql_fc}
+    ORDER BY fc.cta_utc ASC, fc.orig_eta_utc ASC, fc.callsign ASC
     OFFSET ? ROWS FETCH NEXT ? ROWS ONLY
 ";
 

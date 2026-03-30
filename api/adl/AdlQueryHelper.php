@@ -38,6 +38,25 @@ class AdlQueryHelper {
     const TIME_ARR_ORIGINAL = "COALESCE(t.eta_runway_utc, t.eta_utc)";
     const TIME_DEP_ORIGINAL = "COALESCE(t.etd_runway_utc, t.etd_utc)";
 
+    // Time source indicators — A=Actual, C=Controlled, E=Estimated, S=Scheduled
+    const TIME_ARR_SOURCE = "CASE
+        WHEN t.ata_runway_utc IS NOT NULL THEN 'A'
+        WHEN t.cta_utc IS NOT NULL THEN 'C'
+        WHEN t.eta_runway_utc IS NOT NULL THEN 'E'
+        WHEN t.eta_utc IS NOT NULL THEN 'E'
+        WHEN t.sta_utc IS NOT NULL THEN 'S'
+        ELSE NULL
+    END";
+
+    const TIME_DEP_SOURCE = "CASE
+        WHEN t.atd_runway_utc IS NOT NULL THEN 'A'
+        WHEN t.ctd_utc IS NOT NULL THEN 'C'
+        WHEN t.etd_runway_utc IS NOT NULL THEN 'E'
+        WHEN t.etd_utc IS NOT NULL THEN 'E'
+        WHEN t.std_utc IS NOT NULL THEN 'S'
+        ELSE NULL
+    END";
+
     private $source;
 
     /**
@@ -245,13 +264,42 @@ class AdlQueryHelper {
                 ac.airline_name,
 
                 -- Time fields
+                t.eta_utc,
+                t.etd_utc,
                 t.eta_runway_utc,
                 t.etd_runway_utc,
+                t.cta_utc,
+                t.ctd_utc,
+                t.edct_utc,
+                t.ata_runway_utc,
+                t.atd_runway_utc,
+                t.oeta_utc,
+                t.oetd_utc,
+                t.std_utc,
+                t.sta_utc,
                 t.eta_epoch,
                 t.etd_epoch,
                 t.arrival_bucket_utc,
                 t.departure_bucket_utc,
-                t.ete_minutes
+                t.ete_minutes,
+
+                -- Time source indicators (A=Actual, C=Controlled, E=Estimated, S=Scheduled)
+                CASE
+                    WHEN t.ata_runway_utc IS NOT NULL THEN 'A'
+                    WHEN t.cta_utc IS NOT NULL THEN 'C'
+                    WHEN t.eta_runway_utc IS NOT NULL THEN 'E'
+                    WHEN t.eta_utc IS NOT NULL THEN 'E'
+                    WHEN t.sta_utc IS NOT NULL THEN 'S'
+                    ELSE NULL
+                END AS arr_time_source,
+                CASE
+                    WHEN t.atd_runway_utc IS NOT NULL THEN 'A'
+                    WHEN t.ctd_utc IS NOT NULL THEN 'C'
+                    WHEN t.etd_runway_utc IS NOT NULL THEN 'E'
+                    WHEN t.etd_utc IS NOT NULL THEN 'E'
+                    WHEN t.std_utc IS NOT NULL THEN 'S'
+                    ELSE NULL
+                END AS dep_time_source
 
             FROM dbo.adl_flight_core c
             LEFT JOIN dbo.adl_flight_position p ON p.flight_uid = c.flight_uid
@@ -560,6 +608,8 @@ class AdlQueryHelper {
                 t.ata_utc,
                 t.ata_runway_utc,
                 t.cta_utc AS times_cta_utc,
+                t.oeta_utc,
+                t.oetd_utc,
                 t.eta_epoch,
                 t.etd_epoch,
                 t.arrival_bucket_utc,
@@ -567,6 +617,24 @@ class AdlQueryHelper {
                 t.ete_minutes,
                 t.ate_minutes,
                 t.delay_minutes AS times_delay_minutes,
+
+                -- Time source indicators (A=Actual, C=Controlled, E=Estimated, S=Scheduled)
+                CASE
+                    WHEN t.ata_runway_utc IS NOT NULL THEN 'A'
+                    WHEN t.cta_utc IS NOT NULL THEN 'C'
+                    WHEN t.eta_runway_utc IS NOT NULL THEN 'E'
+                    WHEN t.eta_utc IS NOT NULL THEN 'E'
+                    WHEN t.sta_utc IS NOT NULL THEN 'S'
+                    ELSE NULL
+                END AS arr_time_source,
+                CASE
+                    WHEN t.atd_runway_utc IS NOT NULL THEN 'A'
+                    WHEN t.ctd_utc IS NOT NULL THEN 'C'
+                    WHEN t.etd_runway_utc IS NOT NULL THEN 'E'
+                    WHEN t.etd_utc IS NOT NULL THEN 'E'
+                    WHEN t.std_utc IS NOT NULL THEN 'S'
+                    ELSE NULL
+                END AS dep_time_source,
 
                 -- TMI
                 tmi.ctl_type,
@@ -1710,7 +1778,15 @@ class AdlQueryHelper {
                         dfix,
                         afix,
                         dp_name,
-                        star_name
+                        star_name,
+                        CASE
+                            WHEN ata_runway_utc IS NOT NULL THEN 'A'
+                            WHEN cta_utc IS NOT NULL THEN 'C'
+                            WHEN eta_runway_utc IS NOT NULL THEN 'E'
+                            WHEN eta_utc IS NOT NULL THEN 'E'
+                            WHEN sta_utc IS NOT NULL THEN 'S'
+                            ELSE NULL
+                        END AS time_source
                     FROM dbo.vw_adl_flights
                     WHERE fp_dest_icao = ?
                       AND COALESCE(eta_runway_utc, eta_utc) >= ?
@@ -1735,7 +1811,15 @@ class AdlQueryHelper {
                         dfix,
                         afix,
                         dp_name,
-                        star_name
+                        star_name,
+                        CASE
+                            WHEN atd_runway_utc IS NOT NULL THEN 'A'
+                            WHEN ctd_utc IS NOT NULL THEN 'C'
+                            WHEN etd_runway_utc IS NOT NULL THEN 'E'
+                            WHEN etd_utc IS NOT NULL THEN 'E'
+                            WHEN std_utc IS NOT NULL THEN 'S'
+                            ELSE NULL
+                        END AS time_source
                     FROM dbo.vw_adl_flights
                     WHERE fp_dept_icao = ?
                       AND COALESCE(etd_runway_utc, etd_utc) >= ?
@@ -1764,7 +1848,15 @@ class AdlQueryHelper {
                         fp.dfix,
                         fp.afix,
                         fp.dp_name,
-                        fp.star_name
+                        fp.star_name,
+                        CASE
+                            WHEN t.ata_runway_utc IS NOT NULL THEN 'A'
+                            WHEN t.cta_utc IS NOT NULL THEN 'C'
+                            WHEN t.eta_runway_utc IS NOT NULL THEN 'E'
+                            WHEN t.eta_utc IS NOT NULL THEN 'E'
+                            WHEN t.sta_utc IS NOT NULL THEN 'S'
+                            ELSE NULL
+                        END AS time_source
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                     LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
@@ -1791,7 +1883,15 @@ class AdlQueryHelper {
                         fp.dfix,
                         fp.afix,
                         fp.dp_name,
-                        fp.star_name
+                        fp.star_name,
+                        CASE
+                            WHEN t.atd_runway_utc IS NOT NULL THEN 'A'
+                            WHEN t.ctd_utc IS NOT NULL THEN 'C'
+                            WHEN t.etd_runway_utc IS NOT NULL THEN 'E'
+                            WHEN t.etd_utc IS NOT NULL THEN 'E'
+                            WHEN t.std_utc IS NOT NULL THEN 'S'
+                            ELSE NULL
+                        END AS time_source
                     FROM dbo.adl_flight_core c
                     INNER JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
                     LEFT JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
