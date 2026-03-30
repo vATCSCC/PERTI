@@ -727,35 +727,37 @@ include("load/i18n.php");
             border-color: #2c3e50;
         }
 
-        /* Select2 dark theme overrides */
-        .select2-container--default .select2-selection--multiple {
-            background-color: #2d2d2d;
-            border: 1px solid #495057;
-            color: #e0e0e0;
+        /* Select2 overrides — match .demand-filter-card light theme */
+        .demand-filter-card .select2-container--default .select2-selection--multiple {
+            background-color: #fff;
+            border: 1px solid #ced4da;
             min-height: calc(1.5em + .5rem + 2px);
+            font-size: 0.85rem;
         }
-        .select2-container--default .select2-selection--multiple .select2-selection__choice {
-            background-color: #495057;
-            border: 1px solid #6c757d;
-            color: #e0e0e0;
+        .demand-filter-card .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            color: #333;
+            font-size: 0.78rem;
+            padding: 1px 6px;
+            margin-top: 3px;
         }
-        .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
-            color: #adb5bd;
+        .demand-filter-card .select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
+            color: #6c757d;
+        }
+        .demand-filter-card .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+            padding: 2px 4px;
         }
         .select2-dropdown {
-            background-color: #2d2d2d;
-            border-color: #495057;
-        }
-        .select2-results__option {
-            color: #e0e0e0;
+            border-color: #ced4da;
+            font-size: 0.85rem;
         }
         .select2-results__option--highlighted[aria-selected] {
-            background-color: #495057 !important;
+            background-color: #3498db !important;
         }
         .select2-search--dropdown .select2-search__field {
-            background-color: #1e1e1e;
-            border-color: #495057;
-            color: #e0e0e0;
+            border-color: #ced4da;
+            font-size: 0.85rem;
         }
     </style>
 
