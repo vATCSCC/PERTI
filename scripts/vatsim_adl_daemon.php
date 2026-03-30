@@ -2356,16 +2356,27 @@ function executeTmiSyncCleanup($conn_adl, array $activeFuids, float $start, int 
         sqlsrv_free_stmt($cleanupStmt);
     }
 
-    // Clear adl_flight_times only for the specific flights that were just cleaned
+    // Clear adl_flight_times and revert ETA/ETD from OETA/OETD for non-departed flights
     if ($cleaned > 0) {
         $chunks = array_chunk($cleanedFuids, 100);
         foreach ($chunks as $chunk) {
             $placeholders = implode(',', array_fill(0, count($chunk), '?'));
             $timesCleanSql = "
-                UPDATE dbo.adl_flight_times
-                SET ctd_utc = NULL, cta_utc = NULL, edct_utc = NULL
-                WHERE flight_uid IN ({$placeholders})
-                  AND (ctd_utc IS NOT NULL OR cta_utc IS NOT NULL OR edct_utc IS NOT NULL)
+                UPDATE ft SET
+                    ft.eta_runway_utc = CASE
+                        WHEN c.phase IN ('prefile', 'taxiing') AND ft.oeta_utc IS NOT NULL
+                        THEN ft.oeta_utc ELSE ft.eta_runway_utc END,
+                    ft.etd_runway_utc = CASE
+                        WHEN c.phase IN ('prefile', 'taxiing') AND ft.oetd_utc IS NOT NULL
+                        THEN ft.oetd_utc ELSE ft.etd_runway_utc END,
+                    ft.ctd_utc = NULL,
+                    ft.cta_utc = NULL,
+                    ft.edct_utc = NULL,
+                    ft.oeta_utc = NULL,
+                    ft.oetd_utc = NULL
+                FROM dbo.adl_flight_times ft
+                INNER JOIN dbo.adl_flight_core c ON c.flight_uid = ft.flight_uid
+                WHERE ft.flight_uid IN ({$placeholders})
             ";
             $timesCleanStmt = sqlsrv_query($conn_adl, $timesCleanSql, $chunk);
             if ($timesCleanStmt !== false) sqlsrv_free_stmt($timesCleanStmt);
