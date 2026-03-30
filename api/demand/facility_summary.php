@@ -316,17 +316,17 @@ function fs_runAirportBreakdown($conn, $type, $code, $group, $direction, $groupB
 
         $sql = "
             WITH Combined AS (
-                SELECT COALESCE(t.eta_runway_utc, t.eta_utc) AS op_time, $groupByCol AS dim_val, c.phase
+                SELECT COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) AS op_time, $groupByCol AS dim_val, c.phase
                 $fromBase
                 WHERE {$arrWhere['clause']}
-                  AND COALESCE(t.eta_runway_utc, t.eta_utc) IS NOT NULL
-                  AND COALESCE(t.eta_runway_utc, t.eta_utc) >= ? AND COALESCE(t.eta_runway_utc, t.eta_utc) < ?
+                  AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) IS NOT NULL
+                  AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) >= ? AND COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc) < ?
                 UNION ALL
-                SELECT COALESCE(t.etd_runway_utc, t.etd_utc) AS op_time, $groupByCol AS dim_val, c.phase
+                SELECT COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) AS op_time, $groupByCol AS dim_val, c.phase
                 $fromBase
                 WHERE {$depWhere['clause']}
-                  AND COALESCE(t.etd_runway_utc, t.etd_utc) IS NOT NULL
-                  AND COALESCE(t.etd_runway_utc, t.etd_utc) >= ? AND COALESCE(t.etd_runway_utc, t.etd_utc) < ?
+                  AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) IS NOT NULL
+                  AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) >= ? AND COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc) < ?
             )
             SELECT
                 {$timeBinSQL} AS time_bin,
@@ -345,8 +345,8 @@ function fs_runAirportBreakdown($conn, $type, $code, $group, $direction, $groupB
         if (!$facWhere) return [];
 
         $timeCol = ($dirSide === 'arr')
-            ? 'COALESCE(t.eta_runway_utc, t.eta_utc)'
-            : 'COALESCE(t.etd_runway_utc, t.etd_utc)';
+            ? 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)'
+            : 'COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)';
 
         $phaseAgg = fs_getPhaseAggregationSQL('c.phase');
         $timeBinSQL = fs_getTimeBinSQL($timeCol, $granularity);
@@ -560,7 +560,7 @@ function fs_getFlightsForTimeBin($conn, $type, $code, $group, $mode, $direction,
         if ($direction === 'arr' || $direction === 'both') {
             $facWhere = fs_buildFacilityWhere($type, $code, $group, 'arr');
             if ($facWhere) {
-                $arrTimeCol = 'COALESCE(t.eta_runway_utc, t.eta_utc)';
+                $arrTimeCol = 'COALESCE(t.ata_runway_utc, t.cta_utc, t.eta_runway_utc, t.eta_utc)';
                 $sql = "SELECT {$selectCols}, {$arrTimeCol} AS op_time
                     $fromBase
                     WHERE {$facWhere['clause']}
@@ -585,7 +585,7 @@ function fs_getFlightsForTimeBin($conn, $type, $code, $group, $mode, $direction,
         if ($direction === 'dep' || $direction === 'both') {
             $facWhere = fs_buildFacilityWhere($type, $code, $group, 'dep');
             if ($facWhere) {
-                $depTimeCol = 'COALESCE(t.etd_runway_utc, t.etd_utc)';
+                $depTimeCol = 'COALESCE(t.atd_runway_utc, t.ctd_utc, t.etd_runway_utc, t.etd_utc)';
                 $sql = "SELECT {$selectCols}, {$depTimeCol} AS op_time
                     $fromBase
                     WHERE {$facWhere['clause']}
