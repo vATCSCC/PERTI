@@ -18,6 +18,7 @@ server {
     gzip_types
         text/plain
         text/css
+        text/csv
         text/javascript
         application/javascript
         application/json
