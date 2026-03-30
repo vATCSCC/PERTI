@@ -279,6 +279,7 @@ if ($direction === 'arr' || $direction === 'both') {
                 "departed" => (int)$row['departed'],
                 "taxiing" => (int)$row['taxiing'],
                 "prefile" => (int)$row['prefile'],
+                "controlled" => (int)($row['controlled'] ?? 0),
                 "unknown" => (int)$row['unknown']
             ]
         ];
@@ -326,6 +327,7 @@ if ($direction === 'dep' || $direction === 'both') {
                 "departed" => (int)$row['departed'],
                 "taxiing" => (int)$row['taxiing'],
                 "prefile" => (int)$row['prefile'],
+                "controlled" => (int)($row['controlled'] ?? 0),
                 "unknown" => (int)$row['unknown']
             ]
         ];

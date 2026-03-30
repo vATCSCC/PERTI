@@ -68,7 +68,7 @@ window.DemandChartCore = (function() {
 
     // Phase colors - use shared config from phase-colors.js if available
     const PHASE_COLORS = (typeof window.PHASE_COLORS !== 'undefined') ? window.PHASE_COLORS : {
-        // Standard flight phases
+        // Individual flight phases (for status badges in drill-down)
         'arrived': '#1a1a1a',
         'disconnected': '#f97316',
         'descending': '#991b1b',
@@ -76,6 +76,10 @@ window.DemandChartCore = (function() {
         'departed': '#f87171',
         'taxiing': '#22c55e',
         'prefile': '#3b82f6',
+        'controlled': '#b45309',
+        // Grouped phases (for chart series — match sidebar filter groups)
+        'active': '#dc2626',        // Red - departed+enroute+descending
+        'departing': '#22c55e',     // Green - taxiing
         // Ground Stop statuses (yellow spectrum)
         'actual_gs': '#eab308',
         'simulated_gs': '#fef08a',
@@ -95,6 +99,7 @@ window.DemandChartCore = (function() {
 
     // Phase labels - use shared config if available
     const PHASE_LABELS = (typeof window.PHASE_LABELS !== 'undefined') ? window.PHASE_LABELS : {
+        // Individual phases (for status badges)
         'arrived': PERTII18n.t('phase.arrived'),
         'disconnected': PERTII18n.t('phase.disconnected'),
         'descending': PERTII18n.t('phase.descending'),
@@ -102,6 +107,11 @@ window.DemandChartCore = (function() {
         'departed': PERTII18n.t('phase.departed'),
         'taxiing': PERTII18n.t('phase.taxiing'),
         'prefile': PERTII18n.t('phase.prefile'),
+        'controlled': PERTII18n.t('demand.phase.controlled'),
+        // Grouped phases (for chart series)
+        'active': PERTII18n.t('demand.page.active'),
+        'departing': PERTII18n.t('demand.page.departing'),
+        // TMI statuses
         'actual_gs': PERTII18n.t('demand.phase.actualGs'),
         'simulated_gs': PERTII18n.t('demand.phase.simulatedGs'),
         'proposed_gs': PERTII18n.t('demand.phase.proposedGs'),
@@ -116,10 +126,11 @@ window.DemandChartCore = (function() {
     };
 
     // Phase stacking order (bottom to top) - use shared config if available
+    // Uses group names (active, departing) for standard phases to match sidebar filters
     const PHASE_ORDER = (typeof window.PHASE_STACK_ORDER !== 'undefined') ? window.PHASE_STACK_ORDER :
-        ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile',
+        ['arrived', 'disconnected', 'active', 'departing', 'prefile',
             'uncontrolled', 'exempt', 'actual_gs', 'simulated_gs', 'proposed_gs',
-            'actual_gdp', 'simulated_gdp', 'proposed_gdp', 'unknown'];
+            'actual_gdp', 'simulated_gdp', 'proposed_gdp', 'controlled', 'unknown'];
 
     /**
      * Get granularity in minutes
@@ -202,10 +213,11 @@ window.DemandChartCore = (function() {
         const halfInterval = intervalMs / 2;
 
         // Build data as [timestamp, value] pairs for time axis
+        // Uses getGroupValue() to sum constituent phases for groups (e.g. 'active' = departed+enroute+descending)
         const data = timeBins.map(bin => {
             const normalizedBin = normalizeTimeBin(bin);
             const breakdown = dataByBin[normalizedBin] || dataByBin[bin];
-            const value = breakdown ? (breakdown[phase] || 0) : 0;
+            const value = getGroupValue(breakdown, phase);
             return [new Date(bin).getTime() + halfInterval, value];
         });
 
@@ -1023,19 +1035,24 @@ const DEMAND_STATE = {
 // Phase colors - use shared config from phase-colors.js
 // Fallback definitions if config not loaded (for backwards compatibility)
 const FSM_PHASE_COLORS = (typeof PHASE_COLORS !== 'undefined') ? PHASE_COLORS : {
-    'arrived': '#1a1a1a',       // Black - Landed at destination (bottom)
+    // Individual phases (for flight list status badges)
+    'arrived': '#1a1a1a',       // Black - Landed at destination
     'disconnected': '#f97316',  // Bright Orange - Disconnected mid-flight
-    'descending': '#991b1b',    // Dark Red - On approach to destination
+    'descending': '#991b1b',    // Dark Red - On approach
     'enroute': '#dc2626',       // Red - Cruising
-    'departed': '#f87171',      // Light Red - Just took off from origin
-    'taxiing': '#22c55e',       // Green - Taxiing at origin airport
+    'departed': '#f87171',      // Light Red - Just took off
+    'taxiing': '#22c55e',       // Green - Taxiing at origin
     'prefile': '#3b82f6',       // Blue - Filed flight plan
     'controlled': '#b45309',    // Amber/brown - TMI controlled (GDP/GS)
-    'unknown': '#9333ea',        // Purple - Unknown/other phase (top)
+    'unknown': '#9333ea',       // Purple - Unknown/other phase
+    // Group names (for chart series — match sidebar filter groups)
+    'active': '#dc2626',        // Red - departed+enroute+descending
+    'departing': '#22c55e',     // Green - taxiing
 };
 
 // Phase labels - use shared config if available
 const FSM_PHASE_LABELS = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : {
+    // Individual phases (for flight list status badges)
     'arrived': PERTII18n.t('phase.arrived'),
     'disconnected': PERTII18n.t('phase.disconnected'),
     'descending': PERTII18n.t('phase.descending'),
@@ -1045,6 +1062,9 @@ const FSM_PHASE_LABELS = (typeof PHASE_LABELS !== 'undefined') ? PHASE_LABELS : 
     'prefile': PERTII18n.t('phase.prefile'),
     'controlled': PERTII18n.t('demand.phase.controlled'),
     'unknown': PERTII18n.t('phase.unknown'),
+    // Group names (for chart series — match sidebar filter groups)
+    'active': PERTII18n.t('demand.page.active'),
+    'departing': PERTII18n.t('demand.page.departing'),
 };
 
 // Phase group mapping - maps logical UI groups to database phase values
@@ -1070,6 +1090,24 @@ const PHASE_TO_GROUP = {
     controlled: 'controlled',
     unknown: 'unknown',
 };
+
+/**
+ * Get the summed value for a phase group from a breakdown object.
+ * Groups like 'active' sum their constituent DB phases (departed+enroute+descending).
+ * Individual phase names are also accepted for backward compatibility.
+ */
+function getGroupValue(breakdown, group) {
+    if (!breakdown) return 0;
+    var phases = PHASE_GROUP_MAP[group];
+    if (phases) {
+        var sum = 0;
+        for (var i = 0; i < phases.length; i++) {
+            sum += (breakdown[phases[i]] || 0);
+        }
+        return sum;
+    }
+    return breakdown[group] || 0;
+}
 
 // ARTCC colors for origin breakdown visualization - uses PERTI when available
 const ARTCC_COLORS = (typeof PERTI !== 'undefined' && PERTI.UI && PERTI.UI.ARTCC_COLORS)
@@ -1399,6 +1437,8 @@ function normalizeBreakdownByProcedure(breakdown, categoryKey) {
  * @returns {boolean} True if the phase should be displayed
  */
 function isPhaseEnabled(phase) {
+    // Accept both group names (active, departing) and individual phase names (enroute, taxiing)
+    if (DEMAND_STATE.phaseGroups[phase] !== undefined) return DEMAND_STATE.phaseGroups[phase];
     const group = PHASE_TO_GROUP[phase];
     return group ? DEMAND_STATE.phaseGroups[group] : false;
 }
@@ -2715,7 +2755,7 @@ function renderFacilityStatusChart(data) {
 
     // Build series based on direction, filtering by enabled phase groups
     const series = [];
-    const allPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'controlled', 'unknown'];
+    const allPhases = ['arrived', 'disconnected', 'active', 'departing', 'prefile', 'controlled', 'unknown'];
     const phaseOrder = allPhases.filter(phase => isPhaseEnabled(phase));
 
     if (renderDirection === 'arr' || renderDirection === 'both' || renderDirection === 'thru') {
@@ -3895,7 +3935,7 @@ function renderChart(data) {
     // Phase stacking order (bottom to top): arrived, descending, enroute, departed, taxiing, prefile, unknown
     // Filter by enabled phase groups
     const series = [];
-    const allPhases = ['arrived', 'disconnected', 'descending', 'enroute', 'departed', 'taxiing', 'prefile', 'controlled', 'unknown'];
+    const allPhases = ['arrived', 'disconnected', 'active', 'departing', 'prefile', 'controlled', 'unknown'];
     const phaseOrder = allPhases.filter(phase => isPhaseEnabled(phase));
 
     if (direction === 'arr' || direction === 'both') {
@@ -5298,14 +5338,15 @@ function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type, viewDi
 
     // Build data as [timestamp, value] pairs for time axis
     // Shift by half interval so bar is centered on the time period
+    // Uses getGroupValue() to sum constituent phases for groups (e.g. 'active' = departed+enroute+descending)
     const data = timeBins.map(bin => {
         const breakdown = dataByBin[bin];
-        const value = breakdown ? (breakdown[phase] || 0) : 0;
+        const value = getGroupValue(breakdown, phase);
         // Center the bar on the time period (start + half interval)
         return [new Date(bin).getTime() + halfInterval, value];
     });
 
-    // Get phase color from individual phase palette
+    // Get phase/group color
     const color = FSM_PHASE_COLORS[phase] || '#999';
 
     // Determine bar width based on whether showing both directions or just one
@@ -5357,9 +5398,10 @@ function buildPhaseSeriesTimeAxis(name, timeBins, dataByBin, phase, type, viewDi
  */
 function buildStatusSeriesTimeAxis(name, timeBins, dataByBin, status, type) {
     // Build data as [timestamp, value] pairs for time axis
+    // Uses getGroupValue() for group-aware summing (e.g. 'active' = departed+enroute+descending)
     const data = timeBins.map(bin => {
         const breakdown = dataByBin[bin];
-        const value = breakdown ? (breakdown[status] || 0) : 0;
+        const value = getGroupValue(breakdown, status);
         return [new Date(bin).getTime(), value];
     });
 

@@ -215,6 +215,7 @@ function extractPhases($row) {
         "departed" => (int)($row['phase_departed'] ?? 0),
         "taxiing" => (int)($row['phase_taxiing'] ?? 0),
         "prefile" => (int)($row['phase_prefile'] ?? 0),
+        "controlled" => (int)($row['phase_controlled'] ?? 0),
         "unknown" => (int)($row['phase_unknown'] ?? 0)
     ];
     // Debug: Add phase sum to verify it matches count
