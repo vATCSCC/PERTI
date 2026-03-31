@@ -175,12 +175,20 @@ if ($accepted > 0 || $duplicates > 0) {
     sqlsrv_query($conn, $sql);
 }
 
-http_response_code(200);
+// Return appropriate HTTP status
+$errorCount = count($errors);
+if ($accepted === 0 && $duplicates === 0 && $errorCount > 0) {
+    http_response_code(422); // All events failed
+} elseif ($errorCount > 0) {
+    http_response_code(207); // Partial success
+} else {
+    http_response_code(200);
+}
 echo json_encode([
-    'success' => true,
+    'success' => $errorCount === 0,
     'accepted' => $accepted,
     'duplicates' => $duplicates,
     'not_found' => $notFound,
-    'errors' => count($errors),
+    'errors' => $errorCount,
     'error_details' => array_slice($errors, 0, 10),
 ]);

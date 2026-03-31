@@ -36,6 +36,11 @@ switch ($method) {
                 FROM dbo.swim_webhook_subscriptions
                 ORDER BY source_id, direction";
         $stmt = sqlsrv_query($conn, $sql);
+        if ($stmt === false) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Database query failed']);
+            exit;
+        }
         $rows = [];
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             // Convert DateTime objects to strings
@@ -90,6 +95,7 @@ switch ($method) {
             echo json_encode(['error' => 'Failed to create subscription']);
             exit;
         }
+        sqlsrv_free_stmt($stmt);
 
         // Get inserted ID
         $idStmt = sqlsrv_query($conn, "SELECT SCOPE_IDENTITY() AS id");
@@ -111,6 +117,11 @@ switch ($method) {
                 SET is_active = 0, updated_utc = SYSUTCDATETIME()
                 WHERE id = ?";
         $stmt = sqlsrv_query($conn, $sql, [$id]);
+        if ($stmt === false) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Database update failed']);
+            exit;
+        }
         $rows = sqlsrv_rows_affected($stmt);
         sqlsrv_free_stmt($stmt);
 

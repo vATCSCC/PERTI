@@ -219,17 +219,23 @@ function runArchival(mixed $conn, int $batchSize): array {
     $retentionDays = 30;
     $purgeWebhookSql = "DELETE TOP (10000) FROM dbo.swim_webhook_events
                         WHERE created_utc < DATEADD(DAY, -{$retentionDays}, SYSUTCDATETIME())";
-    // Run against SWIM_API connection
+    // Run against SWIM_API connection (loop to handle backlog)
     $connSwim = function_exists('get_conn_swim') ? get_conn_swim() : null;
     if ($connSwim) {
-        $purgeStmt = sqlsrv_query($connSwim, $purgeWebhookSql);
-        $purgeRows = $purgeStmt ? sqlsrv_rows_affected($purgeStmt) : 0;
-        if ($purgeStmt) sqlsrv_free_stmt($purgeStmt);
+        $totalPurged = 0;
+        $maxIterations = 10;
+        for ($i = 0; $i < $maxIterations; $i++) {
+            $purgeStmt = sqlsrv_query($connSwim, $purgeWebhookSql);
+            $purgeRows = $purgeStmt ? sqlsrv_rows_affected($purgeStmt) : 0;
+            if ($purgeStmt) sqlsrv_free_stmt($purgeStmt);
+            $totalPurged += $purgeRows;
+            if ($purgeRows < 10000) break; // No more rows to purge
+        }
         $results['steps']['purge_webhook_events'] = [
             'success' => true,
-            'rows_deleted' => $purgeRows,
+            'rows_deleted' => $totalPurged,
         ];
-        if ($purgeRows > 0) logMsg("  Purged {$purgeRows} webhook events");
+        if ($totalPurged > 0) logMsg("  Purged {$totalPurged} webhook events");
     } else {
         $results['steps']['purge_webhook_events'] = ['success' => true, 'skipped' => true, 'reason' => 'no_swim_conn'];
     }

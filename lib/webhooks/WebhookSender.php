@@ -66,7 +66,7 @@ class WebhookSender
 
         $stmt = sqlsrv_query($this->conn, $sql, [$this->batchSize]);
         if ($stmt === false) {
-            $this->log("ERROR: Failed to fetch pending events: " . json_encode(sqlsrv_errors()));
+            $this->logError("Failed to fetch pending events: " . json_encode(sqlsrv_errors()));
             return $result;
         }
 
@@ -115,14 +115,30 @@ class WebhookSender
         $secret = $subscription['shared_secret'];
         $subId = $subscription['id'];
 
-        // Build batch payload
+        // Build batch payload, tracking which events have valid JSON
         $payloads = [];
+        $validEvents = [];
+        $invalidEvents = [];
         foreach ($events as $event) {
             $decoded = json_decode($event['payload'], true);
             if ($decoded !== null) {
                 $payloads[] = $decoded;
+                $validEvents[] = $event;
+            } else {
+                $invalidEvents[] = $event;
+                $this->logError("Event {$event['event_id']} has invalid JSON payload — dead-lettering");
             }
         }
+
+        // Dead-letter events with corrupt JSON
+        foreach ($invalidEvents as $badEvent) {
+            $sql = "UPDATE dbo.swim_webhook_events SET status = 'dead', attempts = attempts + 1 WHERE event_id = ?";
+            $s = sqlsrv_query($this->conn, $sql, [$badEvent['event_id']]);
+            if ($s) sqlsrv_free_stmt($s);
+            $result['dead']++;
+        }
+
+        if (empty($payloads)) return $result;
 
         $body = json_encode([
             'batch_id' => 'batch_' . bin2hex(random_bytes(8)),
@@ -157,7 +173,7 @@ class WebhookSender
         curl_close($ch);
 
         if ($curlError) {
-            $this->log("CURL error dispatching to {$callbackUrl}: {$curlError}");
+            $this->logError("CURL error dispatching to {$callbackUrl}: {$curlError}");
             $this->handleBatchFailure($events, $subId);
             $this->circuitBreaker->recordError();
             $result['failed'] = count($events);
@@ -165,11 +181,11 @@ class WebhookSender
         }
 
         if ($httpCode >= 200 && $httpCode < 300) {
-            // Success
-            $this->markEventsDelivered($events);
+            // Success — only mark events that were actually sent
+            $this->markEventsDelivered($validEvents);
             $this->updateSubscriptionSuccess($subId);
             $this->circuitBreaker->recordSuccess();
-            $result['dispatched'] = count($events);
+            $result['dispatched'] = count($validEvents);
             $this->log("Dispatched " . count($events) . " events to {$callbackUrl} (HTTP {$httpCode})");
         } elseif ($httpCode >= 500) {
             // Server error — retry + circuit breaker
@@ -177,13 +193,13 @@ class WebhookSender
             $tripped = $this->circuitBreaker->recordError();
             $result['failed'] = count($events);
             if ($tripped) {
-                $this->log("Circuit breaker TRIPPED after 5xx from {$callbackUrl}");
+                $this->logError("Circuit breaker TRIPPED after 5xx from {$callbackUrl}");
             }
         } else {
             // 4xx — likely a persistent problem, still retry but don't trip circuit
             $this->handleBatchFailure($events, $subId);
             $result['failed'] = count($events);
-            $this->log("HTTP {$httpCode} from {$callbackUrl}: {$response}");
+            $this->logError("HTTP {$httpCode} from {$callbackUrl}: {$response}");
         }
 
         return $result;
@@ -201,8 +217,9 @@ class WebhookSender
             if ($attempts > $maxRetries) {
                 // Dead letter
                 $sql = "UPDATE dbo.swim_webhook_events SET status = 'dead', attempts = ? WHERE event_id = ?";
-                sqlsrv_query($this->conn, $sql, [$attempts, $event['event_id']]);
-                $this->log("Event {$event['event_id']} dead-lettered after {$attempts} attempts");
+                $s = sqlsrv_query($this->conn, $sql, [$attempts, $event['event_id']]);
+                if ($s) sqlsrv_free_stmt($s);
+                $this->logError("Event {$event['event_id']} dead-lettered after {$attempts} attempts");
             } else {
                 // Schedule retry
                 $delaySec = $this->retryIntervals[$attempts - 1] ?? 90;
@@ -210,7 +227,8 @@ class WebhookSender
                         SET status = 'sent', attempts = ?,
                             next_retry_utc = DATEADD(SECOND, ?, SYSUTCDATETIME())
                         WHERE event_id = ?";
-                sqlsrv_query($this->conn, $sql, [$attempts, $delaySec, $event['event_id']]);
+                $s = sqlsrv_query($this->conn, $sql, [$attempts, $delaySec, $event['event_id']]);
+                if ($s) sqlsrv_free_stmt($s);
             }
         }
 
@@ -220,7 +238,8 @@ class WebhookSender
                     consecutive_failures = consecutive_failures + 1,
                     updated_utc = SYSUTCDATETIME()
                 WHERE id = ?";
-        sqlsrv_query($this->conn, $sql, [$subscriptionId]);
+        $s = sqlsrv_query($this->conn, $sql, [$subscriptionId]);
+        if ($s) sqlsrv_free_stmt($s);
     }
 
     /**
@@ -232,7 +251,8 @@ class WebhookSender
             $sql = "UPDATE dbo.swim_webhook_events
                     SET status = 'delivered', delivered_utc = SYSUTCDATETIME()
                     WHERE event_id = ?";
-            sqlsrv_query($this->conn, $sql, [$event['event_id']]);
+            $s = sqlsrv_query($this->conn, $sql, [$event['event_id']]);
+            if ($s) sqlsrv_free_stmt($s);
         }
     }
 
@@ -246,7 +266,8 @@ class WebhookSender
                     consecutive_failures = 0,
                     updated_utc = SYSUTCDATETIME()
                 WHERE id = ?";
-        sqlsrv_query($this->conn, $sql, [$subscriptionId]);
+        $s = sqlsrv_query($this->conn, $sql, [$subscriptionId]);
+        if ($s) sqlsrv_free_stmt($s);
     }
 
     /**
@@ -262,6 +283,11 @@ class WebhookSender
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         sqlsrv_free_stmt($stmt);
         return $row ?: null;
+    }
+
+    private function logError(string $msg): void
+    {
+        error_log("[WebhookSender] $msg");
     }
 
     private function log(string $msg): void

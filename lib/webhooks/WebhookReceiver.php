@@ -81,6 +81,7 @@ class WebhookReceiver
                   AND created_utc > DATEADD(HOUR, ?, SYSUTCDATETIME())";
         $stmt = sqlsrv_query($this->conn, $sql, [$eventId, -$this->dedupWindowHours]);
         if ($stmt === false) {
+            error_log("[WebhookReceiver] isDuplicate query failed: " . json_encode(sqlsrv_errors()));
             return false; // On error, allow processing (at-least-once)
         }
         $exists = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_NUMERIC) !== null;

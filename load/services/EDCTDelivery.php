@@ -515,9 +515,9 @@ class EDCTDelivery
 
         $eventId = match($type) {
             'edct_assigned' => $builder->edctAssigned($flight_uid, $callsign, $edct_utc, $program_id, $reason),
-            'edct_revised'  => $builder->edctRevised($flight_uid, $callsign, '', $edct_utc, $program_id, $reason),
             'edct_cancelled' => $builder->edctCancelled($flight_uid, $callsign, $reason),
             default => null,
+            // Note: edct_revised requires old EDCT value — call WebhookEventBuilder::edctRevised() directly
         };
 
         // Also push to WebSocket via IPC for real-time delivery

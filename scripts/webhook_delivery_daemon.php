@@ -36,6 +36,7 @@ $interval = max(5, $interval);
 $wwwroot = dirname(__DIR__);
 require_once $wwwroot . '/load/config.php';
 require_once $wwwroot . '/load/connect.php';
+require_once $wwwroot . '/load/swim_config.php';
 require_once $wwwroot . '/lib/webhooks/WebhookSender.php';
 require_once $wwwroot . '/lib/connectors/CircuitBreaker.php';
 
@@ -160,8 +161,11 @@ do {
         180   // 3-minute cooldown
     );
 
-    // Initialize sender
-    $sender = new WebhookSender($conn, $cb, [10, 30, 90], 50, $debug);
+    // Initialize sender (read config from swim_config.php)
+    global $SWIM_WEBHOOK_CONFIG;
+    $retryIntervals = $SWIM_WEBHOOK_CONFIG['retry_intervals'] ?? [10, 30, 90];
+    $batchSize = $SWIM_WEBHOOK_CONFIG['batch_size'] ?? 50;
+    $sender = new WebhookSender($conn, $cb, $retryIntervals, $batchSize, $debug);
 
     if ($debug) wh_log("Cycle #{$cycleCount}: Processing pending events...", 'DEBUG');
 

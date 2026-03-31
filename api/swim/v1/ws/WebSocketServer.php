@@ -438,7 +438,7 @@ class WebSocketServer implements MessageComponentInterface
             CURLOPT_TIMEOUT => 5,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'X-SWIM-API-Key: ' . $apiKey,
+                'X-API-Key: ' . $apiKey,
             ],
         ]);
         $response = curl_exec($ch);
