@@ -3,11 +3,11 @@
  * VATSWIM API v1 - TMI Facility Stats Endpoint
  *
  * Returns aggregated TMI statistics per facility, available in hourly or daily granularity.
- * Data from SWIM_API database (swim_tmi_facility_stats_hourly / swim_tmi_facility_stats_daily mirror tables).
+ * Data from SWIM_API database (swim_tmi_facility_stats_hourly / swim_tmi_facility_stats_daily).
  *
  * GET /api/swim/v1/tmi/facility-stats
  * GET /api/swim/v1/tmi/facility-stats?airport=KJFK&period=hourly
- * GET /api/swim/v1/tmi/facility-stats?airport=KJFK&period=daily
+ * GET /api/swim/v1/tmi/facility-stats?airport=KJFK&period=daily&days=30
  *
  * @version 1.0.0
  */
@@ -25,10 +25,11 @@ $auth = swim_init_auth(true, false);
 
 // Get filter parameters
 $period = strtolower(swim_get_param('period', 'hourly'));  // hourly or daily
-$airport = swim_get_param('airport');                       // Airport ICAO filter (airport_icao)
-$facility = swim_get_param('facility');                     // Facility filter
-$hours = swim_get_int_param('hours', 24, 1, 720);          // Hours lookback for hourly (default 24, max 30 days)
-$days = swim_get_int_param('days', 7, 1, 90);              // Days lookback for daily (default 7, max 90)
+$airport = swim_get_param('airport');                       // airport_icao filter
+$facility = swim_get_param('facility');                     // Facility name filter
+$facility_type = swim_get_param('facility_type');           // Facility type filter (ARTCC, TRACON, etc.)
+$hours = swim_get_int_param('hours', 24, 1, 720);          // Hours lookback for hourly (max 30 days)
+$days = swim_get_int_param('days', 7, 1, 90);              // Days lookback for daily (max 90)
 
 $page = swim_get_int_param('page', 1, 1, 1000);
 $per_page = swim_get_int_param('per_page', SWIM_DEFAULT_PAGE_SIZE, 1, SWIM_MAX_PAGE_SIZE);
@@ -39,7 +40,6 @@ if (!in_array($period, ['hourly', 'daily'])) {
     SwimResponse::error('Invalid period parameter. Use "hourly" or "daily".', 400, 'INVALID_PARAMETER');
 }
 
-// Select table and time column based on period
 $is_hourly = ($period === 'hourly');
 $table = $is_hourly ? 'dbo.swim_tmi_facility_stats_hourly' : 'dbo.swim_tmi_facility_stats_daily';
 $time_col = $is_hourly ? 'hour_utc' : 'date_utc';
@@ -71,6 +71,13 @@ if ($facility) {
     $params = array_merge($params, $fac_list);
 }
 
+if ($facility_type) {
+    $ft_list = array_map('trim', explode(',', strtoupper($facility_type)));
+    $placeholders = implode(',', array_fill(0, count($ft_list), '?'));
+    $where_clauses[] = "f.facility_type IN ($placeholders)";
+    $params = array_merge($params, $ft_list);
+}
+
 $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
 
 // Count total
@@ -87,47 +94,36 @@ sqlsrv_free_stmt($count_stmt);
 if ($is_hourly) {
     $columns = "
         f.stat_id,
-        f.airport_icao,
         f.facility,
+        f.facility_type,
+        f.airport_icao,
         f.hour_utc,
-        f.total_programs,
-        f.active_gdps,
-        f.active_ground_stops,
-        f.active_afps,
-        f.controlled_flights,
-        f.avg_delay_minutes,
-        f.max_delay_minutes,
-        f.total_delay_minutes,
-        f.aar_actual,
-        f.aar_planned,
-        f.adr_actual,
-        f.adr_planned,
-        f.demand_count,
-        f.capacity_utilization_pct,
-        f.compliance_pct,
-        f.created_utc
+        f.total_operations,
+        f.total_arrivals,
+        f.total_departures,
+        f.ontime_arrivals,
+        f.delayed_arrivals,
+        f.avg_arr_delay_min,
+        f.max_arr_delay_min,
+        f.delay_min_total,
+        f.computed_utc
     ";
     $order_col = 'f.hour_utc';
 } else {
     $columns = "
         f.stat_id,
-        f.airport_icao,
         f.facility,
+        f.facility_type,
+        f.airport_icao,
         f.date_utc,
-        f.total_programs,
-        f.total_gdps,
-        f.total_ground_stops,
-        f.total_afps,
-        f.total_controlled_flights,
-        f.avg_delay_minutes,
-        f.max_delay_minutes,
-        f.total_delay_minutes,
-        f.peak_demand,
-        f.avg_capacity_utilization_pct,
-        f.avg_compliance_pct,
-        f.total_advisories,
-        f.total_entries,
-        f.created_utc
+        f.total_operations,
+        f.total_arrivals,
+        f.total_departures,
+        f.ontime_arr_pct,
+        f.avg_arr_delay_min,
+        f.delay_min_total,
+        f.programs_issued,
+        f.computed_utc
     ";
     $order_col = 'f.date_utc';
 }
@@ -160,12 +156,10 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $entry = $is_hourly ? formatHourlyStat($row) : formatDailyStat($row);
     $stats_data[] = $entry;
 
-    // Update summary
     $apt = $row['airport_icao'];
     if ($apt) {
         $summary['by_airport'][$apt] = ($summary['by_airport'][$apt] ?? 0) + 1;
     }
-
     $fac = $row['facility'];
     if ($fac) {
         $summary['by_facility'][$fac] = ($summary['by_facility'][$fac] ?? 0) + 1;
@@ -173,7 +167,6 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 }
 sqlsrv_free_stmt($stmt);
 
-// Sort summary
 arsort($summary['by_airport']);
 arsort($summary['by_facility']);
 
@@ -192,6 +185,7 @@ $response = [
         'period' => $period,
         'airport' => $airport,
         'facility' => $facility,
+        'facility_type' => $facility_type,
         'hours' => $is_hourly ? $hours : null,
         'days' => !$is_hourly ? $days : null
     ],
@@ -209,74 +203,37 @@ SwimResponse::json($response);
 function formatHourlyStat($row) {
     return [
         'stat_id' => $row['stat_id'],
-        'airport_icao' => $row['airport_icao'],
         'facility' => $row['facility'],
+        'facility_type' => $row['facility_type'],
+        'airport_icao' => $row['airport_icao'],
         'hour_utc' => formatDT($row['hour_utc']),
-
-        'programs' => [
-            'total' => $row['total_programs'],
-            'active_gdps' => $row['active_gdps'],
-            'active_ground_stops' => $row['active_ground_stops'],
-            'active_afps' => $row['active_afps']
-        ],
-
-        'delay' => [
-            'controlled_flights' => $row['controlled_flights'],
-            'avg_minutes' => $row['avg_delay_minutes'],
-            'max_minutes' => $row['max_delay_minutes'],
-            'total_minutes' => $row['total_delay_minutes']
-        ],
-
-        'capacity' => [
-            'aar_actual' => $row['aar_actual'],
-            'aar_planned' => $row['aar_planned'],
-            'adr_actual' => $row['adr_actual'],
-            'adr_planned' => $row['adr_planned'],
-            'demand_count' => $row['demand_count'],
-            'utilization_pct' => $row['capacity_utilization_pct']
-        ],
-
-        'compliance_pct' => $row['compliance_pct'],
-        '_created_utc' => formatDT($row['created_utc'])
+        'total_operations' => $row['total_operations'],
+        'total_arrivals' => $row['total_arrivals'],
+        'total_departures' => $row['total_departures'],
+        'ontime_arrivals' => $row['ontime_arrivals'],
+        'delayed_arrivals' => $row['delayed_arrivals'],
+        'avg_arr_delay_min' => $row['avg_arr_delay_min'] !== null ? (float)$row['avg_arr_delay_min'] : null,
+        'max_arr_delay_min' => $row['max_arr_delay_min'] !== null ? (float)$row['max_arr_delay_min'] : null,
+        'delay_min_total' => (float)$row['delay_min_total'],
+        'computed_utc' => formatDT($row['computed_utc'])
     ];
 }
 
 function formatDailyStat($row) {
     return [
         'stat_id' => $row['stat_id'],
-        'airport_icao' => $row['airport_icao'],
         'facility' => $row['facility'],
+        'facility_type' => $row['facility_type'],
+        'airport_icao' => $row['airport_icao'],
         'date_utc' => formatDT($row['date_utc']),
-
-        'programs' => [
-            'total' => $row['total_programs'],
-            'total_gdps' => $row['total_gdps'],
-            'total_ground_stops' => $row['total_ground_stops'],
-            'total_afps' => $row['total_afps']
-        ],
-
-        'delay' => [
-            'total_controlled_flights' => $row['total_controlled_flights'],
-            'avg_minutes' => $row['avg_delay_minutes'],
-            'max_minutes' => $row['max_delay_minutes'],
-            'total_minutes' => $row['total_delay_minutes']
-        ],
-
-        'demand' => [
-            'peak_demand' => $row['peak_demand'],
-            'avg_capacity_utilization_pct' => $row['avg_capacity_utilization_pct']
-        ],
-
-        'compliance' => [
-            'avg_compliance_pct' => $row['avg_compliance_pct']
-        ],
-
-        'counts' => [
-            'total_advisories' => $row['total_advisories'],
-            'total_entries' => $row['total_entries']
-        ],
-
-        '_created_utc' => formatDT($row['created_utc'])
+        'total_operations' => $row['total_operations'],
+        'total_arrivals' => $row['total_arrivals'],
+        'total_departures' => $row['total_departures'],
+        'ontime_arr_pct' => $row['ontime_arr_pct'] !== null ? (float)$row['ontime_arr_pct'] : null,
+        'avg_arr_delay_min' => $row['avg_arr_delay_min'] !== null ? (float)$row['avg_arr_delay_min'] : null,
+        'delay_min_total' => (float)$row['delay_min_total'],
+        'programs_issued' => $row['programs_issued'],
+        'computed_utc' => formatDT($row['computed_utc'])
     ];
 }
 

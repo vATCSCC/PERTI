@@ -24,11 +24,11 @@ $auth = swim_init_auth(true, false);
 
 // Get filter parameters
 $hours = swim_get_int_param('hours', 4, 1, 168);       // Default 4h, max 7 days
-$category = swim_get_param('category');                  // Event category filter (PROGRAM, ADVISORY, etc.)
-$type = swim_get_param('type');                          // Event type filter
+$category = swim_get_param('category');                  // action_category filter (PROGRAM, ADVISORY, etc.)
+$type = swim_get_param('type');                          // action_type filter
 $program_type = swim_get_param('program_type');          // Program type filter (GDP, GS, AFP)
-$facility = swim_get_param('facility');                  // Facility/airport filter
-$org = swim_get_param('org');                            // Organization filter
+$facility = swim_get_param('facility');                  // issuing_facility filter
+$org = swim_get_param('org');                            // issuing_org filter
 $severity = swim_get_param('severity');                  // Severity filter
 
 $page = swim_get_int_param('page', 1, 1, 1000);
@@ -46,14 +46,14 @@ $params[] = $hours;
 if ($category) {
     $cat_list = array_map('trim', explode(',', strtoupper($category)));
     $placeholders = implode(',', array_fill(0, count($cat_list), '?'));
-    $where_clauses[] = "c.category IN ($placeholders)";
+    $where_clauses[] = "c.action_category IN ($placeholders)";
     $params = array_merge($params, $cat_list);
 }
 
 if ($type) {
     $type_list = array_map('trim', explode(',', strtoupper($type)));
     $placeholders = implode(',', array_fill(0, count($type_list), '?'));
-    $where_clauses[] = "c.event_type IN ($placeholders)";
+    $where_clauses[] = "c.action_type IN ($placeholders)";
     $params = array_merge($params, $type_list);
 }
 
@@ -67,14 +67,14 @@ if ($program_type) {
 if ($facility) {
     $fac_list = array_map('trim', explode(',', strtoupper($facility)));
     $placeholders = implode(',', array_fill(0, count($fac_list), '?'));
-    $where_clauses[] = "(c.facility IN ($placeholders) OR s.scope_value IN ($placeholders))";
+    $where_clauses[] = "(c.issuing_facility IN ($placeholders) OR s.facility IN ($placeholders))";
     $params = array_merge($params, $fac_list, $fac_list);
 }
 
 if ($org) {
     $org_list = array_map('trim', explode(',', strtoupper($org)));
     $placeholders = implode(',', array_fill(0, count($org_list), '?'));
-    $where_clauses[] = "c.org IN ($placeholders)";
+    $where_clauses[] = "c.issuing_org IN ($placeholders)";
     $params = array_merge($params, $org_list);
 }
 
@@ -87,7 +87,7 @@ if ($severity) {
 
 $where_sql = 'WHERE ' . implode(' AND ', $where_clauses);
 
-// Count total (use core table only for count to avoid inflation from JOINs)
+// Count total (core table only, no facility filter that needs scope JOIN)
 $count_where_clauses = [];
 $count_params = [];
 
@@ -97,14 +97,14 @@ $count_params[] = $hours;
 if ($category) {
     $cat_list = array_map('trim', explode(',', strtoupper($category)));
     $placeholders = implode(',', array_fill(0, count($cat_list), '?'));
-    $count_where_clauses[] = "c.category IN ($placeholders)";
+    $count_where_clauses[] = "c.action_category IN ($placeholders)";
     $count_params = array_merge($count_params, $cat_list);
 }
 
 if ($type) {
     $type_list = array_map('trim', explode(',', strtoupper($type)));
     $placeholders = implode(',', array_fill(0, count($type_list), '?'));
-    $count_where_clauses[] = "c.event_type IN ($placeholders)";
+    $count_where_clauses[] = "c.action_type IN ($placeholders)";
     $count_params = array_merge($count_params, $type_list);
 }
 
@@ -118,7 +118,7 @@ if ($program_type) {
 if ($org) {
     $org_list = array_map('trim', explode(',', strtoupper($org)));
     $placeholders = implode(',', array_fill(0, count($org_list), '?'));
-    $count_where_clauses[] = "c.org IN ($placeholders)";
+    $count_where_clauses[] = "c.issuing_org IN ($placeholders)";
     $count_params = array_merge($count_params, $org_list);
 }
 
@@ -140,38 +140,52 @@ if ($count_stmt === false) {
 $total = sqlsrv_fetch_array($count_stmt, SQLSRV_FETCH_ASSOC)['total'];
 sqlsrv_free_stmt($count_stmt);
 
-// Main query with LEFT JOINs
+// Main query with LEFT JOINs to satellite tables
 $sql = "
     SELECT
         c.log_id,
-        c.event_utc,
-        c.category,
-        c.event_type,
+        c.log_seq,
+        c.action_category,
+        c.action_type,
         c.program_type,
-        c.program_id,
-        c.facility,
-        c.org,
         c.severity,
+        c.source_system,
         c.summary,
-        c.created_by,
-        c.created_utc,
-        s.scope_type,
-        s.scope_value,
-        s.scope_direction,
-        p.cause_category AS param_cause_category,
-        p.cause_detail AS param_cause_detail,
-        p.rate_value AS param_rate_value,
-        p.rate_unit AS param_rate_unit,
-        p.delay_minutes AS param_delay_minutes,
-        p.scope_filter AS param_scope_filter,
-        i.affected_flights AS impact_affected_flights,
-        i.avg_delay_minutes AS impact_avg_delay_minutes,
-        i.max_delay_minutes AS impact_max_delay_minutes,
-        i.total_delay_minutes AS impact_total_delay_minutes,
-        i.compliance_pct AS impact_compliance_pct,
-        r.ref_type,
-        r.ref_id,
-        r.ref_label
+        c.event_utc,
+        c.user_cid,
+        c.user_name,
+        c.issuing_facility,
+        c.issuing_org,
+        s.ctl_element,
+        s.element_type,
+        s.facility AS scope_facility,
+        s.traffic_flow,
+        s.via_fix,
+        s.scope_airports,
+        s.scope_tiers,
+        p.effective_start_utc,
+        p.effective_end_utc,
+        p.rate_value,
+        p.rate_unit,
+        p.program_rate,
+        p.cause_category,
+        p.cause_detail,
+        p.cancellation_reason,
+        i.total_flights,
+        i.controlled_flights,
+        i.avg_delay_min,
+        i.max_delay_min,
+        i.total_delay_min,
+        i.demand_rate,
+        i.capacity_rate,
+        i.compliance_rate,
+        r.program_id AS ref_program_id,
+        r.entry_id AS ref_entry_id,
+        r.advisory_id AS ref_advisory_id,
+        r.reroute_id AS ref_reroute_id,
+        r.slot_id AS ref_slot_id,
+        r.flight_uid AS ref_flight_uid,
+        r.advisory_number AS ref_advisory_number
     FROM dbo.swim_tmi_log_core c
     LEFT JOIN dbo.swim_tmi_log_scope s ON c.log_id = s.log_id
     LEFT JOIN dbo.swim_tmi_log_parameters p ON c.log_id = p.log_id
@@ -203,22 +217,18 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
     $entry = formatEventLog($row);
     $events[] = $entry;
 
-    // Update stats
-    $cat = $row['category'];
+    $cat = $row['action_category'];
     if ($cat) {
         $stats['by_category'][$cat] = ($stats['by_category'][$cat] ?? 0) + 1;
     }
-
-    $evt_type = $row['event_type'];
+    $evt_type = $row['action_type'];
     if ($evt_type) {
         $stats['by_type'][$evt_type] = ($stats['by_type'][$evt_type] ?? 0) + 1;
     }
-
-    $fac = $row['facility'];
+    $fac = $row['issuing_facility'];
     if ($fac) {
         $stats['by_facility'][$fac] = ($stats['by_facility'][$fac] ?? 0) + 1;
     }
-
     $sev = $row['severity'];
     if ($sev) {
         $stats['by_severity'][$sev] = ($stats['by_severity'][$sev] ?? 0) + 1;
@@ -226,7 +236,6 @@ while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
 }
 sqlsrv_free_stmt($stmt);
 
-// Sort stats
 arsort($stats['by_category']);
 arsort($stats['by_type']);
 arsort($stats['by_facility']);
@@ -265,47 +274,60 @@ SwimResponse::json($response);
 function formatEventLog($row) {
     return [
         'log_id' => $row['log_id'],
+        'log_seq' => $row['log_seq'],
         'event_utc' => formatDT($row['event_utc']),
-        'category' => $row['category'],
-        'event_type' => $row['event_type'],
+        'action_category' => $row['action_category'],
+        'action_type' => $row['action_type'],
         'program_type' => $row['program_type'],
-        'program_id' => $row['program_id'],
-        'facility' => $row['facility'],
-        'org' => $row['org'],
         'severity' => $row['severity'],
+        'source_system' => $row['source_system'],
         'summary' => $row['summary'],
+        'user_cid' => $row['user_cid'],
+        'user_name' => $row['user_name'],
+        'issuing_facility' => $row['issuing_facility'],
+        'issuing_org' => $row['issuing_org'],
 
         'scope' => [
-            'type' => $row['scope_type'],
-            'value' => $row['scope_value'],
-            'direction' => $row['scope_direction']
+            'ctl_element' => $row['ctl_element'],
+            'element_type' => $row['element_type'],
+            'facility' => $row['scope_facility'],
+            'traffic_flow' => $row['traffic_flow'],
+            'via_fix' => $row['via_fix'],
+            'airports' => $row['scope_airports'],
+            'tiers' => $row['scope_tiers']
         ],
 
         'parameters' => [
-            'cause_category' => $row['param_cause_category'],
-            'cause_detail' => $row['param_cause_detail'],
-            'rate_value' => $row['param_rate_value'],
-            'rate_unit' => $row['param_rate_unit'],
-            'delay_minutes' => $row['param_delay_minutes'],
-            'scope_filter' => $row['param_scope_filter']
+            'effective_start_utc' => formatDT($row['effective_start_utc']),
+            'effective_end_utc' => formatDT($row['effective_end_utc']),
+            'rate_value' => $row['rate_value'],
+            'rate_unit' => $row['rate_unit'],
+            'program_rate' => $row['program_rate'],
+            'cause_category' => $row['cause_category'],
+            'cause_detail' => $row['cause_detail'],
+            'cancellation_reason' => $row['cancellation_reason']
         ],
 
         'impact' => [
-            'affected_flights' => $row['impact_affected_flights'],
-            'avg_delay_minutes' => $row['impact_avg_delay_minutes'],
-            'max_delay_minutes' => $row['impact_max_delay_minutes'],
-            'total_delay_minutes' => $row['impact_total_delay_minutes'],
-            'compliance_pct' => $row['impact_compliance_pct']
+            'total_flights' => $row['total_flights'],
+            'controlled_flights' => $row['controlled_flights'],
+            'avg_delay_min' => $row['avg_delay_min'],
+            'max_delay_min' => $row['max_delay_min'],
+            'total_delay_min' => $row['total_delay_min'],
+            'demand_rate' => $row['demand_rate'],
+            'capacity_rate' => $row['capacity_rate'],
+            'compliance_rate' => $row['compliance_rate']
         ],
 
-        'reference' => [
-            'type' => $row['ref_type'],
-            'id' => $row['ref_id'],
-            'label' => $row['ref_label']
-        ],
-
-        '_created_by' => $row['created_by'],
-        '_created_utc' => formatDT($row['created_utc'])
+        'references' => [
+            'program_id' => $row['ref_program_id'],
+            'entry_id' => $row['ref_entry_id'],
+            'advisory_id' => $row['ref_advisory_id'],
+            'reroute_id' => $row['ref_reroute_id'],
+            'slot_id' => $row['ref_slot_id'],
+            'flight_uid' => $row['ref_flight_uid'],
+            'advisory_number' => $row['ref_advisory_number']
+        ]
     ];
 }
 

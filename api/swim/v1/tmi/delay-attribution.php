@@ -6,7 +6,7 @@
  * Data from SWIM_API database (swim_tmi_delay_attribution mirror table).
  *
  * GET /api/swim/v1/tmi/delay-attribution
- * GET /api/swim/v1/tmi/delay-attribution?airport=KJFK&current_only=1
+ * GET /api/swim/v1/tmi/delay-attribution?airport=KJFK&current_only=true
  * GET /api/swim/v1/tmi/delay-attribution?flight_uid=12345
  *
  * @version 1.0.0
@@ -25,10 +25,11 @@ $auth = swim_init_auth(true, false);
 
 // Get filter parameters
 $airport = swim_get_param('airport');                    // Arrival airport filter (arr_icao)
+$dep_airport = swim_get_param('dep_airport');            // Departure airport filter (dep_icao)
 $flight_uid = swim_get_param('flight_uid');              // Specific flight UID
-$cause_category = swim_get_param('cause_category');      // Cause category filter (WEATHER, VOLUME, EQUIPMENT, etc.)
+$cause_category = swim_get_param('cause_category');      // Cause category filter (WEATHER, VOLUME, etc.)
 $delay_phase = swim_get_param('delay_phase');            // Delay phase filter (GROUND, AIRBORNE, etc.)
-$program_id = swim_get_param('program_id');              // Program ID filter
+$program_id = swim_get_param('program_id');              // Attributed program ID filter
 $current_only = swim_get_param('current_only', 'true') === 'true';
 
 $page = swim_get_int_param('page', 1, 1, 1000);
@@ -50,9 +51,16 @@ if ($airport) {
     $params = array_merge($params, $apt_list);
 }
 
+if ($dep_airport) {
+    $dep_list = array_map('trim', explode(',', strtoupper($dep_airport)));
+    $placeholders = implode(',', array_fill(0, count($dep_list), '?'));
+    $where_clauses[] = "d.dep_icao IN ($placeholders)";
+    $params = array_merge($params, $dep_list);
+}
+
 if ($flight_uid) {
     $where_clauses[] = "d.flight_uid = ?";
-    $params[] = $flight_uid;
+    $params[] = intval($flight_uid);
 }
 
 if ($cause_category) {
@@ -70,7 +78,7 @@ if ($delay_phase) {
 }
 
 if ($program_id) {
-    $where_clauses[] = "d.program_id = ?";
+    $where_clauses[] = "d.attributed_program_id = ?";
     $params[] = intval($program_id);
 }
 
@@ -94,23 +102,15 @@ $sql = "
         d.callsign,
         d.dep_icao,
         d.arr_icao,
-        d.program_id,
-        d.program_type,
-        d.cause_category,
-        d.cause_detail,
         d.delay_phase,
         d.delay_minutes,
-        d.edct_delay_minutes,
-        d.airborne_delay_minutes,
-        d.total_delay_minutes,
-        d.assigned_slot_utc,
-        d.original_etd_utc,
-        d.controlled_etd_utc,
-        d.original_eta_utc,
-        d.controlled_eta_utc,
-        d.is_current,
+        d.cause_category,
+        d.cause_subcategory,
+        d.attributed_program_id,
+        d.attributed_facility,
+        d.computation_method,
         d.computed_utc,
-        d.created_utc
+        d.is_current
     FROM dbo.swim_tmi_delay_attribution d
     $where_sql
     ORDER BY d.computed_utc DESC
@@ -130,42 +130,45 @@ $attributions = [];
 $stats = [
     'by_cause' => [],
     'by_phase' => [],
-    'by_airport' => [],
-    'by_program_type' => []
+    'by_airport' => []
 ];
 
 while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-    $entry = formatAttribution($row);
-    $attributions[] = $entry;
+    $attributions[] = [
+        'attribution_id' => $row['attribution_id'],
+        'flight_uid' => $row['flight_uid'],
+        'callsign' => $row['callsign'],
+        'dep_icao' => $row['dep_icao'],
+        'arr_icao' => $row['arr_icao'],
+        'delay_phase' => $row['delay_phase'],
+        'delay_minutes' => (float)$row['delay_minutes'],
+        'cause_category' => $row['cause_category'],
+        'cause_subcategory' => $row['cause_subcategory'],
+        'attributed_program_id' => $row['attributed_program_id'],
+        'attributed_facility' => $row['attributed_facility'],
+        'computation_method' => $row['computation_method'],
+        'computed_utc' => formatDT($row['computed_utc']),
+        'is_current' => (bool)$row['is_current']
+    ];
 
-    // Update stats
     $cause = $row['cause_category'];
     if ($cause) {
         $stats['by_cause'][$cause] = ($stats['by_cause'][$cause] ?? 0) + 1;
     }
-
     $phase = $row['delay_phase'];
     if ($phase) {
         $stats['by_phase'][$phase] = ($stats['by_phase'][$phase] ?? 0) + 1;
     }
-
     $apt = $row['arr_icao'];
     if ($apt) {
         $stats['by_airport'][$apt] = ($stats['by_airport'][$apt] ?? 0) + 1;
     }
-
-    $ptype = $row['program_type'];
-    if ($ptype) {
-        $stats['by_program_type'][$ptype] = ($stats['by_program_type'][$ptype] ?? 0) + 1;
-    }
 }
 sqlsrv_free_stmt($stmt);
 
-// Sort stats
 arsort($stats['by_cause']);
 arsort($stats['by_phase']);
 arsort($stats['by_airport']);
-arsort($stats['by_program_type']);
 
 $response = [
     'success' => true,
@@ -180,6 +183,7 @@ $response = [
     ],
     'filters' => [
         'airport' => $airport,
+        'dep_airport' => $dep_airport,
         'flight_uid' => $flight_uid,
         'cause_category' => $cause_category,
         'delay_phase' => $delay_phase,
@@ -195,49 +199,6 @@ $response = [
 
 SwimResponse::json($response);
 
-
-function formatAttribution($row) {
-    return [
-        'attribution_id' => $row['attribution_id'],
-        'flight_uid' => $row['flight_uid'],
-        'callsign' => $row['callsign'],
-
-        'route' => [
-            'departure' => $row['dep_icao'],
-            'arrival' => $row['arr_icao']
-        ],
-
-        'program' => [
-            'id' => $row['program_id'],
-            'type' => $row['program_type']
-        ],
-
-        'cause' => [
-            'category' => $row['cause_category'],
-            'detail' => $row['cause_detail']
-        ],
-
-        'delay' => [
-            'phase' => $row['delay_phase'],
-            'delay_minutes' => $row['delay_minutes'],
-            'edct_delay_minutes' => $row['edct_delay_minutes'],
-            'airborne_delay_minutes' => $row['airborne_delay_minutes'],
-            'total_delay_minutes' => $row['total_delay_minutes']
-        ],
-
-        'times' => [
-            'assigned_slot_utc' => formatDT($row['assigned_slot_utc']),
-            'original_etd_utc' => formatDT($row['original_etd_utc']),
-            'controlled_etd_utc' => formatDT($row['controlled_etd_utc']),
-            'original_eta_utc' => formatDT($row['original_eta_utc']),
-            'controlled_eta_utc' => formatDT($row['controlled_eta_utc'])
-        ],
-
-        'is_current' => (bool)$row['is_current'],
-        '_computed_utc' => formatDT($row['computed_utc']),
-        '_created_utc' => formatDT($row['created_utc'])
-    ];
-}
 
 function formatDT($dt) {
     if ($dt === null) return null;
