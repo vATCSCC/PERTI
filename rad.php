@@ -6,6 +6,7 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 include("load/config.php");
+define('PERTI_MYSQL_ONLY', true);
 include("load/connect.php");
 
 $perm = false;
@@ -32,12 +33,19 @@ if (!$perm) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <?php
+        $page_title = __('rad.pageTitle');
+        include("load/header.php");
+    ?>
+
+    <!-- MapLibre GL JS -->
     <script>window.PERTI_USE_MAPLIBRE = true;</script>
     <link href="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@4.5.0/dist/maplibre-gl.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
-    <link rel="stylesheet" href="assets/css/route-analysis.css">
-    <link rel="stylesheet" href="assets/css/rad.css">
+
+    <link rel="stylesheet" href="assets/css/route-analysis.css<?= _v('assets/css/route-analysis.css') ?>">
+    <link rel="stylesheet" href="assets/css/rad.css<?= _v('assets/css/rad.css') ?>">
 </head>
 <body>
 <?php include("load/nav.php"); ?>
@@ -57,22 +65,22 @@ if (!$perm) {
     <ul class="nav nav-tabs" id="radTabs" role="tablist">
         <li class="nav-item">
             <a class="nav-link active" id="tab-search" data-toggle="tab" href="#pane-search" role="tab">
-                <i class="fas fa-search mr-1"></i>Search
+                <i class="fas fa-search mr-1"></i><span data-i18n="rad.tabs.search">Search</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="tab-detail" data-toggle="tab" href="#pane-detail" role="tab">
-                <i class="fas fa-plane mr-1"></i>Detail
+                <i class="fas fa-plane mr-1"></i><span data-i18n="rad.tabs.detail">Detail</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="tab-edit" data-toggle="tab" href="#pane-edit" role="tab">
-                <i class="fas fa-edit mr-1"></i>Edit
+                <i class="fas fa-edit mr-1"></i><span data-i18n="rad.tabs.edit">Edit</span>
             </a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="tab-monitoring" data-toggle="tab" href="#pane-monitoring" role="tab">
-                <i class="fas fa-eye mr-1"></i>Monitoring
+                <i class="fas fa-eye mr-1"></i><span data-i18n="rad.tabs.monitoring">Monitoring</span>
             </a>
         </li>
     </ul>
@@ -118,6 +126,11 @@ if (!$perm) {
 </div>
 
 <?php include('load/footer.php'); ?>
-<script src="assets/js/rad.js"></script>
+<script src="assets/js/rad-event-bus.js<?= _v('assets/js/rad-event-bus.js') ?>"></script>
+<script src="assets/js/rad-flight-search.js<?= _v('assets/js/rad-flight-search.js') ?>"></script>
+<script src="assets/js/rad-flight-detail.js<?= _v('assets/js/rad-flight-detail.js') ?>"></script>
+<script src="assets/js/rad-amendment.js<?= _v('assets/js/rad-amendment.js') ?>"></script>
+<script src="assets/js/rad-monitoring.js<?= _v('assets/js/rad-monitoring.js') ?>"></script>
+<script src="assets/js/rad.js<?= _v('assets/js/rad.js') ?>"></script>
 </body>
 </html>
