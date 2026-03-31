@@ -1,0 +1,73 @@
+{
+  "app": {
+    "title": "VATSWIM Pilot Portal",
+    "subtitle": "Flight Management Dashboard"
+  },
+  "flight": {
+    "callsign": "Callsign",
+    "departure": "Departure",
+    "destination": "Destination",
+    "status": "Status",
+    "edct": "EDCT",
+    "ctot": "CTOT",
+    "no_edct": "No EDCT assigned",
+    "no_ctot": "No CTOT assigned",
+    "enter_callsign": "Enter your callsign"
+  },
+  "tos": {
+    "title": "Trajectory Options",
+    "file": "File TOS",
+    "status": "TOS Status",
+    "option": "Option {rank}",
+    "route": "Route",
+    "flight_time": "Flight Time",
+    "fuel_penalty": "Fuel Penalty",
+    "add_option": "Add Option",
+    "remove_option": "Remove",
+    "submit": "Submit TOS",
+    "filed": "Filed",
+    "assigned": "Assigned",
+    "rejected": "Rejected",
+    "expired": "Expired",
+    "no_options": "No TOS options filed",
+    "submit_success": "TOS filed successfully",
+    "submit_error": "Failed to file TOS"
+  },
+  "tmi": {
+    "title": "TMI Advisories",
+    "no_active": "No active TMI advisories",
+    "gdp": "Ground Delay Program",
+    "gs": "Ground Stop",
+    "afp": "Airspace Flow Program",
+    "mit": "Miles in Trail",
+    "reroute": "Reroute",
+    "airport": "Airport",
+    "status": "Status",
+    "delay": "Delay"
+  },
+  "aman": {
+    "title": "Arrival Sequence",
+    "sequence": "Sequence #{number}",
+    "eta": "ETA",
+    "sta": "STA",
+    "delay": "Delay",
+    "fix": "Fix",
+    "no_sequence": "No AMAN sequence data",
+    "frozen": "Frozen",
+    "tentative": "Tentative",
+    "computed": "Computed"
+  },
+  "status": {
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "connecting": "Connecting...",
+    "error": "Error"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry",
+    "minutes": "{n} min",
+    "seconds": "{n} sec"
+  }
+}

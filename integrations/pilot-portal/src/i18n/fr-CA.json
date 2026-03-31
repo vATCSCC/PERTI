@@ -1,0 +1,73 @@
+{
+  "app": {
+    "title": "Portail pilote VATSWIM",
+    "subtitle": "Tableau de bord de gestion de vol"
+  },
+  "flight": {
+    "callsign": "Indicatif d'appel",
+    "departure": "Départ",
+    "destination": "Destination",
+    "status": "Statut",
+    "edct": "EDCT",
+    "ctot": "CTOT",
+    "no_edct": "Aucun EDCT assigné",
+    "no_ctot": "Aucun CTOT assigné",
+    "enter_callsign": "Entrez votre indicatif d'appel"
+  },
+  "tos": {
+    "title": "Options de trajectoire",
+    "file": "Déposer le TOS",
+    "status": "Statut TOS",
+    "option": "Option {rank}",
+    "route": "Route",
+    "flight_time": "Temps de vol",
+    "fuel_penalty": "Surcoût carburant",
+    "add_option": "Ajouter une option",
+    "remove_option": "Supprimer",
+    "submit": "Soumettre le TOS",
+    "filed": "Déposé",
+    "assigned": "Assigné",
+    "rejected": "Rejeté",
+    "expired": "Expiré",
+    "no_options": "Aucune option TOS déposée",
+    "submit_success": "TOS déposé avec succès",
+    "submit_error": "Échec du dépôt du TOS"
+  },
+  "tmi": {
+    "title": "Avis TMI",
+    "no_active": "Aucun avis TMI actif",
+    "gdp": "Programme de retard au sol",
+    "gs": "Arrêt au sol",
+    "afp": "Programme de flux aérien",
+    "mit": "Milles en file",
+    "reroute": "Déroutement",
+    "airport": "Aéroport",
+    "status": "Statut",
+    "delay": "Retard"
+  },
+  "aman": {
+    "title": "Séquence d'arrivée",
+    "sequence": "Séquence #{number}",
+    "eta": "HEA",
+    "sta": "HPA",
+    "delay": "Retard",
+    "fix": "Point de cheminement",
+    "no_sequence": "Aucune donnée de séquence AMAN",
+    "frozen": "Gelé",
+    "tentative": "Provisoire",
+    "computed": "Calculé"
+  },
+  "status": {
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "connecting": "Connexion...",
+    "error": "Erreur"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur s'est produite",
+    "retry": "Réessayer",
+    "minutes": "{n} min",
+    "seconds": "{n} s"
+  }
+}
