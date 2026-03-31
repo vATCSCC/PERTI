@@ -196,10 +196,10 @@ if ($method === 'POST') {
     $positions = $input['positions'] ?? [];
     
     // Insert config and get ID in one query using OUTPUT clause
-    $sql = "INSERT INTO splits_configs (artcc, config_name, start_time_utc, end_time_utc, status, created_by, created_at, updated_at)
+    $sql = "INSERT INTO splits_configs (artcc, config_name, start_time_utc, end_time_utc, status, created_by, [source], created_at, updated_at)
             OUTPUT INSERTED.id
-            VALUES (?, ?, ?, ?, ?, ?, GETUTCDATE(), GETUTCDATE())";
-    
+            VALUES (?, ?, ?, ?, ?, ?, 'perti', GETUTCDATE(), GETUTCDATE())";
+
     $stmt = sqlsrv_query($conn_adl, $sql, [$artcc, $config_name, $start_time, $end_time, $status, $created_by]);
     
     if ($stmt === false) {

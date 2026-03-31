@@ -1017,6 +1017,157 @@ function getTier2Configs(): array {
 }
 
 // ============================================================================
+// Table Configurations — Splits (Tier 1: configs/positions, Tier 2: presets/areas)
+// ============================================================================
+
+/**
+ * Tier 1: Splits configs and positions (delta sync every 5 min).
+ * Source: VATSIM_ADL splits_configs + splits_positions (schema migration 010, swim migration 033)
+ */
+function getTier1SplitsConfigs(): array {
+    return [
+        // Active/scheduled/draft/inactive configs (excludes archived)
+        'splits_configs_swim' => [
+            'swim_table' => 'splits_configs_swim',
+            'pk' => 'id',
+            'watermark' => 'updated_at',
+            'source_query' => "SELECT id, artcc, config_name, status, start_time_utc, end_time_utc,
+                                      sector_type, [source], source_id, created_by, activated_at,
+                                      created_at, updated_at
+                               FROM dbo.splits_configs
+                               WHERE status NOT IN ('archived')",
+            'columns' => [
+                'id' => 'INT', 'artcc' => 'NVARCHAR(4)', 'config_name' => 'NVARCHAR(100)',
+                'status' => 'NVARCHAR(20)', 'start_time_utc' => 'DATETIME2',
+                'end_time_utc' => 'DATETIME2', 'sector_type' => 'NVARCHAR(10)',
+                'source' => 'NVARCHAR(50)', 'source_id' => 'NVARCHAR(100)',
+                'created_by' => 'NVARCHAR(50)', 'activated_at' => 'DATETIME2',
+                'created_at' => 'DATETIME2', 'updated_at' => 'DATETIME2',
+            ],
+        ],
+
+        // Positions for all non-archived configs
+        'splits_positions_swim' => [
+            'swim_table' => 'splits_positions_swim',
+            'pk' => 'id',
+            'watermark' => '', // No watermark on positions — always sync with config
+            'source_query' => "SELECT p.id, p.config_id, p.position_name, p.sectors, p.color,
+                                      p.sort_order, p.frequency, p.controller_oi, p.strata_filter,
+                                      p.start_time_utc, p.end_time_utc
+                               FROM dbo.splits_positions p
+                               INNER JOIN dbo.splits_configs c ON c.id = p.config_id
+                               WHERE c.status NOT IN ('archived')",
+            'columns' => [
+                'id' => 'INT', 'config_id' => 'INT', 'position_name' => 'NVARCHAR(50)',
+                'sectors' => 'NVARCHAR(MAX)', 'color' => 'NVARCHAR(10)',
+                'sort_order' => 'INT', 'frequency' => 'NVARCHAR(20)',
+                'controller_oi' => 'NVARCHAR(50)', 'strata_filter' => 'NVARCHAR(100)',
+                'start_time_utc' => 'DATETIME2', 'end_time_utc' => 'DATETIME2',
+            ],
+        ],
+    ];
+}
+
+/**
+ * Tier 2: Splits presets and areas (full replace daily).
+ * Source: VATSIM_ADL splits_presets/preset_positions/areas
+ */
+function getTier2SplitsConfigs(): array {
+    return [
+        'splits_presets_swim' => [
+            'swim_table' => 'splits_presets_swim',
+            'source_query' => 'SELECT id, preset_name, artcc, description, created_at, updated_at FROM dbo.splits_presets',
+            'columns' => [
+                'id' => 'INT', 'preset_name' => 'NVARCHAR(100)', 'artcc' => 'NVARCHAR(4)',
+                'description' => 'NVARCHAR(500)', 'created_at' => 'DATETIME2',
+                'updated_at' => 'DATETIME2',
+            ],
+        ],
+
+        'splits_preset_positions_swim' => [
+            'swim_table' => 'splits_preset_positions_swim',
+            'source_query' => 'SELECT id, preset_id, position_name, sectors, color, sort_order, frequency, strata_filter FROM dbo.splits_preset_positions',
+            'columns' => [
+                'id' => 'INT', 'preset_id' => 'INT', 'position_name' => 'NVARCHAR(50)',
+                'sectors' => 'NVARCHAR(MAX)', 'color' => 'NVARCHAR(10)',
+                'sort_order' => 'INT', 'frequency' => 'NVARCHAR(20)',
+                'strata_filter' => 'NVARCHAR(100)',
+            ],
+        ],
+
+        'splits_areas_swim' => [
+            'swim_table' => 'splits_areas_swim',
+            'source_query' => 'SELECT id, artcc, area_name, sectors, description, color, created_at, updated_at FROM dbo.splits_areas',
+            'columns' => [
+                'id' => 'INT', 'artcc' => 'NVARCHAR(4)', 'area_name' => 'NVARCHAR(100)',
+                'sectors' => 'NVARCHAR(MAX)', 'description' => 'NVARCHAR(500)',
+                'color' => 'NVARCHAR(10)', 'created_at' => 'DATETIME2',
+                'updated_at' => 'DATETIME2',
+            ],
+        ],
+    ];
+}
+
+/**
+ * Detect splits state transitions and log to splits_history_swim.
+ *
+ * Compares current ADL state with SWIM mirror to detect:
+ * - Configs that became 'active' (were not active before)
+ * - Configs that became 'inactive' (were active before)
+ * - Active configs with updated_at > synced_utc (modified)
+ */
+function syncSplitsHistory($conn_adl, $conn_swim): void {
+    // Get current active configs from ADL
+    $sql = "SELECT c.id, c.artcc, c.config_name, c.status, c.sector_type,
+                   c.[source], c.updated_at
+            FROM dbo.splits_configs c
+            WHERE c.status IN ('active', 'inactive')
+              AND c.updated_at > DATEADD(MINUTE, -10, GETUTCDATE())";
+    $stmt = @sqlsrv_query($conn_adl, $sql);
+    if ($stmt === false) return;
+
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        // Check if we already logged this transition
+        $config_id = $row['id'];
+        $status = $row['status'];
+        $event_type = $status === 'active' ? 'activated' : 'deactivated';
+        $facility = $row['artcc'];
+
+        foreach ($row as $k => $v) {
+            if ($v instanceof DateTime) {
+                $row[$k] = $v->format('Y-m-d H:i:s');
+            }
+        }
+
+        // Check if this exact transition was already logged in the last 10 minutes
+        $checkSql = "SELECT TOP 1 id FROM dbo.splits_history_swim
+                     WHERE config_id = ? AND event_type = ? AND event_at > DATEADD(MINUTE, -10, SYSUTCDATETIME())";
+        $checkStmt = @sqlsrv_query($conn_swim, $checkSql, [$config_id, $event_type]);
+        if ($checkStmt !== false) {
+            $exists = sqlsrv_fetch_array($checkStmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($checkStmt);
+            if ($exists) continue; // Already logged
+        }
+
+        // Build snapshot
+        $snapshot = json_encode($row, JSON_UNESCAPED_UNICODE);
+
+        // Insert history record
+        $insertSql = "INSERT INTO dbo.splits_history_swim
+                         (config_id, facility, event_type, config_snapshot, [source], event_at, synced_utc)
+                      VALUES (?, ?, ?, ?, ?, SYSUTCDATETIME(), SYSUTCDATETIME())";
+        @sqlsrv_query($conn_swim, $insertSql, [
+            $config_id, $facility, $event_type, $snapshot, $row['source'] ?? 'perti'
+        ]);
+    }
+    sqlsrv_free_stmt($stmt);
+
+    // Purge old history (> 30 days)
+    @sqlsrv_query($conn_swim,
+        "DELETE FROM dbo.splits_history_swim WHERE event_at < DATEADD(DAY, -30, SYSUTCDATETIME())");
+}
+
+// ============================================================================
 // Tier 1 Sync Runner
 // ============================================================================
 
@@ -1092,6 +1243,26 @@ function runTier1Sync($conn_tmi, $conn_adl, $conn_swim, bool $debug): array {
             $lastSync ? 'delta' : 'full', $stats['error']);
     }
 
+    // Splits configs + positions from VATSIM_ADL (migration schema/010 + swim/033)
+    $splitsConfigs = getTier1SplitsConfigs();
+    foreach ($splitsConfigs as $name => $config) {
+        $lastSync = getLastSyncTime($conn_swim, $name);
+        $stats = syncTableToSwim($conn_adl, $conn_swim, $config, $lastSync);
+        $results[$name] = $stats;
+
+        if ($stats['error']) {
+            tmi_log("  $name: ERROR - {$stats['error']}", 'ERROR');
+        } elseif ($stats['rows_read'] > 0 || $debug) {
+            tmi_log("  $name: {$stats['rows_read']} read, {$stats['updated']} merged in {$stats['duration_ms']}ms");
+        }
+
+        updateSyncState($conn_swim, $name, $stats['rows_read'], $stats['duration_ms'],
+            $lastSync ? 'delta' : 'full', $stats['error']);
+    }
+
+    // Detect and log splits state transitions for history table
+    syncSplitsHistory($conn_adl, $conn_swim);
+
     $totalMs = (int)round((microtime(true) - $totalStart) * 1000);
     $totalRows = array_sum(array_column($results, 'rows_read'));
     $errorCount = count(array_filter($results, fn($s) => $s['error'] !== null));
@@ -1132,6 +1303,23 @@ function runTier2Sync($conn_adl, $conn_swim, bool $debug): array {
             $stats['duration_ms'], 'full', $stats['error']);
 
         // Brief pause between tables to stay within DTU budget
+        sleep(2);
+    }
+
+    // Splits presets + areas from VATSIM_ADL (full replace — rarely change)
+    $splitsRefConfigs = getTier2SplitsConfigs();
+    foreach ($splitsRefConfigs as $name => $config) {
+        tmi_log("  Syncing reference: $name ...");
+        $stats = syncTableFullReplace($conn_adl, $conn_swim, $config);
+        $results[$name] = $stats;
+
+        if ($stats['error']) {
+            tmi_log("  $name: ERROR - {$stats['error']}", 'ERROR');
+        } else {
+            tmi_log("  $name: {$stats['inserted']} inserted in {$stats['duration_ms']}ms");
+        }
+
+        updateSyncState($conn_swim, $name, $stats['inserted'], $stats['duration_ms'], 'full', $stats['error']);
         sleep(2);
     }
 

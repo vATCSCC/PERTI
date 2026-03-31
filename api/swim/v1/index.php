@@ -53,8 +53,16 @@ SwimResponse::success([
             'GET /api/swim/v1/reference/taxi-times' => 'Airport unimpeded taxi-out reference times (FAA ASPM methodology)',
             'GET /api/swim/v1/reference/taxi-times/{airport}' => 'Taxi-out reference with dimensional breakdown (weight class, carrier, engine config)'
         ],
+        'splits' => [
+            'GET /api/swim/v1/splits/active' => 'Active split configurations (all facilities)',
+            'GET /api/swim/v1/splits/facility' => 'Active splits for a specific facility (?facility=ZNY)',
+            'GET /api/swim/v1/splits/configs' => 'All saved configurations (any status)',
+            'GET /api/swim/v1/splits/presets' => 'Reusable preset templates',
+            'GET /api/swim/v1/splits/areas' => 'Predefined sector area groupings',
+            'GET /api/swim/v1/splits/history' => 'Recent split state transitions',
+            'POST /api/swim/v1/splits/ingest' => 'Push split configuration from external tool'
+        ],
         'configuration' => [
-            'GET /api/swim/v1/splits/presets' => 'Runway configuration presets',
             'GET /api/swim/v1/fea' => 'Flow Evaluation Areas'
         ]
     ],

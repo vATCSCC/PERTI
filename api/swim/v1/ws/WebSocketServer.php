@@ -307,12 +307,13 @@ class WebSocketServer implements MessageComponentInterface
             'flight.created', 'flight.updated', 'flight.deleted',
             'tmi.issued', 'tmi.modified', 'tmi.released',
             'ctp.slots.optimized', 'ctp.session.updated', 'ctp.edct.assigned',
-            'tmi.*', 'flight.*', 'system.*', 'ctp.*',
+            'splits.activated', 'splits.deactivated', 'splits.updated', 'splits.ingested',
+            'tmi.*', 'flight.*', 'system.*', 'ctp.*', 'splits.*',
             'system.heartbeat',
         ];
         
         foreach ($channels as $channel) {
-            if (!in_array($channel, $validChannels) && !preg_match('/^(flight|tmi|system|ctp)\.\*$/', $channel)) {
+            if (!in_array($channel, $validChannels) && !preg_match('/^(flight|tmi|system|ctp|splits)\.\*$/', $channel)) {
                 $this->sendError($conn, 'INVALID_CHANNEL', "Unknown channel: {$channel}");
                 return;
             }
