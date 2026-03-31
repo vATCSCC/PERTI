@@ -100,6 +100,143 @@ class EDCTDelivery
     }
 
     // =========================================================================
+    // EXTENDED TMI MESSAGE FORMATTING (Bridge 1: HoppieWriter)
+    // =========================================================================
+
+    public function formatEDCTAmendedMessage(string $new_edct_utc, string $prev_edct_utc): string
+    {
+        $newHhmm = date('Hi', strtotime($new_edct_utc));
+        $prevHhmm = date('Hi', strtotime($prev_edct_utc));
+        return "REVISED EDCT {$newHhmm}Z. PREVIOUS {$prevHhmm}Z";
+    }
+
+    public function formatEDCTCancelMessage(string $edct_utc): string
+    {
+        $hhmm = date('Hi', strtotime($edct_utc));
+        return "DISREGARD EDCT {$hhmm}Z. DEPART WHEN READY";
+    }
+
+    public function formatCTOTMessage(string $ctot_utc, ?string $regulation_id = null): string
+    {
+        $hhmm = date('Hi', strtotime($ctot_utc));
+        $msg = "CALCULATED TAKEOFF TIME {$hhmm}Z";
+        if ($regulation_id) {
+            $msg .= ". CTOT REGULATION $regulation_id";
+        }
+        return $msg;
+    }
+
+    public function formatGSHoldMessage(string $dest, ?string $expect_update_utc = null): string
+    {
+        $msg = "GROUND STOP IN EFFECT FOR $dest. HOLD FOR RELEASE.";
+        if ($expect_update_utc) {
+            $hhmm = date('Hi', strtotime($expect_update_utc));
+            $msg .= " EXPECT UPDATE BY {$hhmm}Z";
+        }
+        return $msg;
+    }
+
+    public function formatGSReleaseMessage(string $dest, string $followon = 'RELEASED'): string
+    {
+        if ($followon === 'GDP_ACTIVE') {
+            return "GROUND STOP RLSD FOR $dest. FLIGHTS MAY RECEIVE NEW EDCTS DUE TO AN ACTIVE FLOW PROGRAM";
+        }
+        return "GROUND STOP RLSD FOR $dest. DISREGARD EDCT & DEPART WHEN READY";
+    }
+
+    public function formatRerouteMessage(
+        string $advisory_num,
+        string $route,
+        string $delivery_mode = 'VOICE',
+        ?string $delivery_freq = null
+    ): string {
+        if ($delivery_mode === 'DELIVERY' && $delivery_freq) {
+            return "REROUTE ADVISORY $advisory_num. AMEND ROUTE TO $route OR CONTACT DELIVERY AT $delivery_freq FOR AMENDED CLEARANCE";
+        }
+        return "REROUTE ADVISORY $advisory_num. AMEND ROUTE TO $route OR STANDBY FOR VOICE CLEARANCE";
+    }
+
+    public function formatFlowMeasureMessage(string $measure_type, string $value, string $fir): string
+    {
+        return "FLOW RESTRICTION: $measure_type $value FOR $fir";
+    }
+
+    public function formatMITMessage(int $miles, string $fix): string
+    {
+        return "MILES IN TRAIL {$miles}NM IN EFFECT AT $fix. EXPECT DELAY.";
+    }
+
+    public function formatAFPMessage(string $airspace, int $rate, int $delay_min): string
+    {
+        return "AIRSPACE FLOW PROGRAM IN EFFECT FOR $airspace. $rate FLIGHTS PER HOUR. EXPECT DELAY $delay_min MIN.";
+    }
+
+    public function formatMeteringMessage(string $fix, string $sta_utc): string
+    {
+        $hhmm = date('Hi', strtotime($sta_utc));
+        return "CROSS $fix AT {$hhmm}Z. SCHEDULED TIME OF ARRIVAL {$hhmm}Z.";
+    }
+
+    public function formatHoldMessage(string $fix, ?string $efc_utc = null): string
+    {
+        $msg = "EXPECT HOLDING AT $fix.";
+        if ($efc_utc) {
+            $hhmm = date('Hi', strtotime($efc_utc));
+            $msg .= " EXPECT FURTHER CLEARANCE {$hhmm}Z.";
+        }
+        return $msg;
+    }
+
+    public function formatCTPSlotMessage(string $entry_fix, string $slot_utc, string $route): string
+    {
+        $hhmm = date('Hi', strtotime($slot_utc));
+        return "CTP SLOT ASSIGNED: $entry_fix AT {$hhmm}Z. ROUTE: $route. CONFIRM ACCEPTANCE.";
+    }
+
+    public function formatWeatherRerouteMessage(string $area, string $route): string
+    {
+        return "CONVECTIVE ACTIVITY NEAR $area. SUGGESTED DEVIATION: $route. PILOT DISCRETION.";
+    }
+
+    public function formatTOSQueryMessage(string $dep, string $dest): string
+    {
+        return "TRAJECTORY OPTIONS REQUESTED FOR $dep-$dest. FILE VIA PILOT CLIENT OR VATSWIM.";
+    }
+
+    public function formatTOSAckMessage(int $count): string
+    {
+        return "$count TRAJECTORY OPTIONS ON FILE. STANDBY FOR ASSIGNMENT.";
+    }
+
+    public function formatTOSAssignMessage(int $option_num, string $route, string $reason, ?string $advisory_num = null): string
+    {
+        $inline = "TRAJECTORY OPTION $option_num ASSIGNED: $route. REASON: $reason.";
+        if (strlen($inline) <= 200) {
+            return $inline;
+        }
+        if ($advisory_num) {
+            return "TRAJECTORY OPTION $option_num ASSIGNED PER ADVISORY $advisory_num. CHECK PILOT CLIENT FOR ROUTE DETAIL.";
+        }
+        return "TRAJECTORY OPTION $option_num ASSIGNED. CHECK PILOT CLIENT FOR ROUTE DETAIL. REASON: $reason.";
+    }
+
+    public function formatTrafficAdvisory(string $type, string $facility, ?string $options = null): string
+    {
+        switch ($type) {
+            case 'arrival_volume':
+                return "HIGH ARRIVAL VOLUME FOR $facility. SUGGEST REDIRECTING TO $options TO AVOID EXCESSIVE DELAYS.";
+            case 'departure_volume':
+                return "HIGH DEPARTURE VOLUME OVER $facility. SUGGEST REROUTING OVER $options TO AVOID EXCESSIVE DELAYS.";
+            case 'reroute_fuel':
+                return "REROUTE/S IN EFFECT $facility. USERS SHOULD FUEL ACCORDINGLY.";
+            case 'delay_fuel':
+                return "DELAYS $facility. USERS SHOULD FUEL ACCORDINGLY.";
+            default:
+                return "TRAFFIC ADVISORY FOR $facility: $options";
+        }
+    }
+
+    // =========================================================================
     // MULTI-CHANNEL DELIVERY
     // =========================================================================
 
