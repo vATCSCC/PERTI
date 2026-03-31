@@ -53,6 +53,10 @@ if (!defined('PERTI_LOADED')) {
 // Load swim_config for swim_generate_gufi_legacy()
 require_once __DIR__ . '/../load/swim_config.php';
 
+// Load CDM + EDCT delivery for CTOT notification dispatch
+require_once __DIR__ . '/../load/services/CDMService.php';
+require_once __DIR__ . '/../load/services/EDCTDelivery.php';
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -981,6 +985,34 @@ function viff_update_flight($conn_swim, array $match, array $f, bool $debug): bo
         $callsign = $f['callsign'] ?? 'unknown';
         $departure = $f['departure'] ?? '????';
         viff_log("  Updated: $callsign ($departure) uid={$match['flight_uid']}", 'DEBUG');
+    }
+
+    // Deliver CTOT notification if CTOT was written and row was updated
+    if ($rows > 0 && $ctotIso !== null) {
+        try {
+            static $edctDelivery = null;
+            if ($edctDelivery === null) {
+                $cdmService = new CDMService($conn_swim, get_conn_tmi());
+                $edctDelivery = new EDCTDelivery($cdmService, get_conn_tmi(), $debug);
+            }
+            $callsign = $match['callsign'] ?? ($f['callsign'] ?? null);
+            if ($callsign) {
+                $regulationId = $f['mostPenalizingAirspace'] ?? null;
+                $message = $edctDelivery->formatCTOTMessage($ctotIso, $regulationId);
+                $edctDelivery->deliverMessage(
+                    (int)$match['flight_uid'],
+                    $callsign,
+                    CDMService::MSG_CTOT,
+                    $message,
+                    $ctotIso
+                );
+                if ($debug) {
+                    viff_log("  CTOT delivery queued: $callsign CTOT=$ctotIso", 'DEBUG');
+                }
+            }
+        } catch (\Throwable $e) {
+            viff_log("CTOT delivery error for uid={$match['flight_uid']}: " . $e->getMessage(), 'WARN');
+        }
     }
 
     return $rows > 0;

@@ -100,6 +100,143 @@ class EDCTDelivery
     }
 
     // =========================================================================
+    // EXTENDED TMI MESSAGE FORMATTING (Bridge 1: HoppieWriter)
+    // =========================================================================
+
+    public function formatEDCTAmendedMessage(string $new_edct_utc, string $prev_edct_utc): string
+    {
+        $newHhmm = date('Hi', strtotime($new_edct_utc));
+        $prevHhmm = date('Hi', strtotime($prev_edct_utc));
+        return "REVISED EDCT {$newHhmm}Z. PREVIOUS {$prevHhmm}Z";
+    }
+
+    public function formatEDCTCancelMessage(string $edct_utc): string
+    {
+        $hhmm = date('Hi', strtotime($edct_utc));
+        return "DISREGARD EDCT {$hhmm}Z. DEPART WHEN READY";
+    }
+
+    public function formatCTOTMessage(string $ctot_utc, ?string $regulation_id = null): string
+    {
+        $hhmm = date('Hi', strtotime($ctot_utc));
+        $msg = "CALCULATED TAKEOFF TIME {$hhmm}Z";
+        if ($regulation_id) {
+            $msg .= ". CTOT REGULATION $regulation_id";
+        }
+        return $msg;
+    }
+
+    public function formatGSHoldMessage(string $dest, ?string $expect_update_utc = null): string
+    {
+        $msg = "GROUND STOP IN EFFECT FOR $dest. HOLD FOR RELEASE.";
+        if ($expect_update_utc) {
+            $hhmm = date('Hi', strtotime($expect_update_utc));
+            $msg .= " EXPECT UPDATE BY {$hhmm}Z";
+        }
+        return $msg;
+    }
+
+    public function formatGSReleaseMessage(string $dest, string $followon = 'RELEASED'): string
+    {
+        if ($followon === 'GDP_ACTIVE') {
+            return "GROUND STOP RLSD FOR $dest. FLIGHTS MAY RECEIVE NEW EDCTS DUE TO AN ACTIVE FLOW PROGRAM";
+        }
+        return "GROUND STOP RLSD FOR $dest. DISREGARD EDCT & DEPART WHEN READY";
+    }
+
+    public function formatRerouteMessage(
+        string $advisory_num,
+        string $route,
+        string $delivery_mode = 'VOICE',
+        ?string $delivery_freq = null
+    ): string {
+        if ($delivery_mode === 'DELIVERY' && $delivery_freq) {
+            return "REROUTE ADVISORY $advisory_num. AMEND ROUTE TO $route OR CONTACT DELIVERY AT $delivery_freq FOR AMENDED CLEARANCE";
+        }
+        return "REROUTE ADVISORY $advisory_num. AMEND ROUTE TO $route OR STANDBY FOR VOICE CLEARANCE";
+    }
+
+    public function formatFlowMeasureMessage(string $measure_type, string $value, string $fir): string
+    {
+        return "FLOW RESTRICTION: $measure_type $value FOR $fir";
+    }
+
+    public function formatMITMessage(int $miles, string $fix): string
+    {
+        return "MILES IN TRAIL {$miles}NM IN EFFECT AT $fix. EXPECT DELAY.";
+    }
+
+    public function formatAFPMessage(string $airspace, int $rate, int $delay_min): string
+    {
+        return "AIRSPACE FLOW PROGRAM IN EFFECT FOR $airspace. $rate FLIGHTS PER HOUR. EXPECT DELAY $delay_min MIN.";
+    }
+
+    public function formatMeteringMessage(string $fix, string $sta_utc): string
+    {
+        $hhmm = date('Hi', strtotime($sta_utc));
+        return "CROSS $fix AT {$hhmm}Z. SCHEDULED TIME OF ARRIVAL {$hhmm}Z.";
+    }
+
+    public function formatHoldMessage(string $fix, ?string $efc_utc = null): string
+    {
+        $msg = "EXPECT HOLDING AT $fix.";
+        if ($efc_utc) {
+            $hhmm = date('Hi', strtotime($efc_utc));
+            $msg .= " EXPECT FURTHER CLEARANCE {$hhmm}Z.";
+        }
+        return $msg;
+    }
+
+    public function formatCTPSlotMessage(string $entry_fix, string $slot_utc, string $route): string
+    {
+        $hhmm = date('Hi', strtotime($slot_utc));
+        return "CTP SLOT ASSIGNED: $entry_fix AT {$hhmm}Z. ROUTE: $route. CONFIRM ACCEPTANCE.";
+    }
+
+    public function formatWeatherRerouteMessage(string $area, string $route): string
+    {
+        return "CONVECTIVE ACTIVITY NEAR $area. SUGGESTED DEVIATION: $route. PILOT DISCRETION.";
+    }
+
+    public function formatTOSQueryMessage(string $dep, string $dest): string
+    {
+        return "TRAJECTORY OPTIONS REQUESTED FOR $dep-$dest. FILE VIA PILOT CLIENT OR VATSWIM.";
+    }
+
+    public function formatTOSAckMessage(int $count): string
+    {
+        return "$count TRAJECTORY OPTIONS ON FILE. STANDBY FOR ASSIGNMENT.";
+    }
+
+    public function formatTOSAssignMessage(int $option_num, string $route, string $reason, ?string $advisory_num = null): string
+    {
+        $inline = "TRAJECTORY OPTION $option_num ASSIGNED: $route. REASON: $reason.";
+        if (strlen($inline) <= 200) {
+            return $inline;
+        }
+        if ($advisory_num) {
+            return "TRAJECTORY OPTION $option_num ASSIGNED PER ADVISORY $advisory_num. CHECK PILOT CLIENT FOR ROUTE DETAIL.";
+        }
+        return "TRAJECTORY OPTION $option_num ASSIGNED. CHECK PILOT CLIENT FOR ROUTE DETAIL. REASON: $reason.";
+    }
+
+    public function formatTrafficAdvisory(string $type, string $facility, ?string $options = null): string
+    {
+        switch ($type) {
+            case 'arrival_volume':
+                return "HIGH ARRIVAL VOLUME FOR $facility. SUGGEST REDIRECTING TO $options TO AVOID EXCESSIVE DELAYS.";
+            case 'departure_volume':
+                return "HIGH DEPARTURE VOLUME OVER $facility. SUGGEST REROUTING OVER $options TO AVOID EXCESSIVE DELAYS.";
+            case 'reroute_fuel':
+                return "REROUTE/S IN EFFECT $facility. USERS SHOULD FUEL ACCORDINGLY.";
+            case 'delay_fuel':
+                return "DELAYS $facility. USERS SHOULD FUEL ACCORDINGLY.";
+            default:
+                return "TRAFFIC ADVISORY FOR $facility: $options";
+        }
+    }
+
+    // =========================================================================
     // MULTI-CHANNEL DELIVERY
     // =========================================================================
 
@@ -146,7 +283,7 @@ class EDCTDelivery
         $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id);
 
         // Channel 3: Web dashboard (via WebSocket)
-        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id, $edct_utc);
+        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, CDMService::MSG_EDCT, $message_body, $cid, $program_id, $slot_id, $edct_utc);
 
         // Channel 4: Discord DM (if CID is linked)
         if ($cid) {
@@ -183,7 +320,7 @@ class EDCTDelivery
 
         $results['cpdlc'] = $this->deliverViaCPDLC($flight_uid, $callsign, $message_body, $cid, $program_id);
         $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id);
-        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_body, $cid, $program_id, null, $tsat_utc);
+        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, CDMService::MSG_GATE_HOLD, $message_body, $cid, $program_id, null, $tsat_utc);
 
         return $results;
     }
@@ -211,9 +348,103 @@ class EDCTDelivery
 
         $results['cpdlc'] = $this->deliverViaCPDLC($flight_uid, $callsign, $message_body, $cid, $program_id);
         $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id);
-        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_body, $cid, $program_id, null, $ttot_utc);
+        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, CDMService::MSG_GATE_RELEASE, $message_body, $cid, $program_id, null, $ttot_utc);
 
         return $results;
+    }
+
+    /**
+     * Generic multi-channel delivery for any TMI message type.
+     * Used by all extended message types (CTOT, GS, reroute, flow, etc.)
+     */
+    public function deliverMessage(
+        int $flight_uid,
+        string $callsign,
+        string $message_type,
+        string $message_body,
+        ?string $time_utc = null,
+        ?int $cid = null,
+        ?int $program_id = null,
+        ?int $slot_id = null
+    ): array {
+        $results = [];
+
+        if ($this->is_hibernation) {
+            $msg_id = $this->cdm->queueMessage(
+                $flight_uid, $callsign, $message_type,
+                $message_body, 'all', $cid, $program_id, $slot_id
+            );
+            $results['hibernation_queued'] = $msg_id !== false;
+            $this->log("$message_type hibernation-queued for $callsign");
+            return $results;
+        }
+
+        if ($this->isDuplicateMessage($flight_uid, $message_body)) {
+            $this->log("$message_type skipped (duplicate) for $callsign");
+            return ['skipped' => 'duplicate'];
+        }
+
+        $results['cpdlc'] = $this->deliverViaCPDLC($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id);
+        $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id);
+        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_type, $message_body, $cid, $program_id, $slot_id, $time_utc);
+
+        if ($cid) {
+            $results['discord'] = $this->deliverViaDiscord($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id, $time_utc, $message_type);
+        }
+
+        $this->logDelivery($flight_uid, $callsign, $message_type, $message_body, $results, $program_id);
+
+        $delivered = array_filter($results, fn($r) => $r === true || (is_array($r) && ($r['sent'] ?? false)));
+        $this->log("$message_type delivered for $callsign: " . count($delivered) . "/" . count($results) . " channels");
+
+        return $results;
+    }
+
+    /**
+     * Check if this exact message was already delivered to this flight recently.
+     */
+    private function isDuplicateMessage(int $flight_uid, string $message_body): bool
+    {
+        $hash = hash('sha256', $message_body);
+        $sql = "SELECT TOP 1 1 FROM dbo.tmi_delivery_log
+                WHERE flight_uid = ? AND message_hash = ?
+                  AND delivered_utc > DATEADD(MINUTE, -5, SYSUTCDATETIME())";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$flight_uid, $hash]);
+        if ($stmt === false) return false;
+        $row = sqlsrv_fetch_array($stmt);
+        $exists = ($row !== null && $row !== false);
+        sqlsrv_free_stmt($stmt);
+        return $exists;
+    }
+
+    /**
+     * Log delivery to tmi_delivery_log for tracking and deduplication.
+     */
+    private function logDelivery(
+        int $flight_uid,
+        string $callsign,
+        string $message_type,
+        string $message_body,
+        array $results,
+        ?int $program_id
+    ): void {
+        $hash = hash('sha256', $message_body);
+        $channels = [];
+        foreach ($results as $ch => $r) {
+            if ($r === true || (is_array($r) && ($r['sent'] ?? false))) {
+                $channels[] = $ch;
+            }
+        }
+        $channelStr = implode(',', $channels) ?: 'none';
+
+        $sql = "INSERT INTO dbo.tmi_delivery_log (flight_uid, callsign, message_type, message_hash, program_id, channels_sent)
+                VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$flight_uid, $callsign, $message_type, $hash, $program_id, $channelStr]);
+        if ($stmt === false) {
+            $this->log("logDelivery INSERT failed: " . json_encode(sqlsrv_errors()));
+            return;
+        }
+        sqlsrv_free_stmt($stmt);
     }
 
     // =========================================================================
@@ -309,6 +540,7 @@ class EDCTDelivery
     private function deliverViaWebSocket(
         int $flight_uid,
         string $callsign,
+        string $message_type,
         string $message_body,
         ?int $cid,
         ?int $program_id,
@@ -316,7 +548,7 @@ class EDCTDelivery
         ?string $time_utc = null
     ): array {
         $msg_id = $this->cdm->queueMessage(
-            $flight_uid, $callsign, CDMService::MSG_EDCT,
+            $flight_uid, $callsign, $message_type,
             $message_body, CDMService::CHANNEL_WEB,
             $cid, $program_id, $slot_id
         );
