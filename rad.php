@@ -7,7 +7,6 @@ if (session_status() == PHP_SESSION_NONE) {
 
 include("load/config.php");
 include("load/connect.php");
-include("load/i18n.php");
 
 $perm = false;
 $cid = null;
