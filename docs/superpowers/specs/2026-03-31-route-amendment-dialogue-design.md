@@ -15,7 +15,7 @@ External clients access the same capabilities through VATSWIM API endpoints auth
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Amendment delivery | ADL fields + CPDLC (4-channel) | Active pilot notification via Hoppie, VatswimPlugin, WS, Discord. Tracks delivery + compliance. |
+| Amendment delivery | ADL fields + CPDLC (5-channel) | Active pilot notification via EDCTDelivery.php: cpdlc (Hoppie), vpilot (pilot client plugin), web (WebSocket), discord (DM), simtraffic_webhook (outbound event). Tracks delivery + compliance. |
 | Scope | TMI reroutes + ad-hoc | Matches real TFMS where RAD handles both reroute compliance and individual amendments. |
 | RRIA | Deferred | V1 focuses on core RAD workflow. RRIA (Preview + Model modes) is a future enhancement. |
 | Amendment statuses | DRAFT/SENT/DLVD/ACPT/RJCT/EXPR | Full lifecycle. DLVD = CPDLC confirmed. ACPT = pilot filed matching route. EXPR = departed without amending. |
@@ -70,7 +70,7 @@ Four tabs with badge counts:
 
 **Search bar**: Callsign text search (instant filter).
 
-**Filter controls**: Origin (airport/TRACON/center), Destination (airport/TRACON/center), Aircraft type (ICAO code), Carrier, Departure/Arrival times (ETD/CTD/ATD etc.) with UTC date/time picker (default start=now, end=now+2h, allow open-ended), Route string elements. Multi-filter enabled. Filters persist for session. Global and local filter save/load.
+**Filter controls**: Origin (airport/TRACON/center), Destination (airport/TRACON/center), Aircraft type (ICAO code), Carrier, Departure/Arrival times (ETD/CTD/ATD etc.) with UTC date/time picker (default start=now, end=now+2h, allow open-ended), Route string elements. Multi-filter enabled. Filters persist for the browser session via `sessionStorage` (key: `RAD_ACTIVE_FILTERS`). Named filter presets can be saved globally or per-user to MySQL `rad_filter_presets` table via `api/rad/filters.php`.
 
 **Results table** — two sub-rows per flight:
 
@@ -169,8 +169,9 @@ Each option shows: draw route toggle, checkbox, route string, TMI name if applic
 | Flight Status | ACTIVE/PREFILED/etc. |
 | Actions | Resend, Send (for DRAFT), Delete, alert text |
 
-- Alert row: Red background for EXPR flights that departed without amending
+- Alert row: Red background for EXPR flights that departed without amending. New EXPR transitions trigger a `PERTIDialog.warning()` toast notification (auto-dismiss after 5s) with callsign and "Departed without amendment" text.
 - **Reroute monitoring**: Polls ADL for flight plan changes, detects when filed route matches assigned route (→ ACPT), alerts when flight departs without amendment (→ EXPR)
+- **UI auto-refresh**: Monitoring tab polls `api/rad/compliance.php` every 30 seconds (configurable). Backend compliance checks run on the 15s ADL ingest daemon cycle. The 30s UI poll reflects the latest daemon-computed state.
 
 **Aggregate compliance bar**: Per-TMI-program breakdown showing C/NC/UNKN/EXC counts with compliance rate percentage.
 
@@ -228,12 +229,14 @@ Indexes: `IX_rad_amendments_gufi` on `(gufi)`, `IX_rad_amendments_status` filter
 | `changed_by` | int nullable | User CID or NULL for system |
 | `changed_utc` | datetime2 DEFAULT SYSUTCDATETIME() | When |
 
-### 5.4 `adl_flight_tmi` — New Columns
+### 5.4 `adl_flight_tmi` — New Columns (added by RAD migration)
+
+These are new `ALTER TABLE ADD COLUMN` additions to the existing `adl_flight_tmi` table:
 
 | Column | Type | Purpose |
 |--------|------|---------|
-| `rad_amendment_id` | int nullable | Current active amendment FK |
-| `rad_assigned_route` | varchar(max) nullable | Assigned route (separate from filed route) |
+| `rad_amendment_id` | int nullable | Current active amendment ID (cross-DB reference to `rad_amendments.id` in VATSIM_TMI) |
+| `rad_assigned_route` | varchar(max) nullable | Assigned route (separate from filed route per design requirement) |
 
 ### 5.5 `rad_filter_presets` (perti_site MySQL)
 
@@ -293,9 +296,12 @@ API key authenticated (`X-API-Key` header). Same capabilities as internal API.
 - Rate limiting: 60 amendment creations/min per API key (configurable)
 - All operations logged to `swim_audit_log`
 
-**New `swim_api_keys` scope values:**
-- `rad:read` — Query flights, amendments, compliance, routes
-- `rad:write` — Create/send/cancel amendments (implies `rad:read`)
+**SWIM API key authorization:**
+
+The existing `swim_api_keys` table uses `tier` (system/partner/developer/public), `can_write` (BIT), and `allowed_sources` (JSON array) — there is no `scopes` column. RAD authorization uses:
+- **Read access**: Any active API key (`is_active = 1`, not expired)
+- **Write access**: API keys with `can_write = 1` AND `tier IN ('system', 'partner')`
+- A new `allowed_features` NVARCHAR(MAX) column (JSON array, nullable) will be added to `swim_api_keys` for feature-level gating. Keys with `NULL` have access to all features. Keys with `["rad"]` or `["rad","cdm"]` etc. are restricted to listed features. This is additive — existing keys with `NULL` continue working unchanged.
 
 ## 7. Amendment Status Lifecycle
 
@@ -323,12 +329,13 @@ DRAFT ──cancel──> (deleted)
 
 ## 8. CPDLC Delivery
 
-Follows the existing `EDCTDelivery.php` 4-channel pattern:
+Follows the existing `EDCTDelivery.php` 5-channel pattern (channel identifiers match code):
 
-1. **CPDLC** (Hoppie): Uplink route amendment message to pilot's callsign
-2. **VatswimPlugin**: Push via SWIM WebSocket for connected clients
-3. **WebSocket**: Broadcast `rad:amendment_update` event
-4. **Discord**: Optional notification to configured TMI channel
+1. **`cpdlc`** (Hoppie ACARS): Uplink route amendment message to pilot's callsign
+2. **`vpilot`** (pilot client plugin): Push to vPilot/xPilot via CDMService polling queue
+3. **`web`** (WebSocket): Broadcast `rad:amendment_update` event on SWIM WS (port 8090)
+4. **`discord`** (DM): Optional notification to pilot's linked Discord account
+5. **`simtraffic_webhook`** (outbound event queue): Queued webhook event for SimTraffic integration
 
 Message format for CPDLC: `ROUTE AMENDMENT: [callsign] CLEARED [new_route] PER [tmi_id_label or "ATC"]`
 
@@ -359,12 +366,12 @@ assets/js/
 | `map:flight-clicked` | Map | Search/Detail | `{ gufi, callsign }` |
 
 **Reused modules** (no changes):
-- `route-maplibre.js` — Map, layers, route expansion, flight symbology
-- `route-analysis-panel.js` — Facility traversal tables (embedded in Route Edit)
-- `route-symbology.js` — Segment styling
-- `adl-service.js` — Live flight data subscription
-- `playbook-cdr-search.js` — Route search dialog
-- `lib/dialog.js` — PERTIDialog
+- `route-maplibre.js` — Map, layers, flight symbology. Public API via `window.MapLibreRoute`: `init()`, `processRoutes()` (route expansion + rendering), `getMap()`, `getPointByName()`, `convertRoute()`, `getPoints()`, `getCdrMap()`, `getNatTrackCache()`, `loadNATTracks()`. Note: route expansion is internal to `processRoutes()`, not standalone functions.
+- `route-analysis-panel.js` — Facility traversal tables (embedded in Route Edit). Uses `window.showRouteAnalysis()`.
+- `route-symbology.js` — Segment styling. localStorage key: `PERTI_ROUTE_SYMBOLOGY`.
+- `adl-service.js` — Live flight data subscription. API: `ADLService.subscribe(id, callback)`, `.startAutoRefresh(ms)`, `.refresh()`, `.getFlights()`. Endpoint: `api/adl/current.php`.
+- `playbook-cdr-search.js` — Route search dialog (Playbook + CDR dual source)
+- `lib/dialog.js` — PERTIDialog (SweetAlert2 wrapper with i18n)
 - `lib/i18n.js` — All strings via `PERTII18n.t()`
 
 ## 10. Shared Service Layer
@@ -411,7 +418,7 @@ Per TFMS reference:
 
 - RAD page requires authenticated session (VATSIM OAuth)
 - Amendment creation/sending restricted to TMU-level users (check against `admin_users` or role-based permission)
-- SWIM API uses `rad:read` / `rad:write` scopes on `swim_api_keys`
+- SWIM API uses existing `swim_api_keys` authorization: `can_write = 1` + `tier IN ('system','partner')` for write operations, plus new `allowed_features` column for feature-level gating
 
 ## 14. GUFI Propagation in SWIM Sync
 
@@ -443,7 +450,7 @@ All RAD strings use `PERTII18n.t()` with namespace prefix `rad.*`. Key structure
 
 - ADL: Next available migration number in `adl/migrations/core/` for GUFI column
 - TMI: Next available migration number in `database/migrations/tmi/` for `rad_amendments` + `rad_amendment_log` + `adl_flight_tmi` columns
-- SWIM: Next available migration in `database/migrations/swim/` for `swim_rad_amendments` mirror + scope values
+- SWIM: Next available migration in `database/migrations/swim/` for `swim_rad_amendments` mirror + `swim_api_keys.allowed_features` column
 - MySQL: `rad_filter_presets` table created via PHP setup script or inline migration
 
 ## 17. Future Enhancements (Out of Scope for V1)

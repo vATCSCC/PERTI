@@ -229,6 +229,13 @@ class SwimAuth {
     public function getKeyInfo() { return $this->key_info; }
     public function canWrite() { return $this->key_info && $this->key_info['can_write']; }
     public function getSourceId() { return $this->key_info ? $this->key_info['source_id'] : null; }
+    public function getAllowedFeatures(): ?array {
+        if (!$this->key_info) return null;
+        $features = $this->key_info['allowed_features'] ?? null;
+        if ($features === null) return null;
+        $decoded = json_decode($features, true);
+        return is_array($decoded) ? $decoded : null;
+    }
     public function canWriteField($field_path) {
         return $this->canWrite() && swim_can_write($field_path, $this->getSourceId());
     }
@@ -577,6 +584,19 @@ function swim_get_int_param($name, $default = 0, $min = null, $max = null) {
     if ($min !== null && $value < $min) $value = $min;
     if ($max !== null && $value > $max) $value = $max;
     return $value;
+}
+
+/**
+ * Check if API key has access to a specific feature.
+ * Keys with NULL allowed_features have access to everything.
+ */
+function swim_check_feature_access($auth, string $feature): void {
+    if (!$auth) return; // No auth required
+    $allowed = $auth->getAllowedFeatures();
+    if ($allowed === null) return; // NULL = all features
+    if (!in_array($feature, $allowed)) {
+        SwimResponse::error("API key does not have access to '$feature' feature", 403, 'FORBIDDEN');
+    }
 }
 
 /**

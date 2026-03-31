@@ -60,6 +60,7 @@ $nav_config = [
             ['label' => __('nav.routes'), 'path' => './route'],
             ['label' => __('nav.playbook'), 'path' => './playbook'],
             ['label' => __('nav.historicalRoutes'), 'path' => './historical-routes'],
+            ['label' => __('nav.rad'), 'path' => './rad'],
             ['label' => __('nav.simulator'), 'path' => './simulator', 'hibernated' => $_h],
         ]
     ],
