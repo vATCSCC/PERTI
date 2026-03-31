@@ -411,7 +411,8 @@ class EDCTDelivery
                   AND delivered_utc > DATEADD(MINUTE, -5, SYSUTCDATETIME())";
         $stmt = sqlsrv_query($this->conn_tmi, $sql, [$flight_uid, $hash]);
         if ($stmt === false) return false;
-        $exists = sqlsrv_fetch_array($stmt) !== null;
+        $row = sqlsrv_fetch_array($stmt);
+        $exists = ($row !== null && $row !== false);
         sqlsrv_free_stmt($stmt);
         return $exists;
     }
@@ -439,7 +440,11 @@ class EDCTDelivery
         $sql = "INSERT INTO dbo.tmi_delivery_log (flight_uid, callsign, message_type, message_hash, program_id, channels_sent)
                 VALUES (?, ?, ?, ?, ?, ?)";
         $stmt = sqlsrv_query($this->conn_tmi, $sql, [$flight_uid, $callsign, $message_type, $hash, $program_id, $channelStr]);
-        if ($stmt !== false) sqlsrv_free_stmt($stmt);
+        if ($stmt === false) {
+            $this->log("logDelivery INSERT failed: " . json_encode(sqlsrv_errors()));
+            return;
+        }
+        sqlsrv_free_stmt($stmt);
     }
 
     // =========================================================================

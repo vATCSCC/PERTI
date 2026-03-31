@@ -59,7 +59,7 @@ class CDMService
     const MSG_TOS_QUERY     = 'TOS_QUERY';
     const MSG_TOS_ACK       = 'TOS_ACK';
     const MSG_TOS_ASSIGN    = 'TOS_ASSIGN';
-    const MSG_TRAFFIC_ADV   = 'TRAFFIC_ADVISORY';
+    const MSG_TRAFFIC_ADVISORY = 'TRAFFIC_ADVISORY';
 
     // Delivery channel constants
     const CHANNEL_CPDLC   = 'cpdlc';

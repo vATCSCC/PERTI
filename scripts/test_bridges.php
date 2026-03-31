@@ -38,7 +38,7 @@ $newConstants = [
     'MSG_EDCT_AMENDED', 'MSG_EDCT_CANCEL', 'MSG_CTOT', 'MSG_GS_HOLD', 'MSG_GS_RELEASE',
     'MSG_REROUTE', 'MSG_FLOW_MEASURE', 'MSG_MIT', 'MSG_AFP', 'MSG_METERING',
     'MSG_HOLD', 'MSG_CTP_SLOT', 'MSG_WEATHER_REROUTE', 'MSG_TOS_QUERY', 'MSG_TOS_ACK',
-    'MSG_TOS_ASSIGN', 'MSG_TRAFFIC_ADV',
+    'MSG_TOS_ASSIGN', 'MSG_TRAFFIC_ADVISORY',
 ];
 foreach ($origConstants as $c) {
     test("CDMService::$c exists", defined("CDMService::$c"));
