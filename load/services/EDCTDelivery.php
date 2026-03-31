@@ -283,7 +283,7 @@ class EDCTDelivery
         $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id);
 
         // Channel 3: Web dashboard (via WebSocket)
-        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id, $edct_utc);
+        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, CDMService::MSG_EDCT, $message_body, $cid, $program_id, $slot_id, $edct_utc);
 
         // Channel 4: Discord DM (if CID is linked)
         if ($cid) {
@@ -320,7 +320,7 @@ class EDCTDelivery
 
         $results['cpdlc'] = $this->deliverViaCPDLC($flight_uid, $callsign, $message_body, $cid, $program_id);
         $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id);
-        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_body, $cid, $program_id, null, $tsat_utc);
+        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, CDMService::MSG_GATE_HOLD, $message_body, $cid, $program_id, null, $tsat_utc);
 
         return $results;
     }
@@ -348,7 +348,7 @@ class EDCTDelivery
 
         $results['cpdlc'] = $this->deliverViaCPDLC($flight_uid, $callsign, $message_body, $cid, $program_id);
         $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id);
-        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_body, $cid, $program_id, null, $ttot_utc);
+        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, CDMService::MSG_GATE_RELEASE, $message_body, $cid, $program_id, null, $ttot_utc);
 
         return $results;
     }
@@ -386,7 +386,7 @@ class EDCTDelivery
 
         $results['cpdlc'] = $this->deliverViaCPDLC($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id);
         $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id);
-        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id, $time_utc);
+        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_type, $message_body, $cid, $program_id, $slot_id, $time_utc);
 
         if ($cid) {
             $results['discord'] = $this->deliverViaDiscord($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id, $time_utc, $message_type);
@@ -535,6 +535,7 @@ class EDCTDelivery
     private function deliverViaWebSocket(
         int $flight_uid,
         string $callsign,
+        string $message_type,
         string $message_body,
         ?int $cid,
         ?int $program_id,
@@ -542,7 +543,7 @@ class EDCTDelivery
         ?string $time_utc = null
     ): array {
         $msg_id = $this->cdm->queueMessage(
-            $flight_uid, $callsign, CDMService::MSG_EDCT,
+            $flight_uid, $callsign, $message_type,
             $message_body, CDMService::CHANNEL_WEB,
             $cid, $program_id, $slot_id
         );
