@@ -163,11 +163,12 @@ nohup php "${WWWROOT}/scripts/swim_sync_daemon.php" --loop --sync-interval=120 -
 SWIM_SYNC_PID=$!
 echo "  swim_sync_daemon.php started (PID: $SWIM_SYNC_PID)"
 
-# Start the SimTraffic -> SWIM polling daemon (fetches ST times every 2 min)
+# Start the SimTraffic -> SWIM polling daemon (reconciliation fallback every 10 min)
 # Rate limited to 5 req/sec per SimTraffic API docs
+# Demoted from 2min to 10min — webhooks are now the primary ingest path
 # NOTE: Runs even in hibernation — VATSWIM remains operational
-echo "Starting simtraffic_swim_poll.php (polling every 2min)..."
-nohup php "${WWWROOT}/scripts/simtraffic_swim_poll.php" --loop --interval=120 >> /home/LogFiles/simtraffic_poll.log 2>&1 &
+echo "Starting simtraffic_swim_poll.php (reconciliation every 10min)..."
+nohup php "${WWWROOT}/scripts/simtraffic_swim_poll.php" --loop --interval=600 >> /home/LogFiles/simtraffic_poll.log 2>&1 &
 ST_POLL_PID=$!
 echo "  simtraffic_swim_poll.php started (PID: $ST_POLL_PID)"
 
@@ -203,6 +204,7 @@ CDM_PID="HIBERNATED"
 VACDM_PID="HIBERNATED"
 DELAY_ATTR_PID="HIBERNATED"
 FACILITY_STATS_PID="HIBERNATED"
+WEBHOOK_DELIVERY_PID="HIBERNATED"
 
 if [ "$HIBERNATION" != "1" ]; then
 
@@ -319,10 +321,16 @@ if [ "$HIBERNATION" != "1" ]; then
     FACILITY_STATS_PID=$!
     echo "  facility_stats_daemon.php started (PID: $FACILITY_STATS_PID)"
 
+    # Webhook delivery daemon (outbound event queue)
+    echo "Starting webhook_delivery_daemon.php (outbound webhook delivery)..."
+    nohup php "${WWWROOT}/scripts/webhook_delivery_daemon.php" --loop >> /home/LogFiles/webhook_delivery.log 2>&1 &
+    WEBHOOK_DELIVERY_PID=$!
+    echo "  webhook_delivery_daemon.php started (PID: $WEBHOOK_DELIVERY_PID)"
+
 else
     echo ""
     echo "  Downstream daemons SKIPPED (hibernation mode)"
-    echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, scheduler, event sync, CDM, vACDM, delay attribution, facility stats"
+    echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, scheduler, event sync, CDM, vACDM, delay attribution, facility stats, webhook delivery"
     echo "  Running: SWIM (ws/sync/SimTraffic/reverse sync) — VATSWIM exempt from hibernation"
     echo ""
 fi
@@ -364,7 +372,7 @@ if [ "$HIBERNATION" = "1" ]; then
     echo "  refdata=$REFDATA_PID (daily reimport at 06:00Z)"
     echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
-    echo "  Hibernated: GIS, waypoint ETA, scheduler, event sync, CDM, vACDM"
+    echo "  Hibernated: GIS, waypoint ETA, scheduler, event sync, CDM, vACDM, webhook delivery"
 else
     echo "All daemons started:"
     echo "  adl=$ADL_PID, parse=$PARSE_PID, boundary=$BOUNDARY_PID"
@@ -376,6 +384,7 @@ else
     echo "  discord_q=$DISCORD_Q_PID, event_sync=$EVENT_SYNC_PID"
     echo "  ecfmp=$ECFMP_PID, viff=$VIFF_PID, cdm=$CDM_PID, vacdm=$VACDM_PID"
     echo "  delay_attr=$DELAY_ATTR_PID, facility_stats=$FACILITY_STATS_PID"
+    echo "  webhook_delivery=$WEBHOOK_DELIVERY_PID"
     echo "  adl_archive=$ADL_ARCHIVE_PID (daily ${ARCHIVE_HOUR:-10}:00 UTC)"
     echo "  refdata=$REFDATA_PID (daily reimport at 06:00Z)"
     echo "  playbook_export=$PLAYBOOK_EXPORT_PID (daily, first in 5min)"

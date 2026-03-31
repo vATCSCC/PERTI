@@ -174,12 +174,12 @@ function runArchival(mixed $conn, int $batchSize): array {
         $results['steps']['purge_tmi']            = ['success' => true, 'skipped' => true, 'reason' => 'hibernation'];
     } else {
         // Step 1: Archive completed flights (CASCADE-deletes from core tables)
-        logMsg("Step 1/5: Archiving completed flights...");
+        logMsg("Step 1/6: Archiving completed flights...");
         $stepResult = runStep($conn, 'EXEC dbo.sp_Archive_CompletedFlights @debug = 0');
         $results['steps']['completed_flights'] = $stepResult;
 
         // Step 2: TMI-aware trajectory archival (extracts high-res TMI data before downsampling)
-        logMsg("Step 2/5: TMI-aware trajectory archival (batch_size={$batchSize})...");
+        logMsg("Step 2/6: TMI-aware trajectory archival (batch_size={$batchSize})...");
         $stepResult = runStep($conn, "EXEC dbo.sp_ArchiveTrajectory_TmiAware @archive_threshold_hours = 1, @batch_size = {$batchSize}");
         $results['steps']['trajectory_tmi_aware'] = $stepResult;
         if ($stepResult['success'] && !empty($stepResult['output'])) {
@@ -188,19 +188,19 @@ function runArchival(mixed $conn, int $batchSize): array {
         }
 
         // Step 3: Compress warm to cold tier
-        logMsg("Step 3/5: Compressing warm tier to cold...");
+        logMsg("Step 3/6: Compressing warm tier to cold...");
         $stepResult = runStep($conn, 'EXEC dbo.sp_Downsample_Trajectory_ToCold @debug = 0');
         $results['steps']['trajectory_to_cold'] = $stepResult;
 
         // Step 4: Purge old data (general)
-        logMsg("Step 4/5: Purging old data...");
+        logMsg("Step 4/6: Purging old data...");
         $stepResult = runStep($conn, 'EXEC dbo.sp_Purge_OldData @debug = 0');
         $results['steps']['purge'] = $stepResult;
 
         // Step 5: Purge TMI trajectory (90-day retention) - run during off-peak only
         $hour = (int)gmdate('G');
         if ($hour >= 3 && $hour < 6) {
-            logMsg("Step 5/5: Purging TMI trajectory (90-day retention)...");
+            logMsg("Step 5/6: Purging TMI trajectory (90-day retention)...");
             $stepResult = runStep($conn, 'EXEC dbo.sp_PurgeTmiTrajectory @retention_days = 90, @batch_size = 50000');
             $results['steps']['purge_tmi'] = $stepResult;
             if ($stepResult['success'] && !empty($stepResult['output'])) {
@@ -208,9 +208,36 @@ function runArchival(mixed $conn, int $batchSize): array {
                 logMsg("  TMI purge: {$purgeResult['rows_purged']} rows deleted");
             }
         } else {
-            logMsg("Step 5/5: Skipping TMI purge (runs 03:00-06:00 UTC only)");
+            logMsg("Step 5/6: Skipping TMI purge (runs 03:00-06:00 UTC only)");
             $results['steps']['purge_tmi'] = ['success' => true, 'skipped' => true];
         }
+    }
+
+    // Step 6: Purge old webhook events (30-day retention)
+    // Runs always (even during hibernation — these are delivery logs, not flight data)
+    logMsg("Step 6/6: Purging webhook events older than 30 days...");
+    $retentionDays = 30;
+    $purgeWebhookSql = "DELETE TOP (10000) FROM dbo.swim_webhook_events
+                        WHERE created_utc < DATEADD(DAY, -{$retentionDays}, SYSUTCDATETIME())";
+    // Run against SWIM_API connection (loop to handle backlog)
+    $connSwim = function_exists('get_conn_swim') ? get_conn_swim() : null;
+    if ($connSwim) {
+        $totalPurged = 0;
+        $maxIterations = 10;
+        for ($i = 0; $i < $maxIterations; $i++) {
+            $purgeStmt = sqlsrv_query($connSwim, $purgeWebhookSql);
+            $purgeRows = $purgeStmt ? sqlsrv_rows_affected($purgeStmt) : 0;
+            if ($purgeStmt) sqlsrv_free_stmt($purgeStmt);
+            $totalPurged += $purgeRows;
+            if ($purgeRows < 10000) break; // No more rows to purge
+        }
+        $results['steps']['purge_webhook_events'] = [
+            'success' => true,
+            'rows_deleted' => $totalPurged,
+        ];
+        if ($totalPurged > 0) logMsg("  Purged {$totalPurged} webhook events");
+    } else {
+        $results['steps']['purge_webhook_events'] = ['success' => true, 'skipped' => true, 'reason' => 'no_swim_conn'];
     }
 
     // Check for any failures

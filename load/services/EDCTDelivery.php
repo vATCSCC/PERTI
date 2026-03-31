@@ -9,6 +9,7 @@
  *   Priority 2: Pilot client plugin (VatswimPlugin polling)
  *   Priority 3: CDM web dashboard (WebSocket push)
  *   Priority 4: Discord DM (notification-only fallback)
+ *   Priority 5: SimTraffic webhook (outbound event queue)
  *
  * Adapted from FAA CDM AOCnet EDCT distribution to airlines,
  * modified for direct pilot delivery on VATSIM.
@@ -23,6 +24,7 @@
  */
 
 require_once __DIR__ . '/CDMService.php';
+require_once __DIR__ . '/../../lib/webhooks/WebhookEventBuilder.php';
 
 class EDCTDelivery
 {
@@ -36,6 +38,9 @@ class EDCTDelivery
 
     // Discord API (lazy-loaded)
     private $discordApi = null;
+
+    // Webhook event builder (lazy-loaded)
+    private ?\PERTI\Lib\Webhooks\WebhookEventBuilder $webhookBuilder = null;
 
     // Delivery spacing (avoid Hoppie rate limits)
     const CPDLC_SEND_SPACING_SEC = 2;
@@ -290,6 +295,11 @@ class EDCTDelivery
             $results['discord'] = $this->deliverViaDiscord($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id, $edct_utc, $reason);
         }
 
+        // Channel 5: SimTraffic webhook (queue outbound event)
+        $results['simtraffic_webhook'] = $this->queueWebhookEvent(
+            'edct_assigned', $flight_uid, $callsign, $edct_utc, $reason, $program_id
+        );
+
         $delivered = array_filter($results, fn($r) => $r === true || (is_array($r) && ($r['sent'] ?? false)));
         $this->log("EDCT delivered for $callsign: " . count($delivered) . "/" . count($results) . " channels");
 
@@ -322,6 +332,9 @@ class EDCTDelivery
         $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id);
         $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, CDMService::MSG_GATE_HOLD, $message_body, $cid, $program_id, null, $tsat_utc);
 
+        // Channel 5: SimTraffic webhook
+        $results['simtraffic_webhook'] = $this->queueWebhookGateHold($flight_uid, $callsign, $tsat_utc, $reason);
+
         return $results;
     }
 
@@ -349,6 +362,9 @@ class EDCTDelivery
         $results['cpdlc'] = $this->deliverViaCPDLC($flight_uid, $callsign, $message_body, $cid, $program_id);
         $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id);
         $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, CDMService::MSG_GATE_RELEASE, $message_body, $cid, $program_id, null, $ttot_utc);
+
+        // Channel 5: SimTraffic webhook
+        $results['simtraffic_webhook'] = $this->queueWebhookGateRelease($flight_uid, $callsign, $ttot_utc);
 
         return $results;
     }
@@ -715,6 +731,91 @@ class EDCTDelivery
     }
 
     // =========================================================================
+    // CHANNEL 5: SIMTRAFFIC WEBHOOK
+    // =========================================================================
+
+    private function queueWebhookEvent(
+        string $type,
+        int $flight_uid,
+        string $callsign,
+        string $edct_utc,
+        string $reason,
+        ?int $program_id
+    ): array {
+        $builder = $this->getWebhookBuilder();
+        if (!$builder) return ['sent' => false, 'reason' => 'no_swim_conn'];
+
+        $eventId = match($type) {
+            'edct_assigned' => $builder->edctAssigned($flight_uid, $callsign, $edct_utc, $program_id, $reason),
+            'edct_cancelled' => $builder->edctCancelled($flight_uid, $callsign, $reason),
+            default => null,
+            // Note: edct_revised requires old EDCT value — call WebhookEventBuilder::edctRevised() directly
+        };
+
+        // Also push to WebSocket via IPC for real-time delivery
+        if ($eventId) {
+            $this->pushToWebSocketIPC("tmi.{$type}", $callsign, $edct_utc, $reason);
+        }
+
+        return ['sent' => $eventId !== null, 'event_id' => $eventId];
+    }
+
+    private function queueWebhookGateHold(int $flight_uid, string $callsign, string $tsat_utc, string $reason): array
+    {
+        $builder = $this->getWebhookBuilder();
+        if (!$builder) return ['sent' => false, 'reason' => 'no_swim_conn'];
+        $eventId = $builder->gateHold($flight_uid, $callsign, $tsat_utc, $reason);
+        if ($eventId) {
+            $this->pushToWebSocketIPC('tmi.gate_hold', $callsign, $tsat_utc, $reason);
+        }
+        return ['sent' => $eventId !== null, 'event_id' => $eventId];
+    }
+
+    private function queueWebhookGateRelease(int $flight_uid, string $callsign, string $ttot_utc): array
+    {
+        $builder = $this->getWebhookBuilder();
+        if (!$builder) return ['sent' => false, 'reason' => 'no_swim_conn'];
+        $eventId = $builder->gateRelease($flight_uid, $callsign, $ttot_utc);
+        if ($eventId) {
+            $this->pushToWebSocketIPC('tmi.gate_release', $callsign, $ttot_utc, null);
+        }
+        return ['sent' => $eventId !== null, 'event_id' => $eventId];
+    }
+
+    /**
+     * Push event to WebSocket server via HTTP IPC for real-time delivery.
+     */
+    private function pushToWebSocketIPC(string $eventType, string $callsign, string $timeUtc, ?string $reason): void
+    {
+        $ipcUrl = 'http://127.0.0.1/api/swim/v1/ws/publish';
+        $internalKey = getenv('SWIM_WS_INTERNAL_KEY') ?: 'dev-internal-key';
+
+        $event = [
+            'type' => $eventType,
+            'data' => [
+                'callsign' => $callsign,
+                'time_utc' => $timeUtc,
+                'reason' => $reason,
+                'timestamp' => gmdate('Y-m-d\TH:i:s.000\Z'),
+            ],
+        ];
+
+        $ch = curl_init($ipcUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode(['events' => [$event]]),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 2,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'X-Internal-Key: ' . $internalKey,
+            ],
+        ]);
+        @curl_exec($ch);
+        curl_close($ch);
+    }
+
+    // =========================================================================
     // LAZY-LOADED DEPENDENCIES
     // =========================================================================
 
@@ -745,6 +846,18 @@ class EDCTDelivery
         require_once $discord_path;
         $this->discordApi = new \DiscordAPI();
         return $this->discordApi;
+    }
+
+    private function getWebhookBuilder(): ?\PERTI\Lib\Webhooks\WebhookEventBuilder
+    {
+        if ($this->webhookBuilder !== null) return $this->webhookBuilder;
+
+        // Need SWIM_API connection
+        $conn = function_exists('get_conn_swim') ? get_conn_swim() : null;
+        if (!$conn) return null;
+
+        $this->webhookBuilder = new \PERTI\Lib\Webhooks\WebhookEventBuilder($conn);
+        return $this->webhookBuilder;
     }
 
     private function log(string $msg): void

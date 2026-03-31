@@ -281,7 +281,11 @@ class WebSocketServer implements MessageComponentInterface
             case 'status':
                 $this->handleStatus($from, $client);
                 break;
-                
+
+            case 'publish':
+                $this->handlePublish($from, $client, $data);
+                break;
+
             default:
                 $this->sendError($from, 'UNKNOWN_ACTION', "Unknown action: {$action}");
         }
@@ -384,8 +388,85 @@ class WebSocketServer implements MessageComponentInterface
     }
 
     /**
+     * Handle inbound publish from system-tier clients (e.g., SimTraffic).
+     * Forwards lifecycle events to the REST webhook endpoint for processing,
+     * then ACKs the WS client.
+     *
+     * We forward to REST rather than calling processSimTrafficFlight() directly
+     * because (a) the WS server daemon doesn't hold a SWIM_API connection and
+     * (b) the ingest function is request-scoped code not designed for long-running use.
+     */
+    protected function handlePublish(ConnectionInterface $conn, ClientConnection $client, array $data): void
+    {
+        // Only system-tier clients can publish
+        if ($client->getTier() !== 'system') {
+            $this->sendError($conn, 'FORBIDDEN', 'Publish requires system tier');
+            return;
+        }
+
+        $channel = $data['channel'] ?? null;
+        $eventData = $data['data'] ?? null;
+        $eventId = $data['event_id'] ?? ('ws_' . bin2hex(random_bytes(8)));
+
+        if (!$channel || !$eventData) {
+            $this->sendError($conn, 'INVALID_PUBLISH', 'Requires "channel" and "data" fields');
+            return;
+        }
+
+        // Only allow simtraffic.lifecycle.* channels
+        if (!str_starts_with($channel, 'simtraffic.lifecycle.')) {
+            $this->sendError($conn, 'INVALID_CHANNEL', 'Can only publish to simtraffic.lifecycle.* channels');
+            return;
+        }
+
+        // Forward to the REST webhook endpoint via internal HTTP
+        // This reuses all ingest + dedup logic without duplicating code
+        $webhookUrl = 'http://127.0.0.1/api/swim/v1/webhooks/simtraffic.php';
+        $apiKey = $client->getApiKey(); // SimTraffic's system-tier key
+
+        $payload = json_encode([
+            'events' => [[
+                'event_id' => $eventId,
+                'event_type' => $channel,
+                'data' => $eventData,
+            ]],
+        ]);
+
+        $ch = curl_init($webhookUrl);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'X-API-Key: ' . $apiKey,
+            ],
+        ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr || $httpCode >= 400) {
+            $this->sendError($conn, 'PUBLISH_ERROR',
+                $curlErr ?: "Webhook returned HTTP {$httpCode}");
+            return;
+        }
+
+        $result = json_decode($response, true) ?? [];
+
+        $this->send($conn, [
+            'type' => 'publish_ack',
+            'event_id' => $eventId,
+            'accepted' => $result['accepted'] ?? 0,
+            'duplicates' => $result['duplicates'] ?? 0,
+        ]);
+    }
+
+    /**
      * Validate subscription filters
-     * 
+     *
      * @return array|false Validated filters or false on error
      */
     protected function validateFilters(array $filters)

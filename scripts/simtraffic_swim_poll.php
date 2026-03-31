@@ -549,7 +549,7 @@ if (php_sapi_name() === 'cli' && realpath($argv[0] ?? '') === realpath(__FILE__)
     $loop = in_array('--loop', $argv);
     $once = in_array('--once', $argv);
     $debug = in_array('--debug', $argv);
-    $interval = 120;
+    $interval = 600;  // Demoted to reconciliation fallback (webhooks are primary)
 
     // Parse interval
     foreach ($argv as $arg) {

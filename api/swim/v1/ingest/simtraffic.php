@@ -75,11 +75,21 @@
 
 require_once __DIR__ . '/../auth.php';
 
+// When included as a library (e.g., from webhooks/simtraffic.php), skip top-level
+// request handling and only expose processSimTrafficFlight().
+if (defined('SIMTRAFFIC_LIBRARY_MODE')) {
+    return;
+}
+
 // Rate limit: 5 requests/second per API key (per SimTraffic API documentation)
 define('SIMTRAFFIC_RATE_LIMIT_MS', 200);  // 200ms between API calls
 
 // Require authentication with write access
 $auth = swim_init_auth(true, true);
+
+// Deprecation notice — webhook endpoint is preferred
+header('X-Deprecated: Use POST /api/swim/v1/webhooks/simtraffic instead');
+header('Sunset: 2026-09-30');
 
 // Validate source can write times data
 if (!$auth->canWriteField('times')) {
