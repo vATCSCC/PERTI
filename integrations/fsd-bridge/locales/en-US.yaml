@@ -1,0 +1,24 @@
+bridge:
+  name: "VATSWIM FSD Bridge"
+  description: "Translates SWIM WebSocket events to FSD protocol"
+  version: "1.0.0"
+
+status:
+  connected: "Connected to SWIM WebSocket"
+  disconnected: "Disconnected from SWIM WebSocket"
+  reconnecting: "Reconnecting to SWIM (attempt {attempt})"
+  listening: "FSD server listening on {addr}"
+  client_connected: "Client connected: {callsign}"
+  client_disconnected: "Client disconnected: {callsign}"
+
+events:
+  cdm_delivered: "CDM message delivered to {callsign}: {type}"
+  tmi_broadcast: "TMI {program_type} {status} at {airport}"
+  aman_sequence: "AMAN sequence for {airport} {runway}: {count} entries"
+  flight_update: "Flight update: {callsign}"
+
+errors:
+  config_load: "Failed to load configuration: {error}"
+  swim_connect: "Failed to connect to SWIM: {error}"
+  fsd_listen: "Failed to start FSD server: {error}"
+  send_failed: "Failed to send to {callsign}: {error}"
