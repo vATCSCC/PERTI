@@ -64,6 +64,20 @@ SwimResponse::success([
         ],
         'configuration' => [
             'GET /api/swim/v1/fea' => 'Flow Evaluation Areas'
+        ],
+        'routes' => [
+            'POST /api/swim/v1/routes/query' => 'Unified route query — ranked suggestions from playbook, CDR, and historical data',
+            'GET /api/swim/v1/routes/query' => 'Simple city-pair route lookup (shorthand)',
+            'GET /api/swim/v1/routes/cdrs' => 'Coded departure routes (CDR) catalog',
+            'GET /api/swim/v1/routes/resolve' => 'Route string resolution via PostGIS (waypoints, geometry)',
+            'POST /api/swim/v1/routes/resolve' => 'Batch route resolution (up to 50 routes)',
+        ],
+        'playbook' => [
+            'GET /api/swim/v1/playbook/plays' => 'Playbook plays and routes (with optional geometry)',
+            'GET /api/swim/v1/playbook/analysis' => 'Route analysis (distance, traversal, timing)',
+            'GET /api/swim/v1/playbook/traversal' => 'Route traversal data',
+            'GET /api/swim/v1/playbook/throughput' => 'Route throughput metrics (CTP)',
+            'GET /api/swim/v1/playbook/facility-counts' => 'Aggregated facility route statistics',
         ]
     ],
     'authentication' => [
