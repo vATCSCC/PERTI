@@ -1,0 +1,283 @@
+<h2>RAD — Flight Detail & Route Edit Tabs</h2>
+<p class="subtitle">Two key tabs in the amendment workflow. Detail shows selected flights. Route Edit is where amendments are composed and sent.</p>
+
+<!-- TAB 2: FLIGHT DETAIL -->
+<div class="mockup" style="width:100%;max-width:1100px;margin:0 auto 24px;">
+  <div class="mockup-header">Tab 2: Flight Detail — Selected flights ready for amendment</div>
+  <div class="mockup-body" style="padding:0;background:#1a1a2e;">
+
+    <!-- Tab Bar -->
+    <div style="display:flex;background:#16213e;border-bottom:1px solid #334;">
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Flight Search</div>
+      <div style="padding:8px 16px;color:#e94560;font-size:12px;font-weight:bold;border-bottom:2px solid #e94560;cursor:pointer;">Flight Detail <span style="background:#e94560;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">3</span></div>
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Route Edit</div>
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Monitoring</div>
+    </div>
+
+    <div style="padding:10px;min-height:280px;">
+      <!-- Action bar -->
+      <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+        <button style="background:#234;border:1px solid #456;color:#89a;font-size:10px;padding:4px 10px;border-radius:3px;">Select All</button>
+        <button style="background:#234;border:1px solid #456;color:#89a;font-size:10px;padding:4px 10px;border-radius:3px;">Select None</button>
+        <button style="background:#432;border:1px solid #654;color:#a86;font-size:10px;padding:4px 10px;border-radius:3px;">Remove Selected</button>
+        <div style="flex:1;"></div>
+        <span style="color:#667;font-size:10px;">3 flights | 2 selected for amendment</span>
+      </div>
+
+      <!-- Detail table with expanded columns -->
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:10px;">
+          <thead>
+            <tr style="background:#16213e;">
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;width:20px;"><input type="checkbox" checked style="transform:scale(0.75);"></th>
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;">Callsign</th>
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;">Orig</th>
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;">TRACON</th>
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;">Center</th>
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;">Amdt</th>
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;min-width:260px;">Route</th>
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;">Type</th>
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;">Times</th>
+              <th style="padding:4px 5px;color:#89a;text-align:left;border-bottom:1px solid #334;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- DAL123 top sub-row -->
+            <tr style="background:#111;">
+              <td rowspan="2" style="padding:3px 5px;vertical-align:middle;border-bottom:1px solid #223;"><input type="checkbox" checked style="transform:scale(0.75);"></td>
+              <td rowspan="2" style="padding:3px 5px;color:#4ECDC4;font-weight:bold;vertical-align:middle;border-bottom:1px solid #223;font-family:monospace;">DAL123</td>
+              <td style="padding:2px 5px;color:#ccc;">KJFK</td>
+              <td style="padding:2px 5px;color:#89a;">N90</td>
+              <td style="padding:2px 5px;color:#89a;">ZNY</td>
+              <td rowspan="2" style="padding:3px 5px;vertical-align:middle;border-bottom:1px solid #223;">
+                <span style="background:#532;color:#fa5;font-size:9px;padding:1px 5px;border-radius:2px;">SENT</span>
+              </td>
+              <td style="padding:2px 5px;color:#6f8;font-family:monospace;font-size:9px;word-break:break-all;">KJFK DCT MERIT J60 FRESH..KORD</td>
+              <td rowspan="2" style="padding:3px 5px;color:#89a;vertical-align:middle;border-bottom:1px solid #223;">B738</td>
+              <td style="padding:2px 5px;color:#89a;font-family:monospace;font-size:9px;">ETD 1430 ETA 1645</td>
+              <td rowspan="2" style="padding:3px 5px;vertical-align:middle;border-bottom:1px solid #223;"><span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">ACTIVE</span></td>
+            </tr>
+            <!-- DAL123 bottom sub-row -->
+            <tr style="background:#111;border-bottom:1px solid #223;">
+              <td style="padding:2px 5px;color:#888;">KORD</td>
+              <td style="padding:2px 5px;color:#667;">C80</td>
+              <td style="padding:2px 5px;color:#667;">ZAU</td>
+              <td style="padding:2px 5px;">
+                <button style="background:#234;border:1px solid #456;color:#89a;font-size:8px;padding:1px 6px;border-radius:2px;cursor:pointer;">Route History</button>
+              </td>
+              <td style="padding:2px 5px;color:#667;font-family:monospace;font-size:9px;">CTD 1435 CTA 1650</td>
+            </tr>
+
+            <!-- UAL456 -->
+            <tr style="background:#0d1117;">
+              <td rowspan="2" style="padding:3px 5px;vertical-align:middle;border-bottom:1px solid #223;"><input type="checkbox" checked style="transform:scale(0.75);"></td>
+              <td rowspan="2" style="padding:3px 5px;color:#FF6B6B;font-weight:bold;vertical-align:middle;border-bottom:1px solid #223;font-family:monospace;">UAL456</td>
+              <td style="padding:2px 5px;color:#ccc;">KEWR</td>
+              <td style="padding:2px 5px;color:#89a;">N90</td>
+              <td style="padding:2px 5px;color:#89a;">ZNY</td>
+              <td rowspan="2" style="padding:3px 5px;vertical-align:middle;border-bottom:1px solid #223;">
+                <span style="background:#223;color:#89a;font-size:9px;padding:1px 5px;border-radius:2px;">&mdash;</span>
+              </td>
+              <td style="padding:2px 5px;color:#6f8;font-family:monospace;font-size:9px;word-break:break-all;">KEWR DCT WAVEY AR1 JOSEY..KATL</td>
+              <td rowspan="2" style="padding:3px 5px;color:#89a;vertical-align:middle;border-bottom:1px solid #223;">A320</td>
+              <td style="padding:2px 5px;color:#89a;font-family:monospace;font-size:9px;">ETD 1500 ETA 1645</td>
+              <td rowspan="2" style="padding:3px 5px;vertical-align:middle;border-bottom:1px solid #223;"><span style="background:#532;color:#f95;font-size:9px;padding:1px 5px;border-radius:2px;">PREFILED</span></td>
+            </tr>
+            <tr style="background:#0d1117;border-bottom:1px solid #223;">
+              <td style="padding:2px 5px;color:#888;">KATL</td>
+              <td style="padding:2px 5px;color:#667;">A80</td>
+              <td style="padding:2px 5px;color:#667;">ZTL</td>
+              <td style="padding:2px 5px;">
+                <button style="background:#234;border:1px solid #456;color:#89a;font-size:8px;padding:1px 6px;border-radius:2px;cursor:pointer;">Route History</button>
+              </td>
+              <td style="padding:2px 5px;color:#667;font-family:monospace;font-size:9px;">CTD &mdash; CTA &mdash;</td>
+            </tr>
+
+            <!-- AAL789 -->
+            <tr style="background:#111;">
+              <td rowspan="2" style="padding:3px 5px;vertical-align:middle;border-bottom:1px solid #223;"><input type="checkbox" style="transform:scale(0.75);"></td>
+              <td rowspan="2" style="padding:3px 5px;color:#FFD93D;font-weight:bold;vertical-align:middle;border-bottom:1px solid #223;font-family:monospace;">AAL789</td>
+              <td style="padding:2px 5px;color:#ccc;">KLGA</td>
+              <td style="padding:2px 5px;color:#89a;">N90</td>
+              <td style="padding:2px 5px;color:#89a;">ZNY</td>
+              <td rowspan="2" style="padding:3px 5px;vertical-align:middle;border-bottom:1px solid #223;">
+                <span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">ACPT</span>
+              </td>
+              <td style="padding:2px 5px;color:#6f8;font-family:monospace;font-size:9px;word-break:break-all;">KLGA DCT BIGGY J75 RBV..KMIA</td>
+              <td rowspan="2" style="padding:3px 5px;color:#89a;vertical-align:middle;border-bottom:1px solid #223;">B752</td>
+              <td style="padding:2px 5px;color:#89a;font-family:monospace;font-size:9px;">ETD 1445 ETA 1745</td>
+              <td rowspan="2" style="padding:3px 5px;vertical-align:middle;border-bottom:1px solid #223;"><span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">ACTIVE</span></td>
+            </tr>
+            <tr style="background:#111;border-bottom:1px solid #223;">
+              <td style="padding:2px 5px;color:#888;">KMIA</td>
+              <td style="padding:2px 5px;color:#667;">MIA</td>
+              <td style="padding:2px 5px;color:#667;">ZMA</td>
+              <td style="padding:2px 5px;">
+                <button style="background:#234;border:1px solid #456;color:#89a;font-size:8px;padding:1px 6px;border-radius:2px;cursor:pointer;">Route History</button>
+              </td>
+              <td style="padding:2px 5px;color:#667;font-family:monospace;font-size:9px;">CTD 1445 CTA 1745</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3: ROUTE EDIT -->
+<div class="mockup" style="width:100%;max-width:1100px;margin:0 auto 24px;">
+  <div class="mockup-header">Tab 3: Route Edit — Compose and send route amendments</div>
+  <div class="mockup-body" style="padding:0;background:#1a1a2e;">
+
+    <!-- Tab Bar -->
+    <div style="display:flex;background:#16213e;border-bottom:1px solid #334;">
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Flight Search</div>
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Flight Detail <span style="background:#445;color:#89a;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">3</span></div>
+      <div style="padding:8px 16px;color:#e94560;font-size:12px;font-weight:bold;border-bottom:2px solid #e94560;cursor:pointer;">Route Edit</div>
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Monitoring</div>
+    </div>
+
+    <div style="padding:10px;min-height:360px;">
+      <!-- Two-column layout within Route Edit -->
+      <div style="display:flex;gap:12px;">
+
+        <!-- Left: Retrieve Routes -->
+        <div style="flex:0 0 320px;">
+          <div style="color:#aab;font-size:11px;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #334;padding-bottom:4px;">RETRIEVE ROUTES</div>
+
+          <!-- Recently Sent -->
+          <div style="margin-bottom:8px;">
+            <button style="width:100%;background:#234;border:1px solid #456;color:#89a;font-size:11px;padding:6px 10px;border-radius:3px;text-align:left;cursor:pointer;">
+              <span style="color:#4ECDC4;">&#9679;</span> Recently Sent <span style="color:#556;float:right;">KJFK&rarr;KORD (2)</span>
+            </button>
+          </div>
+
+          <!-- Search DB -->
+          <div style="margin-bottom:8px;">
+            <button style="width:100%;background:#234;border:1px solid #456;color:#89a;font-size:11px;padding:6px 10px;border-radius:3px;text-align:left;cursor:pointer;">
+              <span style="color:#FFD93D;">&#9679;</span> Search Playbook / CDR / Preferred
+            </button>
+          </div>
+
+          <!-- Route Code -->
+          <div style="margin-bottom:8px;display:flex;gap:4px;">
+            <input type="text" placeholder="CDR code..." style="flex:1;background:#111;border:1px solid #445;color:#ccc;padding:5px 8px;border-radius:3px;font-size:11px;font-family:monospace;">
+            <button style="background:#253;border:1px solid #5a5;color:#8c8;font-size:10px;padding:4px 10px;border-radius:3px;">Get CDR</button>
+          </div>
+
+          <!-- Manual Route Entry -->
+          <div style="margin-bottom:8px;">
+            <div style="color:#667;font-size:9px;margin-bottom:2px;">MANUAL ROUTE ENTRY</div>
+            <textarea style="width:100%;background:#111;border:1px solid #445;color:#6f8;padding:6px;border-radius:3px;font-family:monospace;font-size:11px;min-height:50px;resize:vertical;" placeholder="Enter route string..."></textarea>
+            <div style="display:flex;gap:4px;margin-top:4px;">
+              <button style="background:#253;border:1px solid #5a5;color:#8c8;font-size:10px;padding:3px 10px;border-radius:3px;">Validate</button>
+              <button style="background:#234;border:1px solid #456;color:#89a;font-size:10px;padding:3px 10px;border-radius:3px;">Plot on Map</button>
+            </div>
+          </div>
+
+          <!-- Route Color -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <span style="color:#667;font-size:10px;">Route Color:</span>
+            <div style="display:flex;gap:3px;">
+              <div style="width:18px;height:18px;background:#4ECDC4;border-radius:3px;border:2px solid #fff;cursor:pointer;"></div>
+              <div style="width:18px;height:18px;background:#FF6B6B;border-radius:3px;cursor:pointer;"></div>
+              <div style="width:18px;height:18px;background:#FFD93D;border-radius:3px;cursor:pointer;"></div>
+              <div style="width:18px;height:18px;background:#9B59B6;border-radius:3px;cursor:pointer;"></div>
+              <div style="width:18px;height:18px;background:#E94560;border-radius:3px;cursor:pointer;"></div>
+              <div style="width:18px;height:18px;background:#fff;border-radius:3px;cursor:pointer;"></div>
+            </div>
+          </div>
+
+          <!-- Rte Options button -->
+          <div style="border-top:1px solid #334;padding-top:8px;">
+            <button style="width:100%;background:#234;border:1px solid #456;color:#89a;font-size:11px;padding:6px 10px;border-radius:3px;text-align:left;cursor:pointer;">
+              Route Options... <span style="float:right;color:#556;">&rarr;</span>
+            </button>
+            <div style="color:#556;font-size:9px;margin-top:3px;">TMI routes, TOS, ERAM/ABRR (future), Adapted routes (future)</div>
+          </div>
+        </div>
+
+        <!-- Right: Current Routes + Create Amendment -->
+        <div style="flex:1;">
+          <!-- Current Routes Section -->
+          <div style="color:#aab;font-size:11px;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #334;padding-bottom:4px;">CURRENT ROUTES (selected flights)</div>
+
+          <div style="margin-bottom:10px;">
+            <!-- Flight 1 current route -->
+            <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#111;border:1px solid #223;border-radius:3px;margin-bottom:4px;">
+              <input type="checkbox" style="transform:scale(0.7);">
+              <span style="color:#4ECDC4;font-family:monospace;font-size:11px;font-weight:bold;width:60px;">DAL123</span>
+              <span style="color:#6f8;font-family:monospace;font-size:10px;flex:1;word-break:break-all;">KJFK DCT MERIT J60 FRESH..KORD</span>
+              <span style="background:#532;color:#fa5;font-size:8px;padding:1px 5px;border-radius:2px;">RRDCC045</span>
+              <span style="background:#532;color:#fa5;font-size:8px;padding:1px 5px;border-radius:2px;">SENT</span>
+              <button style="background:#234;border:1px solid #456;color:#89a;font-size:8px;padding:2px 6px;border-radius:2px;">Rte Options</button>
+            </div>
+            <!-- Flight 2 current route -->
+            <div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#0d1117;border:1px solid #223;border-radius:3px;margin-bottom:4px;">
+              <input type="checkbox" checked style="transform:scale(0.7);">
+              <span style="color:#FF6B6B;font-family:monospace;font-size:11px;font-weight:bold;width:60px;">UAL456</span>
+              <span style="color:#6f8;font-family:monospace;font-size:10px;flex:1;word-break:break-all;">KEWR DCT WAVEY AR1 JOSEY..KATL</span>
+              <span style="color:#556;font-size:8px;">&mdash;</span>
+              <span style="background:#223;color:#89a;font-size:8px;padding:1px 5px;border-radius:2px;">&mdash;</span>
+              <button style="background:#234;border:1px solid #456;color:#89a;font-size:8px;padding:2px 6px;border-radius:2px;">Rte Options</button>
+            </div>
+          </div>
+
+          <!-- Create Amendment Section -->
+          <div style="color:#aab;font-size:11px;font-weight:bold;margin-bottom:6px;border-bottom:1px solid #334;padding-bottom:4px;">CREATE ROUTE AMENDMENT</div>
+
+          <div style="background:#111;border:1px solid #334;border-radius:4px;padding:10px;">
+            <!-- New route display -->
+            <div style="margin-bottom:8px;">
+              <div style="color:#667;font-size:9px;margin-bottom:2px;">NEW ROUTE (to be applied to 1 checked flight)</div>
+              <div style="background:#0d1117;border:1px solid #445;border-radius:3px;padding:6px;color:#4ECDC4;font-family:monospace;font-size:12px;min-height:24px;">
+                KEWR DCT WHITE J80 CCC V229 TYSON..KATL
+              </div>
+            </div>
+
+            <!-- Diff view -->
+            <div style="margin-bottom:8px;">
+              <div style="color:#667;font-size:9px;margin-bottom:2px;">ROUTE COMPARISON</div>
+              <div style="background:#0d1117;border:1px solid #334;border-radius:3px;padding:6px;font-family:monospace;font-size:10px;">
+                <div><span style="color:#f66;">- KEWR DCT WAVEY AR1 JOSEY..KATL</span></div>
+                <div><span style="color:#6f6;">+ KEWR DCT WHITE J80 CCC V229 TYSON..KATL</span></div>
+              </div>
+            </div>
+
+            <!-- Amendment options -->
+            <div style="display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+              <label style="color:#89a;font-size:10px;display:flex;align-items:center;gap:4px;">
+                <input type="checkbox" checked style="transform:scale(0.8);"> Send via CPDLC
+              </label>
+              <label style="color:#89a;font-size:10px;display:flex;align-items:center;gap:4px;">
+                <input type="checkbox" checked style="transform:scale(0.8);"> Broadcast via SWIM
+              </label>
+              <label style="color:#89a;font-size:10px;display:flex;align-items:center;gap:4px;">
+                <input type="checkbox" style="transform:scale(0.8);"> Discord notify
+              </label>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span style="color:#667;font-size:10px;">TMI:</span>
+                <select style="background:#0d1117;border:1px solid #445;color:#89a;padding:2px 6px;border-radius:3px;font-size:10px;">
+                  <option>None (ad-hoc)</option>
+                  <option>RRDCC045</option>
+                  <option>RRZNY012</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Send buttons -->
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button style="background:#234;border:1px solid #456;color:#89a;font-size:11px;padding:6px 16px;border-radius:3px;">Save Draft</button>
+              <button style="background:#e94560;border:none;color:#fff;font-size:11px;padding:6px 16px;border-radius:3px;font-weight:bold;cursor:pointer;">Send Amendment &rarr;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="text-align:center;color:#888;margin-top:16px;font-size:13px;">
+  Flight Detail shows expanded info with TRACON/Center columns, amendment status badges, and route history buttons.<br>
+  Route Edit has left panel (route retrieval) and right panel (current routes + amendment creation with diff view).
+</p>

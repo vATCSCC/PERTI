@@ -21,6 +21,7 @@ Tables imported:
     3. coded_departure_routes <- cdrs.csv (~47K rows)
     4. nav_procedures  <- dp_full_routes.csv + star_full_routes.csv (~15K rows)
     5. playbook_routes <- playbook_routes.csv (~56K rows)
+    6. preferred_routes <- prefroutes_db.csv (imported via refdata daemon pipeline)
 """
 
 import pyodbc
@@ -60,6 +61,7 @@ CSV_FILES = {
     'dp_routes': DATA_DIR / "dp_full_routes.csv",
     'star_routes': DATA_DIR / "star_full_routes.csv",
     'playbook': DATA_DIR / "playbook_routes.csv",
+    'preferred': DATA_DIR / "prefroutes_db.csv",
 }
 
 
@@ -1219,6 +1221,14 @@ def sync_ref_to_adl(tables: Optional[List[str]] = None, dry_run: bool = False) -
              'origin_artccs', 'dest_airports', 'dest_tracons', 'dest_artccs',
              'altitude_min_ft', 'altitude_max_ft', 'is_active', 'source', 'effective_date',
              'is_superseded', 'superseded_cycle', 'superseded_reason'],
+            True, None
+        ),
+        'preferred_routes': (
+            ['preferred_route_id', 'origin_code', 'dest_code', 'origin_raw', 'dest_raw', 'route_string',
+             'hours1', 'hours2', 'hours3', 'route_type', 'area', 'altitude', 'aircraft', 'direction', 'seq',
+             'dep_artcc', 'arr_artcc', 'origin_tracon', 'origin_center', 'dest_tracon', 'dest_center',
+             'traversed_centers', 'origin_is_airport', 'dest_is_airport', 'is_active', 'source',
+             'effective_date', 'last_updated_utc'],
             True, None
         ),
         'nav_procedures': (

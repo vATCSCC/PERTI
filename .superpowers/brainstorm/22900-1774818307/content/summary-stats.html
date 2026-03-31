@@ -1,0 +1,131 @@
+<h2>Enhanced Flight Summary — Aggregate Stats</h2>
+<p class="subtitle">Replacing the current "Top Origins / Top Carriers" tables. Which layout for richer TMU-facing stats?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>3-Column Card Grid</h3>
+      <p>Distinct stat cards grouped by category. Each card is a self-contained mini-table or metric. Collapsible section below the chart.</p>
+      <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; font-size:10px;">
+        <!-- Card 1: Peak Hour -->
+        <div style="border:1px solid #bdc3c7; border-radius:4px; overflow:hidden;">
+          <div style="background:#2c3e50; color:#fff; padding:4px 8px; font-weight:700; font-size:9px; text-transform:uppercase; letter-spacing:0.05em;"><i>&#9201;</i> Peak Hour</div>
+          <div style="padding:6px 8px;">
+            <div style="font-size:18px; font-weight:700; color:#dc2626; font-family:monospace;">14:00-15:00Z</div>
+            <div style="color:#666;">52 arrivals | 38 departures</div>
+            <div style="margin-top:4px; padding:3px 6px; background:#fff3cd; border-radius:2px; color:#856404; font-size:9px; font-weight:600;">AAR exceeded by 8</div>
+          </div>
+        </div>
+        <!-- Card 2: TMI Control -->
+        <div style="border:1px solid #bdc3c7; border-radius:4px; overflow:hidden;">
+          <div style="background:#2c3e50; color:#fff; padding:4px 8px; font-weight:700; font-size:9px; text-transform:uppercase; letter-spacing:0.05em;"><i>&#9995;</i> TMI Control</div>
+          <div style="padding:6px 8px;">
+            <div><span style="font-weight:600;">GDP:</span> 24 controlled <span style="color:#22c55e;">&#10003;</span></div>
+            <div><span style="font-weight:600;">GS:</span> 0 stopped</div>
+            <div><span style="font-weight:600;">Exempt:</span> 6 flights</div>
+            <div style="margin-top:4px; font-weight:600;">Avg delay: <span style="color:#dc2626; font-family:monospace;">18 min</span></div>
+          </div>
+        </div>
+        <!-- Card 3: Weight Mix -->
+        <div style="border:1px solid #bdc3c7; border-radius:4px; overflow:hidden;">
+          <div style="background:#2c3e50; color:#fff; padding:4px 8px; font-weight:700; font-size:9px; text-transform:uppercase; letter-spacing:0.05em;"><i>&#9878;</i> Weight Mix</div>
+          <div style="padding:6px 8px;">
+            <div style="display:flex; justify-content:space-between;"><span>Heavy (H)</span><span style="font-weight:600;">28%</span></div>
+            <div style="background:#e5e7eb; height:6px; border-radius:3px; margin:2px 0 4px;"><div style="background:#dc2626; height:100%; width:28%; border-radius:3px;"></div></div>
+            <div style="display:flex; justify-content:space-between;"><span>Large (L)</span><span style="font-weight:600;">58%</span></div>
+            <div style="background:#e5e7eb; height:6px; border-radius:3px; margin:2px 0 4px;"><div style="background:#3b82f6; height:100%; width:58%; border-radius:3px;"></div></div>
+            <div style="display:flex; justify-content:space-between;"><span>Small (S)</span><span style="font-weight:600;">14%</span></div>
+            <div style="background:#e5e7eb; height:6px; border-radius:3px; margin:2px 0;"><div style="background:#22c55e; height:100%; width:14%; border-radius:3px;"></div></div>
+          </div>
+        </div>
+        <!-- Card 4: Top Origins -->
+        <div style="border:1px solid #bdc3c7; border-radius:4px; overflow:hidden;">
+          <div style="background:#2c3e50; color:#fff; padding:4px 8px; font-weight:700; font-size:9px; text-transform:uppercase; letter-spacing:0.05em;"><i>&#127758;</i> Top Origins</div>
+          <div style="padding:4px 8px;">
+            <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #f0f0f0;"><span style="font-weight:600;">ZNY</span><span>42</span></div>
+            <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #f0f0f0;"><span style="font-weight:600;">ZBW</span><span>28</span></div>
+            <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #f0f0f0;"><span style="font-weight:600;">ZDC</span><span>19</span></div>
+            <div style="display:flex; justify-content:space-between; padding:2px 0;"><span style="font-weight:600;">ZAU</span><span>14</span></div>
+          </div>
+        </div>
+        <!-- Card 5: Top Carriers -->
+        <div style="border:1px solid #bdc3c7; border-radius:4px; overflow:hidden;">
+          <div style="background:#2c3e50; color:#fff; padding:4px 8px; font-weight:700; font-size:9px; text-transform:uppercase; letter-spacing:0.05em;"><i>&#9992;</i> Top Carriers</div>
+          <div style="padding:4px 8px;">
+            <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #f0f0f0;"><span style="font-weight:600;">AAL</span><span>31</span></div>
+            <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #f0f0f0;"><span style="font-weight:600;">DAL</span><span>24</span></div>
+            <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #f0f0f0;"><span style="font-weight:600;">UAL</span><span>18</span></div>
+            <div style="display:flex; justify-content:space-between; padding:2px 0;"><span style="font-weight:600;">JBU</span><span>15</span></div>
+          </div>
+        </div>
+        <!-- Card 6: Top Fixes -->
+        <div style="border:1px solid #bdc3c7; border-radius:4px; overflow:hidden;">
+          <div style="background:#2c3e50; color:#fff; padding:4px 8px; font-weight:700; font-size:9px; text-transform:uppercase; letter-spacing:0.05em;"><i>&#128205;</i> Top Arr Fixes</div>
+          <div style="padding:4px 8px;">
+            <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #f0f0f0;"><span style="font-weight:600;">CAMRN</span><span>38</span></div>
+            <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #f0f0f0;"><span style="font-weight:600;">ROBER</span><span>29</span></div>
+            <div style="display:flex; justify-content:space-between; padding:2px 0; border-bottom:1px solid #f0f0f0;"><span style="font-weight:600;">LENDY</span><span>21</span></div>
+            <div style="display:flex; justify-content:space-between; padding:2px 0;"><span style="font-weight:600;">KORRY</span><span>12</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Horizontal Stat Strip + Expandable Detail</h3>
+      <p>Compact headline metrics in a single row (like the info bar), with expandable accordion sections for detailed breakdowns. Less visual noise by default.</p>
+      <div style="margin-top:12px;">
+        <!-- Headline strip -->
+        <div style="display:flex; gap:12px; padding:8px 12px; background:#f8f9fa; border:1px solid #ddd; border-radius:4px; font-size:10px; margin-bottom:8px;">
+          <div style="text-align:center; min-width:80px;">
+            <div style="color:#666; text-transform:uppercase; font-size:8px; font-weight:600;">Peak Hour</div>
+            <div style="font-weight:700; font-family:monospace; color:#dc2626;">14-15Z</div>
+          </div>
+          <div style="border-left:1px solid #ddd;"></div>
+          <div style="text-align:center; min-width:80px;">
+            <div style="color:#666; text-transform:uppercase; font-size:8px; font-weight:600;">GDP Controlled</div>
+            <div style="font-weight:700; font-family:monospace;">24</div>
+          </div>
+          <div style="border-left:1px solid #ddd;"></div>
+          <div style="text-align:center; min-width:80px;">
+            <div style="color:#666; text-transform:uppercase; font-size:8px; font-weight:600;">Avg Delay</div>
+            <div style="font-weight:700; font-family:monospace; color:#f59e0b;">18 min</div>
+          </div>
+          <div style="border-left:1px solid #ddd;"></div>
+          <div style="text-align:center; min-width:80px;">
+            <div style="color:#666; text-transform:uppercase; font-size:8px; font-weight:600;">D/C Ratio</div>
+            <div style="font-weight:700; font-family:monospace;">1.18</div>
+          </div>
+          <div style="border-left:1px solid #ddd;"></div>
+          <div style="text-align:center; min-width:80px;">
+            <div style="color:#666; text-transform:uppercase; font-size:8px; font-weight:600;">Compliance</div>
+            <div style="font-weight:700; font-family:monospace; color:#22c55e;">87%</div>
+          </div>
+        </div>
+        <!-- Expandable sections preview -->
+        <div style="border:1px solid #ddd; border-radius:4px; overflow:hidden; font-size:10px;">
+          <div style="padding:6px 10px; background:#ecf0f1; border-bottom:1px solid #ddd; cursor:pointer; display:flex; justify-content:space-between;">
+            <span style="font-weight:600;">&#9660; Top Origins (4)</span>
+            <span style="color:#666;">ZNY 42 | ZBW 28 | ZDC 19 | ZAU 14</span>
+          </div>
+          <div style="padding:6px 10px; background:#fff; border-bottom:1px solid #ddd; cursor:pointer; display:flex; justify-content:space-between;">
+            <span style="font-weight:600;">&#9654; Top Carriers (4)</span>
+            <span style="color:#666;">AAL 31 | DAL 24 | UAL 18 | JBU 15</span>
+          </div>
+          <div style="padding:6px 10px; background:#fff; border-bottom:1px solid #ddd; cursor:pointer; display:flex; justify-content:space-between;">
+            <span style="font-weight:600;">&#9654; Weight Class Mix</span>
+            <span style="color:#666;">H 28% | L 58% | S 14%</span>
+          </div>
+          <div style="padding:6px 10px; background:#fff; cursor:pointer; display:flex; justify-content:space-between;">
+            <span style="font-weight:600;">&#9654; Top Arrival Fixes (4)</span>
+            <span style="color:#666;">CAMRN 38 | ROBER 29 | LENDY 21 | KORRY 12</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

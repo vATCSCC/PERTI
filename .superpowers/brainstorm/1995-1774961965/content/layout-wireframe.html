@@ -1,0 +1,177 @@
+<h2>RAD Page Layout</h2>
+<p class="subtitle">Map always visible on top. Tabbed panel below. Route string input overlays the map (like route.php).</p>
+
+<div class="mockup" style="width:100%;max-width:1100px;margin:0 auto;">
+  <div class="mockup-header">rad.php — Route Amendment Dialogue</div>
+  <div class="mockup-body" style="padding:0;background:#1a1a2e;">
+
+    <!-- Header/Nav -->
+    <div style="background:#16213e;padding:6px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #334;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="color:#e94560;font-weight:bold;font-size:14px;">PERTI</span>
+        <span style="color:#8899aa;font-size:12px;">Route Amendment Dialogue</span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <span style="background:#253;color:#5f5;font-size:10px;padding:2px 6px;border-radius:3px;">ADL LIVE</span>
+        <span style="color:#8899aa;font-size:11px;">ZNY TMU</span>
+      </div>
+    </div>
+
+    <!-- Top: Map Region -->
+    <div style="position:relative;height:340px;background:#0d1117;border-bottom:2px solid #334;">
+      <!-- Route input overlay (top-left, like route.php) -->
+      <div style="position:absolute;top:8px;left:8px;z-index:10;background:rgba(22,33,62,0.92);border:1px solid #445;border-radius:6px;padding:8px;width:280px;">
+        <div style="color:#aab;font-size:10px;margin-bottom:4px;">ROUTE STRING</div>
+        <div style="background:#111;border:1px solid #445;border-radius:3px;padding:6px;color:#6f8;font-family:monospace;font-size:11px;min-height:36px;">
+          KJFK DCT MERIT J60 FRESH..KORD
+        </div>
+        <div style="display:flex;gap:4px;margin-top:4px;">
+          <button style="background:#253;border:1px solid #5a5;color:#8c8;font-size:9px;padding:2px 8px;border-radius:3px;">Plot</button>
+          <button style="background:#234;border:1px solid #456;color:#89a;font-size:9px;padding:2px 8px;border-radius:3px;">Clear</button>
+          <button style="background:#234;border:1px solid #456;color:#89a;font-size:9px;padding:2px 8px;border-radius:3px;">Analysis</button>
+        </div>
+      </div>
+
+      <!-- Map layer toggles (top-right) -->
+      <div style="position:absolute;top:8px;right:8px;z-index:10;background:rgba(22,33,62,0.92);border:1px solid #445;border-radius:6px;padding:6px;">
+        <div style="color:#aab;font-size:9px;margin-bottom:3px;">LAYERS</div>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <label style="color:#89a;font-size:10px;display:flex;align-items:center;gap:4px;"><input type="checkbox" checked style="transform:scale(0.7)">ARTCC</label>
+          <label style="color:#89a;font-size:10px;display:flex;align-items:center;gap:4px;"><input type="checkbox" style="transform:scale(0.7)">TRACON</label>
+          <label style="color:#89a;font-size:10px;display:flex;align-items:center;gap:4px;"><input type="checkbox" checked style="transform:scale(0.7)">Flights</label>
+          <label style="color:#89a;font-size:10px;display:flex;align-items:center;gap:4px;"><input type="checkbox" style="transform:scale(0.7)">Weather</label>
+        </div>
+      </div>
+
+      <!-- Simulated map content -->
+      <div style="height:100%;display:flex;align-items:center;justify-content:center;color:#334;font-size:24px;">
+        MapLibre GL (reuses route-maplibre.js)
+      </div>
+
+      <!-- Flight context menu example -->
+      <div style="position:absolute;top:120px;left:420px;background:rgba(22,33,62,0.95);border:1px solid #556;border-radius:4px;padding:4px 0;font-size:10px;width:140px;">
+        <div style="color:#aab;padding:2px 10px;border-bottom:1px solid #334;font-weight:bold;">DAL123</div>
+        <div style="color:#89a;padding:3px 10px;cursor:pointer;">Toggle Data Block</div>
+        <div style="color:#89a;padding:3px 10px;cursor:pointer;">Toggle Route</div>
+        <div style="color:#89a;padding:3px 10px;cursor:pointer;">Draw Route</div>
+        <div style="color:#89a;padding:3px 10px;cursor:pointer;">History</div>
+        <div style="color:#89a;padding:3px 10px;cursor:pointer;">Change Color</div>
+        <div style="color:#e94560;padding:3px 10px;cursor:pointer;font-weight:bold;">Amend Route</div>
+        <div style="color:#89a;padding:3px 10px;cursor:pointer;">Deselect</div>
+      </div>
+
+      <!-- Aircraft symbols on map -->
+      <svg style="position:absolute;top:80px;left:300px;" width="20" height="20"><polygon points="10,2 18,18 10,14 2,18" fill="#4ECDC4" stroke="none"/></svg>
+      <span style="position:absolute;top:68px;left:305px;color:#4ECDC4;font-size:9px;font-family:monospace;">DAL123</span>
+
+      <svg style="position:absolute;top:180px;left:550px;" width="20" height="20"><polygon points="10,2 18,18 10,14 2,18" fill="#FF6B6B" stroke="none"/></svg>
+      <span style="position:absolute;top:168px;left:555px;color:#FF6B6B;font-size:9px;font-family:monospace;">UAL456</span>
+
+      <svg style="position:absolute;top:220px;left:200px;" width="20" height="20"><polygon points="10,2 18,18 10,14 2,18" fill="#FFD93D" stroke="none"/></svg>
+      <span style="position:absolute;top:208px;left:205px;color:#FFD93D;font-size:9px;font-family:monospace;">AAL789</span>
+    </div>
+
+    <!-- Tab Bar -->
+    <div style="display:flex;background:#16213e;border-bottom:1px solid #334;">
+      <div style="padding:8px 16px;color:#e94560;font-size:12px;font-weight:bold;border-bottom:2px solid #e94560;cursor:pointer;">Flight Search</div>
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Flight Detail</div>
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Route Edit</div>
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Monitoring</div>
+    </div>
+
+    <!-- Tab Content: Flight Search (active) -->
+    <div style="padding:10px;min-height:240px;">
+
+      <!-- Search/Filter bar -->
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <input type="text" placeholder="Search callsign..." style="width:100%;background:#111;border:1px solid #445;color:#ccc;padding:5px 8px;border-radius:3px;font-size:11px;">
+        </div>
+        <select style="background:#111;border:1px solid #445;color:#89a;padding:5px;border-radius:3px;font-size:10px;">
+          <option>Origin: Any</option>
+        </select>
+        <select style="background:#111;border:1px solid #445;color:#89a;padding:5px;border-radius:3px;font-size:10px;">
+          <option>Dest: Any</option>
+        </select>
+        <select style="background:#111;border:1px solid #445;color:#89a;padding:5px;border-radius:3px;font-size:10px;">
+          <option>Type: Any</option>
+        </select>
+        <select style="background:#111;border:1px solid #445;color:#89a;padding:5px;border-radius:3px;font-size:10px;">
+          <option>Status: Any</option>
+        </select>
+        <button style="background:#253;border:1px solid #5a5;color:#8c8;font-size:10px;padding:4px 10px;border-radius:3px;">Filter</button>
+        <button style="background:#234;border:1px solid #456;color:#89a;font-size:10px;padding:4px 10px;border-radius:3px;">Save Filter</button>
+      </div>
+
+      <!-- Results table with sub-rows -->
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:10px;">
+          <thead>
+            <tr style="background:#16213e;">
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;width:20px;"><input type="checkbox" style="transform:scale(0.75);"></th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Callsign</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Orig/Dest</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Type</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Times</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Flight 1 - two sub-rows -->
+            <tr style="background:#111;border-bottom:none;">
+              <td rowspan="2" style="padding:4px 6px;vertical-align:middle;border-bottom:1px solid #223;"><input type="checkbox" checked style="transform:scale(0.75);"></td>
+              <td rowspan="2" style="padding:4px 6px;color:#4ECDC4;font-weight:bold;vertical-align:middle;border-bottom:1px solid #223;font-family:monospace;">DAL123</td>
+              <td style="padding:2px 6px;color:#ccc;">KJFK</td>
+              <td rowspan="2" style="padding:4px 6px;color:#89a;vertical-align:middle;border-bottom:1px solid #223;">B738</td>
+              <td style="padding:2px 6px;color:#89a;font-family:monospace;font-size:9px;">ETD 1430 ETE 2:15 ETA 1645</td>
+              <td rowspan="2" style="padding:4px 6px;vertical-align:middle;border-bottom:1px solid #223;"><span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">ACTIVE</span></td>
+            </tr>
+            <tr style="background:#111;border-bottom:1px solid #223;">
+              <td style="padding:2px 6px;color:#888;">KORD</td>
+              <td style="padding:2px 6px;color:#667;font-family:monospace;font-size:9px;">CTD 1435 CTE 2:15 CTA 1650</td>
+            </tr>
+
+            <!-- Flight 2 -->
+            <tr style="background:#0d1117;border-bottom:none;">
+              <td rowspan="2" style="padding:4px 6px;vertical-align:middle;border-bottom:1px solid #223;"><input type="checkbox" style="transform:scale(0.75);"></td>
+              <td rowspan="2" style="padding:4px 6px;color:#FF6B6B;font-weight:bold;vertical-align:middle;border-bottom:1px solid #223;font-family:monospace;">UAL456</td>
+              <td style="padding:2px 6px;color:#ccc;">KEWR</td>
+              <td rowspan="2" style="padding:4px 6px;color:#89a;vertical-align:middle;border-bottom:1px solid #223;">A320</td>
+              <td style="padding:2px 6px;color:#89a;font-family:monospace;font-size:9px;">ETD 1500 ETE 1:45 ETA 1645</td>
+              <td rowspan="2" style="padding:4px 6px;vertical-align:middle;border-bottom:1px solid #223;"><span style="background:#532;color:#f95;font-size:9px;padding:1px 5px;border-radius:2px;">PREFILED</span></td>
+            </tr>
+            <tr style="background:#0d1117;border-bottom:1px solid #223;">
+              <td style="padding:2px 6px;color:#888;">KATL</td>
+              <td style="padding:2px 6px;color:#667;font-family:monospace;font-size:9px;">CTD &mdash; CTE &mdash; CTA &mdash;</td>
+            </tr>
+
+            <!-- Flight 3 -->
+            <tr style="background:#111;border-bottom:none;">
+              <td rowspan="2" style="padding:4px 6px;vertical-align:middle;border-bottom:1px solid #223;"><input type="checkbox" style="transform:scale(0.75);"></td>
+              <td rowspan="2" style="padding:4px 6px;color:#FFD93D;font-weight:bold;vertical-align:middle;border-bottom:1px solid #223;font-family:monospace;">AAL789</td>
+              <td style="padding:2px 6px;color:#ccc;">KLGA</td>
+              <td rowspan="2" style="padding:4px 6px;color:#89a;vertical-align:middle;border-bottom:1px solid #223;">B752</td>
+              <td style="padding:2px 6px;color:#89a;font-family:monospace;font-size:9px;">ETD 1445 ETE 3:00 ETA 1745</td>
+              <td rowspan="2" style="padding:4px 6px;vertical-align:middle;border-bottom:1px solid #223;"><span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">ACTIVE</span></td>
+            </tr>
+            <tr style="background:#111;border-bottom:1px solid #223;">
+              <td style="padding:2px 6px;color:#888;">KMIA</td>
+              <td style="padding:2px 6px;color:#667;font-family:monospace;font-size:9px;">CTD 1445 CTE 3:00 CTA 1745</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+        <span style="color:#667;font-size:10px;">Showing 3 of 847 flights | 1 selected</span>
+        <button style="background:#e94560;border:none;color:#fff;font-size:11px;padding:5px 14px;border-radius:3px;cursor:pointer;">Add to Detail &rarr;</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<p style="text-align:center;color:#888;margin-top:16px;font-size:13px;">
+  This wireframe shows the overall RAD layout structure.<br>
+  Map on top with route input overlay. Tabbed panel below. Flight Search tab shown active.
+</p>

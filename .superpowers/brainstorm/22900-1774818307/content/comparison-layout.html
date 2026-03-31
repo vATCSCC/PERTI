@@ -1,0 +1,83 @@
+<h2>Multi-Airport Comparison Layout</h2>
+<p class="subtitle">Side-by-side panels with synced time axis. How should the grid adapt?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Responsive 2x2 Grid</h3>
+      <p>2 airports = side-by-side (50/50). 3-4 airports = 2x2 grid. Each panel is a self-contained mini demand chart with its own TMI timeline, rate lines, and compact info bar. Shared filter sidebar applies to all.</p>
+      <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+        <div style="border:2px solid #2c3e50; border-radius:4px; padding:8px; background:#f8f9fa;">
+          <div style="font-weight:700; font-size:11px; color:#2c3e50; background:#ecf0f1; padding:4px 8px; margin:-8px -8px 8px -8px; border-radius:2px 2px 0 0;">KJFK <span style="color:#666; font-weight:400;">AAR 44 | ADR 38</span></div>
+          <div style="background:#e8e8e8; height:12px; margin-bottom:4px; border-radius:2px; font-size:8px; text-align:center; line-height:12px; color:#666;">TMI Timeline</div>
+          <div style="background:#ddd; height:80px; border-radius:2px; display:flex; align-items:center; justify-content:center; color:#999; font-size:11px;">ECharts Instance 1</div>
+        </div>
+        <div style="border:2px solid #2c3e50; border-radius:4px; padding:8px; background:#f8f9fa;">
+          <div style="font-weight:700; font-size:11px; color:#2c3e50; background:#ecf0f1; padding:4px 8px; margin:-8px -8px 8px -8px; border-radius:2px 2px 0 0;">KEWR <span style="color:#666; font-weight:400;">AAR 36 | ADR 32</span></div>
+          <div style="background:#e8e8e8; height:12px; margin-bottom:4px; border-radius:2px; font-size:8px; text-align:center; line-height:12px; color:#666;">TMI Timeline</div>
+          <div style="background:#ddd; height:80px; border-radius:2px; display:flex; align-items:center; justify-content:center; color:#999; font-size:11px;">ECharts Instance 2</div>
+        </div>
+        <div style="border:2px solid #2c3e50; border-radius:4px; padding:8px; background:#f8f9fa;">
+          <div style="font-weight:700; font-size:11px; color:#2c3e50; background:#ecf0f1; padding:4px 8px; margin:-8px -8px 8px -8px; border-radius:2px 2px 0 0;">KLGA <span style="color:#666; font-weight:400;">AAR 32 | ADR 28</span></div>
+          <div style="background:#e8e8e8; height:12px; margin-bottom:4px; border-radius:2px; font-size:8px; text-align:center; line-height:12px; color:#666;">TMI Timeline</div>
+          <div style="background:#ddd; height:80px; border-radius:2px; display:flex; align-items:center; justify-content:center; color:#999; font-size:11px;">ECharts Instance 3</div>
+        </div>
+        <div style="border:2px dashed #bdc3c7; border-radius:4px; padding:8px; background:#fafafa; display:flex; align-items:center; justify-content:center;">
+          <div style="text-align:center; color:#aaa;">
+            <div style="font-size:24px;">+</div>
+            <div style="font-size:10px;">Add Airport</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Horizontal Strip Panels</h3>
+      <p>Each airport gets a full-width row but at reduced height (~250px instead of 480px). Vertically stacked. Time axis aligned across all. Better for 3-4 airports since each gets full width for the time axis.</p>
+      <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px;">
+        <div style="border:2px solid #2c3e50; border-radius:4px; padding:6px 8px; background:#f8f9fa; display:flex; gap:8px; align-items:center;">
+          <div style="font-weight:700; font-size:11px; color:#2c3e50; min-width:40px;">KJFK</div>
+          <div style="flex:1; background:#ddd; height:45px; border-radius:2px; display:flex; align-items:center; justify-content:center; color:#999; font-size:10px;">Full-width chart (reduced height)</div>
+          <div style="font-size:9px; color:#666; min-width:70px; text-align:right;">AAR 44 | ADR 38</div>
+        </div>
+        <div style="border:2px solid #2c3e50; border-radius:4px; padding:6px 8px; background:#f8f9fa; display:flex; gap:8px; align-items:center;">
+          <div style="font-weight:700; font-size:11px; color:#2c3e50; min-width:40px;">KEWR</div>
+          <div style="flex:1; background:#ddd; height:45px; border-radius:2px; display:flex; align-items:center; justify-content:center; color:#999; font-size:10px;">Full-width chart (reduced height)</div>
+          <div style="font-size:9px; color:#666; min-width:70px; text-align:right;">AAR 36 | ADR 32</div>
+        </div>
+        <div style="border:2px solid #2c3e50; border-radius:4px; padding:6px 8px; background:#f8f9fa; display:flex; gap:8px; align-items:center;">
+          <div style="font-weight:700; font-size:11px; color:#2c3e50; min-width:40px;">KLGA</div>
+          <div style="flex:1; background:#ddd; height:45px; border-radius:2px; display:flex; align-items:center; justify-content:center; color:#999; font-size:10px;">Full-width chart (reduced height)</div>
+          <div style="font-size:9px; color:#666; min-width:70px; text-align:right;">AAR 32 | ADR 28</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Adaptive: 2=Side-by-Side, 3-4=Strips</h3>
+      <p>Best of both: 2 airports renders side-by-side (each gets good height). 3+ airports switches to horizontal strips (each gets full width). Automatically adapts. Single airport = current full-size view.</p>
+      <div style="margin-top:12px;">
+        <div style="font-size:10px; color:#666; margin-bottom:4px; font-weight:600;">1 airport: Full (current)</div>
+        <div style="border:1px solid #ccc; border-radius:3px; background:#eee; height:20px; margin-bottom:8px;"></div>
+        <div style="font-size:10px; color:#666; margin-bottom:4px; font-weight:600;">2 airports: Side-by-side</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:8px;">
+          <div style="border:1px solid #ccc; border-radius:3px; background:#eee; height:20px;"></div>
+          <div style="border:1px solid #ccc; border-radius:3px; background:#eee; height:20px;"></div>
+        </div>
+        <div style="font-size:10px; color:#666; margin-bottom:4px; font-weight:600;">3-4 airports: Horizontal strips</div>
+        <div style="display:flex; flex-direction:column; gap:3px;">
+          <div style="border:1px solid #ccc; border-radius:3px; background:#eee; height:14px;"></div>
+          <div style="border:1px solid #ccc; border-radius:3px; background:#eee; height:14px;"></div>
+          <div style="border:1px solid #ccc; border-radius:3px; background:#eee; height:14px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

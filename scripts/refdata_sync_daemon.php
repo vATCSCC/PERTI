@@ -6,6 +6,7 @@
  *   1. CDRs from assets/data/cdrs.csv -> VATSIM_REF dbo.coded_departure_routes
  *   2. Preferred routes from prefroutes_db.csv -> VATSIM_REF dbo.preferred_routes
  *   3. FAA playbook routes from assets/data/playbook_routes.csv -> MySQL playbook_plays + playbook_routes
+ *   4. Mirror CDR/preferred/playbook into SWIM_API tables
  *
  * This daemon runs even during hibernation since it handles static reference data
  * that does not depend on operational flight processing.
@@ -56,6 +57,12 @@ define('PLAYBOOK_ROUTE_BATCH_SIZE', 200);
 
 /** Preferred route batch insert size */
 define('PREFERRED_ROUTE_BATCH_SIZE', 500);
+
+/** Preferred route PostGIS traversal batch size */
+define('PREFERRED_ROUTE_POSTGIS_BATCH_SIZE', 80);
+
+/** FAA canonical preferred-routes CSV source (AIRAC updates). */
+define('PREFERRED_ROUTE_FAA_URL', 'https://www.fly.faa.gov/rmt/data_file/prefroutes_db.csv');
 
 /** Web root for resolving asset paths */
 define('REFDATA_WWWROOT', getenv('WWWROOT') ?: dirname(__DIR__));
@@ -250,6 +257,7 @@ function stripRouteEndpoints(string $rs, string $origAirports, string $origArtcc
  * Search order:
  *   1) assets/data/prefroutes_db.csv
  *   2) sibling of repo root (../prefroutes_db.csv) for local workflows
+ *   3) FAA canonical URL download to temp file (AIRAC fallback)
  */
 function getPreferredRoutesCsvPath(): ?string {
     $candidates = [
@@ -263,7 +271,52 @@ function getPreferredRoutesCsvPath(): ?string {
         }
     }
 
+    // AIRAC fallback: download canonical FAA preferred-routes CSV
+    $downloaded = downloadPreferredRoutesCsvFromFaa();
+    if ($downloaded !== null) {
+        return $downloaded;
+    }
+
     return null;
+}
+
+/**
+ * Download preferred-routes CSV from FAA canonical endpoint into temp file.
+ */
+function downloadPreferredRoutesCsvFromFaa(): ?string {
+    $url = PREFERRED_ROUTE_FAA_URL;
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 45,
+            'user_agent' => 'PERTI-refdata-sync/1.0',
+        ],
+        'ssl' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+        ],
+    ]);
+
+    $data = @file_get_contents($url, false, $context);
+    if ($data === false || trim($data) === '') {
+        logMsg("Failed to download FAA preferred routes CSV: $url", 'WARN');
+        return null;
+    }
+
+    $tmp = @tempnam(sys_get_temp_dir(), 'prefroutes_');
+    if ($tmp === false) {
+        logMsg("Downloaded FAA preferred routes CSV but could not allocate temp file", 'WARN');
+        return null;
+    }
+
+    $written = @file_put_contents($tmp, $data, LOCK_EX);
+    if ($written === false) {
+        @unlink($tmp);
+        logMsg("Failed to persist downloaded FAA preferred routes CSV to temp file", 'WARN');
+        return null;
+    }
+
+    logMsg("Using FAA preferred routes CSV download: $url");
+    return $tmp;
 }
 
 /**
@@ -948,6 +1001,164 @@ function computePreferredTraversedCenters(
 }
 
 /**
+ * Build a traversal route string for PostGIS expansion.
+ *
+ * Uses source full_route when it already appears endpoint-complete; otherwise
+ * rebuilds as: origin_code + cleaned route_string + dest_code.
+ *
+ * @param array<string,mixed> $row
+ */
+function buildPreferredPostgisTraversalRoute(array $row): string {
+    $full = strtoupper(trim((string)($row['full_route'] ?? '')));
+    $originRaw = strtoupper(trim((string)($row['origin_raw'] ?? '')));
+    $destRaw = strtoupper(trim((string)($row['dest_raw'] ?? '')));
+    $originCode = strtoupper(trim((string)($row['origin_code'] ?? '')));
+    $destCode = strtoupper(trim((string)($row['dest_code'] ?? '')));
+
+    if ($full !== '') {
+        $fullTokens = preg_split('/\s+/', $full);
+        if (is_array($fullTokens) && !empty($fullTokens)) {
+            $first = strtoupper((string)$fullTokens[0]);
+            $last = strtoupper((string)$fullTokens[count($fullTokens) - 1]);
+            $originCandidates = array_values(array_filter(array_unique([$originRaw, $originCode])));
+            $destCandidates = array_values(array_filter(array_unique([$destRaw, $destCode])));
+            if (in_array($first, $originCandidates, true) && in_array($last, $destCandidates, true)) {
+                return trim(preg_replace('/\s+/', ' ', $full));
+            }
+        }
+    }
+
+    $body = strtoupper(trim((string)($row['route_string'] ?? '')));
+    if ($body === '') {
+        $body = 'DCT';
+    }
+
+    $parts = [];
+    if ($originCode !== '') {
+        $parts[] = $originCode;
+    }
+    $parts[] = $body;
+    if ($destCode !== '') {
+        $parts[] = $destCode;
+    }
+
+    $rebuilt = trim(preg_replace('/\s+/', ' ', implode(' ', $parts)));
+    if ($rebuilt !== '') {
+        return $rebuilt;
+    }
+
+    return $full;
+}
+
+/**
+ * Compute traversed_centers using PostGIS route traversal (expand_route_with_artccs).
+ *
+ * This is the canonical method for preferred-route center traversal. If PostGIS
+ * is unavailable, import fails (no heuristic fallback).
+ *
+ * @param array<int,array<string,mixed>> $rows
+ * @return array{success: bool, message: string, total: int, computed: int, unresolved: int}
+ */
+function computePreferredTraversedCentersViaPostgis(array &$rows): array {
+    $total = count($rows);
+    if ($total === 0) {
+        return ['success' => true, 'message' => 'No preferred rows to traverse', 'total' => 0, 'computed' => 0, 'unresolved' => 0];
+    }
+
+    $connGis = get_conn_gis();
+    if (!($connGis instanceof PDO)) {
+        return [
+            'success' => false,
+            'message' => 'PostGIS connection unavailable; traversed_centers requires PostGIS route traversal',
+            'total' => $total,
+            'computed' => 0,
+            'unresolved' => $total,
+        ];
+    }
+
+    $computed = 0;
+    $unresolved = 0;
+
+    for ($offset = 0; $offset < $total; $offset += PREFERRED_ROUTE_POSTGIS_BATCH_SIZE) {
+        $batchEnd = min($offset + PREFERRED_ROUTE_POSTGIS_BATCH_SIZE, $total);
+        $valueTuples = [];
+        $params = [];
+
+        for ($i = $offset; $i < $batchEnd; $i++) {
+            $routeForTraversal = buildPreferredPostgisTraversalRoute($rows[$i]);
+            $valueTuples[] = "(?, ?)";
+            $params[] = $routeForTraversal;
+            $params[] = $i;
+        }
+
+        $sql = "SELECT
+                    v.route_idx,
+                    COALESCE(array_to_string(era.artccs_traversed, ','), '') AS traversed_centers,
+                    COALESCE(jsonb_array_length(era.waypoints), 0) AS waypoint_count
+                FROM (VALUES " . implode(',', $valueTuples) . ") AS v(route_text, route_idx)
+                LEFT JOIN LATERAL expand_route_with_artccs(v.route_text) era ON TRUE";
+
+        try {
+            $stmt = $connGis->prepare($sql);
+            $stmt->execute($params);
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => 'PostGIS traversal query failed: ' . $e->getMessage(),
+                'total' => $total,
+                'computed' => $computed,
+                'unresolved' => $total - $computed,
+            ];
+        }
+
+        $seen = [];
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $idx = (int)($r['route_idx'] ?? -1);
+            if ($idx < 0 || $idx >= $total) {
+                continue;
+            }
+            $seen[$idx] = true;
+
+            $waypointCount = (int)($r['waypoint_count'] ?? 0);
+            $csv = strtoupper(trim((string)($r['traversed_centers'] ?? '')));
+            if ($waypointCount >= 2 && $csv !== '') {
+                $tokens = array_values(array_filter(array_map('trim', explode(',', $csv)), static fn($x) => $x !== ''));
+                $rows[$idx]['traversed_centers'] = !empty($tokens) ? implode(',', $tokens) : null;
+            } else {
+                $rows[$idx]['traversed_centers'] = null;
+            }
+
+            if (!empty($rows[$idx]['traversed_centers'])) {
+                $computed++;
+            } else {
+                $unresolved++;
+            }
+        }
+
+        // Defensive: if a row was not returned by query, mark unresolved.
+        for ($i = $offset; $i < $batchEnd; $i++) {
+            if (!isset($seen[$i])) {
+                $rows[$i]['traversed_centers'] = null;
+                $unresolved++;
+            }
+        }
+    }
+
+    $msg = "PostGIS traversal complete: $computed/$total preferred routes resolved";
+    if ($unresolved > 0) {
+        $msg .= " ($unresolved unresolved)";
+    }
+
+    return [
+        'success' => true,
+        'message' => $msg,
+        'total' => $total,
+        'computed' => $computed,
+        'unresolved' => $unresolved,
+    ];
+}
+
+/**
  * Import preferred routes from prefroutes_db.csv into VATSIM_REF.preferred_routes.
  *
  * Transform rules:
@@ -955,7 +1166,7 @@ function computePreferredTraversedCenters(
  *   - Normalize origin/dest endpoint to ICAO if airport-mappable.
  *   - Populate origin/dest TRACON and center fields.
  *   - dep_artcc = origin_center and arr_artcc = dest_center (ARTCC/FIR-like only).
- *   - Compute traversed_centers (ordered L1 ARTCC/FIR traversal list).
+ *   - Compute traversed_centers via PostGIS route traversal.
  *
  * @return array{success: bool, message: string, count: int}
  */
@@ -1009,7 +1220,6 @@ function syncPreferredRoutes(): array {
     };
 
     $parsedRows = [];
-    $tokenSet = [];
 
     while (($row = fgetcsv($handle)) !== false) {
         $origRaw = strtoupper($getCol($row, $col, 'Orig'));
@@ -1029,13 +1239,6 @@ function syncPreferredRoutes(): array {
         $destCenter = normalizeCenterL1($dest['center'] ?? null);
 
         $cleanRoute = stripPreferredRouteAirportEndpoints($fullRoute, $origin, $dest);
-
-        // Collect token candidates for nav_fixes center enrichment lookup.
-        foreach (preg_split('/\s+/', strtoupper($fullRoute)) as $token) {
-            if ($token !== '') {
-                $tokenSet[$token] = true;
-            }
-        }
 
         $parsedRows[] = [
             'origin_code' => strtoupper((string)$origin['code']),
@@ -1069,31 +1272,11 @@ function syncPreferredRoutes(): array {
         return ['success' => false, 'message' => 'Preferred routes CSV parsed but contained no valid rows', 'count' => 0];
     }
 
-    $navFixCenterLookup = loadNavFixCenterLookupFromRef($connRef, array_keys($tokenSet));
-    logMsg("Preferred route enrichment lookup: " . count($navFixCenterLookup) . " nav_fix centers");
-
-    foreach ($parsedRows as $i => $row) {
-        $parsedRows[$i]['traversed_centers'] = computePreferredTraversedCenters(
-            $row['full_route'],
-            [
-                'center' => $row['origin_center'],
-                'is_airport' => $row['origin_is_airport'],
-                'raw' => $row['origin_raw'],
-                'code' => $row['origin_code'],
-                'airport' => $airportLookup[$row['origin_raw']] ?? null,
-            ],
-            [
-                'center' => $row['dest_center'],
-                'is_airport' => $row['dest_is_airport'],
-                'raw' => $row['dest_raw'],
-                'code' => $row['dest_code'],
-                'airport' => $airportLookup[$row['dest_raw']] ?? null,
-            ],
-            $airportLookup,
-            $centerLookup,
-            $navFixCenterLookup
-        );
+    $postgisTraversal = computePreferredTraversedCentersViaPostgis($parsedRows);
+    if (!$postgisTraversal['success']) {
+        return ['success' => false, 'message' => $postgisTraversal['message'], 'count' => 0];
     }
+    logMsg($postgisTraversal['message']);
 
     if (sqlsrv_begin_transaction($connRef) === false) {
         return ['success' => false, 'message' => 'Failed to begin preferred-routes transaction: ' . adl_sql_error_message(), 'count' => 0];

@@ -229,7 +229,39 @@ BEGIN TRY
     PRINT '  Synced ' + CAST(@row_count AS VARCHAR) + ' rows';
 
     -- ========================================================================
-    -- 7. area_centers
+    -- 7. preferred_routes
+    -- ========================================================================
+    SET @table_name = 'preferred_routes';
+    SET @start_time = SYSUTCDATETIME();
+    PRINT 'Syncing ' + @table_name + '...';
+
+    TRUNCATE TABLE [VATSIM_ADL].dbo.preferred_routes;
+
+    SET IDENTITY_INSERT [VATSIM_ADL].dbo.preferred_routes ON;
+
+    INSERT INTO [VATSIM_ADL].dbo.preferred_routes (
+        preferred_route_id, origin_code, dest_code, origin_raw, dest_raw, route_string,
+        hours1, hours2, hours3, route_type, area, altitude, aircraft, direction, seq,
+        dep_artcc, arr_artcc, origin_tracon, origin_center, dest_tracon, dest_center, traversed_centers,
+        origin_is_airport, dest_is_airport, is_active, source, effective_date, last_updated_utc
+    )
+    SELECT
+        preferred_route_id, origin_code, dest_code, origin_raw, dest_raw, route_string,
+        hours1, hours2, hours3, route_type, area, altitude, aircraft, direction, seq,
+        dep_artcc, arr_artcc, origin_tracon, origin_center, dest_tracon, dest_center, traversed_centers,
+        origin_is_airport, dest_is_airport, is_active, source, effective_date, last_updated_utc
+    FROM [VATSIM_REF].dbo.preferred_routes;
+
+    SET @row_count = @@ROWCOUNT;
+    SET IDENTITY_INSERT [VATSIM_ADL].dbo.preferred_routes OFF;
+
+    INSERT INTO [VATSIM_REF].dbo.ref_sync_log (table_name, rows_synced, sync_direction, sync_status, duration_ms)
+    VALUES (@table_name, @row_count, 'TO_ADL', 'SUCCESS', DATEDIFF(MILLISECOND, @start_time, SYSUTCDATETIME()));
+
+    PRINT '  Synced ' + CAST(@row_count AS VARCHAR) + ' rows';
+
+    -- ========================================================================
+    -- 8. area_centers
     -- ========================================================================
     SET @table_name = 'area_centers';
     SET @start_time = SYSUTCDATETIME();
@@ -257,7 +289,7 @@ BEGIN TRY
     PRINT '  Synced ' + CAST(@row_count AS VARCHAR) + ' rows';
 
     -- ========================================================================
-    -- 8. oceanic_fir_bounds
+    -- 9. oceanic_fir_bounds
     -- ========================================================================
     SET @table_name = 'oceanic_fir_bounds';
     SET @start_time = SYSUTCDATETIME();

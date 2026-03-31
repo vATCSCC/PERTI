@@ -215,14 +215,23 @@ syncTable($connRef, $connAdl, 'playbook_routes', [
     'is_active', 'source', 'effective_date'
 ], true);
 
-// 7. area_centers (~39 rows)
+// 7. preferred_routes
+syncTable($connRef, $connAdl, 'preferred_routes', [
+    'preferred_route_id',
+    'origin_code', 'dest_code', 'origin_raw', 'dest_raw', 'route_string',
+    'hours1', 'hours2', 'hours3', 'route_type', 'area', 'altitude', 'aircraft', 'direction', 'seq',
+    'dep_artcc', 'arr_artcc', 'origin_tracon', 'origin_center', 'dest_tracon', 'dest_center', 'traversed_centers',
+    'origin_is_airport', 'dest_is_airport', 'is_active', 'source', 'effective_date', 'last_updated_utc'
+], true);
+
+// 8. area_centers (~39 rows)
 syncTable($connRef, $connAdl, 'area_centers', [
     'center_id', 'center_code', 'center_type', 'center_name',
     'lat', 'lon', 'parent_artcc'
     // Note: position_geo is computed, not synced
 ], true);
 
-// 8. oceanic_fir_bounds (~11 rows)
+// 9. oceanic_fir_bounds (~11 rows)
 syncTable($connRef, $connAdl, 'oceanic_fir_bounds', [
     'fir_id', 'fir_code', 'fir_name', 'fir_type',
     'min_lat', 'max_lat', 'min_lon', 'max_lon',

@@ -97,9 +97,20 @@ Bidirectional webhook event bridge between PERTI/SWIM and SimTraffic:
 #### SWIM Daemons
 
 - `swim_tmi_sync_daemon.php` — 22 tables synced every 5 minutes (watermark-based delta + OPENJSON MERGE)
-- `refdata_sync_daemon.php` — CDRs (~41K), playbook routes (~55K), airports, taxi reference, route stats daily at 06:00Z
+- `refdata_sync_daemon.php` — CDRs (~41K), preferred routes (~28K), playbook routes (~55K), airports, taxi reference, route stats daily at 06:00Z
 - `simtraffic_swim_poll.php` — SimTraffic time data polling every 2 minutes
 - `swim_adl_reverse_sync_daemon.php` — SimTraffic data back to ADL every 2 minutes
+
+#### FAA Preferred Routes Import Pipeline
+
+New Step 2 in the `refdata_sync_daemon.php` daily pipeline for FAA preferred routes (`prefroutes_db.csv`):
+
+- ~28K routes imported with ICAO normalization, TRACON/Center enrichment from `apts.csv`, and endpoint-stripped route strings
+- Batch MERGE into `VATSIM_REF dbo.preferred_routes` with origin/dest airport detection and center/TRACON classification
+- REF→ADL sync via `sync_ref_to_adl.php`/`.sql` and `airac_update.py`
+- SWIM mirror: `swim_preferred_routes` table in `SWIM_API` with automated sync via `swim_refdata_sync.php`
+- Migration 023: `preferred_routes` table schema (REF + ADL) with 6 indexes
+- Migration 035: `swim_preferred_routes` mirror + updated sync status view
 
 ### GDT Feature Parity & TFMS Time Management
 

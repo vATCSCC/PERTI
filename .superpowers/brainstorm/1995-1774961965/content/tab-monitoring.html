@@ -1,0 +1,197 @@
+<h2>RAD — Monitoring Tab</h2>
+<p class="subtitle">Tracks amendment delivery, pilot compliance, and reroute conformance in real-time.</p>
+
+<div class="mockup" style="width:100%;max-width:1100px;margin:0 auto;">
+  <div class="mockup-header">Tab 4: Monitoring — Amendment tracking & compliance</div>
+  <div class="mockup-body" style="padding:0;background:#1a1a2e;">
+
+    <!-- Tab Bar -->
+    <div style="display:flex;background:#16213e;border-bottom:1px solid #334;">
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Flight Search</div>
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Flight Detail <span style="background:#445;color:#89a;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">3</span></div>
+      <div style="padding:8px 16px;color:#89a;font-size:12px;cursor:pointer;">Route Edit</div>
+      <div style="padding:8px 16px;color:#e94560;font-size:12px;font-weight:bold;border-bottom:2px solid #e94560;cursor:pointer;">Monitoring <span style="background:#e94560;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px;">5</span></div>
+    </div>
+
+    <div style="padding:10px;min-height:380px;">
+
+      <!-- Summary bar -->
+      <div style="display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="background:#111;border:1px solid #334;border-radius:4px;padding:8px 14px;text-align:center;">
+          <div style="color:#667;font-size:9px;">TOTAL</div>
+          <div style="color:#fff;font-size:22px;font-weight:bold;">5</div>
+        </div>
+        <div style="background:#111;border:1px solid #253;border-radius:4px;padding:8px 14px;text-align:center;">
+          <div style="color:#667;font-size:9px;">DRAFT</div>
+          <div style="color:#89a;font-size:22px;font-weight:bold;">1</div>
+        </div>
+        <div style="background:#111;border:1px solid #532;border-radius:4px;padding:8px 14px;text-align:center;">
+          <div style="color:#667;font-size:9px;">SENT</div>
+          <div style="color:#fa5;font-size:22px;font-weight:bold;">1</div>
+        </div>
+        <div style="background:#111;border:1px solid #352;border-radius:4px;padding:8px 14px;text-align:center;">
+          <div style="color:#667;font-size:9px;">DELIVERED</div>
+          <div style="color:#fd8;font-size:22px;font-weight:bold;">1</div>
+        </div>
+        <div style="background:#111;border:1px solid #253;border-radius:4px;padding:8px 14px;text-align:center;">
+          <div style="color:#667;font-size:9px;">ACCEPTED</div>
+          <div style="color:#5f5;font-size:22px;font-weight:bold;">1</div>
+        </div>
+        <div style="background:#111;border:1px solid #523;border-radius:4px;padding:8px 14px;text-align:center;">
+          <div style="color:#667;font-size:9px;">REJECTED</div>
+          <div style="color:#f66;font-size:22px;font-weight:bold;">0</div>
+        </div>
+        <div style="background:#111;border:1px solid #332;border-radius:4px;padding:8px 14px;text-align:center;">
+          <div style="color:#667;font-size:9px;">EXPIRED</div>
+          <div style="color:#886;font-size:22px;font-weight:bold;">1</div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="color:#667;font-size:10px;">Auto-refresh:</span>
+          <span style="background:#253;color:#5f5;font-size:9px;padding:2px 6px;border-radius:3px;">30s</span>
+          <span style="color:#556;font-size:9px;">Last: 14:32:15Z</span>
+        </div>
+      </div>
+
+      <!-- Filter bar -->
+      <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;">
+        <span style="color:#667;font-size:10px;">Show:</span>
+        <button style="background:#253;border:1px solid #5a5;color:#8c8;font-size:9px;padding:3px 8px;border-radius:3px;">All</button>
+        <button style="background:#234;border:1px solid #456;color:#89a;font-size:9px;padding:3px 8px;border-radius:3px;">Pending</button>
+        <button style="background:#234;border:1px solid #456;color:#89a;font-size:9px;padding:3px 8px;border-radius:3px;">Non-Compliant</button>
+        <button style="background:#234;border:1px solid #456;color:#89a;font-size:9px;padding:3px 8px;border-radius:3px;">Alerts</button>
+        <div style="flex:1;"></div>
+        <span style="color:#667;font-size:10px;">TMI:</span>
+        <select style="background:#111;border:1px solid #445;color:#89a;padding:2px 6px;border-radius:3px;font-size:10px;">
+          <option>All Programs</option>
+          <option>RRDCC045</option>
+          <option>Ad-hoc only</option>
+        </select>
+      </div>
+
+      <!-- Amendment tracking table -->
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:10px;">
+          <thead>
+            <tr style="background:#16213e;">
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Callsign</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">O/D</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Amdt Status</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">RRSTAT</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">TMI ID</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Assigned Route</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Filed Route</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Sent At</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Flight Status</th>
+              <th style="padding:4px 6px;color:#89a;text-align:left;border-bottom:1px solid #334;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Row 1: ACPT + Compliant -->
+            <tr style="background:#111;border-bottom:1px solid #223;">
+              <td style="padding:4px 6px;color:#4ECDC4;font-family:monospace;font-weight:bold;">AAL789</td>
+              <td style="padding:4px 6px;color:#89a;">LGA/MIA</td>
+              <td style="padding:4px 6px;"><span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">ACPT</span></td>
+              <td style="padding:4px 6px;"><span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">C</span></td>
+              <td style="padding:4px 6px;color:#89a;font-family:monospace;">RRDCC045</td>
+              <td style="padding:4px 6px;color:#6f8;font-family:monospace;font-size:9px;">..BIGGY J75 RBV..</td>
+              <td style="padding:4px 6px;color:#6f8;font-family:monospace;font-size:9px;">..BIGGY J75 RBV..</td>
+              <td style="padding:4px 6px;color:#89a;font-family:monospace;font-size:9px;">14:15Z</td>
+              <td style="padding:4px 6px;"><span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">ACTIVE</span></td>
+              <td style="padding:4px 6px;color:#556;">--</td>
+            </tr>
+
+            <!-- Row 2: SENT + waiting -->
+            <tr style="background:#0d1117;border-bottom:1px solid #223;">
+              <td style="padding:4px 6px;color:#FF6B6B;font-family:monospace;font-weight:bold;">DAL123</td>
+              <td style="padding:4px 6px;color:#89a;">JFK/ORD</td>
+              <td style="padding:4px 6px;"><span style="background:#532;color:#fa5;font-size:9px;padding:1px 5px;border-radius:2px;">SENT</span></td>
+              <td style="padding:4px 6px;"><span style="background:#532;color:#fa5;font-size:9px;padding:1px 5px;border-radius:2px;">NC</span></td>
+              <td style="padding:4px 6px;color:#89a;font-family:monospace;">RRDCC045</td>
+              <td style="padding:4px 6px;color:#6f8;font-family:monospace;font-size:9px;">..WHITE J80 CCC..</td>
+              <td style="padding:4px 6px;color:#f88;font-family:monospace;font-size:9px;">..MERIT J60 FRESH..</td>
+              <td style="padding:4px 6px;color:#89a;font-family:monospace;font-size:9px;">14:20Z</td>
+              <td style="padding:4px 6px;"><span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">ACTIVE</span></td>
+              <td style="padding:4px 6px;">
+                <button style="background:#234;border:1px solid #456;color:#89a;font-size:8px;padding:2px 6px;border-radius:2px;">Resend</button>
+              </td>
+            </tr>
+
+            <!-- Row 3: DLVD + waiting -->
+            <tr style="background:#111;border-bottom:1px solid #223;">
+              <td style="padding:4px 6px;color:#FFD93D;font-family:monospace;font-weight:bold;">UAL456</td>
+              <td style="padding:4px 6px;color:#89a;">EWR/ATL</td>
+              <td style="padding:4px 6px;"><span style="background:#352;color:#fd8;font-size:9px;padding:1px 5px;border-radius:2px;">DLVD</span></td>
+              <td style="padding:4px 6px;"><span style="background:#532;color:#fa5;font-size:9px;padding:1px 5px;border-radius:2px;">NC</span></td>
+              <td style="padding:4px 6px;color:#556;">&mdash;</td>
+              <td style="padding:4px 6px;color:#6f8;font-family:monospace;font-size:9px;">..WHITE J80 CCC V229..</td>
+              <td style="padding:4px 6px;color:#f88;font-family:monospace;font-size:9px;">..WAVEY AR1 JOSEY..</td>
+              <td style="padding:4px 6px;color:#89a;font-family:monospace;font-size:9px;">14:25Z</td>
+              <td style="padding:4px 6px;"><span style="background:#532;color:#f95;font-size:9px;padding:1px 5px;border-radius:2px;">PREFILED</span></td>
+              <td style="padding:4px 6px;">
+                <button style="background:#234;border:1px solid #456;color:#89a;font-size:8px;padding:2px 6px;border-radius:2px;">Resend</button>
+              </td>
+            </tr>
+
+            <!-- Row 4: DRAFT -->
+            <tr style="background:#0d1117;border-bottom:1px solid #223;">
+              <td style="padding:4px 6px;color:#9B59B6;font-family:monospace;font-weight:bold;">SWA221</td>
+              <td style="padding:4px 6px;color:#89a;">ISP/MCO</td>
+              <td style="padding:4px 6px;"><span style="background:#223;color:#89a;font-size:9px;padding:1px 5px;border-radius:2px;">DRAFT</span></td>
+              <td style="padding:4px 6px;color:#556;">&mdash;</td>
+              <td style="padding:4px 6px;color:#556;">&mdash;</td>
+              <td style="padding:4px 6px;color:#89a;font-family:monospace;font-size:9px;">..DIW J209 ORF..</td>
+              <td style="padding:4px 6px;color:#89a;font-family:monospace;font-size:9px;">..DIW J209 ORF..</td>
+              <td style="padding:4px 6px;color:#556;">&mdash;</td>
+              <td style="padding:4px 6px;"><span style="background:#532;color:#f95;font-size:9px;padding:1px 5px;border-radius:2px;">PREFILED</span></td>
+              <td style="padding:4px 6px;">
+                <button style="background:#e94560;border:none;color:#fff;font-size:8px;padding:2px 6px;border-radius:2px;">Send</button>
+                <button style="background:#432;border:1px solid #654;color:#a86;font-size:8px;padding:2px 6px;border-radius:2px;">Delete</button>
+              </td>
+            </tr>
+
+            <!-- Row 5: EXPR + alert -->
+            <tr style="background:#2a1515;border-bottom:1px solid #223;">
+              <td style="padding:4px 6px;color:#f66;font-family:monospace;font-weight:bold;">JBU887</td>
+              <td style="padding:4px 6px;color:#89a;">BOS/FLL</td>
+              <td style="padding:4px 6px;"><span style="background:#523;color:#f88;font-size:9px;padding:1px 5px;border-radius:2px;">EXPR</span></td>
+              <td style="padding:4px 6px;"><span style="background:#523;color:#f66;font-size:9px;padding:1px 5px;border-radius:2px;">NC</span></td>
+              <td style="padding:4px 6px;color:#89a;font-family:monospace;">RRDCC045</td>
+              <td style="padding:4px 6px;color:#6f8;font-family:monospace;font-size:9px;">..JUDDS J174 SIE..</td>
+              <td style="padding:4px 6px;color:#f88;font-family:monospace;font-size:9px;">..BUZRD ROBUC3..</td>
+              <td style="padding:4px 6px;color:#89a;font-family:monospace;font-size:9px;">13:50Z</td>
+              <td style="padding:4px 6px;"><span style="background:#253;color:#5f5;font-size:9px;padding:1px 5px;border-radius:2px;">ACTIVE</span></td>
+              <td style="padding:4px 6px;">
+                <span style="color:#f66;font-size:9px;">&#9888; Departed w/o amend</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Aggregate compliance -->
+      <div style="margin-top:12px;display:flex;gap:16px;padding:8px;background:#111;border:1px solid #334;border-radius:4px;">
+        <div>
+          <span style="color:#667;font-size:10px;">RRDCC045 Compliance:</span>
+        </div>
+        <!-- Mini bar chart -->
+        <div style="flex:1;display:flex;align-items:center;gap:4px;">
+          <div style="display:flex;flex:1;height:16px;border-radius:3px;overflow:hidden;">
+            <div style="background:#5f5;width:40%;" title="Compliant"></div>
+            <div style="background:#fa5;width:35%;" title="Non-Compliant"></div>
+            <div style="background:#89a;width:15%;" title="Unknown"></div>
+            <div style="background:#556;width:10%;" title="Excluded"></div>
+          </div>
+          <span style="color:#89a;font-size:10px;white-space:nowrap;">C: 8 | NC: 7 | UNKN: 3 | EXC: 2 | Rate: 40%</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<p style="text-align:center;color:#888;margin-top:16px;font-size:13px;">
+  Monitoring tab shows amendment lifecycle (DRAFT→SENT→DLVD→ACPT/RJCT/EXPR),<br>
+  conformance status (C/NC/UNKN/OK/EXC), alerts for departures without amendment,<br>
+  and aggregate compliance bar per TMI program.
+</p>
