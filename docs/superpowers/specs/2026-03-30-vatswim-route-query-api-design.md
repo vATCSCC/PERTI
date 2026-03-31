@@ -444,7 +444,7 @@ Paginate with `limit`/`offset`, return `summary` with counts per source and timi
 api/swim/v1/routes/query.php           — Main endpoint (POST + GET handler)
 load/services/RouteQueryService.php    — Core query logic, source fan-out, merge, rank
 load/services/RouteFilterParser.php    — PHP port of playbook boolean filter parser
-database/migrations/swim/058_swim_route_stats.sql  — New table DDL
+database/migrations/swim/034_swim_route_stats.sql  — New table DDL
 ```
 
 - `query.php`: Auth, input validation, delegates to `RouteQueryService`, formats response
@@ -464,7 +464,7 @@ Also document the existing but unlisted endpoints:
 
 ## Migration Numbering
 
-Next available SWIM migration: `058` (after 057 for splits bridge).
+Next available SWIM migration: `034` (after 033 for splits mirrors).
 
 ## Dependencies
 
