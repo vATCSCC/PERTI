@@ -87,6 +87,10 @@ define('SIMTRAFFIC_RATE_LIMIT_MS', 200);  // 200ms between API calls
 // Require authentication with write access
 $auth = swim_init_auth(true, true);
 
+// Deprecation notice — webhook endpoint is preferred
+header('X-Deprecated: Use POST /api/swim/v1/webhooks/simtraffic instead');
+header('Sunset: 2026-09-30');
+
 // Validate source can write times data
 if (!$auth->canWriteField('times')) {
     SwimResponse::error(

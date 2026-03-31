@@ -34,19 +34,23 @@ class SimTrafficConnector extends AbstractConnector
     public function getEndpoints(): array
     {
         return [
-            'ingest' => '/api/swim/v1/ingest/simtraffic.php',
+            'ingest'   => '/api/swim/v1/ingest/simtraffic.php',
+            'webhook'  => '/api/swim/v1/webhooks/simtraffic.php',
+            'register' => '/api/swim/v1/webhooks/register.php',
         ];
     }
 
     public function getConfig(): array
     {
         return array_merge(parent::getConfig(), [
-            'auth_field'   => 'metering',
-            'batch_limit'  => 500,
-            'poll_daemon'  => 'scripts/simtraffic_swim_poll.php',
-            'poll_interval' => '120s',
-            'data_fields'  => ['departure_times', 'arrival_times', 'metering_data'],
-            'client_sdk'   => 'integrations/connectors/simtraffic/',
+            'auth_field'       => 'metering',
+            'batch_limit'      => 500,
+            'poll_daemon'      => 'scripts/simtraffic_swim_poll.php',
+            'poll_interval'    => '600s',
+            'webhook_daemon'   => 'scripts/webhook_delivery_daemon.php',
+            'webhook_interval' => '10s',
+            'data_fields'      => ['departure_times', 'arrival_times', 'metering_data'],
+            'client_sdk'       => 'integrations/connectors/simtraffic/',
         ]);
     }
 }

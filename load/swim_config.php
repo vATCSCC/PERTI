@@ -41,6 +41,20 @@ $SWIM_RATE_LIMITS = [
     'public'    => 100     // Public consumers - dashboard/widget use cases
 ];
 
+// ============================================================================
+// Webhook Configuration
+// ============================================================================
+$SWIM_WEBHOOK_CONFIG = [
+    'retry_intervals'      => [10, 30, 90],   // seconds between retries
+    'batch_size'           => 50,              // max events per dispatch
+    'batch_window_sec'     => 5,               // max wait before dispatch
+    'signing_algo'         => 'sha256',        // HMAC algorithm
+    'dedup_window_hours'   => 24,              // inbound dedup window
+    'event_retention_days' => 30,              // swim_webhook_events purge
+    'max_timestamp_age'    => 300,             // replay protection window (seconds)
+    'inbound_rate_limit'   => 1000,            // req/min for webhook endpoints
+];
+
 /**
  * API Key Prefixes
  */

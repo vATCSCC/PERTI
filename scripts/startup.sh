@@ -163,11 +163,12 @@ nohup php "${WWWROOT}/scripts/swim_sync_daemon.php" --loop --sync-interval=120 -
 SWIM_SYNC_PID=$!
 echo "  swim_sync_daemon.php started (PID: $SWIM_SYNC_PID)"
 
-# Start the SimTraffic -> SWIM polling daemon (fetches ST times every 2 min)
+# Start the SimTraffic -> SWIM polling daemon (reconciliation fallback every 10 min)
 # Rate limited to 5 req/sec per SimTraffic API docs
+# Demoted from 2min to 10min — webhooks are now the primary ingest path
 # NOTE: Runs even in hibernation — VATSWIM remains operational
-echo "Starting simtraffic_swim_poll.php (polling every 2min)..."
-nohup php "${WWWROOT}/scripts/simtraffic_swim_poll.php" --loop --interval=120 >> /home/LogFiles/simtraffic_poll.log 2>&1 &
+echo "Starting simtraffic_swim_poll.php (reconciliation every 10min)..."
+nohup php "${WWWROOT}/scripts/simtraffic_swim_poll.php" --loop --interval=600 >> /home/LogFiles/simtraffic_poll.log 2>&1 &
 ST_POLL_PID=$!
 echo "  simtraffic_swim_poll.php started (PID: $ST_POLL_PID)"
 
