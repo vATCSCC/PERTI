@@ -395,7 +395,7 @@ When circuit is open, events remain `pending` in `swim_webhook_events`. When clo
 
 ## Migration
 
-Single new migration: `database/migrations/swim/025_swim_webhook_tables.sql`
+Single new migration: `database/migrations/swim/034_swim_webhook_tables.sql`
 
 Creates both tables + indexes + initial SimTraffic subscription rows (inbound + outbound).
 
