@@ -39,6 +39,7 @@ if (!file_exists($configPath)) {
 require_once $configPath;
 require_once __DIR__ . '/atis_parser.php';
 require_once __DIR__ . '/swim_ws_events.php';
+require_once dirname(__DIR__) . '/load/services/EDCTDelivery.php';
 
 // Verify ADL constants exist
 if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE') || !defined('ADL_SQL_USERNAME') || !defined('ADL_SQL_PASSWORD')) {
@@ -1886,7 +1887,7 @@ function shouldRunInlineSwim(array $config, int $run, ?int &$heartbeatAge = null
  * @param resource $conn_tmi  VATSIM_TMI connection (read-only)
  * @return array{synced: int, cleaned: int, ms: int}|null
  */
-function executeDeferredTMISync($conn_adl, $conn_tmi): ?array {
+function executeDeferredTMISync($conn_adl, $conn_tmi, ?EDCTDelivery $edctDelivery = null): ?array {
     $start = microtime(true);
 
     // ── Step 1: Fetch all active control records from TMI ────────────────
@@ -2097,6 +2098,34 @@ function executeDeferredTMISync($conn_adl, $conn_tmi): ?array {
     $ensureStmt = sqlsrv_query($conn_adl, $ensureSql);
     if ($ensureStmt !== false) sqlsrv_free_stmt($ensureStmt);
 
+    // ── Step 4b: Detect EDCT changes (before UPDATE overwrites old values) ──
+    $changesSql = "
+        SELECT s.flight_uid, s.edct_utc AS new_edct,
+               t.edct_utc AS prev_edct,
+               s.ctl_type, s.ctl_prgm, s.ctl_element,
+               s.program_id, s.slot_id,
+               s.gs_held, s.gs_release_utc,
+               fc.callsign, fc.cid
+        FROM #TmiSync s
+        INNER JOIN dbo.adl_flight_tmi t ON s.flight_uid = t.flight_uid
+        LEFT JOIN dbo.adl_flight_core fc ON s.flight_uid = fc.flight_uid
+        WHERE (
+            (t.edct_utc IS NULL AND s.edct_utc IS NOT NULL)
+            OR (t.edct_utc IS NOT NULL AND s.edct_utc IS NOT NULL AND t.edct_utc != s.edct_utc)
+            OR (t.edct_utc IS NOT NULL AND s.edct_utc IS NULL)
+            OR (ISNULL(t.gs_held, 0) != ISNULL(s.gs_held, 0))
+            OR (t.gs_release_utc IS NULL AND s.gs_release_utc IS NOT NULL)
+        )
+    ";
+    $changesStmt = sqlsrv_query($conn_adl, $changesSql, [], ['QueryTimeout' => 10]);
+    $edctChanges = [];
+    if ($changesStmt !== false) {
+        while ($ch = sqlsrv_fetch_array($changesStmt, SQLSRV_FETCH_ASSOC)) {
+            $edctChanges[] = $ch;
+        }
+        sqlsrv_free_stmt($changesStmt);
+    }
+
     $updateSql = "
         UPDATE t SET
             t.ctl_type = s.ctl_type,
@@ -2128,6 +2157,65 @@ function executeDeferredTMISync($conn_adl, $conn_tmi): ?array {
     if ($updateStmt !== false) {
         $synced = sqlsrv_rows_affected($updateStmt) ?? 0;
         sqlsrv_free_stmt($updateStmt);
+    }
+
+    // ── Step 4c: Deliver EDCT/TMI changes via HoppieWriter ──────────────
+    if (!empty($edctChanges) && $edctDelivery !== null) {
+        foreach ($edctChanges as $change) {
+            $fuid = (int)$change['flight_uid'];
+            $cs = $change['callsign'] ?? null;
+            $cid = isset($change['cid']) ? (int)$change['cid'] : null;
+            $pid = isset($change['program_id']) ? (int)$change['program_id'] : null;
+            $sid = isset($change['slot_id']) ? (int)$change['slot_id'] : null;
+
+            if (!$cs) continue;
+
+            try {
+                $prevEdct = $change['prev_edct'];
+                $newEdct = $change['new_edct'];
+                $gsHeld = (int)($change['gs_held'] ?? 0);
+                $gsRelease = $change['gs_release_utc'];
+
+                if ($prevEdct instanceof DateTimeInterface) $prevEdct = $prevEdct->format('Y-m-d H:i:s');
+                if ($newEdct instanceof DateTimeInterface) $newEdct = $newEdct->format('Y-m-d H:i:s');
+                if ($gsRelease instanceof DateTimeInterface) $gsRelease = $gsRelease->format('Y-m-d H:i:s');
+
+                if ($gsRelease !== null) {
+                    $dest = $change['ctl_element'] ?? 'UNKNOWN';
+                    $followon = 'RELEASED';
+                    if ($pid && $conn_tmi) {
+                        $foSql = "SELECT gs_release_followon FROM dbo.tmi_programs WHERE program_id = ?";
+                        $foStmt = sqlsrv_query($conn_tmi, $foSql, [$pid]);
+                        if ($foStmt !== false) {
+                            $foRow = sqlsrv_fetch_array($foStmt, SQLSRV_FETCH_ASSOC);
+                            if ($foRow) $followon = $foRow['gs_release_followon'] ?? 'RELEASED';
+                            sqlsrv_free_stmt($foStmt);
+                        }
+                    }
+                    $msg = $edctDelivery->formatGSReleaseMessage($dest, $followon);
+                    $edctDelivery->deliverMessage($fuid, $cs, CDMService::MSG_GS_RELEASE, $msg, $gsRelease, $cid, $pid, $sid);
+                }
+                elseif ($gsHeld === 1 && $newEdct === null) {
+                    $dest = $change['ctl_element'] ?? 'UNKNOWN';
+                    $msg = $edctDelivery->formatGSHoldMessage($dest);
+                    $edctDelivery->deliverMessage($fuid, $cs, CDMService::MSG_GS_HOLD, $msg, null, $cid, $pid, $sid);
+                }
+                elseif ($prevEdct !== null && $newEdct === null) {
+                    $msg = $edctDelivery->formatEDCTCancelMessage($prevEdct);
+                    $edctDelivery->deliverMessage($fuid, $cs, CDMService::MSG_EDCT_CANCEL, $msg, null, $cid, $pid, $sid);
+                }
+                elseif ($prevEdct !== null && $newEdct !== null && $prevEdct !== $newEdct) {
+                    $msg = $edctDelivery->formatEDCTAmendedMessage($newEdct, $prevEdct);
+                    $edctDelivery->deliverMessage($fuid, $cs, CDMService::MSG_EDCT_AMENDED, $msg, $newEdct, $cid, $pid, $sid);
+                }
+                elseif ($prevEdct === null && $newEdct !== null) {
+                    $reason = trim(($change['ctl_type'] ?? '') . ' ' . ($change['ctl_prgm'] ?? '') . ' ' . ($change['ctl_element'] ?? ''));
+                    $edctDelivery->deliverEDCT($fuid, $cs, $newEdct, $reason, $cid, $pid, $sid);
+                }
+            } catch (Throwable $e) {
+                logWarn("EDCT delivery error for $cs: " . $e->getMessage());
+            }
+        }
     }
 
     // ── Step 5: Mirror control times to adl_flight_times ─────────────────
@@ -3025,9 +3113,28 @@ function runDaemon(array $config): void {
                         logInfo("TMI database connected (read-only)");
                     }
                 }
+                // Initialize EDCTDelivery (lazy, once per daemon lifecycle)
+                static $edctDelivery = null;
+                if ($edctDelivery === null && $conn_tmi) {
+                    $swimConn = null;
+                    if (defined('SWIM_SQL_HOST') && SWIM_SQL_HOST) {
+                        $swimConn = @sqlsrv_connect(SWIM_SQL_HOST, [
+                            'Database' => SWIM_SQL_DATABASE ?? 'SWIM_API',
+                            'UID'      => SWIM_SQL_USERNAME ?? '',
+                            'PWD'      => SWIM_SQL_PASSWORD ?? '',
+                            'Encrypt'  => true,
+                            'TrustServerCertificate' => false,
+                            'LoginTimeout' => 10,
+                        ]);
+                    }
+                    $cdmService = new CDMService($swimConn, $conn_tmi, $conn);
+                    $edctDelivery = new EDCTDelivery($cdmService, $conn_tmi, false);
+                    logInfo("EDCTDelivery initialized for TMI message delivery");
+                }
+
                 if ($conn_tmi) {
                     try {
-                        $tmiSyncResult = executeDeferredTMISync($conn, $conn_tmi);
+                        $tmiSyncResult = executeDeferredTMISync($conn, $conn_tmi, $edctDelivery);
                         if ($tmiSyncResult !== null && ($tmiSyncResult['synced'] > 0 || $tmiSyncResult['cleaned'] > 0)) {
                             logInfo("TMI sync: {$tmiSyncResult['synced']} synced, {$tmiSyncResult['cleaned']} cleaned ({$tmiSyncResult['ms']}ms)");
                         }
