@@ -1,0 +1,22 @@
+swim:
+  url: "wss://perti.vatcscc.org/ws/swim/v1"
+  api_key: "YOUR_SWIM_API_KEY"
+  channels:
+    - "tmi.*"
+    - "cdm.*"
+    - "aman.*"
+    - "flight.*"
+
+fsd:
+  listen_addr: ":6809"
+  server_id: "SWIM"
+  server_name: "VATSWIM Bridge"
+
+bridge:
+  callsign: "SWIM"
+  facility: "ZDC"
+  auto_reconnect: true
+  max_reconnect_delay_sec: 300
+
+locale: "en-US"
+log_level: "info"

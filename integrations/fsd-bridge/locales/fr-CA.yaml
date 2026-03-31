@@ -1,0 +1,24 @@
+bridge:
+  name: "Pont FSD VATSWIM"
+  description: "Traduit les événements WebSocket SWIM en protocole FSD"
+  version: "1.0.0"
+
+status:
+  connected: "Connecté au WebSocket SWIM"
+  disconnected: "Déconnecté du WebSocket SWIM"
+  reconnecting: "Reconnexion au SWIM (tentative {attempt})"
+  listening: "Serveur FSD à l'écoute sur {addr}"
+  client_connected: "Client connecté : {callsign}"
+  client_disconnected: "Client déconnecté : {callsign}"
+
+events:
+  cdm_delivered: "Message CDM livré à {callsign} : {type}"
+  tmi_broadcast: "TMI {program_type} {status} à {airport}"
+  aman_sequence: "Séquence AMAN pour {airport} {runway} : {count} entrées"
+  flight_update: "Mise à jour du vol : {callsign}"
+
+errors:
+  config_load: "Échec du chargement de la configuration : {error}"
+  swim_connect: "Échec de connexion au SWIM : {error}"
+  fsd_listen: "Échec du démarrage du serveur FSD : {error}"
+  send_failed: "Échec d'envoi à {callsign} : {error}"
