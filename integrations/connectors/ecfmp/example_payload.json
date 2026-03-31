@@ -1,7 +1,44 @@
 {
-  "_note": "ECFMP is READ-only from VATSWIM. This shows the response format from VATSWIM's flow endpoints.",
+  "_note": "ECFMP connector supports both PUSH and READ. Push payloads go to /api/swim/v1/tmi/flow/ingest.php",
 
-  "flow_events_response": {
+  "push_flow_measures_request": {
+    "measures": [
+      {
+        "external_id": "67890",
+        "ident": "EGLL_MDI_01",
+        "event_id": null,
+        "ctl_element": "EGTT",
+        "element_type": "FIR",
+        "measure_type": "MDI",
+        "measure_value": "120",
+        "measure_unit": "SEC",
+        "reason": "Weather at EGLL causing reduced acceptance rate",
+        "filters_json": "{\"ades\":[\"EGLL\"],\"level_above\":240}",
+        "mandatory_route_json": null,
+        "start_utc": "2026-03-30T14:00:00Z",
+        "end_utc": "2026-03-30T18:00:00Z",
+        "status": "ACTIVE",
+        "withdrawn_at": null
+      }
+    ]
+  },
+
+  "push_flow_measures_response": {
+    "success": true,
+    "data": {
+      "processed": 1,
+      "created": 1,
+      "updated": 0,
+      "errors": 0,
+      "error_details": []
+    },
+    "meta": {
+      "source": "ecfmp",
+      "batch_size": 1
+    }
+  },
+
+  "read_flow_events_response": {
     "success": true,
     "data": [
       {
@@ -17,24 +54,24 @@
     ]
   },
 
-  "flow_measures_response": {
+  "read_flow_measures_response": {
     "success": true,
     "data": [
       {
         "measure_id": 99,
         "event_id": 42,
         "ecfmp_measure_id": 67890,
-        "measure_type": "MINIMUM_DEPARTURE_INTERVAL",
-        "value": 10,
-        "unit": "minutes",
+        "measure_type": "MDI",
+        "value": 120,
+        "unit": "SEC",
         "affected_firs": ["EGTT"],
         "filters": {
-          "airport_arrival": ["EGLL"],
+          "ades": ["EGLL"],
           "level_above": 240
         },
         "start_utc": "2026-03-06T14:00:00Z",
         "end_utc": "2026-03-06T18:00:00Z",
-        "status": "active"
+        "status": "ACTIVE"
       }
     ]
   }

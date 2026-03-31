@@ -180,6 +180,43 @@ if (!$typeFilter || $typeFilter === 'splits') {
         sqlsrv_free_stmt($stmt);
     }
 
+    // Fire WebSocket events for any splits state changes
+    if (!empty($results['splits']['items'])) {
+        $wsEvents = [];
+        foreach ($results['splits']['items'] as $item) {
+            $eventType = $item['action'] === 'activated' ? 'splits.activated' : 'splits.deactivated';
+            $wsEvents[] = [
+                'type' => $eventType,
+                'data' => [
+                    'config_id' => (int)$item['id'],
+                    'artcc' => $item['artcc'],
+                    'config_name' => $item['name'],
+                    'status' => $item['action'] === 'activated' ? 'active' : 'inactive',
+                    'triggered_by' => 'scheduler',
+                ],
+            ];
+        }
+        // Write to event queue (same file-based IPC as swim_ws_events.php)
+        $eventFile = sys_get_temp_dir() . '/swim_ws_events.json';
+        $existingEvents = [];
+        if (file_exists($eventFile)) {
+            $content = @file_get_contents($eventFile);
+            if ($content) {
+                $existingEvents = json_decode($content, true) ?: [];
+            }
+        }
+        foreach ($wsEvents as $ev) {
+            $existingEvents[] = array_merge($ev, ['_received_at' => gmdate('Y-m-d\TH:i:s.v\Z')]);
+        }
+        if (count($existingEvents) > 10000) {
+            $existingEvents = array_slice($existingEvents, -5000);
+        }
+        $tempFile = $eventFile . '.tmp.' . getmypid();
+        if (file_put_contents($tempFile, json_encode($existingEvents)) !== false) {
+            @rename($tempFile, $eventFile);
+        }
+    }
+
     // Get upcoming splits transitions
     $sql = "SELECT 'splits' AS resource_type, 'activation' AS transition_type,
                    DATEDIFF(MINUTE, GETUTCDATE(), start_time_utc) AS minutes_until

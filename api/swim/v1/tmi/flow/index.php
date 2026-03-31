@@ -87,6 +87,14 @@ $response = [
             'methods' => ['GET'],
             'description' => 'Active flow measures (MIT, MINIT, MDI, etc.) from external providers',
             'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/flow/ingest',
+            'methods' => ['POST'],
+            'description' => 'Push flow measures from external providers (ECFMP, NavCanada, etc.)',
+            'auth' => 'required (partner/system tier with flow_measure write access)',
+            'payload' => '{"measures": [{"external_id": "...", "ctl_element": "EGTT", "measure_type": "MDI", ...}]}',
+            'max_batch' => 200
         ]
     ],
     'providers' => [

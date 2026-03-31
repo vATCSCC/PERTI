@@ -4,8 +4,8 @@
 
 Hibernation mode is an open-ended operational pause that reduces PERTI to core data collection plus VATSWIM. Most downstream flight processing and several UI pages are suspended, but **SWIM API, SWIM pages, and SWIM daemons remain fully operational**. Azure resources are downscaled to match the reduced workload.
 
-**Status**: Inactive (exited 2026-03-30)
-**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption; Exited March 20, 2026; Re-entered March 22, 2026 with PostGIS at B2s + review/TMR/TMI Compliance exemption; Exited March 29, 2026; Re-entered March 29, 2026
+**Status**: Active (entered 2026-03-30)
+**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption; Exited March 20, 2026; Re-entered March 22, 2026 with PostGIS at B2s + review/TMR/TMI Compliance exemption; Exited March 29, 2026; Re-entered March 29, 2026; Exited March 30, 2026; Re-entered March 30, 2026
 
 ---
 
@@ -127,13 +127,13 @@ Every access attempt to a hibernated page or SWIM API endpoint is recorded in th
 | **App Service** (ASP-VATSIMRG-9bb6) | P1v2 (3.5GB) | P1v2 (unchanged — has 4 deployment slots, B1 doesn't support slots) | $0 |
 | **VATSIM_ADL** (Hyperscale Serverless) | HS_S_Gen5 min 3 / max 16 vCores | HS_S_Gen5 min 1 / max 4 vCores | ~$800-950 |
 | **MySQL** (perti_site) | Standard_D2ds_v4 (GP, 2 vCore, 8GB) | Standard_B1ms (Burstable, 1 vCore, 2GB) | ~$185 |
-| **PostGIS** (VATSIM_GIS) | Standard_B2s (Burstable, 2 vCore) | Standard_B1ms (Burstable, 1 vCore, 2GB) | ~$15 |
+| **PostGIS** (VATSIM_GIS) | Standard_B2s (Burstable, 2 vCore) | Standard_B2s (unchanged — keeps GIS daemons and backfills performant) | $0 |
 | **SWIM_API** (Azure SQL) | Basic 5 DTU | Basic 5 DTU (unchanged — already ~$5/mo) | $0 |
 | **VATSIM_TMI/REF** (Azure SQL) | Basic 5 DTU | Basic 5 DTU (unchanged) | $0 |
 | **VATSIM_STATS** (Azure SQL) | GP_S_Gen5 1 vCore | GP_S_Gen5 (unchanged) | $0 |
 | **Synapse** | Serverless | Serverless (pay-per-query) | $0 |
 | **Blob Storage** | Active | Active (minimal cost) | $0 |
-| **Total estimated savings** | | | **~$1,000-1,150/mo** |
+| **Total estimated savings** | | | **~$985-1,135/mo** |
 
 ### CLI Commands for Downscaling (Entering Hibernation)
 
@@ -146,9 +146,7 @@ az sql db update --name VATSIM_ADL --server vatsim --resource-group VATSIM_RG \
 az mysql flexible-server update --name vatcscc-perti --resource-group VATSIM_RG \
     --sku-name Standard_B1ms --tier Burstable
 
-# PostGIS: B2s → B1ms (requires server restart)
-az postgres flexible-server update --name vatcscc-gis --resource-group VATSIM_RG \
-    --sku-name Standard_B1ms --tier Burstable --yes
+# PostGIS: stays at B2s (no change needed)
 ```
 
 ---
@@ -168,12 +166,10 @@ az sql db update --name VATSIM_ADL --server vatsim --resource-group VATSIM_RG \
 az mysql flexible-server update --name vatcscc-perti --resource-group VATSIM_RG \
     --sku-name Standard_D2ds_v4 --tier GeneralPurpose
 
-# PostGIS: B1ms → B2s
-az postgres flexible-server update --name vatcscc-gis --resource-group VATSIM_RG \
-    --sku-name Standard_B2s --tier Burstable --yes
+# PostGIS: stays at B2s (no change needed)
 ```
 
-**Note**: App Service stays at P1v2 (has 4 deployment slots; B1 doesn't support slots). SWIM_API stays at Basic 5 DTU (already minimal cost).
+**Note**: App Service stays at P1v2 (has 4 deployment slots; B1 doesn't support slots). SWIM_API stays at Basic 5 DTU (already minimal cost). PostGIS stays at B2s in both modes.
 
 ### 2. Update PHP Config
 

@@ -1,0 +1,82 @@
+{
+  "_note": "vIFF connector pushes ATFCM data to VATSWIM via two endpoints",
+
+  "push_cdm_milestones_request": {
+    "_endpoint": "POST /api/swim/v1/ingest/cdm.php",
+    "updates": [
+      {
+        "callsign": "BAW123",
+        "airport": "EGLL",
+        "tobt": "2026-03-30T14:30:00Z",
+        "tsat": "2026-03-30T14:35:00Z",
+        "ttot": "2026-03-30T14:45:00Z",
+        "exot": 10,
+        "readiness_state": "READY",
+        "atfcm_excluded": false,
+        "atfcm_ready": true,
+        "atfcm_slot_improvement": false,
+        "source": "VIFF_CDM"
+      }
+    ]
+  },
+
+  "push_cdm_milestones_response": {
+    "success": true,
+    "data": {
+      "processed": 1,
+      "updated": 1,
+      "not_found": 0,
+      "readiness_updated": 1,
+      "errors": 0,
+      "error_details": []
+    }
+  },
+
+  "push_flow_measures_request": {
+    "_endpoint": "POST /api/swim/v1/tmi/flow/ingest.php",
+    "measures": [
+      {
+        "external_id": "VIFF-REG-EGLL001",
+        "ident": "EGLL_MDI_01",
+        "ctl_element": "EGTT",
+        "element_type": "FIR",
+        "measure_type": "MDI",
+        "measure_value": "120",
+        "measure_unit": "SEC",
+        "reason": "Weather at EGLL causing reduced acceptance rate",
+        "filters_json": "{\"ades\":[\"EGLL\"],\"level_above\":240}",
+        "start_utc": "2026-03-30T14:00:00Z",
+        "end_utc": "2026-03-30T18:00:00Z",
+        "status": "ACTIVE"
+      }
+    ]
+  },
+
+  "push_flow_measures_response": {
+    "success": true,
+    "data": {
+      "processed": 1,
+      "created": 1,
+      "updated": 0,
+      "errors": 0,
+      "error_details": []
+    }
+  },
+
+  "convert_etfms_input": {
+    "_note": "Raw vIFF /etfms/relevant format, converted by convert_etfms_to_cdm()",
+    "callsign": "BAW123",
+    "departure": "EGLL",
+    "arrival": "KJFK",
+    "eobt": "1430",
+    "isCdm": true,
+    "tobt": "1430",
+    "ctot": "1445",
+    "taxi": 10,
+    "atfcmData": {
+      "excluded": false,
+      "isRea": true,
+      "SIR": false
+    }
+  }
+}

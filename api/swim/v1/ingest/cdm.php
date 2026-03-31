@@ -51,6 +51,8 @@ if (!$auth->canWriteField('cdm')) {
     );
 }
 
+require_once __DIR__ . '/../../../load/tmi_log.php';
+
 // Get request body
 $body = swim_get_json_body();
 if (!$body) {
@@ -270,6 +272,54 @@ function processCdmUpdate($conn_swim, $conn_tmi, $record, $source, $valid_readin
         if ($rows > 0) {
             $result['status'] = 'updated';
             $result['flight_uid'] = $flight['flight_uid'];
+
+            // Log CDM milestone update to TMI analytics pipeline
+            try {
+                if ($conn_tmi === null) {
+                    $conn_tmi = get_conn_tmi();
+                }
+                if ($conn_tmi) {
+                    $changed_fields = [];
+                    if (!empty($record['tobt'])) $changed_fields[] = 'TOBT';
+                    if (!empty($record['tsat'])) $changed_fields[] = 'TSAT';
+                    if (!empty($record['ttot'])) $changed_fields[] = 'TTOT';
+                    if (!empty($record['asat'])) $changed_fields[] = 'ASAT';
+                    if (!empty($record['asrt'])) $changed_fields[] = 'ASRT';
+                    if (isset($record['exot'])) $changed_fields[] = 'EXOT';
+
+                    $fields_str = implode(',', $changed_fields);
+                    $dep = $airport ?: ($flight['fp_dept_icao'] ?? '');
+
+                    log_tmi_action($conn_tmi, [
+                        'action_category' => 'CDM',
+                        'action_type' => 'MILESTONE_UPDATE',
+                        'summary' => "CDM update for {$callsign} at {$dep}: {$fields_str}",
+                        'source_system' => 'VATSWIM_INGEST',
+                        'issuing_facility' => $dep,
+                        'issuing_org' => $cdm_source,
+                    ], [
+                        'ctl_element' => $dep,
+                        'element_type' => 'AIRPORT',
+                        'facility' => $dep,
+                    ], [
+                        'effective_start_utc' => $record['tobt'] ?? null,
+                        'detail_json' => json_encode(array_filter([
+                            'tobt' => $record['tobt'] ?? null,
+                            'tsat' => $record['tsat'] ?? null,
+                            'ttot' => $record['ttot'] ?? null,
+                            'asat' => $record['asat'] ?? null,
+                            'asrt' => $record['asrt'] ?? null,
+                            'exot' => $record['exot'] ?? null,
+                        ])),
+                    ], null, [
+                        'flight_uid' => $flight['flight_uid'],
+                        'source_type' => 'CDM_PROVIDER',
+                        'source_id' => $cdm_source,
+                    ]);
+                }
+            } catch (Exception $e) {
+                error_log("CDM ingest: TMI analytics log failed for {$callsign}: " . $e->getMessage());
+            }
         }
     }
 

@@ -111,6 +111,11 @@ $SWIM_DATA_SOURCES = [
     'VACDM'           => 'vacdm',            // vACDM instances (TOBT/TSAT/TTOT)
     'CDM_PLUGIN'      => 'cdm_plugin',       // CDM Plugin (departure sequencing)
     'VIFF_CDM'        => 'viff_cdm',         // vIFF ATFCM System (EU CDM milestones)
+
+    // Flow measure sources (external ATFM providers)
+    'ECFMP'           => 'ecfmp',            // EUROCONTROL Flow Measures (ECFMP)
+    'NAVCAN'          => 'navcan',           // NAV CANADA flow management (planned)
+    'VATPAC'          => 'vatpac',           // VATSIM Pacific flow management (planned)
 ];
 
 /**
@@ -158,6 +163,9 @@ $SWIM_DATA_AUTHORITY = [
 
     // CDM milestone data - vACDM primary, CDM Plugin and vATCSCC can override
     'cdm'           => ['VACDM', true],
+
+    // Flow measure data - ECFMP primary, vATCSCC and other providers can override
+    'flow_measure'  => ['ECFMP', true],
 
     // CTP slot data - CTP API primary, vATCSCC can override
     'ctp'           => ['CTP_API', true],
@@ -290,6 +298,14 @@ $SWIM_SOURCE_PRIORITY = [
         'viff_cdm'   => 1,  // vIFF ATFCM System (EU CDM — non-overlapping with vACDM)
         'cdm_plugin' => 2,  // CDM Plugin (departure sequencing)
         'vatcscc'    => 3,  // PERTI manual/automated CDM
+    ],
+
+    // Flow measure data (ECFMP, NavCanada, etc.)
+    'flow_measure' => [
+        'ecfmp'      => 1,  // ECFMP is primary for European flow measures
+        'navcan'     => 1,  // NavCanada (non-overlapping with ECFMP)
+        'vatpac'     => 1,  // VATPAC (non-overlapping region)
+        'vatcscc'    => 2,  // PERTI manual flow measure entry
     ],
 
     // CTP slot assignment data (EDCTs, NAT tracks, route segments)
@@ -464,6 +480,12 @@ $SWIM_FIELD_AUTHORITY_MAP = [
     'expected_taxi_out_time'         => 'cdm',   // SWIM column: EXOT
     'eu_atfcm_status'                => 'cdm',   // SWIM column: EU ATFCM status
     'controlled_time_of_departure'   => 'cdm',   // SWIM column: CTD (writable by CDM sources)
+
+    // Flow measure fields - flow_measure authority (ECFMP primary)
+    'measure_type'            => 'flow_measure',
+    'measure_value'           => 'flow_measure',
+    'measure_unit'            => 'flow_measure',
+    'flow_measure_ident'      => 'flow_measure',
 
     // CTP fields - ctp authority (CTP API primary)
     'resolved_nat_track'      => 'ctp',

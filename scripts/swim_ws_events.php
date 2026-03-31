@@ -317,8 +317,57 @@ function swim_detectTmiEvents($conn, string $lastRefresh): array
 }
 
 /**
+ * Detect splits configuration state changes
+ *
+ * Detects splits_configs that were activated, deactivated, or updated
+ * since the last refresh cycle.
+ *
+ * @param resource $conn Database connection (ADL)
+ * @param string $lastRefresh Last refresh timestamp
+ * @return array Splits events
+ */
+function swim_detectSplitsEvents($conn, string $lastRefresh): array
+{
+    $events = [];
+
+    // Detect recently activated or updated splits configs
+    $sql = "SELECT c.id, c.artcc, c.config_name, c.status, c.[source],
+                   (SELECT COUNT(*) FROM splits_positions WHERE config_id = c.id) AS position_count
+            FROM splits_configs c
+            WHERE c.updated_at > ?
+              AND c.status IN ('active', 'inactive', 'scheduled')";
+
+    $stmt = sqlsrv_query($conn, $sql, [$lastRefresh]);
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $eventType = match ($row['status']) {
+                'active' => 'splits.activated',
+                'inactive' => 'splits.deactivated',
+                default => 'splits.updated',
+            };
+
+            $events[] = [
+                'type' => $eventType,
+                'data' => [
+                    'config_id' => (int)$row['id'],
+                    'artcc' => $row['artcc'],
+                    'config_name' => $row['config_name'],
+                    'status' => $row['status'],
+                    'source' => $row['source'] ?? 'perti',
+                    'position_count' => (int)$row['position_count'],
+                    'triggered_by' => 'sync',
+                ],
+            ];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $events;
+}
+
+/**
  * Publish events to WebSocket server
- * 
+ *
  * @param array $events Events to publish
  * @param string|null $publishUrl Internal publish endpoint URL
  * @return bool Success
@@ -390,14 +439,19 @@ function swim_processWebSocketEvents($conn, string $lastRefresh, bool $includePo
     // Detect TMI events
     $tmiEvents = swim_detectTmiEvents($conn, $lastRefresh);
     $allEvents = array_merge($allEvents, $tmiEvents);
-    
+
+    // Detect splits events
+    $splitsEvents = swim_detectSplitsEvents($conn, $lastRefresh);
+    $allEvents = array_merge($allEvents, $splitsEvents);
+
     // Publish to WebSocket server
     $published = swim_publishToWebSocket($allEvents);
-    
+
     return [
         'flight_events' => count($flightEvents),
         'position_events' => $includePositions ? count($positionEvents) : 0,
         'tmi_events' => count($tmiEvents),
+        'splits_events' => count($splitsEvents),
         'total_events' => count($allEvents),
         'published' => $published,
     ];

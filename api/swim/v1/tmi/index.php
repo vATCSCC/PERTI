@@ -205,6 +205,12 @@ $response = [
             'methods' => ['GET'],
             'description' => 'External flow measures (MIT, MDI, etc.)',
             'auth' => 'optional'
+        ],
+        [
+            'path' => '/api/swim/v1/tmi/flow/ingest',
+            'methods' => ['POST'],
+            'description' => 'Push flow measures from external providers (ECFMP, vIFF, etc.)',
+            'auth' => 'required (partner/system tier with flow_measure write access)'
         ]
     ],
     'active_counts' => $counts,
