@@ -84,6 +84,36 @@
     },
     "pageTitle": "Airport Configuration"
   },
+  "bridges": {
+    "title": "VATSWIM Bridges",
+    "bridge1": {
+      "name": "HoppieWriter",
+      "description": "CPDLC message delivery via Hoppie ACARS"
+    },
+    "bridge2": {
+      "name": "FSD Bridge",
+      "description": "FSD protocol server for ATC clients"
+    },
+    "bridge3": {
+      "name": "EuroScope Plugin",
+      "description": "Tag enrichment for EuroScope"
+    },
+    "bridge4": {
+      "name": "Pilot Portal",
+      "description": "Web dashboard for pilots"
+    },
+    "bridge5": {
+      "name": "AOC Client",
+      "description": "Simulator integration daemon"
+    },
+    "status": {
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "connecting": "Connecting...",
+      "error": "Connection Error",
+      "lastUpdate": "Last Update: {time}"
+    }
+  },
   "cdm": {
     "airport": {
       "avgTaxi": "Avg taxi {minutes}m",
@@ -157,6 +187,83 @@
       "time": "Time",
       "tobt": "TOBT",
       "type": "Type"
+    },
+    "delivery": {
+      "title": "Message Delivery",
+      "status": "Delivery Status",
+      "channel": "Channel",
+      "channels": {
+        "cpdlc": "CPDLC (Hoppie)",
+        "vpilot": "Pilot Client Plugin",
+        "web": "Web Dashboard",
+        "discord": "Discord DM"
+      },
+      "ack": {
+        "title": "Acknowledgment",
+        "wilco": "Will Comply",
+        "unable": "Unable to Comply",
+        "standby": "Standby",
+        "pending": "Awaiting Response",
+        "none": "No Response Required"
+      },
+      "messageTypes": {
+        "edctAssigned": "EDCT Assigned",
+        "edctAmended": "EDCT Amended",
+        "edctCancelled": "EDCT Cancelled",
+        "ctot": "CTOT Assigned",
+        "gsHold": "Ground Stop Hold",
+        "gsRelease": "Ground Stop Released",
+        "reroute": "Reroute Advisory",
+        "flowMeasure": "Flow Measure Restriction",
+        "mit": "Miles In Trail",
+        "afp": "Airspace Flow Program",
+        "metering": "Metering Fix Time",
+        "hold": "Hold Advisory",
+        "ctpSlot": "CTP Slot Assignment",
+        "weatherReroute": "Weather Reroute Suggestion",
+        "tosQuery": "TOS Options Requested",
+        "tosAck": "TOS Options Acknowledged",
+        "tosAssign": "TOS Option Assigned",
+        "trafficAdvisory": "Traffic Advisory",
+        "gateHold": "Gate Hold",
+        "gateRelease": "Gate Release",
+        "slotUpdate": "Slot Update",
+        "cancel": "Cancellation",
+        "info": "Information"
+      },
+      "config": {
+        "rerouteMode": "Reroute Delivery Mode",
+        "rerouteModeVoice": "Standby for Voice Clearance",
+        "rerouteModeDelivery": "Contact Delivery Frequency",
+        "deliveryFreq": "Delivery Frequency",
+        "gsFollowOn": "GS Release Follow-on",
+        "gsFollowOnGdp": "Flights May Receive New EDCTs",
+        "gsFollowOnReleased": "Depart When Ready"
+      },
+      "log": {
+        "title": "Delivery Log",
+        "flightUid": "Flight UID",
+        "callsign": "Callsign",
+        "messageType": "Message Type",
+        "deliveredAt": "Delivered At",
+        "channelsSent": "Channels",
+        "ackStatus": "ACK Status",
+        "duplicate": "Duplicate (skipped)",
+        "hibernationQueued": "Queued (Hibernation)"
+      },
+      "notifications": {
+        "sent": "Message delivered to {callsign} via {channels}",
+        "failed": "Delivery failed for {callsign}: {error}",
+        "queued": "Message queued for {callsign} (hibernation mode)",
+        "skipped": "Duplicate message skipped for {callsign}"
+      },
+      "stats": {
+        "title": "Delivery Statistics",
+        "totalSent": "Total Sent",
+        "cpdlcSuccess": "CPDLC Success Rate",
+        "avgDeliveryTime": "Avg Delivery Time",
+        "pendingAcks": "Pending Acknowledgments"
+      }
     }
   },
   "common": {
@@ -6937,7 +7044,48 @@
       "whatIsSwimDesc": "A centralized real-time data exchange hub for flight information across the VATSIM network.",
       "writeAccess": "Write Access"
     },
-    "pageTitle": "SWIM API"
+    "pageTitle": "SWIM API",
+    "tos": {
+      "title": "Trajectory Options Set",
+      "fileOptions": "File TOS Options",
+      "status": "TOS Status",
+      "rank": "Rank #{rank}",
+      "route": "Route",
+      "remarks": "Remarks",
+      "filed": "Filed",
+      "assigned": "Assigned",
+      "notAssigned": "Not Assigned",
+      "assignedAt": "Assigned At",
+      "reason": "Assignment Reason",
+      "addOption": "Add Option",
+      "removeOption": "Remove Option",
+      "submitTos": "File TOS",
+      "filing": "Filing TOS...",
+      "optionsFiled": "{count} options filed successfully",
+      "maxOptions": "Maximum {max} trajectory options",
+      "noOptions": "No trajectory options on file",
+      "queryMessage": "Trajectory options requested for {dep}-{dest}",
+      "ackMessage": "{count} options on file. Standby for assignment.",
+      "option": {
+        "one": "{count} option",
+        "other": "{count} options"
+      }
+    },
+    "aman": {
+      "title": "Arrival Manager",
+      "sequence": "AMAN Sequence",
+      "airport": "Airport",
+      "runway": "Runway",
+      "position": "Sequence Position",
+      "eta": "ETA",
+      "ttl": "Time to Lose/Gain",
+      "source": "Source",
+      "noSequence": "No active sequence for {airport}",
+      "entry": {
+        "one": "{count} aircraft in sequence",
+        "other": "{count} aircraft in sequence"
+      }
+    }
   },
   "time": {
     "ago": "{time} ago",
@@ -6967,7 +7115,23 @@
     "reroute": "Reroute",
     "simulatedGdp": "GDP (Simulated)",
     "simulatedGs": "GS (Simulated)",
-    "uncontrolled": "Uncontrolled"
+    "uncontrolled": "Uncontrolled",
+    "messages": {
+      "title": "TMI Messages",
+      "advisoryTypes": {
+        "arrivalVolume": "Arrival Volume Advisory",
+        "departureVolume": "Departure Volume Advisory",
+        "rerouteFuel": "Reroute Fuel Advisory",
+        "delayFuel": "Delay Fuel Advisory"
+      },
+      "delivery": {
+        "enabled": "Message Delivery Enabled",
+        "disabled": "Message Delivery Disabled",
+        "batchWindow": "Batch Window",
+        "spacing": "Message Spacing",
+        "rateLimit": "Rate Limit"
+      }
+    }
   },
   "tmiActive": {
     "advisoryBatchCancel": {
