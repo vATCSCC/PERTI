@@ -1353,6 +1353,22 @@ function runTier2Sync($conn_adl, $conn_swim, bool $debug): array {
         updateSyncState($conn_swim, $name, $stats['inserted'], $stats['duration_ms'], 'full', $stats['error']);
     }
 
+    // Route history stats from MySQL (daily aggregation)
+    if ($conn_pdo) {
+        $name = 'swim_route_stats';
+        tmi_log("  Syncing reference: $name (MySQL route history) ...");
+        $stats = syncRouteStats($conn_pdo, $conn_swim, $debug);
+        $results[$name] = $stats;
+
+        if ($stats['error']) {
+            tmi_log("  $name: ERROR - {$stats['error']}", 'ERROR');
+        } else {
+            tmi_log("  $name: {$stats['inserted']} inserted in {$stats['duration_ms']}ms");
+        }
+
+        updateSyncState($conn_swim, $name, $stats['inserted'], $stats['duration_ms'], 'full', $stats['error']);
+    }
+
     $totalMs = (int)round((microtime(true) - $totalStart) * 1000);
     return [
         'tables' => count($results),
@@ -1360,6 +1376,191 @@ function runTier2Sync($conn_adl, $conn_swim, bool $debug): array {
         'errors' => count(array_filter($results, fn($s) => $s['error'] !== null)),
         'duration_ms' => $totalMs,
     ];
+}
+
+/**
+ * Sync route history stats from MySQL star schema to swim_route_stats.
+ * Runs as part of Tier 2 (daily reference sync).
+ *
+ * Source: MySQL perti_site.route_history_facts + dim_route + dim_aircraft_type + dim_operator
+ * Target: SWIM_API.dbo.swim_route_stats
+ */
+function syncRouteStats($conn_pdo, $conn_swim, bool $debug): array {
+    $start = microtime(true);
+    $stats = ['rows_read' => 0, 'inserted' => 0, 'duration_ms' => 0, 'error' => null];
+
+    if (!$conn_pdo) {
+        $stats['error'] = 'MySQL connection not available';
+        $stats['duration_ms'] = (int)round((microtime(true) - $start) * 1000);
+        return $stats;
+    }
+
+    try {
+        // Aggregate route statistics per city pair per normalized route
+        // Minimum 5 flights to be included
+        $sql = "
+            SELECT
+                f.origin_icao,
+                f.dest_icao,
+                d.route_hash,
+                d.normalized_route,
+                COUNT(*) AS flight_count,
+                ROUND(COUNT(*) * 100.0 / pair_totals.pair_count, 2) AS usage_pct,
+                ROUND(AVG(f.altitude_ft) / 100) * 100 AS avg_altitude_ft,
+                MIN(t.flight_date) AS first_seen,
+                MAX(t.flight_date) AS last_seen
+            FROM route_history_facts f
+            JOIN dim_route d ON f.route_dim_id = d.route_dim_id
+            JOIN dim_time t ON f.time_dim_id = t.time_dim_id
+            JOIN (
+                SELECT origin_icao, dest_icao, COUNT(*) AS pair_count
+                FROM route_history_facts
+                GROUP BY origin_icao, dest_icao
+            ) pair_totals ON f.origin_icao = pair_totals.origin_icao AND f.dest_icao = pair_totals.dest_icao
+            GROUP BY f.origin_icao, f.dest_icao, d.route_hash, d.normalized_route, pair_totals.pair_count
+            HAVING COUNT(*) >= 5
+            ORDER BY f.origin_icao, f.dest_icao, flight_count DESC
+        ";
+
+        $stmt = $conn_pdo->query($sql);
+        $routes = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $stats['rows_read'] = count($routes);
+
+        if ($debug) {
+            tmi_log("  Route stats: {$stats['rows_read']} aggregated routes from MySQL");
+        }
+
+        if (empty($routes)) {
+            $stats['duration_ms'] = (int)round((microtime(true) - $start) * 1000);
+            return $stats;
+        }
+
+        // Now get top-5 aircraft and operators per route
+        // This is a separate query to avoid massive GROUP_CONCAT in the main aggregate
+        $topAircraftSql = "
+            SELECT f.origin_icao, f.dest_icao, d.route_hash,
+                   GROUP_CONCAT(a.icao_code ORDER BY cnt DESC SEPARATOR ',') AS top_aircraft
+            FROM (
+                SELECT f2.origin_icao, f2.dest_icao, f2.route_dim_id, f2.aircraft_dim_id, COUNT(*) AS cnt
+                FROM route_history_facts f2
+                WHERE f2.aircraft_dim_id IS NOT NULL
+                GROUP BY f2.origin_icao, f2.dest_icao, f2.route_dim_id, f2.aircraft_dim_id
+            ) f
+            JOIN dim_route d ON f.route_dim_id = d.route_dim_id
+            JOIN dim_aircraft_type a ON f.aircraft_dim_id = a.aircraft_dim_id
+            GROUP BY f.origin_icao, f.dest_icao, d.route_hash
+        ";
+        $acStmt = $conn_pdo->query($topAircraftSql);
+        $acMap = [];
+        while ($row = $acStmt->fetch(\PDO::FETCH_ASSOC)) {
+            $key = $row['origin_icao'] . '|' . $row['dest_icao'] . '|' . bin2hex($row['route_hash']);
+            $codes = explode(',', $row['top_aircraft']);
+            $acMap[$key] = implode(',', array_slice($codes, 0, 5));
+        }
+
+        $topOperatorsSql = "
+            SELECT f.origin_icao, f.dest_icao, d.route_hash,
+                   GROUP_CONCAT(o.airline_icao ORDER BY cnt DESC SEPARATOR ',') AS top_operators
+            FROM (
+                SELECT f2.origin_icao, f2.dest_icao, f2.route_dim_id, f2.operator_dim_id, COUNT(*) AS cnt
+                FROM route_history_facts f2
+                WHERE f2.operator_dim_id IS NOT NULL
+                GROUP BY f2.origin_icao, f2.dest_icao, f2.route_dim_id, f2.operator_dim_id
+            ) f
+            JOIN dim_route d ON f.route_dim_id = d.route_dim_id
+            JOIN dim_operator o ON f.operator_dim_id = o.operator_dim_id
+            GROUP BY f.origin_icao, f.dest_icao, d.route_hash
+        ";
+        $opStmt = $conn_pdo->query($topOperatorsSql);
+        $opMap = [];
+        while ($row = $opStmt->fetch(\PDO::FETCH_ASSOC)) {
+            $key = $row['origin_icao'] . '|' . $row['dest_icao'] . '|' . bin2hex($row['route_hash']);
+            $codes = explode(',', $row['top_operators']);
+            $opMap[$key] = implode(',', array_slice($codes, 0, 5));
+        }
+
+        // Enrich routes with top aircraft/operators
+        foreach ($routes as &$route) {
+            $key = $route['origin_icao'] . '|' . $route['dest_icao'] . '|' . bin2hex($route['route_hash']);
+            $route['common_aircraft'] = $acMap[$key] ?? null;
+            $route['common_operators'] = $opMap[$key] ?? null;
+        }
+        unset($route);
+
+        // Truncate + batch insert into SWIM_API
+        @sqlsrv_query($conn_swim, "TRUNCATE TABLE dbo.swim_route_stats");
+
+        $columns = [
+            'origin_icao' => 'NVARCHAR(4)',
+            'dest_icao' => 'NVARCHAR(4)',
+            'route_hash' => 'VARBINARY(16)',
+            'normalized_route' => 'NVARCHAR(MAX)',
+            'flight_count' => 'INT',
+            'usage_pct' => 'DECIMAL(5,2)',
+            'avg_altitude_ft' => 'INT',
+            'common_aircraft' => 'NVARCHAR(200)',
+            'common_operators' => 'NVARCHAR(200)',
+            'first_seen' => 'DATE',
+            'last_seen' => 'DATE',
+        ];
+
+        // Convert route_hash from binary to hex string for JSON transport
+        $jsonRows = array_map(function ($r) {
+            $r['route_hash'] = '0x' . bin2hex($r['route_hash']);
+            $r['first_seen'] = ($r['first_seen'] instanceof \DateTime) ? $r['first_seen']->format('Y-m-d') : $r['first_seen'];
+            $r['last_seen'] = ($r['last_seen'] instanceof \DateTime) ? $r['last_seen']->format('Y-m-d') : $r['last_seen'];
+            return $r;
+        }, $routes);
+
+        foreach (array_chunk($jsonRows, 500) as $batch) {
+            $json = json_encode($batch, JSON_UNESCAPED_UNICODE);
+            if ($json === false) continue;
+
+            $withCols = [];
+            foreach ($columns as $colName => $sqlType) {
+                if ($colName === 'route_hash') {
+                    // VARBINARY needs special handling — use CONVERT
+                    $withCols[] = "[$colName] NVARCHAR(34) '\$.$colName'";
+                } else {
+                    $withCols[] = "[$colName] $sqlType '\$.$colName'";
+                }
+            }
+            $withClause = implode(",\n                ", $withCols);
+
+            $insertCols = implode(', ', array_map(fn($c) => "[$c]", array_keys($columns)));
+
+            // For route_hash, convert from hex string to binary
+            $selectCols = [];
+            foreach (array_keys($columns) as $col) {
+                if ($col === 'route_hash') {
+                    $selectCols[] = "CONVERT(VARBINARY(16), [$col], 1) AS [$col]";
+                } else {
+                    $selectCols[] = "[$col]";
+                }
+            }
+            $selectClause = implode(', ', $selectCols);
+
+            $insertSql = "
+                INSERT INTO dbo.swim_route_stats ($insertCols, last_sync_utc)
+                SELECT $selectClause, SYSUTCDATETIME()
+                FROM OPENJSON(?) WITH ($withClause)
+            ";
+
+            $result = @sqlsrv_query($conn_swim, $insertSql, [&$json], ['QueryTimeout' => 120]);
+            if ($result === false) {
+                $stats['error'] = "INSERT swim_route_stats failed: " . json_encode(sqlsrv_errors());
+                break;
+            }
+            $stats['inserted'] += sqlsrv_rows_affected($result);
+            sqlsrv_free_stmt($result);
+        }
+
+    } catch (\Throwable $e) {
+        $stats['error'] = 'Route stats sync error: ' . $e->getMessage();
+    }
+
+    $stats['duration_ms'] = (int)round((microtime(true) - $start) * 1000);
+    return $stats;
 }
 
 /**
