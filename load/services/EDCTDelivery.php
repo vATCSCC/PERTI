@@ -353,6 +353,95 @@ class EDCTDelivery
         return $results;
     }
 
+    /**
+     * Generic multi-channel delivery for any TMI message type.
+     * Used by all extended message types (CTOT, GS, reroute, flow, etc.)
+     */
+    public function deliverMessage(
+        int $flight_uid,
+        string $callsign,
+        string $message_type,
+        string $message_body,
+        ?string $time_utc = null,
+        ?int $cid = null,
+        ?int $program_id = null,
+        ?int $slot_id = null
+    ): array {
+        $results = [];
+
+        if ($this->is_hibernation) {
+            $msg_id = $this->cdm->queueMessage(
+                $flight_uid, $callsign, $message_type,
+                $message_body, 'all', $cid, $program_id, $slot_id
+            );
+            $results['hibernation_queued'] = $msg_id !== false;
+            $this->log("$message_type hibernation-queued for $callsign");
+            return $results;
+        }
+
+        if ($this->isDuplicateMessage($flight_uid, $message_body)) {
+            $this->log("$message_type skipped (duplicate) for $callsign");
+            return ['skipped' => 'duplicate'];
+        }
+
+        $results['cpdlc'] = $this->deliverViaCPDLC($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id);
+        $results['vpilot'] = $this->queueForPlugin($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id);
+        $results['web'] = $this->deliverViaWebSocket($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id, $time_utc);
+
+        if ($cid) {
+            $results['discord'] = $this->deliverViaDiscord($flight_uid, $callsign, $message_body, $cid, $program_id, $slot_id, $time_utc, $message_type);
+        }
+
+        $this->logDelivery($flight_uid, $callsign, $message_type, $message_body, $results, $program_id);
+
+        $delivered = array_filter($results, fn($r) => $r === true || (is_array($r) && ($r['sent'] ?? false)));
+        $this->log("$message_type delivered for $callsign: " . count($delivered) . "/" . count($results) . " channels");
+
+        return $results;
+    }
+
+    /**
+     * Check if this exact message was already delivered to this flight recently.
+     */
+    private function isDuplicateMessage(int $flight_uid, string $message_body): bool
+    {
+        $hash = hash('sha256', $message_body);
+        $sql = "SELECT TOP 1 1 FROM dbo.tmi_delivery_log
+                WHERE flight_uid = ? AND message_hash = ?
+                  AND delivered_utc > DATEADD(MINUTE, -5, SYSUTCDATETIME())";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$flight_uid, $hash]);
+        if ($stmt === false) return false;
+        $exists = sqlsrv_fetch_array($stmt) !== null;
+        sqlsrv_free_stmt($stmt);
+        return $exists;
+    }
+
+    /**
+     * Log delivery to tmi_delivery_log for tracking and deduplication.
+     */
+    private function logDelivery(
+        int $flight_uid,
+        string $callsign,
+        string $message_type,
+        string $message_body,
+        array $results,
+        ?int $program_id
+    ): void {
+        $hash = hash('sha256', $message_body);
+        $channels = [];
+        foreach ($results as $ch => $r) {
+            if ($r === true || (is_array($r) && ($r['sent'] ?? false))) {
+                $channels[] = $ch;
+            }
+        }
+        $channelStr = implode(',', $channels) ?: 'none';
+
+        $sql = "INSERT INTO dbo.tmi_delivery_log (flight_uid, callsign, message_type, message_hash, program_id, channels_sent)
+                VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$flight_uid, $callsign, $message_type, $hash, $program_id, $channelStr]);
+        if ($stmt !== false) sqlsrv_free_stmt($stmt);
+    }
+
     // =========================================================================
     // CHANNEL IMPLEMENTATIONS
     // =========================================================================
