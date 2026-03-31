@@ -216,9 +216,10 @@ class RouteQueryService
         $textFilter = trim($filters['text'] ?? '');
         if ($textFilter !== '') {
             $where[] = "(r.route_string LIKE '%' + ? + '%' OR p.play_name LIKE '%' + ? + '%' OR r.remarks LIKE '%' + ? + '%')";
-            $params[] = $textFilter;
-            $params[] = $textFilter;
-            $params[] = $textFilter;
+            $escapedText = $this->escapeLike($textFilter);
+            $params[] = $escapedText;
+            $params[] = $escapedText;
+            $params[] = $escapedText;
         }
 
         $sql = "
@@ -304,8 +305,9 @@ class RouteQueryService
         $textFilter = trim($filters['text'] ?? '');
         if ($textFilter !== '') {
             $where[] = "(cdr_code LIKE '%' + ? + '%' OR full_route LIKE '%' + ? + '%')";
-            $params[] = $textFilter;
-            $params[] = $textFilter;
+            $escapedText = $this->escapeLike($textFilter);
+            $params[] = $escapedText;
+            $params[] = $escapedText;
         }
 
         $sql = "
@@ -443,7 +445,7 @@ class RouteQueryService
         // scope_json LIKE matching for ARTCCs
         foreach ($artccs as $artcc) {
             $orClauses[] = "scope_json LIKE ?";
-            $params[] = '%' . $artcc . '%';
+            $params[] = '%' . $this->escapeLike($artcc) . '%';
         }
 
         if (!empty($orClauses)) {
@@ -716,8 +718,8 @@ class RouteQueryService
 
         if (empty($needStats)) return $results;
 
-        // Batch lookup in swim_route_stats by normalized route hash
-        // (Simple approach: match by route_string similarity -- exact match on normalized string)
+        // Lookup in swim_route_stats by normalized route string
+        // Note: NVARCHAR(MAX) cannot be indexed; relies on scan (~50K rows max, acceptable for v1)
         foreach ($needStats as $i => $routeStr) {
             $sql = "SELECT TOP 1 flight_count, usage_pct, avg_altitude_ft,
                            common_aircraft, common_operators, first_seen, last_seen
@@ -837,6 +839,14 @@ class RouteQueryService
         }));
     }
 
+    /**
+     * Escape SQL Server LIKE wildcard characters in user input.
+     */
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['[', '%', '_'], ['[[]', '[%]', '[_]'], $value);
+    }
+
     private function normalizeRouteString(string $route): string
     {
         // Strip leading/trailing ICAO airport codes, collapse whitespace, uppercase
@@ -940,7 +950,8 @@ class RouteQueryService
                         CROSS APPLY STRING_SPLIT(dest_airports, ',')
                         WHERE dest_artccs LIKE '%' + ? + '%'
                     ) t WHERE LEN(value) = 4";
-            $stmt = sqlsrv_query($this->connSwim, $sql, [$code, $code]);
+            $escapedCode = $this->escapeLike($code);
+            $stmt = sqlsrv_query($this->connSwim, $sql, [$escapedCode, $escapedCode]);
             if (!$stmt) return [];
             $airports = [];
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -960,7 +971,8 @@ class RouteQueryService
                         CROSS APPLY STRING_SPLIT(dest_airports, ',')
                         WHERE dest_tracons LIKE '%' + ? + '%'
                     ) t WHERE LEN(value) = 4";
-            $stmt = sqlsrv_query($this->connSwim, $sql, [$code, $code]);
+            $escapedCode = $this->escapeLike($code);
+            $stmt = sqlsrv_query($this->connSwim, $sql, [$escapedCode, $escapedCode]);
             if (!$stmt) return [];
             $airports = [];
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
