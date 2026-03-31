@@ -75,6 +75,12 @@
 
 require_once __DIR__ . '/../auth.php';
 
+// When included as a library (e.g., from webhooks/simtraffic.php), skip top-level
+// request handling and only expose processSimTrafficFlight().
+if (defined('SIMTRAFFIC_LIBRARY_MODE')) {
+    return;
+}
+
 // Rate limit: 5 requests/second per API key (per SimTraffic API documentation)
 define('SIMTRAFFIC_RATE_LIMIT_MS', 200);  // 200ms between API calls
 
