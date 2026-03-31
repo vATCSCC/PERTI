@@ -3162,6 +3162,22 @@ function runDaemon(array $config): void {
                 }
             }
 
+            // 4c-rad. RAD compliance check (runs on TMI sync interval)
+            if ($config['tmi_sync_enabled'] && ($stats['runs'] % $config['tmi_sync_interval'] === 0)) {
+                if ($conn_tmi) {
+                    try {
+                        require_once __DIR__ . '/../load/services/RADService.php';
+                        $radService = new RADService($conn, $conn_tmi);
+                        $radResult = $radService->runComplianceCheck();
+                        if ($radResult['transitioned'] > 0) {
+                            logInfo("RAD compliance: checked={$radResult['checked']}, transitioned={$radResult['transitioned']}");
+                        }
+                    } catch (Throwable $e) {
+                        logWarn("RAD compliance error: " . $e->getMessage());
+                    }
+                }
+            }
+
             // 4c. GDP auto-reoptimization (runs every gdp_reopt_interval cycles)
             $reoptResult = null;
             if ($config['gdp_reopt_enabled'] && ($stats['runs'] % $config['gdp_reopt_interval'] === 0)) {
