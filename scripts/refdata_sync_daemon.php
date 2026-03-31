@@ -4,7 +4,8 @@
  *
  * Long-running daemon that performs a daily reimport of reference data at 06:00Z:
  *   1. CDRs from assets/data/cdrs.csv -> VATSIM_REF dbo.coded_departure_routes
- *   2. FAA playbook routes from assets/data/playbook_routes.csv -> MySQL playbook_plays + playbook_routes
+ *   2. Preferred routes from prefroutes_db.csv -> VATSIM_REF dbo.preferred_routes
+ *   3. FAA playbook routes from assets/data/playbook_routes.csv -> MySQL playbook_plays + playbook_routes
  *
  * This daemon runs even during hibernation since it handles static reference data
  * that does not depend on operational flight processing.
@@ -52,6 +53,9 @@ define('PLAYBOOK_PLAY_BATCH_SIZE', 100);
 
 /** Playbook route batch insert size */
 define('PLAYBOOK_ROUTE_BATCH_SIZE', 200);
+
+/** Preferred route batch insert size */
+define('PREFERRED_ROUTE_BATCH_SIZE', 500);
 
 /** Web root for resolving asset paths */
 define('REFDATA_WWWROOT', getenv('WWWROOT') ?: dirname(__DIR__));
@@ -238,6 +242,316 @@ function stripRouteEndpoints(string $rs, string $origAirports, string $origArtcc
     }
 
     return implode(' ', $parts);
+}
+
+/**
+ * Resolve preferred-routes CSV path.
+ *
+ * Search order:
+ *   1) assets/data/prefroutes_db.csv
+ *   2) sibling of repo root (../prefroutes_db.csv) for local workflows
+ */
+function getPreferredRoutesCsvPath(): ?string {
+    $candidates = [
+        REFDATA_WWWROOT . '/assets/data/prefroutes_db.csv',
+        dirname(REFDATA_WWWROOT) . '/prefroutes_db.csv',
+    ];
+
+    foreach ($candidates as $path) {
+        if (file_exists($path)) {
+            return $path;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Normalize any facility code to upper-case canonical form.
+ */
+function normalizeFacilityCode(?string $code): ?string {
+    $code = strtoupper(trim((string)$code));
+    if ($code === '' || $code === 'UNKN' || $code === 'NONE' || $code === 'N/A') {
+        return null;
+    }
+    return ArtccNormalizer::normalize($code);
+}
+
+/**
+ * Normalize to L1 ARTCC/FIR form.
+ */
+function normalizeCenterL1(?string $code): ?string {
+    $norm = normalizeFacilityCode($code);
+    if ($norm === null) {
+        return null;
+    }
+    $l1 = ArtccNormalizer::toL1Csv($norm);
+    $l1 = strtoupper(trim($l1));
+    return $l1 === '' ? null : $l1;
+}
+
+/**
+ * Determine if a code is ARTCC/FIR-like (for dep_artcc/arr_artcc assignment).
+ */
+function isArtccLike(?string $code): bool {
+    if ($code === null) {
+        return false;
+    }
+    $code = strtoupper(trim($code));
+    if ($code === '') {
+        return false;
+    }
+    return (bool)preg_match('/^(?:K?Z[A-Z0-9]{2,3}|CZ[A-Z]{2,3})$/', $code);
+}
+
+/**
+ * dep_artcc / arr_artcc are aliases of origin/dest center when center is ARTCC-like.
+ */
+function toDepArrArtcc(?string $center): ?string {
+    $center = normalizeCenterL1($center);
+    if ($center === null || !isArtccLike($center)) {
+        return null;
+    }
+    return $center;
+}
+
+/**
+ * Build airport lookup from assets/data/apts.csv.
+ *
+ * Returns:
+ *   [code => ['icao' => ?string, 'arpt' => ?string, 'center' => ?string, 'tracon' => ?string]]
+ */
+function loadAirportLookupFromAptsCsv(): array {
+    static $cache = null;
+    if ($cache !== null) {
+        return $cache;
+    }
+
+    $cache = [];
+    $path = REFDATA_WWWROOT . '/assets/data/apts.csv';
+    if (!file_exists($path)) {
+        logMsg("apts.csv not found ($path); airport/TRACON enrichment will be limited", 'WARN');
+        return $cache;
+    }
+
+    $handle = fopen($path, 'r');
+    if (!$handle) {
+        logMsg("Unable to open apts.csv ($path); airport/TRACON enrichment will be limited", 'WARN');
+        return $cache;
+    }
+
+    $header = fgetcsv($handle);
+    if (!$header) {
+        fclose($handle);
+        logMsg("apts.csv has no header row; airport/TRACON enrichment disabled", 'WARN');
+        return $cache;
+    }
+
+    $idx = [];
+    foreach ($header as $i => $name) {
+        $idx[trim((string)$name)] = $i;
+    }
+
+    $get = static function (array $row, array $idxMap, string $col): string {
+        if (!isset($idxMap[$col])) {
+            return '';
+        }
+        return trim((string)($row[$idxMap[$col]] ?? ''));
+    };
+
+    $count = 0;
+    while (($row = fgetcsv($handle)) !== false) {
+        $icao = strtoupper($get($row, $idx, 'ICAO_ID'));
+        $arpt = strtoupper($get($row, $idx, 'ARPT_ID'));
+        if ($icao === '' && $arpt === '') {
+            continue;
+        }
+
+        $center = normalizeFacilityCode($get($row, $idx, 'RESP_ARTCC_ID'));
+
+        $tracon = null;
+        $traconCols = [
+            'Approach ID',
+            'Secondary Approach ID',
+            'Departure ID',
+            'Secondary Departure ID',
+            'Approach/Departure ID',
+            'Consolidated Approach ID',
+        ];
+        foreach ($traconCols as $col) {
+            $candidate = strtoupper($get($row, $idx, $col));
+            if ($candidate !== '' && $candidate !== 'NONE' && $candidate !== 'N/A' && $candidate !== 'UNKN') {
+                $tracon = $candidate;
+                break;
+            }
+        }
+
+        $entry = [
+            'icao' => $icao !== '' ? $icao : null,
+            'arpt' => $arpt !== '' ? $arpt : null,
+            'center' => $center,
+            'tracon' => $tracon,
+        ];
+
+        $keys = [];
+        if ($icao !== '') {
+            $keys[] = $icao;
+            if (strlen($icao) === 4 && $icao[0] === 'K') {
+                $keys[] = substr($icao, 1);
+            }
+        }
+        if ($arpt !== '') {
+            $keys[] = $arpt;
+            if (strlen($arpt) === 3) {
+                $keys[] = 'K' . $arpt;
+            }
+        }
+
+        foreach (array_unique($keys) as $key) {
+            // Prefer explicit ICAO entries over weaker aliases.
+            if (!isset($cache[$key]) || ($cache[$key]['icao'] === null && $entry['icao'] !== null)) {
+                $cache[$key] = $entry;
+            }
+        }
+        $count++;
+    }
+
+    fclose($handle);
+    logMsg("Loaded airport lookup from apts.csv ($count rows, " . count($cache) . " keys)");
+    return $cache;
+}
+
+/**
+ * Load area center metadata from VATSIM_REF.area_centers.
+ *
+ * Returns:
+ *   [center_code => ['type' => string, 'parent_artcc' => ?string]]
+ */
+function loadAreaCenterLookupFromRef($connRef): array {
+    $map = [];
+    $stmt = sqlsrv_query($connRef, "SELECT center_code, center_type, parent_artcc FROM dbo.area_centers");
+    if ($stmt === false) {
+        logMsg("Unable to query area_centers for preferred route enrichment: " . adl_sql_error_message(), 'WARN');
+        return $map;
+    }
+
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $code = strtoupper(trim((string)($row['center_code'] ?? '')));
+        if ($code === '') {
+            continue;
+        }
+        $map[$code] = [
+            'type' => strtoupper(trim((string)($row['center_type'] ?? ''))),
+            'parent_artcc' => normalizeFacilityCode((string)($row['parent_artcc'] ?? '')),
+        ];
+    }
+
+    sqlsrv_free_stmt($stmt);
+    return $map;
+}
+
+/**
+ * Resolve endpoint to normalized code and parent facilities.
+ *
+ * @param string $raw Raw CSV endpoint value
+ * @param array<string,array<string,mixed>> $airportLookup
+ * @param array<string,array<string,mixed>> $centerLookup
+ * @param ?string $fallbackCenter CSV-provided center field (DCNTR/ACNTR)
+ * @return array{code:string,raw:string,is_airport:bool,tracon:?string,center:?string,airport:?array}
+ */
+function resolvePreferredEndpoint(string $raw, array $airportLookup, array $centerLookup, ?string $fallbackCenter = null): array {
+    $rawCode = strtoupper(trim($raw));
+    $normalized = $rawCode;
+    $isAirport = false;
+    $airport = null;
+
+    if ($rawCode !== '' && isset($airportLookup[$rawCode]) && !empty($airportLookup[$rawCode]['icao'])) {
+        $airport = $airportLookup[$rawCode];
+        $normalized = strtoupper((string)$airport['icao']);
+        $isAirport = true;
+    }
+
+    $tracon = null;
+    $center = null;
+
+    if ($isAirport && $airport !== null) {
+        $tracon = normalizeFacilityCode((string)($airport['tracon'] ?? ''));
+        $center = normalizeFacilityCode((string)($airport['center'] ?? ''));
+    } elseif ($rawCode !== '' && isset($centerLookup[$rawCode])) {
+        $meta = $centerLookup[$rawCode];
+        $ctype = strtoupper((string)($meta['type'] ?? ''));
+        if ($ctype === 'TRACON') {
+            $tracon = $rawCode;
+            $center = normalizeFacilityCode((string)($meta['parent_artcc'] ?? ''));
+        } elseif ($ctype === 'ARTCC' || $ctype === 'FIR') {
+            $center = normalizeFacilityCode($rawCode);
+        }
+    }
+
+    if ($center === null) {
+        $center = normalizeFacilityCode($fallbackCenter);
+    }
+
+    return [
+        'code' => $normalized !== '' ? $normalized : $rawCode,
+        'raw' => $rawCode,
+        'is_airport' => $isAirport,
+        'tracon' => $tracon,
+        'center' => $center,
+        'airport' => $airport,
+    ];
+}
+
+/**
+ * Strip origin/destination token from route body when endpoint is an airport.
+ * Falls back to DCT when no intermediate body remains.
+ */
+function stripPreferredRouteAirportEndpoints(string $route, array $origin, array $dest): string {
+    $tokens = preg_split('/\s+/', trim($route));
+    if (!is_array($tokens) || empty($tokens)) {
+        return 'DCT';
+    }
+
+    $originSet = [];
+    if (!empty($origin['is_airport'])) {
+        $originSet[] = strtoupper((string)$origin['raw']);
+        $originSet[] = strtoupper((string)$origin['code']);
+        if (!empty($origin['airport']['arpt'])) {
+            $originSet[] = strtoupper((string)$origin['airport']['arpt']);
+        }
+        if (!empty($origin['airport']['icao'])) {
+            $icao = strtoupper((string)$origin['airport']['icao']);
+            $originSet[] = $icao;
+            if (strlen($icao) === 4 && $icao[0] === 'K') {
+                $originSet[] = substr($icao, 1);
+            }
+        }
+        if (in_array(strtoupper((string)$tokens[0]), array_unique($originSet), true)) {
+            array_shift($tokens);
+        }
+    }
+
+    $destSet = [];
+    if (!empty($dest['is_airport']) && !empty($tokens)) {
+        $destSet[] = strtoupper((string)$dest['raw']);
+        $destSet[] = strtoupper((string)$dest['code']);
+        if (!empty($dest['airport']['arpt'])) {
+            $destSet[] = strtoupper((string)$dest['airport']['arpt']);
+        }
+        if (!empty($dest['airport']['icao'])) {
+            $icao = strtoupper((string)$dest['airport']['icao']);
+            $destSet[] = $icao;
+            if (strlen($icao) === 4 && $icao[0] === 'K') {
+                $destSet[] = substr($icao, 1);
+            }
+        }
+        if (in_array(strtoupper((string)end($tokens)), array_unique($destSet), true)) {
+            array_pop($tokens);
+        }
+    }
+
+    $clean = trim(preg_replace('/\s+/', ' ', implode(' ', $tokens)));
+    return $clean === '' ? 'DCT' : $clean;
 }
 
 // ============================================================================
@@ -502,6 +816,362 @@ function updateCdrArtccs($connRef): int {
     sqlsrv_query($connRef, "DROP TABLE #artcc_map");
 
     return $updated;
+}
+
+/**
+ * Load fix_name -> L1 center mapping for route tokens using nav_fixes.artcc_id.
+ *
+ * @param resource $connRef
+ * @param array<int,string> $tokens
+ * @return array<string,string>
+ */
+function loadNavFixCenterLookupFromRef($connRef, array $tokens): array {
+    $lookup = [];
+    if (empty($tokens)) {
+        return $lookup;
+    }
+
+    $normTokens = [];
+    foreach ($tokens as $token) {
+        $token = strtoupper(trim((string)$token));
+        if ($token === '') {
+            continue;
+        }
+        // Keep bounded token length to avoid pathological IN lists.
+        if (!preg_match('/^[A-Z0-9]{2,8}$/', $token)) {
+            continue;
+        }
+        $normTokens[$token] = true;
+    }
+    $normTokens = array_keys($normTokens);
+    if (empty($normTokens)) {
+        return $lookup;
+    }
+
+    $chunkSize = 900; // SQL Server parameter safety
+    for ($i = 0; $i < count($normTokens); $i += $chunkSize) {
+        $chunk = array_slice($normTokens, $i, $chunkSize);
+        $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+        $sql = "SELECT fix_name, artcc_id
+                FROM dbo.nav_fixes
+                WHERE artcc_id IS NOT NULL
+                  AND fix_name IN ($placeholders)";
+        $stmt = sqlsrv_query($connRef, $sql, $chunk);
+        if ($stmt === false) {
+            logMsg("Failed nav_fixes token lookup for preferred route enrichment: " . adl_sql_error_message(), 'WARN');
+            continue;
+        }
+
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $fix = strtoupper(trim((string)($row['fix_name'] ?? '')));
+            $center = normalizeCenterL1((string)($row['artcc_id'] ?? ''));
+            if ($fix !== '' && $center !== null) {
+                $lookup[$fix] = $center;
+            }
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $lookup;
+}
+
+/**
+ * Compute ordered, deduplicated L1 ARTCC/FIR traversal list for a route.
+ *
+ * Resolution order per token:
+ *   airport lookup center -> area_centers (ARTCC/FIR/TRACON parent) ->
+ *   nav_fixes.artcc_id -> ARTCC-like token literal.
+ *
+ * @param array<string,mixed> $origin
+ * @param array<string,mixed> $dest
+ * @param array<string,array<string,mixed>> $airportLookup
+ * @param array<string,array<string,mixed>> $centerLookup
+ * @param array<string,string> $navFixCenterLookup
+ */
+function computePreferredTraversedCenters(
+    string $fullRoute,
+    array $origin,
+    array $dest,
+    array $airportLookup,
+    array $centerLookup,
+    array $navFixCenterLookup
+): ?string {
+    $ordered = [];
+    $addCenter = static function (?string $center) use (&$ordered): void {
+        $center = normalizeCenterL1($center);
+        if ($center === null || !isArtccLike($center)) {
+            return;
+        }
+        if (!in_array($center, $ordered, true)) {
+            $ordered[] = $center;
+        }
+    };
+
+    // Ensure endpoints participate even when route body is stripped.
+    $addCenter($origin['center'] ?? null);
+
+    $tokens = preg_split('/\s+/', strtoupper(trim($fullRoute)));
+    if (is_array($tokens)) {
+        foreach ($tokens as $token) {
+            if ($token === '') {
+                continue;
+            }
+
+            $center = null;
+
+            if (isset($airportLookup[$token]) && !empty($airportLookup[$token]['center'])) {
+                $center = (string)$airportLookup[$token]['center'];
+            } elseif (isset($centerLookup[$token])) {
+                $meta = $centerLookup[$token];
+                $type = strtoupper((string)($meta['type'] ?? ''));
+                if ($type === 'TRACON') {
+                    $center = (string)($meta['parent_artcc'] ?? '');
+                } elseif ($type === 'ARTCC' || $type === 'FIR') {
+                    $center = $token;
+                }
+            } elseif (isset($navFixCenterLookup[$token])) {
+                $center = $navFixCenterLookup[$token];
+            } elseif (isArtccLike($token)) {
+                $center = $token;
+            }
+
+            $addCenter($center);
+        }
+    }
+
+    $addCenter($dest['center'] ?? null);
+
+    if (empty($ordered)) {
+        return null;
+    }
+    return implode(',', $ordered);
+}
+
+/**
+ * Import preferred routes from prefroutes_db.csv into VATSIM_REF.preferred_routes.
+ *
+ * Transform rules:
+ *   - Strip origin/dest tokens from route_string when endpoint is an airport.
+ *   - Normalize origin/dest endpoint to ICAO if airport-mappable.
+ *   - Populate origin/dest TRACON and center fields.
+ *   - dep_artcc = origin_center and arr_artcc = dest_center (ARTCC/FIR-like only).
+ *   - Compute traversed_centers (ordered L1 ARTCC/FIR traversal list).
+ *
+ * @return array{success: bool, message: string, count: int}
+ */
+function syncPreferredRoutes(): array {
+    $csvPath = getPreferredRoutesCsvPath();
+    if (!$csvPath) {
+        return ['success' => false, 'message' => 'Preferred routes CSV not found (checked assets/data and repo parent)', 'count' => 0];
+    }
+
+    $connRef = get_conn_ref();
+    if (!$connRef) {
+        return ['success' => false, 'message' => 'VATSIM_REF connection unavailable', 'count' => 0];
+    }
+
+    logMsg("Parsing preferred routes CSV: $csvPath");
+
+    $airportLookup = loadAirportLookupFromAptsCsv();
+    $centerLookup = loadAreaCenterLookupFromRef($connRef);
+
+    $handle = fopen($csvPath, 'r');
+    if (!$handle) {
+        return ['success' => false, 'message' => "Cannot open preferred routes CSV: $csvPath", 'count' => 0];
+    }
+
+    $header = fgetcsv($handle);
+    if (!$header) {
+        fclose($handle);
+        return ['success' => false, 'message' => 'Preferred routes CSV has no header row', 'count' => 0];
+    }
+
+    $col = [];
+    foreach ($header as $i => $name) {
+        $n = trim((string)$name);
+        $n = preg_replace('/^\xEF\xBB\xBF/u', '', $n);
+        $col[$n] = $i;
+    }
+
+    $required = ['Orig', 'Route String', 'Dest', 'Type', 'Seq'];
+    foreach ($required as $req) {
+        if (!array_key_exists($req, $col)) {
+            fclose($handle);
+            return ['success' => false, 'message' => "Preferred routes CSV missing required column: $req", 'count' => 0];
+        }
+    }
+
+    $getCol = static function (array $row, array $idx, string $name): string {
+        if (!isset($idx[$name])) {
+            return '';
+        }
+        return trim((string)($row[$idx[$name]] ?? ''));
+    };
+
+    $parsedRows = [];
+    $tokenSet = [];
+
+    while (($row = fgetcsv($handle)) !== false) {
+        $origRaw = strtoupper($getCol($row, $col, 'Orig'));
+        $destRaw = strtoupper($getCol($row, $col, 'Dest'));
+        $fullRoute = trim($getCol($row, $col, 'Route String'));
+        $routeType = strtoupper($getCol($row, $col, 'Type'));
+        $seqRaw = $getCol($row, $col, 'Seq');
+
+        if ($origRaw === '' || $destRaw === '' || $fullRoute === '' || $routeType === '' || $seqRaw === '') {
+            continue;
+        }
+
+        $origin = resolvePreferredEndpoint($origRaw, $airportLookup, $centerLookup, $getCol($row, $col, 'DCNTR'));
+        $dest = resolvePreferredEndpoint($destRaw, $airportLookup, $centerLookup, $getCol($row, $col, 'ACNTR'));
+
+        $originCenter = normalizeCenterL1($origin['center'] ?? null);
+        $destCenter = normalizeCenterL1($dest['center'] ?? null);
+
+        $cleanRoute = stripPreferredRouteAirportEndpoints($fullRoute, $origin, $dest);
+
+        // Collect token candidates for nav_fixes center enrichment lookup.
+        foreach (preg_split('/\s+/', strtoupper($fullRoute)) as $token) {
+            if ($token !== '') {
+                $tokenSet[$token] = true;
+            }
+        }
+
+        $parsedRows[] = [
+            'origin_code' => strtoupper((string)$origin['code']),
+            'dest_code' => strtoupper((string)$dest['code']),
+            'origin_raw' => $origRaw,
+            'dest_raw' => $destRaw,
+            'full_route' => strtoupper($fullRoute),
+            'route_string' => strtoupper($cleanRoute),
+            'hours1' => $getCol($row, $col, 'Hours1'),
+            'hours2' => $getCol($row, $col, 'Hours2'),
+            'hours3' => $getCol($row, $col, 'Hours3'),
+            'route_type' => $routeType,
+            'area' => $getCol($row, $col, 'Area'),
+            'altitude' => $getCol($row, $col, 'Altitude'),
+            'aircraft' => $getCol($row, $col, 'Aircraft'),
+            'direction' => $getCol($row, $col, 'Direction'),
+            'seq' => (int)$seqRaw,
+            'origin_tracon' => normalizeFacilityCode((string)($origin['tracon'] ?? '')),
+            'origin_center' => $originCenter,
+            'dest_tracon' => normalizeFacilityCode((string)($dest['tracon'] ?? '')),
+            'dest_center' => $destCenter,
+            'dep_artcc' => toDepArrArtcc($originCenter), // requested: dep_artcc = origin_center (ARTCC/FIR only)
+            'arr_artcc' => toDepArrArtcc($destCenter),   // requested: arr_artcc = dest_center (ARTCC/FIR only)
+            'origin_is_airport' => !empty($origin['is_airport']) ? 1 : 0,
+            'dest_is_airport' => !empty($dest['is_airport']) ? 1 : 0,
+        ];
+    }
+    fclose($handle);
+
+    if (empty($parsedRows)) {
+        return ['success' => false, 'message' => 'Preferred routes CSV parsed but contained no valid rows', 'count' => 0];
+    }
+
+    $navFixCenterLookup = loadNavFixCenterLookupFromRef($connRef, array_keys($tokenSet));
+    logMsg("Preferred route enrichment lookup: " . count($navFixCenterLookup) . " nav_fix centers");
+
+    foreach ($parsedRows as $i => $row) {
+        $parsedRows[$i]['traversed_centers'] = computePreferredTraversedCenters(
+            $row['full_route'],
+            [
+                'center' => $row['origin_center'],
+                'is_airport' => $row['origin_is_airport'],
+                'raw' => $row['origin_raw'],
+                'code' => $row['origin_code'],
+                'airport' => $airportLookup[$row['origin_raw']] ?? null,
+            ],
+            [
+                'center' => $row['dest_center'],
+                'is_airport' => $row['dest_is_airport'],
+                'raw' => $row['dest_raw'],
+                'code' => $row['dest_code'],
+                'airport' => $airportLookup[$row['dest_raw']] ?? null,
+            ],
+            $airportLookup,
+            $centerLookup,
+            $navFixCenterLookup
+        );
+    }
+
+    if (sqlsrv_begin_transaction($connRef) === false) {
+        return ['success' => false, 'message' => 'Failed to begin preferred-routes transaction: ' . adl_sql_error_message(), 'count' => 0];
+    }
+
+    $delStmt = sqlsrv_query($connRef, "DELETE FROM dbo.preferred_routes");
+    if ($delStmt === false) {
+        sqlsrv_rollback($connRef);
+        return ['success' => false, 'message' => 'Failed to clear preferred_routes: ' . adl_sql_error_message(), 'count' => 0];
+    }
+    sqlsrv_free_stmt($delStmt);
+
+    $insertSql = "INSERT INTO dbo.preferred_routes (
+            origin_code, dest_code, origin_raw, dest_raw, route_string,
+            hours1, hours2, hours3, route_type, area, altitude, aircraft, direction, seq,
+            dep_artcc, arr_artcc, origin_tracon, origin_center, dest_tracon, dest_center,
+            traversed_centers, origin_is_airport, dest_is_airport,
+            is_active, source, effective_date, last_updated_utc
+        ) VALUES (
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?,
+            ?, ?, ?,
+            1, 'prefroutes_db.csv', CAST(GETUTCDATE() AS DATE), SYSUTCDATETIME()
+        )";
+
+    $inserted = 0;
+    $errors = 0;
+
+    foreach ($parsedRows as $row) {
+        $params = [
+            $row['origin_code'], $row['dest_code'], $row['origin_raw'], $row['dest_raw'], $row['route_string'],
+            $row['hours1'] !== '' ? $row['hours1'] : null,
+            $row['hours2'] !== '' ? $row['hours2'] : null,
+            $row['hours3'] !== '' ? $row['hours3'] : null,
+            $row['route_type'],
+            $row['area'] !== '' ? $row['area'] : null,
+            $row['altitude'] !== '' ? $row['altitude'] : null,
+            $row['aircraft'] !== '' ? $row['aircraft'] : null,
+            $row['direction'] !== '' ? $row['direction'] : null,
+            $row['seq'],
+            $row['dep_artcc'],
+            $row['arr_artcc'],
+            $row['origin_tracon'],
+            $row['origin_center'],
+            $row['dest_tracon'],
+            $row['dest_center'],
+            $row['traversed_centers'],
+            $row['origin_is_airport'],
+            $row['dest_is_airport'],
+        ];
+
+        $stmt = sqlsrv_query($connRef, $insertSql, $params);
+        if ($stmt === false) {
+            $errors++;
+            if ($errors <= 5) {
+                logMsg("Preferred route insert error ({$row['origin_raw']}->{$row['dest_raw']}): " . adl_sql_error_message(), 'WARN');
+            }
+        } else {
+            $inserted++;
+            sqlsrv_free_stmt($stmt);
+        }
+    }
+
+    if ($inserted === 0) {
+        sqlsrv_rollback($connRef);
+        return ['success' => false, 'message' => "All preferred route inserts failed ($errors errors)", 'count' => 0];
+    }
+
+    if (sqlsrv_commit($connRef) === false) {
+        return ['success' => false, 'message' => 'Preferred routes commit failed: ' . adl_sql_error_message(), 'count' => 0];
+    }
+
+    $msg = "Preferred route sync complete: $inserted rows";
+    if ($errors > 0) {
+        $msg .= " ($errors errors)";
+    }
+    return ['success' => true, 'message' => $msg, 'count' => $inserted];
 }
 
 // ============================================================================
@@ -1061,7 +1731,8 @@ function flushChangelogBatch(PDO $pdo, array $playIds, string $action): void {
 // ============================================================================
 
 /**
- * Run both CDR and playbook syncs. Returns a combined result summary.
+ * Run CDR, preferred-route, and playbook syncs (plus SWIM mirror sync).
+ * Returns a combined result summary.
  *
  * @return array{success: bool, message: string}
  */
@@ -1085,8 +1756,19 @@ function runFullSync(): array {
         logMsg("CDR sync OK: " . $cdrResult['message']);
     }
 
-    // 2. Playbook sync
-    logMsg("--- Phase 2: Playbook sync ---");
+    // 2. Preferred routes sync
+    logMsg("--- Phase 2: Preferred routes sync ---");
+    $prefResult = syncPreferredRoutes();
+    $results[] = $prefResult['message'];
+    if (!$prefResult['success']) {
+        $allOk = false;
+        logMsg("Preferred routes sync FAILED: " . $prefResult['message'], 'ERROR');
+    } else {
+        logMsg("Preferred routes sync OK: " . $prefResult['message']);
+    }
+
+    // 3. Playbook sync
+    logMsg("--- Phase 3: Playbook sync ---");
     $pbResult = syncPlaybook();
     $results[] = $pbResult['message'];
     if (!$pbResult['success']) {
@@ -1096,9 +1778,9 @@ function runFullSync(): array {
         logMsg("Playbook sync OK: " . $pbResult['message']);
     }
 
-    // 3. SWIM reference data sync (CDR + Playbook -> SWIM_API)
+    // 4. SWIM reference data sync (CDR + Preferred + Playbook -> SWIM_API)
     // Non-fatal: SWIM sync failure does not affect $allOk
-    logMsg("--- Phase 3: SWIM reference data sync ---");
+    logMsg("--- Phase 4: SWIM reference data sync ---");
     require_once __DIR__ . '/swim_refdata_sync.php';
     $swimResult = runSwimRefdataSync();
     $results[] = 'SWIM: ' . $swimResult['message'];

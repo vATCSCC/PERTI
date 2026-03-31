@@ -2,11 +2,11 @@
 /**
  * SWIM Reference Data Sync
  *
- * Syncs CDR and playbook reference data from internal databases (VATSIM_REF,
+ * Syncs CDR, preferred-routes, and playbook reference data from internal databases (VATSIM_REF,
  * perti_site MySQL) into SWIM_API for external API consumption. This isolates
  * external SWIM API traffic from internal operational databases.
  *
- * Called by refdata_sync_daemon.php Phase 3 after the core CDR and playbook
+ * Called by refdata_sync_daemon.php Phase 4 after the core CDR/preferred/playbook
  * imports complete. SWIM_API unavailability is non-fatal and never blocks the
  * core import.
  *
@@ -25,7 +25,7 @@ if (!defined('PERTI_LOADED')) {
 define('SWIM_REFDATA_BATCH_SIZE', 90);
 
 /**
- * Run both CDR and playbook SWIM syncs.
+ * Run CDR, preferred-routes, and playbook SWIM syncs.
  * Safe to call even if SWIM_API is down — returns success with skip messages.
  *
  * @return array{success: bool, message: string}
@@ -39,6 +39,13 @@ function runSwimRefdataSync(): array {
     $cdrResult = swimSyncCdrs();
     $messages[] = 'CDR: ' . $cdrResult['message'];
     if (!$cdrResult['success'] && $cdrResult['skipped'] !== true) {
+        $anyFailure = true;
+    }
+
+    // Preferred routes sync
+    $prefResult = swimSyncPreferredRoutes();
+    $messages[] = 'Preferred: ' . $prefResult['message'];
+    if (!$prefResult['success'] && $prefResult['skipped'] !== true) {
         $anyFailure = true;
     }
 
@@ -148,6 +155,121 @@ function swimSyncCdrs(): array {
     }
 
     $msg = "$inserted CDRs synced to SWIM_API";
+    if ($errors > 0) {
+        $msg .= " ($errors batch errors)";
+    }
+    return ['success' => true, 'message' => $msg, 'count' => $inserted, 'skipped' => false];
+}
+
+/**
+ * Sync preferred routes from VATSIM_REF to SWIM_API.
+ *
+ * Reads all rows from VATSIM_REF.dbo.preferred_routes,
+ * then does DELETE + batch INSERT into SWIM_API.dbo.swim_preferred_routes.
+ *
+ * @return array{success: bool, message: string, count: int, skipped: bool}
+ */
+function swimSyncPreferredRoutes(): array {
+    $connRef  = get_conn_ref();
+    $connSwim = get_conn_swim();
+
+    if (!$connSwim) {
+        return ['success' => false, 'message' => 'SWIM_API unavailable - skipped', 'count' => 0, 'skipped' => true];
+    }
+    if (!$connRef) {
+        return ['success' => false, 'message' => 'VATSIM_REF unavailable - skipped', 'count' => 0, 'skipped' => true];
+    }
+
+    $sql = "SELECT preferred_route_id, origin_code, dest_code, origin_raw, dest_raw,
+                   route_string, hours1, hours2, hours3, route_type, area, altitude,
+                   aircraft, direction, seq, dep_artcc, arr_artcc, origin_tracon,
+                   origin_center, dest_tracon, dest_center, traversed_centers,
+                   origin_is_airport, dest_is_airport, is_active, source, effective_date
+            FROM dbo.preferred_routes";
+    $stmt = sqlsrv_query($connRef, $sql);
+    if ($stmt === false) {
+        return ['success' => false, 'message' => 'Failed to read preferred routes: ' . _swimRefErrMsg(), 'count' => 0, 'skipped' => false];
+    }
+
+    $rows = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $rows[] = $row;
+    }
+    sqlsrv_free_stmt($stmt);
+
+    if (empty($rows)) {
+        return ['success' => true, 'message' => '0 preferred routes in source - nothing to sync', 'count' => 0, 'skipped' => false];
+    }
+
+    $delStmt = sqlsrv_query($connSwim, "DELETE FROM dbo.swim_preferred_routes");
+    if ($delStmt === false) {
+        return ['success' => false, 'message' => 'DELETE failed: ' . _swimRefErrMsg(), 'count' => 0, 'skipped' => false];
+    }
+    sqlsrv_free_stmt($delStmt);
+
+    $inserted = 0;
+    $errors   = 0;
+    $batchSize = 70; // Keep under SQL Server parameter limit (2100).
+    $cols = "preferred_route_id, origin_code, dest_code, origin_raw, dest_raw,
+             route_string, hours1, hours2, hours3, route_type, area, altitude,
+             aircraft, direction, seq, dep_artcc, arr_artcc, origin_tracon,
+             origin_center, dest_tracon, dest_center, traversed_centers,
+             origin_is_airport, dest_is_airport, is_active, source, effective_date, last_sync_utc";
+
+    for ($i = 0; $i < count($rows); $i += $batchSize) {
+        $chunk = array_slice($rows, $i, $batchSize);
+        $values = [];
+        $params = [];
+
+        foreach ($chunk as $r) {
+            $values[] = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, SYSUTCDATETIME())";
+            $params[] = (int)$r['preferred_route_id'];
+            $params[] = $r['origin_code'];
+            $params[] = $r['dest_code'];
+            $params[] = $r['origin_raw'];
+            $params[] = $r['dest_raw'];
+            $params[] = $r['route_string'];
+            $params[] = $r['hours1'];
+            $params[] = $r['hours2'];
+            $params[] = $r['hours3'];
+            $params[] = $r['route_type'];
+            $params[] = $r['area'];
+            $params[] = $r['altitude'];
+            $params[] = $r['aircraft'];
+            $params[] = $r['direction'];
+            $params[] = (int)$r['seq'];
+            $params[] = $r['dep_artcc'];
+            $params[] = $r['arr_artcc'];
+            $params[] = $r['origin_tracon'];
+            $params[] = $r['origin_center'];
+            $params[] = $r['dest_tracon'];
+            $params[] = $r['dest_center'];
+            $params[] = $r['traversed_centers'];
+            $params[] = !empty($r['origin_is_airport']) ? 1 : 0;
+            $params[] = !empty($r['dest_is_airport']) ? 1 : 0;
+            $params[] = !empty($r['is_active']) ? 1 : 0;
+            $params[] = $r['source'];
+            $params[] = $r['effective_date'];
+        }
+
+        $insertSql = "INSERT INTO dbo.swim_preferred_routes ($cols) VALUES " . implode(',', $values);
+        $insertStmt = sqlsrv_query($connSwim, $insertSql, $params);
+        if ($insertStmt !== false) {
+            $inserted += count($chunk);
+            sqlsrv_free_stmt($insertStmt);
+        } else {
+            $errors++;
+            if ($errors <= 3) {
+                _swimRefLog("Preferred batch insert error at offset $i: " . _swimRefErrMsg(), 'WARN');
+            }
+        }
+    }
+
+    if ($inserted === 0) {
+        return ['success' => false, 'message' => "All preferred-route inserts failed ($errors batch errors)", 'count' => 0, 'skipped' => false];
+    }
+
+    $msg = "$inserted preferred routes synced to SWIM_API";
     if ($errors > 0) {
         $msg .= " ($errors batch errors)";
     }
