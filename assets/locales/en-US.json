@@ -3101,6 +3101,7 @@
     "plans": "Plans",
     "playbook": "Playbook",
     "privacyPolicy": "Privacy Policy",
+    "rad": "Route Amendment",
     "routes": "Routes",
     "schedule": "Schedule",
     "simulator": "Simulator",
@@ -3111,6 +3112,74 @@
     "technicalDocs": "Technical Docs",
     "tmiPublisher": "TMI Publisher",
     "tools": "Tools"
+  },
+  "rad": {
+    "pageTitle": "Route Amendment Dialogue",
+    "tabs": {
+      "search": "Flight Search",
+      "detail": "Flight Detail",
+      "edit": "Route Edit",
+      "monitoring": "Monitoring"
+    },
+    "search": {
+      "placeholder": "Search callsign...",
+      "filter": "Filter",
+      "save": "Save Filter",
+      "presetDefault": "-- Filter Presets --",
+      "callsign": "Callsign",
+      "origDest": "Orig/Dest",
+      "type": "Type",
+      "times": "Times",
+      "status": "Status",
+      "addToDetail": "Add to Detail",
+      "resultCount": "{count} flights",
+      "noResults": "No flights match your search criteria"
+    },
+    "detail": {
+      "selectAll": "Select All",
+      "selectNone": "Select None",
+      "removeSelected": "Remove Selected",
+      "routeHistory": "Route History",
+      "noHistory": "No route changes recorded"
+    },
+    "edit": {
+      "retrieveRoutes": "Retrieve Routes",
+      "recentlySent": "Recently Sent",
+      "searchDb": "Search Playbook / CDR / Preferred",
+      "manualPlaceholder": "Enter route string manually...",
+      "createAmendment": "Create Route Amendment",
+      "routeOptions": "Route Options",
+      "noTmiRoutes": "No TMI Route Options are available.",
+      "noTosOptions": "No TOS Options are available.",
+      "eramPlaceholder": "Applicable ERAM/ABRR Route Options — future feature",
+      "adaptedPlaceholder": "Applicable Adapted Route Options — future feature"
+    },
+    "monitoring": {
+      "total": "Total",
+      "autoRefresh": "Auto-refresh",
+      "lastUpdate": "Last update",
+      "resend": "Resend",
+      "send": "Send",
+      "delete": "Delete",
+      "departedWithout": "Departed without amendment",
+      "complianceRate": "Compliance Rate"
+    },
+    "status": {
+      "DRAFT": "Draft",
+      "SENT": "Sent",
+      "DLVD": "Delivered",
+      "ACPT": "Accepted",
+      "RJCT": "Rejected",
+      "EXPR": "Expired"
+    },
+    "rrstat": {
+      "C": "Conformant",
+      "NC": "Non-Conformant",
+      "NC_OK": "NC Approved",
+      "UNKN": "Unknown",
+      "OK": "Exception",
+      "EXC": "Excluded"
+    }
   },
   "navdata": {
     "action": {
