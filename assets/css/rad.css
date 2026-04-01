@@ -1,11 +1,17 @@
 /* RAD - Route Amendment Dialogue */
 
+/* ── Map Section ── */
 .rad-map-section {
     position: relative;
     height: 50vh;
     min-height: 350px;
+    border-bottom: 2px solid #343a40;
 }
 .rad-map-wrapper {
+    width: 100%;
+    height: 100%;
+}
+#graphic {
     width: 100%;
     height: 100%;
 }
@@ -28,41 +34,56 @@
     resize: vertical;
 }
 
-/* Tabs */
+/* ── Tabs & Tables ── */
 .rad-tabs-container { padding: 0 12px; }
 .rad-table { font-size: 0.82rem; }
 .rad-table td, .rad-table th { vertical-align: middle; padding: 4px 6px; }
+.rad-table th[data-sort] { cursor: pointer; user-select: none; }
+.rad-table th[data-sort]:hover { background: #e9ecef; }
 
 /* Dual sub-row: top + bottom in same cell */
 .rad-table .sub-top { display: block; font-weight: 500; }
 .rad-table .sub-bot { display: block; font-size: 0.78rem; color: #6c757d; }
 
-/* Filter panel */
-.rad-filter-panel {
+/* Sort indicator arrows */
+.sort-indicator { font-size: 0.7rem; color: #007bff; margin-left: 2px; }
+
+/* ── Filter Panel (Search Tab) ── */
+#rad_filter_panel {
     background: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 4px;
-    padding: 8px 12px;
+    padding: 10px 14px;
+}
+#rad_filter_panel label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+    text-transform: uppercase;
+    color: #495057;
+}
+#rad_filter_panel .form-control {
+    font-size: 0.82rem;
 }
 
-/* Status badges */
-.rad-badge { font-size: 0.72rem; padding: 2px 6px; border-radius: 3px; font-weight: 600; }
-.rad-badge-DRAFT { background: #6c757d; color: #fff; }
-.rad-badge-SENT { background: #007bff; color: #fff; }
-.rad-badge-DLVD { background: #17a2b8; color: #fff; }
-.rad-badge-ACPT { background: #28a745; color: #fff; }
-.rad-badge-RJCT { background: #dc3545; color: #fff; }
-.rad-badge-EXPR { background: #ffc107; color: #212529; }
+/* ── Status Badges (used by all modules) ── */
+.rad-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.rad-badge-default  { background: #6c757d; color: #fff; }
+.rad-badge-info     { background: #17a2b8; color: #fff; }
+.rad-badge-warning  { background: #ffc107; color: #212529; }
+.rad-badge-primary  { background: #007bff; color: #fff; }
+.rad-badge-success  { background: #28a745; color: #fff; }
+.rad-badge-danger   { background: #dc3545; color: #fff; }
+.rad-badge-secondary { background: #6c757d; color: #fff; }
 
-/* RRSTAT badges */
-.rad-rrstat-C { color: #28a745; font-weight: 600; }
-.rad-rrstat-NC { color: #dc3545; font-weight: 600; }
-.rad-rrstat-NC_OK { color: #fd7e14; }
-.rad-rrstat-UNKN { color: #6c757d; }
-.rad-rrstat-OK { color: #17a2b8; }
-.rad-rrstat-EXC { color: #6f42c1; }
-
-/* Route Edit columns */
+/* ── Route Edit (Edit Tab) ── */
 .rad-edit-left { border-right: 1px solid #dee2e6; }
 .rad-current-routes { max-height: 200px; overflow-y: auto; }
 .rad-amendment-preview {
@@ -75,33 +96,69 @@
     min-height: 60px;
 }
 
-/* Monitoring summary cards */
-.rad-summary-cards .rad-card {
+/* Route option rows (in SweetAlert dialogs) */
+.rad-route-row { cursor: pointer; }
+.rad-route-row:hover { background: #e2e6ea; }
+.rad-route-options h5 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #343a40;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 4px;
+    margin-top: 12px;
+}
+
+/* ── Monitoring Summary Cards ── */
+#rad_summary_cards .rad-card {
     padding: 8px 16px;
     border-radius: 4px;
     text-align: center;
     margin-right: 8px;
     margin-bottom: 8px;
     min-width: 80px;
-    background: #f8f9fa;
     border: 1px solid #dee2e6;
 }
 .rad-card-count { font-size: 1.4rem; font-weight: 700; }
 .rad-card-label { font-size: 0.72rem; text-transform: uppercase; color: #6c757d; }
 
-/* Alert row (EXPR flights) */
+/* Card type variants */
+.rad-card-default   { background: #f8f9fa; border-color: #dee2e6; }
+.rad-card-default .rad-card-count { color: #343a40; }
+.rad-card-info      { background: #d1ecf1; border-color: #bee5eb; }
+.rad-card-info .rad-card-count { color: #0c5460; }
+.rad-card-warning   { background: #fff3cd; border-color: #ffeeba; }
+.rad-card-warning .rad-card-count { color: #856404; }
+.rad-card-primary   { background: #cce5ff; border-color: #b8daff; }
+.rad-card-primary .rad-card-count { color: #004085; }
+.rad-card-success   { background: #d4edda; border-color: #c3e6cb; }
+.rad-card-success .rad-card-count { color: #155724; }
+.rad-card-danger    { background: #f8d7da; border-color: #f5c6cb; }
+.rad-card-danger .rad-card-count { color: #721c24; }
+.rad-card-secondary { background: #e2e3e5; border-color: #d6d8db; }
+.rad-card-secondary .rad-card-count { color: #383d41; }
+
+/* ── Alert Row (expired flights in Monitoring) ── */
 .rad-alert-row { background-color: #f8d7da !important; }
 
-/* Aggregate compliance bar */
+/* ── Aggregate Compliance Bar (Monitoring) ── */
 .rad-aggregate-bar {
     display: flex;
     height: 24px;
     border-radius: 4px;
     overflow: hidden;
+    background: #e9ecef;
 }
-.rad-agg-segment { height: 100%; display: flex; align-items: center; justify-content: center;
-    font-size: 0.7rem; color: #fff; font-weight: 600; }
-.rad-agg-C { background: #28a745; }
-.rad-agg-NC { background: #dc3545; }
-.rad-agg-UNKN { background: #6c757d; }
-.rad-agg-EXC { background: #6f42c1; }
+.rad-aggregate-segment {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: #fff;
+    font-weight: 600;
+    transition: width 0.3s ease;
+}
+.rad-aggregate-compliant    { background: #28a745; }
+.rad-aggregate-noncompliant { background: #dc3545; }
+.rad-aggregate-unknown      { background: #6c757d; }
+.rad-aggregate-exception    { background: #6f42c1; }
