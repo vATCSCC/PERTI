@@ -152,7 +152,7 @@ class RADService
 
         // Main query — aliases match JS field expectations
         $sql = "SELECT
-                c.flight_uid, c.gufi, c.callsign,
+                c.flight_uid, c.flight_key AS gufi, c.callsign,
                 c.phase,
                 p.fp_dept_artcc AS center, p.fp_dest_artcc AS dest_center,
                 p.fp_dept_tracon AS tracon, p.fp_dest_tracon AS dest_tracon,
@@ -712,14 +712,14 @@ class RADService
 
     private function getFlightByGufi(string $gufi): ?array
     {
-        $sql = "SELECT c.flight_uid, c.gufi, c.callsign, c.phase,
+        $sql = "SELECT c.flight_uid, c.flight_key AS gufi, c.callsign, c.phase,
                        p.fp_dept_artcc, p.fp_dest_artcc, p.fp_dept_tracon, p.fp_dest_tracon,
                        p.fp_dept_icao, p.fp_dest_icao, p.fp_route AS route,
                        t.etd_utc, t.eta_utc, t.ctd_utc, t.cta_utc, t.atd_utc, t.ata_utc
                 FROM dbo.adl_flight_core c
                 JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
                 JOIN dbo.adl_flight_times t ON c.flight_uid = t.flight_uid
-                WHERE c.gufi = ?";
+                WHERE c.flight_key = ?";
         $stmt = sqlsrv_query($this->conn_adl, $sql, [$gufi]);
         if (!$stmt) return null;
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
