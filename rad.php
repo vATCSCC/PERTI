@@ -132,28 +132,34 @@ if (!$perm) {
 
         <div class="tab-pane fade" id="pane-edit" role="tabpanel">
             <div class="row mt-2">
+                <!-- Left: Retrieve Routes -->
                 <div class="col-md-5 rad-edit-left">
-                    <div id="rad_current_routes" class="mb-2"></div>
-                    <div class="mb-2">
-                        <label data-i18n="rad.edit.routeOptions">Route Options</label>
-                        <div class="btn-group btn-group-sm mb-1">
-                            <button class="btn btn-outline-secondary" id="rad_btn_recent" data-i18n="rad.edit.recentlySent">Recently Sent</button>
-                            <button class="btn btn-outline-secondary" id="rad_btn_search_db" data-i18n="rad.edit.searchDb">Search DB</button>
-                            <button class="btn btn-outline-secondary" id="rad_btn_route_options" data-i18n="rad.edit.routeOptions">Route Options</button>
-                        </div>
-                        <div class="input-group input-group-sm mb-1">
-                            <input type="text" id="rad_cdr_code" class="form-control" placeholder="CDR Code">
-                            <div class="input-group-append">
-                                <button class="btn btn-outline-secondary" id="rad_btn_get_cdr">CDR</button>
-                            </div>
+                    <label data-i18n="rad.edit.routeOptions">Route Options</label>
+                    <div class="btn-group btn-group-sm mb-2">
+                        <button class="btn btn-outline-secondary" id="rad_btn_recent" data-i18n="rad.edit.recentlySent">Recently Sent</button>
+                        <button class="btn btn-outline-secondary" id="rad_btn_search_db" data-i18n="rad.edit.searchDb">Search DB</button>
+                        <button class="btn btn-outline-secondary" id="rad_btn_route_options" data-i18n="rad.edit.routeOptions">Route Options</button>
+                    </div>
+                    <div class="input-group input-group-sm mb-2">
+                        <input type="text" id="rad_cdr_code" class="form-control" placeholder="CDR Code">
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-secondary" id="rad_btn_get_cdr">CDR</button>
                         </div>
                     </div>
-                    <textarea id="rad_manual_route" class="form-control form-control-sm mb-2" rows="2" placeholder="Enter route string..."></textarea>
-                    <div class="d-flex mb-2">
+                    <label>Add Route</label>
+                    <textarea id="rad_manual_route" class="form-control form-control-sm mb-2" rows="3" placeholder="Enter route string..."></textarea>
+                    <div class="d-flex align-items-center mb-2">
                         <button class="btn btn-sm btn-info mr-1" id="rad_btn_validate" data-i18n="common.validate">Validate</button>
                         <button class="btn btn-sm btn-primary mr-1" id="rad_btn_plot">Plot</button>
                         <input type="color" id="rad_route_color" value="#FF6600" class="form-control form-control-sm" style="width:40px;padding:2px;">
                     </div>
+                </div>
+                <!-- Right: Current Routes + Create Amendment -->
+                <div class="col-md-7 rad-edit-right">
+                    <label>Current Routes</label>
+                    <div id="rad_current_routes" class="mb-2"></div>
+                    <label>Amendment Preview</label>
+                    <div id="rad_amendment_preview" class="rad-amendment-preview mb-2"></div>
                     <div class="mb-2">
                         <label>TMI Association</label>
                         <select id="rad_tmi_assoc" class="form-control form-control-sm"></select>
@@ -177,9 +183,6 @@ if (!$perm) {
                         <button class="btn btn-sm btn-outline-success mr-1" id="rad_btn_save_draft">Save Draft</button>
                         <button class="btn btn-sm btn-success" id="rad_btn_send_amendment">Send Amendment</button>
                     </div>
-                </div>
-                <div class="col-md-7 rad-edit-right">
-                    <div id="rad_amendment_preview" class="rad-amendment-preview mb-2"></div>
                 </div>
             </div>
         </div>

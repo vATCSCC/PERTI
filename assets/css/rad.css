@@ -1,10 +1,28 @@
 /* RAD - Route Amendment Dialogue */
 
+/* ── Navbar Override (solid dark, matches CTP/NOD pattern) ── */
+.cs-header.navbar-floating {
+    background: rgba(26, 26, 46, 0.98) !important;
+    border-bottom: 1px solid #333;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+}
+.cs-header.navbar-floating .nav-link {
+    color: rgba(255,255,255,0.8) !important;
+}
+.cs-header.navbar-floating .nav-link:hover {
+    color: #fff !important;
+}
+
 /* ── Map Section ── */
 .rad-map-section {
     position: relative;
     height: 50vh;
     min-height: 350px;
+    padding-top: 56px; /* Push below fixed navbar */
     border-bottom: 2px solid #343a40;
 }
 .rad-map-wrapper {
@@ -17,7 +35,7 @@
 }
 .rad-map-controls {
     position: absolute;
-    top: 10px;
+    top: 66px; /* Below fixed navbar (56px) + 10px gap */
     left: 10px;
     z-index: 10;
     display: flex;
@@ -84,7 +102,23 @@
 .rad-badge-secondary { background: #6c757d; color: #fff; }
 
 /* ── Route Edit (Edit Tab) ── */
-.rad-edit-left { border-right: 1px solid #dee2e6; }
+.rad-edit-left {
+    border-right: 1px solid #dee2e6;
+}
+.rad-edit-left label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #495057;
+    margin-bottom: 2px;
+}
+.rad-edit-right label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #495057;
+    margin-bottom: 2px;
+}
 .rad-current-routes { max-height: 200px; overflow-y: auto; }
 .rad-amendment-preview {
     background: #f8f9fa;
