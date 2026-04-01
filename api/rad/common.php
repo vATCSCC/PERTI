@@ -13,7 +13,7 @@ if (!defined('RAD_API_INCLUDED')) {
     exit;
 }
 
-// Session BEFORE config/connect (connect.php closing ?> sends headers)
+// Session BEFORE config/connect (connect.php closing tag sends headers)
 require_once(__DIR__ . '/../../sessions/handler.php');
 
 if (!defined('PERTI_LOADED')) {
