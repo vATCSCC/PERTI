@@ -161,9 +161,7 @@ class RADService
             JOIN dbo.adl_flight_aircraft a ON c.flight_uid = a.flight_uid
             WHERE $where_sql
             ORDER BY t.etd_utc ASC
-            OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
-        $params[] = $offset;
-        $params[] = $limit;
+            OFFSET $offset ROWS FETCH NEXT $limit ROWS ONLY";
 
         $stmt = sqlsrv_query($this->conn_adl, $sql, $params);
         $flights = [];
@@ -362,9 +360,7 @@ class RADService
         $offset = ($page - 1) * $limit;
 
         $sql = "SELECT * FROM dbo.rad_amendments WHERE $where_sql
-                ORDER BY created_utc DESC OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
-        $params[] = $offset;
-        $params[] = $limit;
+                ORDER BY created_utc DESC OFFSET $offset ROWS FETCH NEXT $limit ROWS ONLY";
 
         $stmt = sqlsrv_query($this->conn_tmi, $sql, $params);
         $rows = [];

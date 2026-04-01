@@ -48,9 +48,10 @@ function rad_require_auth() {
 }
 
 function rad_get_service() {
-    global $conn_adl, $conn_tmi, $conn_gis;
+    global $conn_adl, $conn_tmi;
     if (!$conn_adl) rad_respond_json(500, ['status' => 'error', 'message' => 'ADL connection unavailable']);
     if (!$conn_tmi) rad_respond_json(500, ['status' => 'error', 'message' => 'TMI connection unavailable']);
+    $conn_gis = get_conn_gis();
     return new RADService($conn_adl, $conn_tmi, $conn_gis);
 }
 
