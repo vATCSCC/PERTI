@@ -141,20 +141,21 @@ class RADService
             sqlsrv_free_stmt($count_stmt);
         }
 
-        // Main query
+        // Main query — aliases match JS field expectations
         $sql = "SELECT
-                c.flight_uid, c.gufi, c.callsign, c.flight_phase,
-                c.dept_artcc, c.dest_artcc, c.dept_tracon, c.dest_tracon,
-                p.fp_dept_icao, p.fp_dest_icao, p.route,
-                a.fp_aircraft_icao, a.airline_icao,
+                c.flight_uid, c.gufi, c.callsign,
+                c.flight_phase AS phase,
+                c.dept_artcc AS center, c.dest_artcc AS dest_center,
+                c.dept_tracon AS tracon, c.dest_tracon AS dest_tracon,
+                p.fp_dept_icao AS origin, p.fp_dest_icao AS dest, p.route,
+                a.fp_aircraft_icao AS actype, a.airline_icao AS carrier,
+                a.weight_class,
                 t.etd_utc, t.eta_utc, t.ctd_utc, t.cta_utc,
-                t.atd_utc, t.ata_utc, t.ete_min, t.cte_min,
-                tmi.rad_amendment_id, tmi.rad_assigned_route
+                t.atd_utc, t.ata_utc, t.ete_min, t.cte_min
             FROM dbo.adl_flight_core c
             JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
             JOIN dbo.adl_flight_times t ON c.flight_uid = t.flight_uid
             JOIN dbo.adl_flight_aircraft a ON c.flight_uid = a.flight_uid
-            LEFT JOIN dbo.adl_flight_tmi tmi ON c.flight_uid = tmi.flight_uid
             WHERE $where_sql
             ORDER BY t.etd_utc ASC
             OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
@@ -193,6 +194,10 @@ class RADService
      */
     public function createAmendment(string $gufi, string $assigned_route, array $options = []): array
     {
+        if (!$this->radTableExists()) {
+            return ['error' => 'RAD tables not yet deployed (migration 057 required)'];
+        }
+
         // Look up flight by GUFI
         $flight = $this->getFlightByGufi($gufi);
         if (!$flight) {
@@ -328,6 +333,8 @@ class RADService
      */
     public function getAmendments(array $filters = []): array
     {
+        if (!$this->radTableExists()) return [];
+
         $where = ["1=1"];
         $params = [];
 
@@ -382,6 +389,16 @@ class RADService
      */
     public function getCompliance(array $filters): array
     {
+        $empty = [
+            'amendments' => [],
+            'aggregate' => ['C' => 0, 'NC' => 0, 'NC_OK' => 0, 'UNKN' => 0, 'OK' => 0, 'EXC' => 0],
+            'compliance_rate' => 0,
+            'total' => 0,
+        ];
+
+        // Gracefully handle missing rad_amendments table
+        if (!$this->radTableExists()) return $empty;
+
         $where = ["status IN ('SENT','DLVD')"];
         $params = [];
 
@@ -397,8 +414,9 @@ class RADService
         }
 
         $where_sql = implode(' AND ', $where);
-        $sql = "SELECT id, gufi, callsign, status, rrstat, assigned_route,
-                       tmi_reroute_id, tmi_id_label, sent_utc
+        $sql = "SELECT id, gufi, callsign, origin, destination, status, rrstat,
+                       assigned_route, tmi_reroute_id, tmi_id_label,
+                       delivery_channels, sent_utc
                 FROM dbo.rad_amendments WHERE $where_sql ORDER BY sent_utc DESC";
 
         $stmt = sqlsrv_query($this->conn_tmi, $sql, $params);
@@ -413,7 +431,12 @@ class RADService
                 // Look up current filed route from ADL
                 $flight = $this->getFlightByGufi($row['gufi']);
                 $row['filed_route'] = $flight ? ($flight['route'] ?? '') : '';
-                $row['flight_phase'] = $flight ? ($flight['flight_phase'] ?? '') : '';
+
+                // Map field names to match JS expectations
+                $row['dest'] = $row['destination'] ?? '';
+                $row['sent_at'] = $row['sent_utc'] ?? null;
+                $row['tmi_id'] = $row['tmi_id_label'] ?? $row['tmi_reroute_id'] ?? null;
+                $row['delivery_status'] = $row['delivery_channels'] ?? '--';
 
                 $items[] = $row;
                 $rs = $row['rrstat'] ?? 'UNKN';
@@ -542,7 +565,10 @@ class RADService
      */
     public function getRecentRoutes(string $origin, string $destination): array
     {
-        $sql = "SELECT DISTINCT TOP 20 assigned_route, tmi_id_label, created_utc
+        if (!$this->radTableExists()) return [];
+
+        $sql = "SELECT DISTINCT TOP 20 assigned_route AS route_string,
+                       tmi_id_label, created_utc, 1 AS usage_count
                 FROM dbo.rad_amendments
                 WHERE origin = ? AND destination = ? AND status != 'DRAFT'
                 ORDER BY created_utc DESC";
@@ -581,11 +607,34 @@ class RADService
                 foreach ($row as $k => $v) {
                     if ($v instanceof DateTimeInterface) $row[$k] = $v->format('Y-m-d\TH:i:s') . 'Z';
                 }
-                $history[] = $row;
+                // Map field names to match JS expectations
+                $history[] = [
+                    'timestamp' => $row['changed_utc'],
+                    'route'     => $row['new_value'] ?? '',
+                    'old_route' => $row['old_value'] ?? '',
+                    'source'    => 'Filed route change',
+                ];
             }
             sqlsrv_free_stmt($stmt);
         }
         return $history;
+    }
+
+    /**
+     * Look up a CDR (Coded Departure Route) by code.
+     */
+    public function getCDRRoute(string $code): array
+    {
+        $sql = "SELECT TOP 1 cdr_code, route_string, dept_icao, dest_icao, route_type
+                FROM dbo.coded_departure_routes
+                WHERE cdr_code = ?";
+        $stmt = sqlsrv_query($this->conn_adl, $sql, [strtoupper(trim($code))]);
+        if ($stmt) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+            if ($row) return $row;
+        }
+        return ['error' => 'CDR code not found: ' . $code];
     }
 
     /**
@@ -610,6 +659,26 @@ class RADService
     // =========================================================================
     // INTERNAL HELPERS
     // =========================================================================
+
+    /**
+     * Check if rad_amendments table exists in VATSIM_TMI.
+     * Caches result per-request.
+     */
+    private $_radTableExists = null;
+    private function radTableExists(): bool
+    {
+        if ($this->_radTableExists !== null) return $this->_radTableExists;
+        $sql = "SELECT OBJECT_ID('dbo.rad_amendments') AS oid";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql);
+        if ($stmt) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            $this->_radTableExists = !empty($row['oid']);
+            sqlsrv_free_stmt($stmt);
+        } else {
+            $this->_radTableExists = false;
+        }
+        return $this->_radTableExists;
+    }
 
     private function getAmendment(int $id): ?array
     {

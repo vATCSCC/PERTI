@@ -315,14 +315,14 @@ window.RADFlightSearch = (function() {
         $.get('api/rad/filters.php', { id: presetId })
             .done(function(response) {
                 if (response.status === 'ok' && response.data) {
-                    var filters = response.data.filters || {};
-                    $('#rad_filter_callsign').val(filters.callsign || '');
-                    $('#rad_filter_origin').val(filters.origin || '');
-                    $('#rad_filter_dest').val(filters.dest || '');
-                    $('#rad_filter_type').val(filters.type || '');
-                    $('#rad_filter_carrier').val(filters.carrier || '');
-                    $('#rad_filter_route').val(filters.route || '');
-                    $('#rad_filter_time').val(filters.time || 'all');
+                    var f = response.data.filters || {};
+                    $('#rad_filter_callsign').val(f.cs || f.callsign || '');
+                    $('#rad_filter_origin').val(f.orig || f.origin || '');
+                    $('#rad_filter_dest').val(f.dest || '');
+                    $('#rad_filter_type').val(f.type || '');
+                    $('#rad_filter_carrier').val(f.carrier || '');
+                    $('#rad_filter_route').val(f.route || '');
+                    $('#rad_filter_time').val(f.time || 'all');
                     executeSearch();
                 }
             });
