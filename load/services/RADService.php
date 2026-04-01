@@ -56,23 +56,23 @@ class RADService
             $params[] = strtoupper($filters['dest']);
         }
 
-        // TRACON filters (origin/dest zone from adl_flight_core)
+        // TRACON filters (origin/dest from adl_flight_plan)
         if (!empty($filters['orig_tracon'])) {
-            $where[] = "c.dept_tracon = ?";
+            $where[] = "p.fp_dept_tracon = ?";
             $params[] = strtoupper($filters['orig_tracon']);
         }
         if (!empty($filters['dest_tracon'])) {
-            $where[] = "c.dest_tracon = ?";
+            $where[] = "p.fp_dest_tracon = ?";
             $params[] = strtoupper($filters['dest_tracon']);
         }
 
-        // Center filters
+        // Center filters (from adl_flight_plan)
         if (!empty($filters['orig_center'])) {
-            $where[] = "c.dept_artcc = ?";
+            $where[] = "p.fp_dept_artcc = ?";
             $params[] = strtoupper($filters['orig_center']);
         }
         if (!empty($filters['dest_center'])) {
-            $where[] = "c.dest_artcc = ?";
+            $where[] = "p.fp_dest_artcc = ?";
             $params[] = strtoupper($filters['dest_center']);
         }
 
@@ -111,11 +111,17 @@ class RADService
             $params[] = '%' . str_replace(['%','_'], ['[%]','[_]'], $filters['route']) . '%';
         }
 
-        // Flight status — map 'ACTIVE' to 'AIRBORNE' (legacy compat)
+        // Flight status — phase column uses lowercase: prefile, enroute, departed, arrived, etc.
         if (!empty($filters['status'])) {
-            $st = strtoupper($filters['status']);
-            if ($st === 'ACTIVE') $st = 'AIRBORNE';
-            $where[] = "c.flight_phase = ?";
+            $st = strtolower($filters['status']);
+            // Map legacy/JS values to actual DB phase values
+            $phase_map = [
+                'active' => 'enroute', 'airborne' => 'enroute',
+                'prefiled' => 'prefile', 'prefile' => 'prefile',
+                'departed' => 'departed', 'arrived' => 'arrived',
+            ];
+            $st = $phase_map[$st] ?? $st;
+            $where[] = "c.phase = ?";
             $params[] = $st;
         }
 
@@ -147,9 +153,9 @@ class RADService
         // Main query — aliases match JS field expectations
         $sql = "SELECT
                 c.flight_uid, c.gufi, c.callsign,
-                c.flight_phase AS phase,
-                c.dept_artcc AS center, c.dest_artcc AS dest_center,
-                c.dept_tracon AS tracon, c.dest_tracon AS dest_tracon,
+                c.phase,
+                p.fp_dept_artcc AS center, p.fp_dest_artcc AS dest_center,
+                p.fp_dept_tracon AS tracon, p.fp_dest_tracon AS dest_tracon,
                 p.fp_dept_icao AS origin, p.fp_dest_icao AS dest, p.route,
                 a.fp_aircraft_icao AS actype, a.airline_icao AS carrier,
                 a.weight_class,
@@ -163,6 +169,14 @@ class RADService
             ORDER BY t.etd_utc ASC
             OFFSET $offset ROWS FETCH NEXT $limit ROWS ONLY";
 
+        // Map DB phase values to JS-expected uppercase labels
+        $phase_display = [
+            'prefile' => 'PREFILED', 'taxiing' => 'DEPARTED',
+            'departed' => 'DEPARTED', 'enroute' => 'AIRBORNE',
+            'descending' => 'AIRBORNE', 'arrived' => 'ARRIVED',
+            'disconnected' => 'ARRIVED',
+        ];
+
         $stmt = sqlsrv_query($this->conn_adl, $sql, $params);
         $flights = [];
         if ($stmt) {
@@ -171,6 +185,9 @@ class RADService
                     if ($v instanceof DateTimeInterface) {
                         $row[$k] = $v->format('Y-m-d\TH:i:s') . 'Z';
                     }
+                }
+                if (isset($row['phase'])) {
+                    $row['phase'] = $phase_display[$row['phase']] ?? strtoupper($row['phase']);
                 }
                 $flights[] = $row;
             }
