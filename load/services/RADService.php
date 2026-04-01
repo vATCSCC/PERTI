@@ -107,7 +107,7 @@ class RADService
 
         // Route string element search
         if (!empty($filters['route'])) {
-            $where[] = "p.route LIKE ?";
+            $where[] = "p.fp_route LIKE ?";
             $params[] = '%' . str_replace(['%','_'], ['[%]','[_]'], $filters['route']) . '%';
         }
 
@@ -156,11 +156,11 @@ class RADService
                 c.phase,
                 p.fp_dept_artcc AS center, p.fp_dest_artcc AS dest_center,
                 p.fp_dept_tracon AS tracon, p.fp_dest_tracon AS dest_tracon,
-                p.fp_dept_icao AS origin, p.fp_dest_icao AS dest, p.route,
-                a.fp_aircraft_icao AS actype, a.airline_icao AS carrier,
+                p.fp_dept_icao AS origin, p.fp_dest_icao AS dest, p.fp_route AS route,
+                a.aircraft_icao AS actype, a.airline_icao AS carrier,
                 a.weight_class,
                 t.etd_utc, t.eta_utc, t.ctd_utc, t.cta_utc,
-                t.atd_utc, t.ata_utc, t.ete_min, t.cte_min
+                t.atd_utc, t.ata_utc, t.ete_minutes, t.cete_minutes
             FROM dbo.adl_flight_core c
             JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
             JOIN dbo.adl_flight_times t ON c.flight_uid = t.flight_uid
@@ -498,7 +498,7 @@ class RADService
             if ($new_rrstat === 'C' && in_array($amend['status'], ['SENT', 'DLVD'])) {
                 $new_status = 'ACPT';
                 $transitioned++;
-            } elseif ($flight['flight_phase'] === 'ACTIVE' && !empty($flight['atd_utc'])) {
+            } elseif (in_array($flight['phase'], ['enroute', 'departed', 'descending', 'taxiing']) && !empty($flight['atd_utc'])) {
                 // Flight departed — check if route matches
                 if ($new_rrstat !== 'C') {
                     $new_status = 'EXPR';
@@ -712,9 +712,9 @@ class RADService
 
     private function getFlightByGufi(string $gufi): ?array
     {
-        $sql = "SELECT c.flight_uid, c.gufi, c.callsign, c.flight_phase,
-                       c.dept_artcc, c.dest_artcc, c.dept_tracon, c.dest_tracon,
-                       p.fp_dept_icao, p.fp_dest_icao, p.route,
+        $sql = "SELECT c.flight_uid, c.gufi, c.callsign, c.phase,
+                       p.fp_dept_artcc, p.fp_dest_artcc, p.fp_dept_tracon, p.fp_dest_tracon,
+                       p.fp_dept_icao, p.fp_dest_icao, p.fp_route AS route,
                        t.etd_utc, t.eta_utc, t.ctd_utc, t.cta_utc, t.atd_utc, t.ata_utc
                 FROM dbo.adl_flight_core c
                 JOIN dbo.adl_flight_plan p ON c.flight_uid = p.flight_uid
