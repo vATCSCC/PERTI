@@ -106,18 +106,29 @@ window.RADFlightSearch = (function() {
 
     function executeSearch() {
         currentFilters = {
-            callsign: $('#rad_filter_callsign').val().trim(),
-            origin: $('#rad_filter_origin').val().trim().toUpperCase(),
+            cs: $('#rad_filter_callsign').val().trim(),
+            orig: $('#rad_filter_origin').val().trim().toUpperCase(),
             dest: $('#rad_filter_dest').val().trim().toUpperCase(),
             type: $('#rad_filter_type').val(),
             carrier: $('#rad_filter_carrier').val().trim().toUpperCase(),
-            route: $('#rad_filter_route').val().trim().toUpperCase(),
-            time: $('#rad_filter_time').val()
+            route: $('#rad_filter_route').val().trim().toUpperCase()
         };
+
+        // Time range filter → compute time_start/time_end
+        var timeVal = $('#rad_filter_time').val();
+        if (timeVal === 'airborne') {
+            currentFilters.status = 'ACTIVE';
+        } else if (timeVal === 'departure_1h') {
+            currentFilters.time_start = new Date().toISOString();
+            currentFilters.time_end = new Date(Date.now() + 3600000).toISOString();
+        } else if (timeVal === 'departure_2h') {
+            currentFilters.time_start = new Date().toISOString();
+            currentFilters.time_end = new Date(Date.now() + 7200000).toISOString();
+        }
 
         $.get('api/rad/search.php', currentFilters)
             .done(function(response) {
-                if (response.success) {
+                if (response.status === 'ok') {
                     searchResults = response.data || [];
                     renderResults();
                     $('#rad_search_count').text(searchResults.length);
@@ -275,7 +286,7 @@ window.RADFlightSearch = (function() {
                     name: result.value,
                     filters: currentFilters
                 }).done(function(response) {
-                    if (response.success) {
+                    if (response.status === 'ok') {
                         loadPresets();
                         PERTIDialog.success(PERTII18n.t('rad.search.presetSaved'));
                     }
@@ -287,7 +298,7 @@ window.RADFlightSearch = (function() {
     function loadPresets() {
         $.get('api/rad/filters.php')
             .done(function(response) {
-                if (response.success) {
+                if (response.status === 'ok') {
                     var select = $('#rad_filter_preset');
                     select.find('option:not(:first)').remove();
                     (response.data || []).forEach(function(preset) {
@@ -303,7 +314,7 @@ window.RADFlightSearch = (function() {
 
         $.get('api/rad/filters.php', { id: presetId })
             .done(function(response) {
-                if (response.success && response.data) {
+                if (response.status === 'ok' && response.data) {
                     var filters = response.data.filters || {};
                     $('#rad_filter_callsign').val(filters.callsign || '');
                     $('#rad_filter_origin').val(filters.origin || '');

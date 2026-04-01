@@ -159,7 +159,7 @@ window.RADFlightDetail = (function() {
     function showRouteHistory(gufi) {
         $.get('api/rad/history.php', { gufi: gufi })
             .done(function(response) {
-                if (response.success) {
+                if (response.status === 'ok') {
                     var history = response.data || [];
                     if (history.length === 0) {
                         PERTIDialog.warning(PERTII18n.t('rad.detail.noHistory'));

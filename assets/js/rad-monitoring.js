@@ -72,19 +72,21 @@ window.RADMonitoring = (function() {
     function refresh() {
         $.get('api/rad/compliance.php')
             .done(function(response) {
-                if (response.success) {
-                    amendments = response.data || [];
+                if (response && response.status === 'ok') {
+                    amendments = (response.data && response.data.amendments) || [];
                     checkForNewExpired();
                     renderSummary();
                     renderTable();
                     renderAggregateBar();
                     updateBadge();
-                } else {
-                    console.error('Failed to load compliance data:', response.message);
                 }
+                // Silently ignore non-success (DB tables may not exist yet)
             })
-            .fail(function() {
-                console.error('Network error loading compliance data');
+            .fail(function(jqXHR) {
+                // Silently ignore — API may return 404/500 before migrations run
+                if (jqXHR.status !== 404 && jqXHR.status !== 500) {
+                    console.warn('RAD compliance poll failed:', jqXHR.status);
+                }
             });
     }
 
@@ -310,7 +312,7 @@ window.RADMonitoring = (function() {
     function resendAmendment(id) {
         $.post('api/rad/amendment.php', { id: id, action: 'resend' })
             .done(function(response) {
-                if (response.success) {
+                if (response.status === 'ok') {
                     PERTIDialog.success(PERTII18n.t('rad.monitoring.resent'));
                     refresh();
                 } else {
@@ -325,7 +327,7 @@ window.RADMonitoring = (function() {
     function sendDraft(id) {
         $.post('api/rad/amendment.php', { id: id, action: 'send' })
             .done(function(response) {
-                if (response.success) {
+                if (response.status === 'ok') {
                     PERTIDialog.success(PERTII18n.t('rad.monitoring.sent'));
                     refresh();
                 } else {
@@ -346,7 +348,7 @@ window.RADMonitoring = (function() {
                         type: 'DELETE'
                     })
                         .done(function(response) {
-                            if (response.success) {
+                            if (response.status === 'ok') {
                                 PERTIDialog.success(PERTII18n.t('common.deleted'));
                                 refresh();
                             } else {
@@ -363,7 +365,7 @@ window.RADMonitoring = (function() {
     function loadTMIPrograms() {
         $.get('api/tmi/gdp_preview.php')
             .done(function(response) {
-                if (response.success && response.data) {
+                if (response.status === 'ok' && response.data) {
                     var select = $('#rad_tmi_filter');
                     select.empty();
                     select.append('<option value="">' + PERTII18n.t('rad.monitoring.allTMI') + '</option>');

@@ -63,7 +63,7 @@ window.RADAmendment = (function() {
 
         $.get('api/rad/routes.php', { source: 'recent', origin: origin, destination: destination })
             .done(function(response) {
-                if (response.success) {
+                if (response.status === 'ok') {
                     var routes = response.data || [];
                     if (routes.length === 0) {
                         PERTIDialog.warning(PERTII18n.t('rad.amendment.noRecentRoutes'));
@@ -118,7 +118,7 @@ window.RADAmendment = (function() {
 
             $.get('api/rad/routes.php', { source: 'options', gufi: gufi })
                 .done(function(response) {
-                    if (response.success) {
+                    if (response.status === 'ok') {
                         showRouteOptionsDialog(response.data || []);
                     }
                 })
@@ -137,7 +137,7 @@ window.RADAmendment = (function() {
 
         $.get('api/rad/routes.php', { source: 'cdr', code: code })
             .done(function(response) {
-                if (response.success && response.data) {
+                if (response.status === 'ok' && response.data) {
                     setRoute(response.data.route_string);
                 } else {
                     PERTIDialog.warning(response.message || PERTII18n.t('rad.amendment.cdrNotFound'));
@@ -157,7 +157,7 @@ window.RADAmendment = (function() {
 
         $.post('api/rad/routes.php', { route: route, action: 'validate' })
             .done(function(response) {
-                if (response.success) {
+                if (response.status === 'ok') {
                     Swal.fire({
                         icon: 'success',
                         title: PERTII18n.t('rad.amendment.validRoute'),
@@ -212,7 +212,7 @@ window.RADAmendment = (function() {
 
         $.get('api/rad/routes.php', { source: 'options', gufi: gufi })
             .done(function(response) {
-                if (response.success) {
+                if (response.status === 'ok') {
                     showRouteOptionsDialog(response.data || []);
                 }
             })
@@ -340,7 +340,7 @@ window.RADAmendment = (function() {
     function loadTMIPrograms() {
         $.get('api/tmi/gdp_preview.php')
             .done(function(response) {
-                if (response.success && response.data) {
+                if (response.status === 'ok' && response.data) {
                     var select = $('#rad_tmi_assoc');
                     select.empty();
                     select.append('<option value="">' + PERTII18n.t('rad.amendment.noTMI') + '</option>');
@@ -358,7 +358,7 @@ window.RADAmendment = (function() {
 
         $.post('api/rad/amendment.php', payload)
             .done(function(response) {
-                if (response.success) {
+                if (response.status === 'ok') {
                     PERTIDialog.success(PERTII18n.t('rad.amendment.draftSaved'));
                     RADEventBus.emit('amendment:created', { payload: payload, response: response.data });
                 } else {
@@ -379,7 +379,7 @@ window.RADAmendment = (function() {
                 if (result.isConfirmed) {
                     $.post('api/rad/amendment.php', payload)
                         .done(function(response) {
-                            if (response.success) {
+                            if (response.status === 'ok') {
                                 PERTIDialog.success(PERTII18n.t('rad.amendment.sent'));
                                 RADEventBus.emit('amendment:sent', { payload: payload, response: response.data });
                                 clearForm();
