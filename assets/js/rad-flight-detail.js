@@ -61,7 +61,7 @@ window.RADFlightDetail = (function() {
         tbody.empty();
 
         if (selectedFlights.length === 0) {
-            tbody.html('<tr><td colspan="10" class="text-center text-muted">' + PERTII18n.t('rad.detail.noFlights') + '</td></tr>');
+            tbody.html('<tr><td colspan="11" class="text-center text-muted">' + PERTII18n.t('rad.detail.noFlights') + '</td></tr>');
             return;
         }
 

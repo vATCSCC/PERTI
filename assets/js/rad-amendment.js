@@ -91,7 +91,7 @@ window.RADAmendment = (function() {
                         showConfirmButton: false
                     });
 
-                    $(document).on('click', '.rad-route-row', function() {
+                    $(document).off('click.radRoute').on('click.radRoute', '.rad-route-row', function() {
                         setRoute($(this).data('route'));
                         Swal.close();
                     });
@@ -262,7 +262,7 @@ window.RADAmendment = (function() {
             showConfirmButton: false
         });
 
-        $(document).on('click', '.rad-route-row', function() {
+        $(document).off('click.radRoute').on('click.radRoute', '.rad-route-row', function() {
             setRoute($(this).data('route'));
             Swal.close();
         });

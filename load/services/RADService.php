@@ -76,10 +76,11 @@ class RADService
             $params[] = strtoupper($filters['dest_center']);
         }
 
-        // Aircraft type
+        // Flight rules (IFR/VFR) — fp_rule is NCHAR(1): 'I' or 'V'
         if (!empty($filters['type'])) {
-            $where[] = "a.fp_aircraft_icao = ?";
-            $params[] = strtoupper($filters['type']);
+            $rule = strtoupper(substr($filters['type'], 0, 1));
+            $where[] = "p.fp_rule = ?";
+            $params[] = $rule;
         }
 
         // Carrier
@@ -110,10 +111,12 @@ class RADService
             $params[] = '%' . str_replace(['%','_'], ['[%]','[_]'], $filters['route']) . '%';
         }
 
-        // Flight status
+        // Flight status — map 'ACTIVE' to 'AIRBORNE' (legacy compat)
         if (!empty($filters['status'])) {
+            $st = strtoupper($filters['status']);
+            if ($st === 'ACTIVE') $st = 'AIRBORNE';
             $where[] = "c.flight_phase = ?";
-            $params[] = strtoupper($filters['status']);
+            $params[] = $st;
         }
 
         // Default: active + prefiled
