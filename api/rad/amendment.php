@@ -27,9 +27,9 @@ if ($method === 'GET') {
 
 } elseif ($method === 'POST') {
 
-    if ($action === 'send') {
-        $id = (int)($body['id'] ?? 0);
-        if (!$id) rad_respond_json(400, ['status' => 'error', 'message' => 'id required']);
+    if ($action === 'send' && !empty($body['id'])) {
+        // Send an existing DRAFT amendment by ID
+        $id = (int)$body['id'];
         $result = $svc->sendAmendment($id, (int)$cid);
         if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
         rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
@@ -74,7 +74,7 @@ if ($method === 'GET') {
             'tmi_id_label'      => $body['tmi_id'] ?? $body['tmi_id_label'] ?? null,
             'route_color'       => $body['route_color'] ?? null,
             'notes'             => $body['notes'] ?? null,
-            'send'              => ($action === 'create') ? false : !empty($body['send']),
+            'send'              => ($action === 'send') || !empty($body['send']),
             'created_by'        => (int)$cid,
         ];
 

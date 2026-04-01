@@ -114,15 +114,18 @@ class RADService
         // Flight status — phase column uses lowercase: prefile, enroute, departed, arrived, etc.
         if (!empty($filters['status'])) {
             $st = strtolower($filters['status']);
-            // Map legacy/JS values to actual DB phase values
-            $phase_map = [
-                'active' => 'enroute', 'airborne' => 'enroute',
-                'prefiled' => 'prefile', 'prefile' => 'prefile',
-                'departed' => 'departed', 'arrived' => 'arrived',
-            ];
-            $st = $phase_map[$st] ?? $st;
-            $where[] = "c.phase = ?";
-            $params[] = $st;
+            // ACTIVE/AIRBORNE maps to multiple in-flight phases
+            if ($st === 'active' || $st === 'airborne') {
+                $where[] = "c.phase IN ('enroute','departed','descending','taxiing')";
+            } else {
+                $phase_map = [
+                    'prefiled' => 'prefile', 'prefile' => 'prefile',
+                    'departed' => 'departed', 'arrived' => 'arrived',
+                ];
+                $st = $phase_map[$st] ?? $st;
+                $where[] = "c.phase = ?";
+                $params[] = $st;
+            }
         }
 
         // Default: active + prefiled
@@ -614,7 +617,7 @@ class RADService
 
         $sql = "SELECT changed_utc, field_name, old_value, new_value
                 FROM dbo.adl_flight_changelog
-                WHERE flight_uid = ? AND field_name = 'route'
+                WHERE flight_uid = ? AND field_name = 'fp_route'
                 ORDER BY changed_utc DESC";
         $stmt = sqlsrv_query($this->conn_adl, $sql, [$flight['flight_uid']]);
         $history = [];
