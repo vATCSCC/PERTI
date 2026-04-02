@@ -101,7 +101,7 @@ window.RADFlightDetail = (function() {
         row.append('<td>' + (flight.tracon || '') + ' / ' + (flight.dest_tracon || '') + '</td>');
         row.append('<td>' + (flight.center || '') + ' / ' + (flight.dest_center || '') + '</td>');
         row.append('<td>' + getAmendmentBadge(flight.amendment_status) + '</td>');
-        row.append('<td class="text-truncate" style="max-width:200px;" title="' + (flight.route || '') + '">' + (flight.route || '') + '</td>');
+        row.append('<td class="rad-route-cell">' + (flight.route || '') + '</td>');
         row.append('<td>' + (flight.actype || '') + '/' + (flight.weight_class || '') + '</td>');
         row.append('<td><div class="sub-top">ETD: ' + formatTime(flight.etd_utc) + '</div><div class="sub-bot">ETA: ' + formatTime(flight.eta_utc) + '</div></td>');
         row.append('<td>' + getPhaseBadge(flight.phase) + '</td>');
