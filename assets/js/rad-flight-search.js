@@ -159,12 +159,12 @@ window.RADFlightSearch = (function() {
 
     function renderRow(flight) {
         var routeSnippet = flight.route || '';
-
         var phaseBadge = getPhaseBadge(flight.phase);
+        var csColor = RADEventBus.callsignColor(flight.callsign);
 
         var row = $('<tr data-gufi="' + flight.gufi + '">');
         row.append('<td><input type="checkbox" class="rad-search-cb"></td>');
-        row.append('<td><span class="sub-top">' + (flight.callsign || '') + '</span><span class="sub-bot">' + (flight.actype || '') + '</span></td>');
+        row.append('<td><span class="sub-top rad-cs" style="color:' + csColor + ';">' + (flight.callsign || '') + '</span><span class="sub-bot">' + (flight.actype || '') + '</span></td>');
         row.append('<td><span class="sub-top">' + (flight.origin || '') + ' → ' + (flight.dest || '') + '</span><span class="sub-bot">' + routeSnippet + '</span></td>');
         row.append('<td>' + (flight.actype || '') + '/' + (flight.weight_class || '') + '</td>');
         row.append('<td><span class="sub-top">ETD: ' + formatTime(flight.etd_utc) + '</span><span class="sub-bot">ETA: ' + formatTime(flight.eta_utc) + '</span></td>');

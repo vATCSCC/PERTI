@@ -168,7 +168,16 @@ if (!$perm) {
                     <div class="d-flex align-items-center mb-2">
                         <button class="btn btn-sm btn-info mr-1" id="rad_btn_validate" data-i18n="common.validate">Validate</button>
                         <button class="btn btn-sm btn-primary mr-1" id="rad_btn_plot">Plot</button>
-                        <input type="color" id="rad_route_color" value="#FF6600" class="rad-color-picker">
+                        <span class="rad-color-label mr-1">Color:</span>
+                        <div class="rad-color-palette" id="rad_color_palette">
+                            <div class="rad-color-swatch active" data-color="#4ECDC4" style="background:#4ECDC4;" title="Teal"></div>
+                            <div class="rad-color-swatch" data-color="#FF6B6B" style="background:#FF6B6B;" title="Red"></div>
+                            <div class="rad-color-swatch" data-color="#FFD93D" style="background:#FFD93D;" title="Yellow"></div>
+                            <div class="rad-color-swatch" data-color="#9B59B6" style="background:#9B59B6;" title="Purple"></div>
+                            <div class="rad-color-swatch" data-color="#E94560" style="background:#E94560;" title="Accent"></div>
+                            <div class="rad-color-swatch" data-color="#FFFFFF" style="background:#FFFFFF;" title="White"></div>
+                        </div>
+                        <input type="hidden" id="rad_route_color" value="#4ECDC4">
                     </div>
                 </div>
                 <!-- Right: Current Routes + Create Amendment -->

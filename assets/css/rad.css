@@ -188,15 +188,31 @@
     font-weight: 400;
 }
 
-.rad-app input[type="color"],
-.rad-color-picker {
-    width: 40px;
-    height: 30px;
-    background: #111;
-    border: 1px solid #445;
-    padding: 1px;
-    cursor: pointer;
+/* Route Color Palette (preset swatches, matches mockup) */
+.rad-color-label {
+    color: #667;
+    font-size: 0.78rem;
+    font-weight: 400;
+    text-transform: none;
+}
+.rad-color-palette {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+}
+.rad-color-swatch {
+    width: 20px;
+    height: 20px;
     border-radius: 3px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+}
+.rad-color-swatch:hover {
+    border-color: rgba(255,255,255,0.5);
+}
+.rad-color-swatch.active {
+    border-color: #fff;
 }
 
 
@@ -379,6 +395,12 @@
     font-family: Inconsolata, 'Courier New', monospace;
 }
 
+/* Colored callsign cell */
+.rad-cs {
+    font-family: Inconsolata, 'Courier New', monospace;
+    font-weight: 700;
+}
+
 /* Sort indicator */
 .sort-indicator { font-size: 0.68rem; color: #e94560; margin-left: 2px; }
 
@@ -441,6 +463,24 @@
 }
 
 .rad-current-routes { max-height: 200px; overflow-y: auto; }
+
+/* Current route cards (Edit tab, per-flight display) */
+.rad-current-route-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-bottom: 1px solid #223;
+}
+.rad-current-route-text {
+    flex: 1;
+    font-family: Inconsolata, 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: #6f8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .rad-amendment-preview {
     background: #0d1117;
@@ -524,13 +564,34 @@
 /* Alert Row (expired flights) — dark red tint */
 .rad-alert-row { background-color: #2a1515 !important; }
 
-/* Aggregate Compliance Bar */
+/* Aggregate Compliance Bar (label + bar + stats) */
 .rad-aggregate-bar {
+    background: #16213e;
+    border: 1px solid #334;
+    border-radius: 4px;
+    padding: 6px 10px;
+}
+.rad-aggregate-label {
+    margin-bottom: 4px;
+}
+.rad-aggregate-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #89a;
+    text-transform: uppercase;
+}
+.rad-aggregate-bar-inner {
     display: flex;
     height: 18px;
     border-radius: 3px;
     overflow: hidden;
     background: #223;
+}
+.rad-aggregate-stats {
+    margin-top: 4px;
+    font-size: 0.72rem;
+    font-family: Inconsolata, 'Courier New', monospace;
+    color: #667;
 }
 .rad-aggregate-segment {
     height: 100%;
@@ -546,6 +607,29 @@
 .rad-aggregate-noncompliant { background: #fa5; }
 .rad-aggregate-unknown      { background: #89a; }
 .rad-aggregate-exception    { background: #556; }
+
+/* Auto-refresh indicator */
+.rad-refresh-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    padding: 6px 10px;
+}
+.rad-refresh-badge {
+    display: inline-block;
+    background: #253;
+    color: #5f5;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+.rad-refresh-time {
+    font-size: 0.72rem;
+    font-family: Inconsolata, 'Courier New', monospace;
+    color: #667;
+}
 
 /* TMI filter dropdown */
 .rad-tmi-filter { width: 200px; }
