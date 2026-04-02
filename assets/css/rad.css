@@ -202,5 +202,11 @@
 #rad_cdr_code { font-family: Inconsolata, 'Courier New', monospace; }
 #rad_manual_route { font-family: Inconsolata, 'Courier New', monospace; }
 
+/* ── Monospace for find/replace inputs ── */
+.rad-mono-input {
+    font-family: Inconsolata, 'Courier New', monospace;
+    text-transform: uppercase;
+}
+
 /* ── Playbook/CDR panel position override for RAD layout ── */
 .rad-map-section #pbcdr_search_panel { top: 66px; right: 10px; }
