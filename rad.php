@@ -154,11 +154,11 @@ if (!$perm) {
                     <div id="rad_substring_mode" class="rad-substring-panel mb-2">
                         <label><i class="fas fa-exchange-alt mr-1"></i><span data-i18n="rad.edit.substringReplace">Substring Replace</span></label>
                         <div class="input-group input-group-sm mb-1">
-                            <div class="input-group-prepend"><span class="input-group-text" style="width:60px;" data-i18n="rad.edit.find">Find</span></div>
+                            <div class="input-group-prepend"><span class="input-group-text" style="width:75px;" data-i18n="rad.edit.find">Find</span></div>
                             <input type="text" id="rad_find" class="form-control rad-mono-input" placeholder="e.g., J60 PHILA">
                         </div>
                         <div class="input-group input-group-sm mb-1">
-                            <div class="input-group-prepend"><span class="input-group-text" style="width:60px;" data-i18n="rad.edit.replace">Replace</span></div>
+                            <div class="input-group-prepend"><span class="input-group-text" style="width:75px;" data-i18n="rad.edit.replace">Replace</span></div>
                             <input type="text" id="rad_replace" class="form-control rad-mono-input" placeholder="e.g., J80 BRIGS">
                         </div>
                         <button class="btn btn-sm btn-outline-primary" id="rad_btn_apply_substr"><i class="fas fa-sync-alt mr-1"></i><span data-i18n="rad.edit.applyToSelected">Apply to Selected</span></button>
