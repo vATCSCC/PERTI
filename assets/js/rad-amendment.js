@@ -52,7 +52,11 @@ window.RADAmendment = (function() {
             updatePreview();
         });
 
-        $('#rad_route_color').on('change', function() {
+        // Color palette swatch click
+        $(document).on('click', '.rad-color-swatch', function() {
+            $('.rad-color-swatch').removeClass('active');
+            $(this).addClass('active');
+            $('#rad_route_color').val($(this).data('color'));
             autoPlotRoutes();
         });
 
@@ -361,12 +365,19 @@ window.RADAmendment = (function() {
         if (currentFlights.length === 0) {
             html = '<div class="text-muted">' + PERTII18n.t('rad.amendment.noFlightsSelected') + '</div>';
         } else {
-            html += '<table class="table table-sm table-striped">';
-            html += '<thead><tr><th>' + PERTII18n.t('common.callsign') + '</th><th>' + PERTII18n.t('rad.amendment.currentRoute') + '</th></tr></thead><tbody>';
-            currentFlights.forEach(function(flight) {
-                html += '<tr><td>' + flight.callsign + '</td><td class="text-monospace">' + (flight.route || '') + '</td></tr>';
+            currentFlights.forEach(function(flight, idx) {
+                var csColor = RADEventBus.callsignColor(flight.callsign);
+                var bg = idx % 2 === 0 ? '#111' : '#0d1117';
+                var statusBadge = flight.amendment_status
+                    ? '<span class="rad-badge rad-badge-warning">' + flight.amendment_status + '</span>'
+                    : '<span class="rad-badge rad-badge-default">&mdash;</span>';
+
+                html += '<div class="rad-current-route-card" style="background:' + bg + ';">' +
+                    '<span class="rad-cs" style="color:' + csColor + ';">' + (flight.callsign || '') + '</span>' +
+                    '<span class="rad-current-route-text">' + (flight.route || '') + '</span>' +
+                    statusBadge +
+                    '</div>';
             });
-            html += '</tbody></table>';
         }
         $('#rad_current_routes').html(html);
         updatePreview();

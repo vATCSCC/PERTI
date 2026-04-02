@@ -93,10 +93,11 @@ window.RADFlightDetail = (function() {
     }
 
     function renderRow(flight) {
+        var csColor = RADEventBus.callsignColor(flight.callsign);
         var row = $('<tr data-gufi="' + flight.gufi + '">');
 
         row.append('<td><input type="checkbox" class="rad-detail-cb"></td>');
-        row.append('<td>' + (flight.callsign || '') + '</td>');
+        row.append('<td class="rad-cs" style="color:' + csColor + ';">' + (flight.callsign || '') + '</td>');
         row.append('<td>' + (flight.origin || '') + ' / ' + (flight.dest || '') + '</td>');
         row.append('<td>' + (flight.tracon || '') + ' / ' + (flight.dest_tracon || '') + '</td>');
         row.append('<td>' + (flight.center || '') + ' / ' + (flight.dest_center || '') + '</td>');

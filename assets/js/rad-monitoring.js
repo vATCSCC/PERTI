@@ -131,6 +131,16 @@ window.RADMonitoring = (function() {
         html += buildCard(PERTII18n.t('rad.monitoring.rejected'), counts.rjct, 'danger');
         html += buildCard(PERTII18n.t('rad.monitoring.expired'), counts.expr, 'secondary');
 
+        // Auto-refresh indicator
+        var now = new Date();
+        var hh = String(now.getUTCHours()).padStart(2, '0');
+        var mm = String(now.getUTCMinutes()).padStart(2, '0');
+        var ss = String(now.getUTCSeconds()).padStart(2, '0');
+        html += '<div class="rad-refresh-indicator">' +
+            '<span class="rad-refresh-badge">30s</span>' +
+            '<span class="rad-refresh-time">Last: ' + hh + ':' + mm + ':' + ss + 'Z</span>' +
+            '</div>';
+
         $('#rad_summary_cards').html(html);
     }
 
@@ -158,9 +168,10 @@ window.RADMonitoring = (function() {
 
     function renderRow(a) {
         var rowClass = a.status === 'EXPR' ? 'rad-alert-row' : '';
+        var csColor = RADEventBus.callsignColor(a.callsign);
         var row = $('<tr class="' + rowClass + '">');
 
-        row.append('<td>' + (a.callsign || '') + '</td>');
+        row.append('<td class="rad-cs" style="color:' + csColor + ';">' + (a.callsign || '') + '</td>');
         row.append('<td>' + (a.origin || '') + ' / ' + (a.dest || '') + '</td>');
         row.append('<td>' + getStatusBadge(a.status) + '</td>');
         row.append('<td>' + getRRSTATBadge(a.rrstat) + '</td>');
@@ -287,11 +298,20 @@ window.RADMonitoring = (function() {
         var ncPct = (noncompliant / total * 100).toFixed(1);
         var excPct = (exception / total * 100).toFixed(1);
         var unknPct = (unknown / total * 100).toFixed(1);
+        var rate = total > 0 ? (compliant / total * 100).toFixed(0) : '0';
 
-        var html = '<div class="rad-aggregate-segment rad-aggregate-compliant" style="width:' + cPct + '%" title="' + PERTII18n.t('rad.monitoring.compliant') + ': ' + compliant + '"></div>' +
-            '<div class="rad-aggregate-segment rad-aggregate-noncompliant" style="width:' + ncPct + '%" title="' + PERTII18n.t('rad.monitoring.nonCompliant') + ': ' + noncompliant + '"></div>' +
-            '<div class="rad-aggregate-segment rad-aggregate-exception" style="width:' + excPct + '%" title="' + PERTII18n.t('rad.monitoring.exception') + ': ' + exception + '"></div>' +
-            '<div class="rad-aggregate-segment rad-aggregate-unknown" style="width:' + unknPct + '%" title="' + PERTII18n.t('rad.monitoring.unknown') + ': ' + unknown + '"></div>';
+        var tmiLabel = currentTMIFilter || PERTII18n.t('rad.monitoring.allTMI');
+
+        var html = '<div class="rad-aggregate-label">' +
+            '<span class="rad-aggregate-title">' + tmiLabel + ' ' + PERTII18n.t('rad.monitoring.compliance') + ':</span>' +
+            '</div>' +
+            '<div class="rad-aggregate-bar-inner">' +
+            '<div class="rad-aggregate-segment rad-aggregate-compliant" style="width:' + cPct + '%;" title="' + PERTII18n.t('rad.monitoring.compliant') + ': ' + compliant + '"></div>' +
+            '<div class="rad-aggregate-segment rad-aggregate-noncompliant" style="width:' + ncPct + '%;" title="' + PERTII18n.t('rad.monitoring.nonCompliant') + ': ' + noncompliant + '"></div>' +
+            '<div class="rad-aggregate-segment rad-aggregate-exception" style="width:' + excPct + '%;" title="' + PERTII18n.t('rad.monitoring.exception') + ': ' + exception + '"></div>' +
+            '<div class="rad-aggregate-segment rad-aggregate-unknown" style="width:' + unknPct + '%;" title="' + PERTII18n.t('rad.monitoring.unknown') + ': ' + unknown + '"></div>' +
+            '</div>' +
+            '<div class="rad-aggregate-stats">C: ' + compliant + ' | NC: ' + noncompliant + ' | UNKN: ' + unknown + ' | EXC: ' + exception + ' | Rate: ' + rate + '%</div>';
 
         $('#rad_aggregate_bar').html(html);
     }

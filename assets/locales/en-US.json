@@ -3248,7 +3248,8 @@
       "unknown": "Unknown",
       "confirmDelete": "Delete this amendment?",
       "allTMI": "All TMI Programs",
-      "amendmentExpired": "{callsign} amendment expired"
+      "amendmentExpired": "{callsign} amendment expired",
+      "compliance": "Compliance"
     },
     "status": {
       "DRAFT": "Draft",
