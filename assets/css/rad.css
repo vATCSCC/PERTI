@@ -17,12 +17,25 @@
     color: #fff !important;
 }
 
+/* ── Full-viewport app layout (matches CTP pattern) ── */
+.rad-app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    padding-top: 56px; /* fixed navbar height */
+    overflow: hidden;
+}
+
+/* Hide footer for full-screen app layout */
+.rad-app ~ footer.cs-footer {
+    display: none !important;
+}
+
 /* ── Map Section ── */
 .rad-map-section {
     position: relative;
-    height: 50vh;
-    min-height: 350px;
-    padding-top: 56px; /* Push below fixed navbar */
+    flex: 1 1 45%;
+    min-height: 250px;
     border-bottom: 2px solid #343a40;
 }
 .rad-map-wrapper {
@@ -35,7 +48,7 @@
 }
 .rad-map-controls {
     position: absolute;
-    top: 66px; /* Below fixed navbar (56px) + 10px gap */
+    top: 10px;
     left: 10px;
     z-index: 10;
     display: flex;
@@ -53,7 +66,12 @@
 }
 
 /* ── Tabs & Tables ── */
-.rad-tabs-container { padding: 0 12px; }
+.rad-tabs-container {
+    padding: 0 12px;
+    flex: 1 1 55%;
+    overflow-y: auto;
+    min-height: 0; /* flex child needs this to shrink below content size */
+}
 .rad-table { font-family: Inconsolata, 'Courier New', monospace; font-size: 0.82rem; }
 .rad-table td, .rad-table th { vertical-align: middle; padding: 4px 6px; }
 .rad-table th[data-sort] { cursor: pointer; user-select: none; }
@@ -224,4 +242,8 @@
 }
 
 /* ── Playbook/CDR panel position override for RAD layout ── */
-.rad-map-section #pbcdr_search_panel { top: 66px; right: 10px; }
+.rad-map-section #pbcdr_search_panel {
+    top: 10px;
+    right: 10px;
+    max-height: calc(100% - 20px);
+}

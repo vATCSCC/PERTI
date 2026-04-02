@@ -51,6 +51,7 @@ if (!$perm) {
 <body>
 <?php include("load/nav.php"); ?>
 
+<div class="rad-app">
 <div class="rad-map-section" id="rad_map_section">
     <div class="rad-map-controls">
         <textarea id="routeSearch" class="rad-route-input" rows="2"></textarea>
@@ -64,7 +65,7 @@ if (!$perm) {
     <?php include('load/playbook_search_panel.php'); ?>
 </div>
 
-<div class="container-fluid rad-tabs-container mt-2">
+<div class="container-fluid rad-tabs-container">
     <ul class="nav nav-tabs" id="radTabs" role="tablist">
         <li class="nav-item">
             <a class="nav-link active" id="tab-search" data-toggle="tab" href="#pane-search" role="tab">
@@ -233,6 +234,7 @@ if (!$perm) {
         </div>
     </div>
 </div>
+</div><!-- /.rad-app -->
 
 <?php include('load/footer.php'); ?>
 <!-- Map rendering pipeline (same as route.php) -->
