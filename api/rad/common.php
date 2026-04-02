@@ -57,11 +57,11 @@ function rad_get_service() {
 
 /**
  * Require TMU-level permission for amendment write operations.
- * Checks admin_users table in MySQL.
+ * Checks admin_users table in MySQL (presence = authorized).
  */
 function rad_require_tmu($cid) {
     global $conn_sqli;
-    $stmt = $conn_sqli->prepare("SELECT 1 FROM admin_users WHERE cid=? AND role IN ('tmu','atcscc','admin') LIMIT 1");
+    $stmt = $conn_sqli->prepare("SELECT 1 FROM admin_users WHERE cid=? LIMIT 1");
     $stmt->bind_param('i', $cid);
     $stmt->execute();
     $result = $stmt->get_result();

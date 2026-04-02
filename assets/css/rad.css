@@ -202,7 +202,13 @@
 #rad_cdr_code { font-family: Inconsolata, 'Courier New', monospace; }
 #rad_manual_route { font-family: Inconsolata, 'Courier New', monospace; }
 
-/* ── Monospace for find/replace inputs ── */
+/* ── Substring Replace Panel (Edit Tab) ── */
+.rad-substring-panel {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 8px 10px;
+}
 .rad-mono-input {
     font-family: Inconsolata, 'Courier New', monospace;
     text-transform: uppercase;

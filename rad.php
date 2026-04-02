@@ -150,17 +150,17 @@ if (!$perm) {
                             <button class="btn btn-outline-secondary" id="rad_btn_get_cdr">CDR</button>
                         </div>
                     </div>
-                    <div id="rad_substring_mode" class="mb-2 p-2 border rounded" style="background:#1a2332;">
-                        <label class="mb-1 text-light"><i class="fas fa-exchange-alt mr-1"></i><span data-i18n="rad.edit.substringReplace">Substring Replace</span></label>
+                    <div id="rad_substring_mode" class="rad-substring-panel mb-2">
+                        <label><i class="fas fa-exchange-alt mr-1"></i><span data-i18n="rad.edit.substringReplace">Substring Replace</span></label>
                         <div class="input-group input-group-sm mb-1">
                             <div class="input-group-prepend"><span class="input-group-text" style="width:60px;" data-i18n="rad.edit.find">Find</span></div>
                             <input type="text" id="rad_find" class="form-control rad-mono-input" placeholder="e.g., J60 PHILA">
                         </div>
-                        <div class="input-group input-group-sm">
+                        <div class="input-group input-group-sm mb-1">
                             <div class="input-group-prepend"><span class="input-group-text" style="width:60px;" data-i18n="rad.edit.replace">Replace</span></div>
                             <input type="text" id="rad_replace" class="form-control rad-mono-input" placeholder="e.g., J80 BRIGS">
                         </div>
-                        <button class="btn btn-sm btn-outline-primary mt-1" id="rad_btn_apply_substr"><i class="fas fa-sync-alt mr-1"></i><span data-i18n="rad.edit.applyToSelected">Apply to Selected</span></button>
+                        <button class="btn btn-sm btn-outline-primary" id="rad_btn_apply_substr"><i class="fas fa-sync-alt mr-1"></i><span data-i18n="rad.edit.applyToSelected">Apply to Selected</span></button>
                     </div>
                     <label>Add Route</label>
                     <textarea id="rad_manual_route" class="form-control form-control-sm mb-2" rows="3" placeholder="Enter route string..."></textarea>

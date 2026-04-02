@@ -31,7 +31,7 @@ CREATE TABLE dbo.rad_amendments (
 CREATE INDEX IX_rad_amendments_gufi ON dbo.rad_amendments (gufi);
 CREATE INDEX IX_rad_amendments_status ON dbo.rad_amendments (status)
     INCLUDE (gufi, callsign, origin, destination, assigned_route, rrstat, sent_utc)
-    WHERE status NOT IN ('ACPT','RJCT','EXPR');
+    WHERE status IN ('DRAFT','SENT','DLVD');
 CREATE INDEX IX_rad_amendments_tmi ON dbo.rad_amendments (tmi_reroute_id)
     WHERE tmi_reroute_id IS NOT NULL;
 
