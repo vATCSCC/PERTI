@@ -165,8 +165,8 @@ window.RADMonitoring = (function() {
         row.append('<td>' + getStatusBadge(a.status) + '</td>');
         row.append('<td>' + getRRSTATBadge(a.rrstat) + '</td>');
         row.append('<td>' + (a.tmi_id || '--') + '</td>');
-        row.append('<td class="text-monospace text-truncate" style="max-width:150px;" title="' + (a.assigned_route || '') + '">' + (a.assigned_route || '') + '</td>');
-        row.append('<td class="text-monospace text-truncate" style="max-width:150px;" title="' + (a.filed_route || '') + '">' + (a.filed_route || '') + '</td>');
+        row.append('<td class="rad-route-cell">' + (a.assigned_route || '') + '</td>');
+        row.append('<td class="rad-route-cell">' + (a.filed_route || '') + '</td>');
         row.append('<td>' + formatDateTime(a.sent_at) + '</td>');
         row.append('<td>' + (a.delivery_status || '--') + '</td>');
         row.append('<td>' + getActionButtons(a) + '</td>');
