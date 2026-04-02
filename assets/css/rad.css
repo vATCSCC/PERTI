@@ -647,9 +647,15 @@
     top: 10px;
     right: 10px;
     max-height: calc(100% - 20px);
+    overflow-y: auto;
     background: rgba(22, 33, 62, 0.95);
     border: 1px solid #445;
     color: #ccc;
+}
+.rad-map-section .pbcdr-results-list {
+    max-height: none;
+    flex-grow: 1;
+    overflow-y: auto;
 }
 .rad-map-section #pbcdr_search_panel .form-control {
     background: #111;
