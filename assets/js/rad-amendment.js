@@ -44,7 +44,7 @@ window.RADAmendment = (function() {
 
         $('#rad_route_color').on('change', function() {
             if (currentRoute) {
-                RADEventBus.emit('route:clear', { id: 'rad-current-route' });
+                RADEventBus.emit('route:clear', { routeString: currentRoute });
                 plotRoute();
             }
         });
@@ -434,7 +434,7 @@ window.RADAmendment = (function() {
         $('#rad_manual_route').val('');
         $('#rad_cdr_code').val('');
         $('#rad_amendment_preview').html('<div class="text-muted">' + PERTII18n.t('rad.amendment.noPreview') + '</div>');
-        RADEventBus.emit('route:clear', { id: 'rad-current-route' });
+        RADEventBus.emit('route:clear', {});
     }
 
     return {

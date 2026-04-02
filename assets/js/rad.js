@@ -7,20 +7,33 @@ window.RADController = (function() {
     function init() {
         // Initialize event bus consumers for map
         RADEventBus.on('route:plot', function(data) {
-            if (window.MapLibreRoute) {
-                window.MapLibreRoute.processRoutes(data.routeString, {
-                    color: data.color || '#FF6600',
-                    id: data.id || 'rad-route-' + Date.now()
-                });
+            if (window.MapLibreRoute && data.routeString) {
+                // Put route in textarea and trigger plot (processRoutes reads from #routeSearch)
+                var $textarea = $('#routeSearch');
+                var existing = $textarea.val().trim();
+                var route = data.routeString.trim();
+                // Avoid duplicating the same route
+                if (existing.indexOf(route) === -1) {
+                    $textarea.val(existing ? existing + '\n' + route : route);
+                }
+                window.MapLibreRoute.processRoutes();
             }
         });
 
         RADEventBus.on('route:clear', function(data) {
-            // Clear specific route layer from map
-            var map = window.MapLibreRoute ? window.MapLibreRoute.getMap() : null;
-            if (map && data.id) {
-                if (map.getLayer(data.id)) map.removeLayer(data.id);
-                if (map.getSource(data.id)) map.removeSource(data.id);
+            // Clear all routes by emptying textarea and re-processing
+            if (data && data.routeString) {
+                // Remove specific route from textarea
+                var $textarea = $('#routeSearch');
+                var lines = $textarea.val().split('\n').filter(function(l) {
+                    return l.trim() !== data.routeString.trim();
+                });
+                $textarea.val(lines.join('\n'));
+            } else {
+                $('#routeSearch').val('');
+            }
+            if (window.MapLibreRoute) {
+                window.MapLibreRoute.processRoutes();
             }
         });
 

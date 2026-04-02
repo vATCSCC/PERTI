@@ -3170,7 +3170,8 @@
       "removed": "{count} flight(s) removed",
       "timestamp": "Timestamp",
       "route": "Route",
-      "source": "Source"
+      "source": "Source",
+      "plottedRoutes": "Plotted {count} route(s) on map"
     },
     "edit": {
       "retrieveRoutes": "Retrieve Routes",

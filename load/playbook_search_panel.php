@@ -20,11 +20,11 @@
         <button class="pbcdr-tab" data-tab="cdr">
             <i class="fas fa-road mr-1"></i> <?= __('route.page.cdrsTab') ?>
         </button>
+        <button class="pbcdr-tab" data-tab="preferred">
+            <i class="fas fa-star mr-1"></i> Pref Route
+        </button>
         <button class="pbcdr-tab" data-tab="all">
             <i class="fas fa-search mr-1"></i> <?= __('route.page.allTab') ?>
-        </button>
-        <button class="pbcdr-tab" data-tab="preferred">
-            <i class="fas fa-star mr-1"></i> Preferred
         </button>
     </div>
 

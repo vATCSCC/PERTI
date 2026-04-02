@@ -4,6 +4,7 @@
  */
 window.RADFlightDetail = (function() {
     var selectedFlights = [];
+    var lastHighlightRoute = null;
 
     function init() {
         bindEvents();
@@ -29,8 +30,11 @@ window.RADFlightDetail = (function() {
             var gufi = $(this).data('gufi');
             var flight = selectedFlights.find(function(f) { return f.gufi === gufi; });
             if (flight) {
-                // Clear previous highlight route
-                RADEventBus.emit('route:clear', { id: 'rad-flight-highlight' });
+                // Clear previous highlight route from textarea
+                if (lastHighlightRoute) {
+                    RADEventBus.emit('route:clear', { routeString: lastHighlightRoute });
+                    lastHighlightRoute = null;
+                }
 
                 RADEventBus.emit('flight:highlighted', flight);
                 $('#rad_detail_tbody tr').removeClass('table-active');
@@ -38,6 +42,7 @@ window.RADFlightDetail = (function() {
 
                 // Plot the flight's route on map
                 if (flight.route) {
+                    lastHighlightRoute = flight.route;
                     RADEventBus.emit('route:plot', {
                         routeString: flight.route,
                         color: '#00BFFF',
@@ -242,10 +247,9 @@ window.RADFlightDetail = (function() {
             return;
         }
 
-        // Clear previous plot-all routes
-        for (var i = 0; i < selectedFlights.length; i++) {
-            RADEventBus.emit('route:clear', { id: 'rad-flight-all-' + i });
-        }
+        // Clear textarea and replot all selected flights
+        RADEventBus.emit('route:clear', {});
+        lastHighlightRoute = null;
 
         var plotted = 0;
         selectedFlights.forEach(function(flight, idx) {
