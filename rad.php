@@ -154,11 +154,11 @@ if (!$perm) {
                     <div id="rad_substring_mode" class="rad-substring-panel mb-2">
                         <label><i class="fas fa-exchange-alt mr-1"></i><span data-i18n="rad.edit.substringReplace">Substring Replace</span></label>
                         <div class="input-group input-group-sm mb-1">
-                            <div class="input-group-prepend"><span class="input-group-text" style="width:75px;" data-i18n="rad.edit.find">Find</span></div>
+                            <div class="input-group-prepend"><span class="input-group-text rad-prepend-label" data-i18n="rad.edit.find">Find</span></div>
                             <input type="text" id="rad_find" class="form-control rad-mono-input" placeholder="e.g., J60 PHILA">
                         </div>
                         <div class="input-group input-group-sm mb-1">
-                            <div class="input-group-prepend"><span class="input-group-text" style="width:75px;" data-i18n="rad.edit.replace">Replace</span></div>
+                            <div class="input-group-prepend"><span class="input-group-text rad-prepend-label" data-i18n="rad.edit.replace">Replace</span></div>
                             <input type="text" id="rad_replace" class="form-control rad-mono-input" placeholder="e.g., J80 BRIGS">
                         </div>
                         <button class="btn btn-sm btn-outline-primary" id="rad_btn_apply_substr"><i class="fas fa-sync-alt mr-1"></i><span data-i18n="rad.edit.applyToSelected">Apply to Selected</span></button>
@@ -168,7 +168,7 @@ if (!$perm) {
                     <div class="d-flex align-items-center mb-2">
                         <button class="btn btn-sm btn-info mr-1" id="rad_btn_validate" data-i18n="common.validate">Validate</button>
                         <button class="btn btn-sm btn-primary mr-1" id="rad_btn_plot">Plot</button>
-                        <input type="color" id="rad_route_color" value="#FF6600" class="form-control form-control-sm" style="width:40px;padding:2px;">
+                        <input type="color" id="rad_route_color" value="#FF6600" class="rad-color-picker">
                     </div>
                 </div>
                 <!-- Right: Current Routes + Create Amendment -->
@@ -214,7 +214,7 @@ if (!$perm) {
                     <button class="btn btn-outline-secondary" id="rad_filter_noncompliant">Non-Compliant</button>
                     <button class="btn btn-outline-secondary" id="rad_filter_alerts">Alerts</button>
                 </div>
-                <select id="rad_tmi_filter" class="form-control form-control-sm" style="width:200px;"></select>
+                <select id="rad_tmi_filter" class="form-control form-control-sm rad-tmi-filter"></select>
             </div>
             <table class="table table-sm rad-table" id="rad_monitoring_table">
                 <thead><tr>

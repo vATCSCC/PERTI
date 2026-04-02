@@ -6,6 +6,7 @@ window.RADAmendment = (function() {
     var currentFlights = [];
     var currentRoute = '';
     var perFlightRoutes = {}; // { gufi: computedRoute } for substring replace
+    var autoPlotEnabled = true;
 
     function init() {
         bindEvents();
@@ -52,10 +53,7 @@ window.RADAmendment = (function() {
         });
 
         $('#rad_route_color').on('change', function() {
-            if (currentRoute) {
-                RADEventBus.emit('route:clear', { routeString: currentRoute });
-                plotRoute();
-            }
+            autoPlotRoutes();
         });
 
         // Load TMI programs
@@ -317,6 +315,41 @@ window.RADAmendment = (function() {
         updatePreview();
     }
 
+    /**
+     * Auto-plot original routes (gray) and amended routes (user color) on the map.
+     * Directly sets #routeSearch textarea and calls processRoutes().
+     */
+    function autoPlotRoutes() {
+        if (!autoPlotEnabled || currentFlights.length === 0) return;
+
+        var lines = [];
+        var hasPerFlight = Object.keys(perFlightRoutes).length > 0;
+        var amendColor = $('#rad_route_color').val() || '#FF6600';
+
+        // Original filed routes in gray
+        currentFlights.forEach(function(flight) {
+            if (flight.route) {
+                lines.push(flight.route + ';#808080');
+            }
+        });
+
+        // Amended routes in user-specified color
+        if (hasPerFlight) {
+            Object.keys(perFlightRoutes).forEach(function(gufi) {
+                if (perFlightRoutes[gufi]) {
+                    lines.push(perFlightRoutes[gufi] + ';' + amendColor);
+                }
+            });
+        } else if (currentRoute) {
+            lines.push(currentRoute + ';' + amendColor);
+        }
+
+        $('#routeSearch').val(lines.join('\n'));
+        if (window.MapLibreRoute) {
+            window.MapLibreRoute.processRoutes();
+        }
+    }
+
     function setRoute(routeString) {
         currentRoute = routeString;
         $('#rad_manual_route').val(routeString);
@@ -344,6 +377,7 @@ window.RADAmendment = (function() {
 
         if (currentFlights.length === 0 || (!currentRoute && !hasPerFlight)) {
             $('#rad_amendment_preview').html('<div class="text-muted">' + PERTII18n.t('rad.amendment.noPreview') + '</div>');
+            autoPlotRoutes();
             return;
         }
 
@@ -366,6 +400,8 @@ window.RADAmendment = (function() {
 
         html += '</tbody></table>';
         $('#rad_amendment_preview').html(html);
+
+        autoPlotRoutes();
     }
 
     function generateDiff(original, assigned) {
@@ -516,7 +552,8 @@ window.RADAmendment = (function() {
         $('#rad_find').val('');
         $('#rad_replace').val('');
         $('#rad_amendment_preview').html('<div class="text-muted">' + PERTII18n.t('rad.amendment.noPreview') + '</div>');
-        RADEventBus.emit('route:clear', {});
+        // Re-plot: shows only original routes in gray (amendment routes cleared)
+        autoPlotRoutes();
     }
 
     return {
