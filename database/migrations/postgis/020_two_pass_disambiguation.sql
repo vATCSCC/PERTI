@@ -78,6 +78,7 @@ BEGIN
         SELECT nf.fix_name::VARCHAR, nf.lat, nf.lon, 'nav_fix'::VARCHAR
         FROM nav_fixes nf
         WHERE nf.fix_name = p_fix_name
+        AND (nf.is_superseded IS NULL OR nf.is_superseded = false)
         ORDER BY (nf.lat - p_context_lat)^2 +
                  ((nf.lon - p_context_lon) * cos(radians(p_context_lat)))^2
         LIMIT 1;
@@ -89,6 +90,7 @@ BEGIN
         SELECT nf.fix_name::VARCHAR, nf.lat, nf.lon, 'nav_fix'::VARCHAR
         FROM nav_fixes nf
         WHERE nf.fix_name = p_fix_name
+        AND (nf.is_superseded IS NULL OR nf.is_superseded = false)
         ORDER BY nf.lat DESC, nf.lon ASC
         LIMIT 1;
     END IF;
@@ -420,29 +422,76 @@ BEGIN
                 v_next_fix := NULL;
                 IF v_idx < array_length(v_parts, 1) THEN
                     v_next_fix := UPPER(v_parts[v_idx + 1]);
+                    -- Strip dot-notation from next fix (e.g., "FIX.STAR5" -> "FIX")
+                    IF v_next_fix LIKE '%.%' THEN
+                        v_next_fix := split_part(v_next_fix, '.', 1);
+                    END IF;
                 END IF;
 
-                -- Try DP lookup
-                SELECT np.full_route INTO v_proc_route
-                FROM nav_procedures np
-                WHERE (np.computer_code LIKE UPPER(v_part) || '.%'
-                       OR (v_trunc_name IS NOT NULL AND np.computer_code LIKE v_trunc_name || '.%'))
-                  AND np.procedure_type IN ('DP', 'SID')
-                  AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base', 'CIFP')
-                  AND np.is_active = true
-                  AND (np.is_superseded IS NULL OR np.is_superseded = false)
-                  AND np.full_route IS NOT NULL
-                  AND np.full_route != ''
-                ORDER BY
-                  CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
-                  CASE WHEN v_next_fix IS NOT NULL
-                       AND (np.full_route LIKE '% ' || v_next_fix
-                            OR np.full_route LIKE '% ' || v_next_fix || ' %')
-                       THEN 0 ELSE 1 END,
-                  length(np.full_route) ASC
-                LIMIT 1;
+                -- Try DP lookup: exact transition match first (PROC.NEXT_FIX)
+                -- This prevents selecting a combined full_route that contains all
+                -- transitions (e.g., DEDKI5 dumping 24 waypoints from 3 transitions
+                -- when only DEDKI5.RAKAM is needed).
+                IF v_next_fix IS NOT NULL THEN
+                    SELECT np.full_route INTO v_proc_route
+                    FROM nav_procedures np
+                    WHERE (np.computer_code = UPPER(v_part) || '.' || v_next_fix
+                           OR (v_trunc_name IS NOT NULL
+                               AND np.computer_code = v_trunc_name || '.' || v_next_fix))
+                      AND np.procedure_type IN ('DP', 'SID')
+                      AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base', 'CIFP')
+                      AND np.is_active = true
+                      AND (np.is_superseded IS NULL OR np.is_superseded = false)
+                      AND np.full_route IS NOT NULL
+                      AND np.full_route != ''
+                    ORDER BY
+                      CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
+                      length(np.full_route) ASC
+                    LIMIT 1;
+                END IF;
 
-                -- Try STAR lookup
+                -- Fallback: broader DP match with transition preference in ORDER BY
+                IF v_proc_route IS NULL THEN
+                    SELECT np.full_route INTO v_proc_route
+                    FROM nav_procedures np
+                    WHERE (np.computer_code LIKE UPPER(v_part) || '.%'
+                           OR (v_trunc_name IS NOT NULL AND np.computer_code LIKE v_trunc_name || '.%'))
+                      AND np.procedure_type IN ('DP', 'SID')
+                      AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base', 'CIFP')
+                      AND np.is_active = true
+                      AND (np.is_superseded IS NULL OR np.is_superseded = false)
+                      AND np.full_route IS NOT NULL
+                      AND np.full_route != ''
+                    ORDER BY
+                      CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
+                      CASE WHEN v_next_fix IS NOT NULL
+                           AND (np.full_route LIKE '% ' || v_next_fix
+                                OR np.full_route LIKE '% ' || v_next_fix || ' %')
+                           THEN 0 ELSE 1 END,
+                      length(np.full_route) ASC
+                    LIMIT 1;
+                END IF;
+
+                -- Try STAR lookup: exact transition match first (PREV_FIX.PROC)
+                IF v_proc_route IS NULL AND v_prev_fix IS NOT NULL THEN
+                    SELECT np.full_route INTO v_proc_route
+                    FROM nav_procedures np
+                    WHERE (np.computer_code = UPPER(v_prev_fix) || '.' || UPPER(v_part)
+                           OR (v_trunc_name IS NOT NULL
+                               AND np.computer_code = UPPER(v_prev_fix) || '.' || v_trunc_name))
+                      AND np.procedure_type = 'STAR'
+                      AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base', 'CIFP')
+                      AND np.is_active = true
+                      AND (np.is_superseded IS NULL OR np.is_superseded = false)
+                      AND np.full_route IS NOT NULL
+                      AND np.full_route != ''
+                    ORDER BY
+                      CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
+                      length(np.full_route) ASC
+                    LIMIT 1;
+                END IF;
+
+                -- Fallback: broader STAR match with entry preference in ORDER BY
                 IF v_proc_route IS NULL THEN
                     SELECT np.full_route INTO v_proc_route
                     FROM nav_procedures np
@@ -511,6 +560,13 @@ BEGIN
                             v_prev_lat := v_wp.lat;
                             v_prev_lon := v_wp.lon;
                         END IF;
+
+                        -- Stop expanding if we've reached the next fix in the route.
+                        -- This prevents multi-transition procedures (e.g., DEDKI5 at CYYZ)
+                        -- from dumping all transitions when only one is needed.
+                        IF v_next_fix IS NOT NULL AND UPPER(v_proc_part) = v_next_fix THEN
+                            EXIT;
+                        END IF;
                     END LOOP;
                 END IF;
             END IF;
@@ -549,7 +605,9 @@ BEGIN
                     v_is_anchor[v_k] := true;
                 ELSE
                     SELECT COUNT(*) INTO v_cand_count
-                    FROM nav_fixes nf WHERE nf.fix_name = v_r_ids[v_k];
+                    FROM nav_fixes nf
+                    WHERE nf.fix_name = v_r_ids[v_k]
+                    AND (nf.is_superseded IS NULL OR nf.is_superseded = false);
                     v_is_anchor[v_k] := (v_cand_count <= 1);
                 END IF;
             END LOOP;
@@ -625,13 +683,16 @@ $$;
 -- ============================================================================
 COMMENT ON FUNCTION resolve_waypoint(VARCHAR, NUMERIC, NUMERIC) IS
     'Migration 020: Deterministic no-context fallback (ORDER BY lat DESC, lon ASC). '
-    'Preserves area_centers-first priority from migration 009.';
+    'Preserves area_centers-first priority from migration 009. '
+    'Filters is_superseded to exclude relocated/retired fixes (e.g., DUDSO AIRAC 2603).';
 
 COMMENT ON FUNCTION expand_route(TEXT) IS
     'Migration 020: Two-pass route disambiguation. Pass 1 resolves left-to-right '
     '(identical to migration 019). Pass 2 classifies anchors (airports, coordinates, '
     'area_centers, procedures, airway waypoints, unique nav_fixes) and re-resolves '
-    'ambiguous waypoints using bidirectional anchor context midpoint.';
+    'ambiguous waypoints using bidirectional anchor context midpoint. '
+    'DP/STAR expansion uses exact transition match (PROC.NEXT_FIX) before broader '
+    'LIKE match, and truncates at transition endpoint to prevent multi-transition dump.';
 
 
 -- ============================================================================

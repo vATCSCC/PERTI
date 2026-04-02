@@ -50,7 +50,8 @@ if ($method === 'GET') {
 
     } else {
         // Create new amendment — accept both JS and direct field names
-        $route = $body['route'] ?? $body['assigned_route'] ?? null;
+        $route  = $body['route'] ?? $body['assigned_route'] ?? null;
+        $routes = $body['routes'] ?? null;  // Per-flight: { gufi: route_string }
 
         // JS sends flights[] (array of GUFIs) or gufi (single)
         $gufis = [];
@@ -60,8 +61,8 @@ if ($method === 'GET') {
             $gufis = [$body['gufi']];
         }
 
-        if (empty($gufis) || !$route) {
-            rad_respond_json(400, ['status' => 'error', 'message' => 'flights/gufi and route/assigned_route required']);
+        if (empty($gufis) || (!$route && empty($routes))) {
+            rad_respond_json(400, ['status' => 'error', 'message' => 'flights/gufi and route/routes required']);
         }
 
         // Channels: accept array or comma-separated string
@@ -82,7 +83,18 @@ if ($method === 'GET') {
         $results = [];
         $errors = [];
         foreach ($gufis as $gufi) {
-            $result = $svc->createAmendment($gufi, $route, $options);
+            // Resolve per-flight route (substring replace) or fall back to single route
+            $assigned_route = null;
+            if (is_array($routes) && isset($routes[$gufi])) {
+                $assigned_route = $routes[$gufi];
+            } elseif ($route) {
+                $assigned_route = $route;
+            }
+            if (!$assigned_route) {
+                $errors[] = $gufi . ': no route specified';
+                continue;
+            }
+            $result = $svc->createAmendment($gufi, $assigned_route, $options);
             if (isset($result['error'])) {
                 $errors[] = $gufi . ': ' . $result['error'];
             } else {

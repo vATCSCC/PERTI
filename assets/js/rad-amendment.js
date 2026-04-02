@@ -5,6 +5,7 @@
 window.RADAmendment = (function() {
     var currentFlights = [];
     var currentRoute = '';
+    var perFlightRoutes = {}; // { gufi: computedRoute } for substring replace
 
     function init() {
         bindEvents();
@@ -36,6 +37,14 @@ window.RADAmendment = (function() {
         $('#rad_btn_route_options').on('click', showRouteOptions);
         $('#rad_btn_save_draft').on('click', saveDraft);
         $('#rad_btn_send_amendment').on('click', sendAmendment);
+
+        $('#rad_btn_apply_substr').on('click', applySubstring);
+
+        // Clear computed per-flight routes when find/replace inputs change
+        $('#rad_find, #rad_replace').on('input', function() {
+            perFlightRoutes = {};
+            updatePreview();
+        });
 
         $('#rad_manual_route').on('input', function() {
             currentRoute = $(this).val().trim();
@@ -272,6 +281,42 @@ window.RADAmendment = (function() {
         });
     }
 
+    function applySubstring() {
+        var find = $('#rad_find').val().trim().toUpperCase();
+        var replace = $('#rad_replace').val().trim().toUpperCase();
+        if (!find) {
+            PERTIDialog.warning(PERTII18n.t('rad.edit.enterFindPattern'));
+            return;
+        }
+        if (currentFlights.length === 0) {
+            PERTIDialog.warning(PERTII18n.t('rad.amendment.selectFlightFirst'));
+            return;
+        }
+
+        perFlightRoutes = {};
+        var notFound = [];
+        var applied = 0;
+
+        currentFlights.forEach(function(flight) {
+            var route = (flight.route || '').toUpperCase();
+            if (route.indexOf(find) === -1) {
+                notFound.push(flight.callsign);
+            } else {
+                perFlightRoutes[flight.gufi] = route.replace(find, replace);
+                applied++;
+            }
+        });
+
+        if (notFound.length > 0) {
+            PERTIDialog.warning(PERTII18n.t('rad.edit.patternNotFound', { callsigns: notFound.join(', ') }));
+        }
+        if (applied > 0) {
+            PERTIDialog.success(PERTII18n.t('rad.edit.substringApplied', { count: applied }));
+        }
+
+        updatePreview();
+    }
+
     function setRoute(routeString) {
         currentRoute = routeString;
         $('#rad_manual_route').val(routeString);
@@ -295,7 +340,9 @@ window.RADAmendment = (function() {
     }
 
     function updatePreview() {
-        if (currentFlights.length === 0 || !currentRoute) {
+        var hasPerFlight = Object.keys(perFlightRoutes).length > 0;
+
+        if (currentFlights.length === 0 || (!currentRoute && !hasPerFlight)) {
             $('#rad_amendment_preview').html('<div class="text-muted">' + PERTII18n.t('rad.amendment.noPreview') + '</div>');
             return;
         }
@@ -305,13 +352,15 @@ window.RADAmendment = (function() {
 
         currentFlights.forEach(function(flight) {
             var original = flight.route || '';
-            var diff = generateDiff(original, currentRoute);
+            var assigned = hasPerFlight ? (perFlightRoutes[flight.gufi] || '') : currentRoute;
+            var diff = hasPerFlight ? generateSubstringDiff(original, assigned) : generateDiff(original, assigned);
+            var noMatch = hasPerFlight && !perFlightRoutes[flight.gufi];
 
-            html += '<tr>' +
+            html += '<tr' + (noMatch ? ' class="text-muted"' : '') + '>' +
                 '<td>' + flight.callsign + '</td>' +
                 '<td class="text-monospace">' + original + '</td>' +
-                '<td class="text-monospace">' + currentRoute + '</td>' +
-                '<td class="text-monospace">' + diff + '</td>' +
+                '<td class="text-monospace">' + (noMatch ? '<em>no match</em>' : assigned) + '</td>' +
+                '<td class="text-monospace">' + (noMatch ? '--' : diff) + '</td>' +
                 '</tr>';
         });
 
@@ -339,6 +388,25 @@ window.RADAmendment = (function() {
         }
 
         return html || '<span class="text-muted">' + PERTII18n.t('rad.amendment.reordered') + '</span>';
+    }
+
+    function generateSubstringDiff(original, assigned) {
+        var find = $('#rad_find').val().trim().toUpperCase();
+        var replace = $('#rad_replace').val().trim().toUpperCase();
+        var origUpper = (original || '').toUpperCase();
+
+        if (!find || origUpper.indexOf(find) === -1) {
+            return generateDiff(original, assigned);
+        }
+
+        var idx = origUpper.indexOf(find);
+        var prefix = original.substring(0, idx);
+        var suffix = original.substring(idx + find.length);
+
+        return prefix +
+            '<span style="color:red;text-decoration:line-through;">' + find + '</span>' +
+            '<span style="color:green;">' + replace + '</span>' +
+            suffix;
     }
 
     function loadTMIPrograms() {
@@ -404,8 +472,10 @@ window.RADAmendment = (function() {
             return null;
         }
 
+        var hasPerFlight = Object.keys(perFlightRoutes).length > 0;
         var route = $('#rad_manual_route').val().trim();
-        if (!route) {
+
+        if (!hasPerFlight && !route) {
             PERTIDialog.warning(PERTII18n.t('rad.amendment.enterRoute'));
             return null;
         }
@@ -420,19 +490,31 @@ window.RADAmendment = (function() {
             return null;
         }
 
-        return {
+        var payload = {
             action: action,
-            flights: currentFlights.map(function(f) { return f.gufi; }),
-            route: route,
             channels: channels,
             tmi_id: $('#rad_tmi_assoc').val() || null
         };
+
+        if (hasPerFlight) {
+            // Only send GUFIs that have matching routes (skip unmatched flights)
+            payload.flights = Object.keys(perFlightRoutes);
+            payload.routes = perFlightRoutes;  // { gufi: route }
+        } else {
+            payload.flights = currentFlights.map(function(f) { return f.gufi; });
+            payload.route = route;  // single route (existing behavior)
+        }
+
+        return payload;
     }
 
     function clearForm() {
         currentRoute = '';
+        perFlightRoutes = {};
         $('#rad_manual_route').val('');
         $('#rad_cdr_code').val('');
+        $('#rad_find').val('');
+        $('#rad_replace').val('');
         $('#rad_amendment_preview').html('<div class="text-muted">' + PERTII18n.t('rad.amendment.noPreview') + '</div>');
         RADEventBus.emit('route:clear', {});
     }

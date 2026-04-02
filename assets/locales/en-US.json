@@ -3183,7 +3183,14 @@
       "noTmiRoutes": "No TMI Route Options are available.",
       "noTosOptions": "No TOS Options are available.",
       "eramPlaceholder": "Applicable ERAM/ABRR Route Options — future feature",
-      "adaptedPlaceholder": "Applicable Adapted Route Options — future feature"
+      "adaptedPlaceholder": "Applicable Adapted Route Options — future feature",
+      "substringReplace": "Substring Replace",
+      "find": "Find",
+      "replace": "Replace",
+      "applyToSelected": "Apply to Selected",
+      "enterFindPattern": "Enter a find pattern",
+      "patternNotFound": "Pattern not found in: {callsigns}",
+      "substringApplied": "Applied substring replacement to {count} flight(s)"
     },
     "amendment": {
       "noRecentRoutes": "No recently used routes found",
