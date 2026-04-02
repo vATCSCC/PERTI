@@ -4,7 +4,7 @@
 
 CREATE TABLE dbo.rad_amendments (
     id              INT IDENTITY(1,1) PRIMARY KEY,
-    gufi            UNIQUEIDENTIFIER NOT NULL,
+    gufi            NVARCHAR(64) NOT NULL,
     callsign        VARCHAR(10) NOT NULL,
     origin          CHAR(4) NOT NULL,
     destination     CHAR(4) NOT NULL,
@@ -51,5 +51,5 @@ CREATE INDEX IX_rad_log_amendment ON dbo.rad_amendment_log (amendment_id);
 
 -- New columns on adl_flight_tmi (cross-DB logical reference to rad_amendments.id)
 -- Run this against VATSIM_ADL database
--- ALTER TABLE dbo.adl_flight_tmi ADD rad_amendment_id INT NULL;
--- ALTER TABLE dbo.adl_flight_tmi ADD rad_assigned_route VARCHAR(MAX) NULL;
+ALTER TABLE dbo.adl_flight_tmi ADD rad_amendment_id INT NULL;
+ALTER TABLE dbo.adl_flight_tmi ADD rad_assigned_route VARCHAR(MAX) NULL;

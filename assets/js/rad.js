@@ -25,7 +25,10 @@ window.RADController = (function() {
         });
 
         RADEventBus.on('flight:highlighted', function(data) {
-            // Highlight flight on map (TSD symbology)
+            // Focus map on flight's origin if MapLibre is available
+            if (window.MapLibreRoute && data && data.origin) {
+                // MapLibre will handle visual highlighting through route:plot
+            }
         });
 
         // Initialize sub-modules
@@ -38,6 +41,71 @@ window.RADController = (function() {
         $('#radTabs a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
             if (e.target.id === 'tab-monitoring' && window.RADMonitoring) {
                 RADMonitoring.startPolling();
+            } else if (window.RADMonitoring) {
+                RADMonitoring.stopPolling();
+            }
+        });
+
+        // Playbook/CDR/Preferred panel toggle
+        var pbcdrInited = false;
+        $('#rad_btn_pbcdr').on('click', function() {
+            var panel = document.getElementById('pbcdr_search_panel');
+            if (!panel) return;
+            panel.classList.toggle('show');
+            if (panel.classList.contains('show') && !pbcdrInited) {
+                if (window.PlaybookCDRSearch) {
+                    PlaybookCDRSearch.init();
+                    pbcdrInited = true;
+                }
+            }
+        });
+
+        // PBCDR panel close button
+        $(document).on('click', '#pbcdr_panel_close', function() {
+            var panel = document.getElementById('pbcdr_search_panel');
+            if (panel) panel.classList.remove('show');
+        });
+
+        // PBCDR panel collapse button
+        $(document).on('click', '#pbcdr_collapse_btn', function() {
+            var panel = document.getElementById('pbcdr_search_panel');
+            if (!panel) return;
+            panel.classList.toggle('collapsed');
+            var icon = $(this).find('i');
+            if (panel.classList.contains('collapsed')) {
+                icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+            } else {
+                icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+            }
+        });
+
+        // PBCDR tab click handler
+        $(document).on('click', '.pbcdr-tab', function() {
+            var tabType = $(this).data('tab');
+            $('.pbcdr-tab').removeClass('active');
+            $(this).addClass('active');
+
+            var nameLabel = document.getElementById('pbcdr_name_label');
+            var nameInput = document.getElementById('pbcdr_name');
+
+            if (window.PlaybookCDRSearch) {
+                PlaybookCDRSearch.setSearchType(tabType);
+            }
+
+            if (nameLabel && nameInput) {
+                if (tabType === 'playbook') {
+                    nameLabel.textContent = 'Play Name';
+                    nameInput.placeholder = 'e.g., ALASKII, JOHNN...';
+                } else if (tabType === 'cdr') {
+                    nameLabel.textContent = 'CDR Code';
+                    nameInput.placeholder = 'e.g., JFKBOS1, LGAORD2...';
+                } else if (tabType === 'preferred') {
+                    nameLabel.textContent = 'City Pair';
+                    nameInput.placeholder = 'e.g., JFKMIA, LGAATL...';
+                } else {
+                    nameLabel.textContent = 'Name / Code';
+                    nameInput.placeholder = 'Search all...';
+                }
             }
         });
 

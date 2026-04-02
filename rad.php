@@ -45,6 +45,7 @@ if (!$perm) {
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
     <link rel="stylesheet" href="assets/css/route-analysis.css<?= _v('assets/css/route-analysis.css') ?>">
+    <link rel="stylesheet" href="assets/css/playbook-search-panel.css<?= _v('assets/css/playbook-search-panel.css') ?>">
     <link rel="stylesheet" href="assets/css/rad.css<?= _v('assets/css/rad.css') ?>">
 </head>
 <body>
@@ -54,11 +55,13 @@ if (!$perm) {
     <div class="rad-map-controls">
         <textarea id="routeSearch" class="rad-route-input" rows="2"></textarea>
         <button id="plot_r" class="btn btn-sm btn-primary ml-2">Plot</button>
+        <button id="rad_btn_pbcdr" class="btn btn-sm btn-outline-light ml-2" title="Playbook / CDR / Preferred Routes"><i class="fas fa-book"></i> PB/CDR</button>
     </div>
     <div id="map_wrapper" class="rad-map-wrapper">
         <div id="placeholder"></div>
         <div id="graphic"></div>
     </div>
+    <?php include('load/playbook_search_panel.php'); ?>
 </div>
 
 <div class="container-fluid rad-tabs-container mt-2">
@@ -111,6 +114,7 @@ if (!$perm) {
                 <button class="btn btn-sm btn-outline-secondary mr-1" id="rad_btn_select_all_detail"><span data-i18n="rad.detail.selectAll">Select All</span></button>
                 <button class="btn btn-sm btn-outline-secondary mr-1" id="rad_btn_select_none_detail"><span data-i18n="rad.detail.selectNone">Select None</span></button>
                 <button class="btn btn-sm btn-outline-danger mr-2" id="rad_btn_remove_selected"><span data-i18n="rad.detail.removeSelected">Remove Selected</span></button>
+                <button class="btn btn-sm btn-outline-primary" id="rad_btn_plot_all"><i class="fas fa-route mr-1"></i>Plot All Routes</button>
             </div>
             <table class="table table-sm rad-table" id="rad_detail_table">
                 <thead><tr>
@@ -226,6 +230,7 @@ if (!$perm) {
 <script src="assets/js/procs_enhanced.js<?= _v('assets/js/procs_enhanced.js') ?>"></script>
 <script src="assets/js/route-symbology.js<?= _v('assets/js/route-symbology.js') ?>"></script>
 <script src="assets/js/route-maplibre.js<?= _v('assets/js/route-maplibre.js') ?>"></script>
+<script src="assets/js/playbook-cdr-search.js<?= _v('assets/js/playbook-cdr-search.js') ?>"></script>
 <!-- RAD modules -->
 <script src="assets/js/rad-event-bus.js<?= _v('assets/js/rad-event-bus.js') ?>"></script>
 <script src="assets/js/rad-flight-search.js<?= _v('assets/js/rad-flight-search.js') ?>"></script>

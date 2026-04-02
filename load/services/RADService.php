@@ -284,6 +284,9 @@ class RADService
      */
     public function sendAmendment(int $id, ?int $user_cid = null): array
     {
+        if (!$this->radTableExists()) {
+            return ['error' => 'RAD tables not yet deployed'];
+        }
         $amendment = $this->getAmendment($id);
         if (!$amendment) return ['error' => 'Amendment not found'];
         if ($amendment['status'] !== 'DRAFT') return ['error' => 'Only DRAFT amendments can be sent'];
@@ -309,6 +312,9 @@ class RADService
      */
     public function resendAmendment(int $id, ?int $user_cid = null): array
     {
+        if (!$this->radTableExists()) {
+            return ['error' => 'RAD tables not yet deployed'];
+        }
         $amendment = $this->getAmendment($id);
         if (!$amendment) return ['error' => 'Amendment not found'];
         if (!in_array($amendment['status'], ['SENT', 'DLVD'])) {
@@ -331,6 +337,9 @@ class RADService
      */
     public function cancelAmendment(int $id, ?int $user_cid = null): array
     {
+        if (!$this->radTableExists()) {
+            return ['error' => 'RAD tables not yet deployed'];
+        }
         $amendment = $this->getAmendment($id);
         if (!$amendment) return ['error' => 'Amendment not found'];
         if (!in_array($amendment['status'], ['DRAFT', 'SENT'])) {
@@ -701,6 +710,7 @@ class RADService
 
     private function getAmendment(int $id): ?array
     {
+        if (!$this->radTableExists()) return null;
         $stmt = sqlsrv_query($this->conn_tmi,
             "SELECT * FROM dbo.rad_amendments WHERE id = ?", [$id]);
         if (!$stmt) return null;
@@ -736,6 +746,7 @@ class RADService
 
     private function logTransition(int $amendment_id, ?string $from, string $to, string $detail, ?int $user_cid): void
     {
+        if (!$this->radTableExists()) return;
         $sql = "INSERT INTO dbo.rad_amendment_log (amendment_id, status_from, status_to, detail, changed_by)
                 VALUES (?, ?, ?, ?, ?)";
         $stmt = sqlsrv_query($this->conn_tmi, $sql, [$amendment_id, $from, $to, $detail, $user_cid]);

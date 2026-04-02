@@ -158,8 +158,7 @@ window.RADFlightSearch = (function() {
     }
 
     function renderRow(flight) {
-        var routeSnippet = (flight.route || '').substring(0, 50);
-        if (flight.route && flight.route.length > 50) routeSnippet += '...';
+        var routeSnippet = flight.route || '';
 
         var phaseBadge = getPhaseBadge(flight.phase);
 

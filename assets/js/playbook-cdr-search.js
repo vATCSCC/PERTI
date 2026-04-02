@@ -18,7 +18,7 @@ const PlaybookCDRSearch = (function() {
     // ═══════════════════════════════════════════════════════════════════════════
 
     let initialized = false;
-    let searchType = 'playbook'; // 'playbook', 'cdr', or 'all'
+    let searchType = 'playbook'; // 'playbook', 'cdr', 'preferred', or 'all'
     let currentResults = [];
     const selectedIndices = new Set();
     const MAX_RESULTS = 200;
@@ -28,6 +28,7 @@ const PlaybookCDRSearch = (function() {
     let localCdrList = []; // Array form for searching
     let localPlaybookRoutes = [];
     let localPlaybookByPlayName = {};
+    let localPreferredRoutes = [];
 
     // ═══════════════════════════════════════════════════════════════════════════
     // INITIALIZATION
@@ -45,7 +46,7 @@ const PlaybookCDRSearch = (function() {
         bindEvents();
 
         initialized = true;
-        console.log('[PBCDR] Module initialized. Playbooks: ' + localPlaybookRoutes.length + ', CDRs: ' + localCdrList.length);
+        console.log('[PBCDR] Module initialized. Playbooks: ' + localPlaybookRoutes.length + ', CDRs: ' + localCdrList.length + ', Preferred: ' + localPreferredRoutes.length);
     }
 
     function loadDataFromGlobalScope() {
@@ -76,6 +77,12 @@ const PlaybookCDRSearch = (function() {
             // Check for playbookByPlayName index
             if (typeof window.playbookByPlayName !== 'undefined') {
                 localPlaybookByPlayName = window.playbookByPlayName;
+            }
+
+            // Check for preferredRoutes
+            if (typeof window.preferredRoutes !== 'undefined' && window.preferredRoutes.length > 0) {
+                localPreferredRoutes = window.preferredRoutes;
+                hasData = true;
             }
 
             if (hasData || localCdrList.length > 0 || localPlaybookRoutes.length > 0) {
@@ -211,11 +218,20 @@ const PlaybookCDRSearch = (function() {
             results = results.concat(cdrResults);
         }
 
+        // Search preferred routes
+        if (searchType === 'preferred' || searchType === 'all') {
+            const prefResults = searchPreferred(filters);
+            results = results.concat(prefResults);
+        }
+
         // Sort results
+        var typeOrder = { playbook: 0, cdr: 1, preferred: 2 };
         results.sort(function(a, b) {
-            // Sort by type first (playbook before CDR), then by name
-            if (a.type !== b.type) {
-                return a.type === 'playbook' ? -1 : 1;
+            // Sort by type first (playbook > cdr > preferred), then by name
+            var aOrder = typeOrder[a.type] !== undefined ? typeOrder[a.type] : 9;
+            var bOrder = typeOrder[b.type] !== undefined ? typeOrder[b.type] : 9;
+            if (aOrder !== bOrder) {
+                return aOrder - bOrder;
             }
             return (a.displayName || '').localeCompare(b.displayName || '');
         });
@@ -378,6 +394,82 @@ const PlaybookCDRSearch = (function() {
         }
 
         return parts.join('.');
+    }
+
+    function searchPreferred(filters) {
+        const results = [];
+
+        for (let i = 0; i < localPreferredRoutes.length && results.length < MAX_RESULTS * 2; i++) {
+            const pref = localPreferredRoutes[i];
+
+            // Name filter — match against origin+dest concatenation (e.g., "JFKMIA")
+            if (filters.name) {
+                const pair = (pref.origin || '') + (pref.dest || '');
+                const pairNoK = pair.replace(/^K/, '').replace(/K(?=[A-Z]{3}$)/, '');
+                if (pair.indexOf(filters.name) === -1 && pairNoK.indexOf(filters.name) === -1 &&
+                    (pref.origin || '').indexOf(filters.name) === -1 &&
+                    (pref.dest || '').indexOf(filters.name) === -1) {
+                    continue;
+                }
+            }
+
+            // Route text filter
+            if (filters.routeText && (pref.route || '').toUpperCase().indexOf(filters.routeText) === -1) {
+                continue;
+            }
+
+            // Origin airport filter
+            if (filters.origApt) {
+                const origNorm = normalizeAirportCode(filters.origApt);
+                const prefOrig = (pref.origin || '').toUpperCase();
+                if (prefOrig !== origNorm && prefOrig !== filters.origApt) {
+                    continue;
+                }
+            }
+
+            // Origin TRACON filter
+            if (filters.origTracon && (pref.origTracon || '').toUpperCase().indexOf(filters.origTracon) === -1) {
+                continue;
+            }
+
+            // Origin ARTCC filter
+            if (filters.origArtcc && (pref.depArtcc || '').toUpperCase().indexOf(filters.origArtcc) === -1) {
+                continue;
+            }
+
+            // Dest airport filter
+            if (filters.destApt) {
+                const destNorm = normalizeAirportCode(filters.destApt);
+                const prefDest = (pref.dest || '').toUpperCase();
+                if (prefDest !== destNorm && prefDest !== filters.destApt) {
+                    continue;
+                }
+            }
+
+            // Dest TRACON filter
+            if (filters.destTracon && (pref.destTracon || '').toUpperCase().indexOf(filters.destTracon) === -1) {
+                continue;
+            }
+
+            // Dest ARTCC filter
+            if (filters.destArtcc && (pref.arrArtcc || '').toUpperCase().indexOf(filters.destArtcc) === -1) {
+                continue;
+            }
+
+            results.push({
+                type: 'preferred',
+                displayName: (pref.origin || '') + '-' + (pref.dest || '') + (pref.routeType ? ' (' + pref.routeType + ')' : ''),
+                route: pref.route || '',
+                origAirports: pref.origin ? [pref.origin] : [],
+                destAirports: pref.dest ? [pref.dest] : [],
+                origArtccs: pref.depArtcc ? [pref.depArtcc] : [],
+                destArtccs: pref.arrArtcc ? [pref.arrArtcc] : [],
+                altitude: pref.altitude || '',
+                aircraft: pref.aircraft || '',
+            });
+        }
+
+        return results;
     }
 
     function searchCDRs(filters) {
@@ -567,8 +659,9 @@ const PlaybookCDRSearch = (function() {
     }
 
     function renderResultItem(result, idx) {
-        const typeClass = result.type === 'playbook' ? 'playbook' : 'cdr';
-        const typeLabel = result.type === 'playbook' ? PERTII18n.t('route.playbook') : PERTII18n.t('route.cdr');
+        const typeClass = result.type === 'playbook' ? 'playbook' : result.type === 'cdr' ? 'cdr' : 'preferred';
+        const typeLabel = result.type === 'playbook' ? PERTII18n.t('route.playbook') :
+            result.type === 'cdr' ? PERTII18n.t('route.cdr') : 'PREF';
 
         // Build metadata badges
         const t = PERTII18n.t;
@@ -713,7 +806,7 @@ const PlaybookCDRSearch = (function() {
         selectedIndices.forEach(function(idx) {
             const result = currentResults[idx];
             if (result) {
-                // For playbooks, build PB directive with filters; for CDRs, use code
+                // For playbooks, build PB directive; for CDRs, use code; for preferred, use route
                 if (result.type === 'playbook') {
                     routes.push(buildPlaybookDirective(result));
                 } else if (result.type === 'cdr' && result.cdrCode) {
@@ -971,6 +1064,7 @@ const PlaybookCDRSearch = (function() {
         // For external access to data
         getPlaybookRoutes: function() { return localPlaybookRoutes; },
         getCDRList: function() { return localCdrList; },
+        getPreferredRoutes: function() { return localPreferredRoutes; },
     };
 
 })();

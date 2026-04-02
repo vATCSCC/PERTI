@@ -162,6 +162,7 @@ $(document).ready(function() {
     const cdrMap = {};
     const playbookRoutes = [];
     const playbookByPlayName = {};
+    const preferredRoutes = [];
     const awyIndexMap = {};
     let awyIndexBuilt = false;
 
@@ -1378,6 +1379,62 @@ $(document).ready(function() {
         })
         .catch(function(error) {
             console.error('[MAPLIBRE] Failed to load playbook_routes.csv:', error);
+        });
+
+    // Load preferred routes CSV
+    var _loadPreferred = fetch('assets/data/preferred_routes.csv')
+        .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.text();
+        })
+        .then(function(data) {
+            var lines = data.split(/\r?\n/);
+            if (lines.length < 2) return;
+
+            var header = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
+            var iOrig = header.indexOf('origin_code');
+            var iDest = header.indexOf('dest_code');
+            var iRoute = header.indexOf('route_string');
+            var iType = header.indexOf('route_type');
+            var iArea = header.indexOf('area');
+            var iAlt = header.indexOf('altitude');
+            var iAc = header.indexOf('aircraft');
+            var iDir = header.indexOf('direction');
+            var iDepArtcc = header.indexOf('dep_artcc');
+            var iArrArtcc = header.indexOf('arr_artcc');
+            var iOrigTracon = header.indexOf('origin_tracon');
+            var iDestTracon = header.indexOf('dest_tracon');
+
+            if (iOrig === -1 || iDest === -1 || iRoute === -1) {
+                console.error('[MAPLIBRE] preferred_routes.csv missing required columns');
+                return;
+            }
+
+            for (var i = 1; i < lines.length; i++) {
+                var cols = parseCsvLine(lines[i]);
+                if (cols.length < 3 || !cols[iOrig] || !cols[iRoute]) continue;
+
+                preferredRoutes.push({
+                    origin: (cols[iOrig] || '').trim().toUpperCase(),
+                    dest: (cols[iDest] || '').trim().toUpperCase(),
+                    route: (cols[iRoute] || '').trim(),
+                    routeType: iType >= 0 ? (cols[iType] || '').trim() : '',
+                    area: iArea >= 0 ? (cols[iArea] || '').trim() : '',
+                    altitude: iAlt >= 0 ? (cols[iAlt] || '').trim() : '',
+                    aircraft: iAc >= 0 ? (cols[iAc] || '').trim() : '',
+                    direction: iDir >= 0 ? (cols[iDir] || '').trim() : '',
+                    depArtcc: iDepArtcc >= 0 ? (cols[iDepArtcc] || '').trim() : '',
+                    arrArtcc: iArrArtcc >= 0 ? (cols[iArrArtcc] || '').trim() : '',
+                    origTracon: iOrigTracon >= 0 ? (cols[iOrigTracon] || '').trim() : '',
+                    destTracon: iDestTracon >= 0 ? (cols[iDestTracon] || '').trim() : '',
+                });
+            }
+
+            console.log('[MAPLIBRE] Loaded preferred_routes.csv:', preferredRoutes.length, 'preferred routes');
+            window.preferredRoutes = preferredRoutes;
+        })
+        .catch(function(error) {
+            console.warn('[MAPLIBRE] Failed to load preferred_routes.csv:', error);
         });
 
     // Pre-load NAT track data alongside CSV data
@@ -8540,6 +8597,7 @@ $(document).ready(function() {
         getPointByName,
         getPoints: () => points,
         getCdrMap: () => cdrMap,
+        getPreferredRoutes: () => preferredRoutes,
         getNatTrackCache: () => natTrackCache,
         loadNATTracks: loadNATTracks,
         getPlaybookRoutes: () => playbookRoutes,
@@ -8577,7 +8635,7 @@ $(document).ready(function() {
     var seedResult = seedRouteInputFromUrl();
 
     // Wait for all CSV data + NAT tracks to load before initializing the map
-    var _dataReady = Promise.allSettled([_loadPoints, _loadMagvar, _loadCdrs, _loadPlaybook, _loadNATTracks]);
+    var _dataReady = Promise.allSettled([_loadPoints, _loadMagvar, _loadCdrs, _loadPlaybook, _loadPreferred, _loadNATTracks]);
 
     if (USE_MAPLIBRE) {
         console.log('[MAPLIBRE] Feature flag enabled, initializing MapLibre GL JS');

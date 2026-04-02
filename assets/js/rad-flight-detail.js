@@ -24,15 +24,32 @@ window.RADFlightDetail = (function() {
         $('#rad_btn_select_none_detail').on('click', selectNone);
         $('#rad_btn_remove_selected').on('click', removeSelected);
 
-        // Row click to highlight on map
+        // Row click to highlight on map and plot route
         $(document).on('click', '#rad_detail_tbody tr', function() {
             var gufi = $(this).data('gufi');
             var flight = selectedFlights.find(function(f) { return f.gufi === gufi; });
             if (flight) {
+                // Clear previous highlight route
+                RADEventBus.emit('route:clear', { id: 'rad-flight-highlight' });
+
                 RADEventBus.emit('flight:highlighted', flight);
                 $('#rad_detail_tbody tr').removeClass('table-active');
                 $(this).addClass('table-active');
+
+                // Plot the flight's route on map
+                if (flight.route) {
+                    RADEventBus.emit('route:plot', {
+                        routeString: flight.route,
+                        color: '#00BFFF',
+                        id: 'rad-flight-highlight'
+                    });
+                }
             }
+        });
+
+        // Plot All Routes button
+        $(document).on('click', '#rad_btn_plot_all', function() {
+            plotAllRoutes();
         });
 
         // Route history button
@@ -76,8 +93,8 @@ window.RADFlightDetail = (function() {
         row.append('<td><input type="checkbox" class="rad-detail-cb"></td>');
         row.append('<td>' + (flight.callsign || '') + '</td>');
         row.append('<td>' + (flight.origin || '') + ' / ' + (flight.dest || '') + '</td>');
-        row.append('<td>' + (flight.tracon || '') + '</td>');
-        row.append('<td>' + (flight.center || '') + '</td>');
+        row.append('<td>' + (flight.tracon || '') + ' / ' + (flight.dest_tracon || '') + '</td>');
+        row.append('<td>' + (flight.center || '') + ' / ' + (flight.dest_center || '') + '</td>');
         row.append('<td>' + getAmendmentBadge(flight.amendment_status) + '</td>');
         row.append('<td class="text-truncate" style="max-width:200px;" title="' + (flight.route || '') + '">' + (flight.route || '') + '</td>');
         row.append('<td>' + (flight.actype || '') + '/' + (flight.weight_class || '') + '</td>');
@@ -214,6 +231,36 @@ window.RADFlightDetail = (function() {
         if (flight) {
             flight.amendment_status = data.status;
             renderTable();
+        }
+    }
+
+    var PLOT_COLORS = ['#00BFFF', '#FF6347', '#32CD32', '#FFD700', '#FF69B4', '#00CED1', '#FFA500', '#9370DB'];
+
+    function plotAllRoutes() {
+        if (selectedFlights.length === 0) {
+            PERTIDialog.warning(PERTII18n.t('rad.detail.noFlights'));
+            return;
+        }
+
+        // Clear previous plot-all routes
+        for (var i = 0; i < selectedFlights.length; i++) {
+            RADEventBus.emit('route:clear', { id: 'rad-flight-all-' + i });
+        }
+
+        var plotted = 0;
+        selectedFlights.forEach(function(flight, idx) {
+            if (flight.route) {
+                RADEventBus.emit('route:plot', {
+                    routeString: flight.route,
+                    color: PLOT_COLORS[idx % PLOT_COLORS.length],
+                    id: 'rad-flight-all-' + idx
+                });
+                plotted++;
+            }
+        });
+
+        if (plotted > 0) {
+            PERTIDialog.success(PERTII18n.t('rad.detail.plottedRoutes', { count: plotted }));
         }
     }
 

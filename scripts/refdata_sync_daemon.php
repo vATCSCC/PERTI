@@ -1354,7 +1354,72 @@ function syncPreferredRoutes(): array {
     if ($errors > 0) {
         $msg .= " ($errors errors)";
     }
+
+    // Export CSV for client-side search
+    $csvResult = exportPreferredRoutesCsv($connRef);
+    if ($csvResult['success']) {
+        $msg .= "; CSV exported ({$csvResult['count']} rows)";
+    } else {
+        $msg .= "; CSV export failed: {$csvResult['message']}";
+    }
+
     return ['success' => true, 'message' => $msg, 'count' => $inserted];
+}
+
+/**
+ * Export preferred routes to CSV for client-side PlaybookCDRSearch module.
+ * Output: assets/data/preferred_routes.csv
+ */
+function exportPreferredRoutesCsv($connRef): array
+{
+    $sql = "SELECT origin_code, dest_code, route_string, route_type, area, altitude,
+                   aircraft, direction, dep_artcc, arr_artcc, origin_tracon, dest_tracon
+            FROM dbo.preferred_routes
+            WHERE is_active = 1
+            ORDER BY origin_code, dest_code";
+
+    $stmt = sqlsrv_query($connRef, $sql);
+    if ($stmt === false) {
+        return ['success' => false, 'message' => 'Query failed: ' . adl_sql_error_message(), 'count' => 0];
+    }
+
+    $wwwroot = defined('REFDATA_WWWROOT') ? REFDATA_WWWROOT : __DIR__ . '/../';
+    $csvPath = rtrim($wwwroot, '/') . '/assets/data/preferred_routes.csv';
+
+    $fp = fopen($csvPath, 'w');
+    if (!$fp) {
+        sqlsrv_free_stmt($stmt);
+        return ['success' => false, 'message' => 'Cannot open CSV for writing: ' . $csvPath, 'count' => 0];
+    }
+
+    // Header
+    fputcsv($fp, ['origin_code', 'dest_code', 'route_string', 'route_type', 'area', 'altitude',
+                   'aircraft', 'direction', 'dep_artcc', 'arr_artcc', 'origin_tracon', 'dest_tracon']);
+
+    $count = 0;
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        fputcsv($fp, [
+            $row['origin_code'] ?? '',
+            $row['dest_code'] ?? '',
+            $row['route_string'] ?? '',
+            $row['route_type'] ?? '',
+            $row['area'] ?? '',
+            $row['altitude'] ?? '',
+            $row['aircraft'] ?? '',
+            $row['direction'] ?? '',
+            $row['dep_artcc'] ?? '',
+            $row['arr_artcc'] ?? '',
+            $row['origin_tracon'] ?? '',
+            $row['dest_tracon'] ?? '',
+        ]);
+        $count++;
+    }
+
+    fclose($fp);
+    sqlsrv_free_stmt($stmt);
+
+    logMsg("Preferred routes CSV exported: $count rows to $csvPath");
+    return ['success' => true, 'count' => $count];
 }
 
 // ============================================================================

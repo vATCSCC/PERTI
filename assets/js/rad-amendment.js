@@ -103,11 +103,15 @@ window.RADAmendment = (function() {
     }
 
     function searchDatabase() {
-        // Try to use PlaybookCDRSearch if available
-        if (window.PlaybookCDRSearch && typeof window.PlaybookCDRSearch.open === 'function') {
-            window.PlaybookCDRSearch.open(function(route) {
-                setRoute(route);
-            });
+        // Open the Playbook/CDR/Preferred panel if available
+        var panel = document.getElementById('pbcdr_search_panel');
+        if (panel && window.PlaybookCDRSearch) {
+            panel.classList.add('show');
+            PlaybookCDRSearch.init();
+            PlaybookCDRSearch.setSearchType('all');
+            // Activate the "All" tab visually
+            $('.pbcdr-tab').removeClass('active');
+            $('.pbcdr-tab[data-tab="all"]').addClass('active');
         } else {
             // Fallback to API
             var gufi = currentFlights.length > 0 ? currentFlights[0].gufi : null;

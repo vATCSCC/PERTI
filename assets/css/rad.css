@@ -54,14 +54,14 @@
 
 /* ── Tabs & Tables ── */
 .rad-tabs-container { padding: 0 12px; }
-.rad-table { font-size: 0.82rem; }
+.rad-table { font-family: Inconsolata, 'Courier New', monospace; font-size: 0.82rem; }
 .rad-table td, .rad-table th { vertical-align: middle; padding: 4px 6px; }
 .rad-table th[data-sort] { cursor: pointer; user-select: none; }
 .rad-table th[data-sort]:hover { background: #e9ecef; }
 
 /* Dual sub-row: top + bottom in same cell */
 .rad-table .sub-top { display: block; font-weight: 500; }
-.rad-table .sub-bot { display: block; font-size: 0.78rem; color: #6c757d; }
+.rad-table .sub-bot { display: block; font-size: 0.78rem; color: #6c757d; word-break: break-word; white-space: normal; }
 
 /* Sort indicator arrows */
 .sort-indicator { font-size: 0.7rem; color: #007bff; margin-left: 2px; }
@@ -72,6 +72,7 @@
     border: 1px solid #dee2e6;
     border-radius: 4px;
     padding: 10px 14px;
+    margin-bottom: 10px;
 }
 #rad_filter_panel label {
     font-size: 0.78rem;
@@ -196,3 +197,10 @@
 .rad-aggregate-noncompliant { background: #dc3545; }
 .rad-aggregate-unknown      { background: #6c757d; }
 .rad-aggregate-exception    { background: #6f42c1; }
+
+/* ── Monospace for input elements ── */
+#rad_cdr_code { font-family: Inconsolata, 'Courier New', monospace; }
+#rad_manual_route { font-family: Inconsolata, 'Courier New', monospace; }
+
+/* ── Playbook/CDR panel position override for RAD layout ── */
+.rad-map-section #pbcdr_search_panel { top: 66px; right: 10px; }
