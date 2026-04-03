@@ -43,12 +43,6 @@ window.RADAmendment = (function() {
 
         $('#rad_btn_apply_substr').on('click', applySubstring);
 
-        // Clear computed per-flight routes when find/replace inputs change
-        $('#rad_find, #rad_replace').on('input', function() {
-            perFlightRoutes = {};
-            updatePreview();
-        });
-
         $('#rad_manual_route').on('input', function() {
             currentRoute = $(this).val().trim();
             updatePreview();
