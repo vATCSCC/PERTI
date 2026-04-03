@@ -464,6 +464,10 @@ BEGIN
                       AND np.full_route != ''
                     ORDER BY
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
+                      -- Prefer fix transitions over runway-specific transitions;
+                      -- runway transitions (PROC.RWxx) are airport-config-dependent
+                      -- and we don't know the active runway during route expansion.
+                      CASE WHEN np.computer_code ~ '\.(RW\d|RW$)' THEN 1 ELSE 0 END,
                       CASE WHEN v_next_fix IS NOT NULL
                            AND (np.full_route LIKE '% ' || v_next_fix
                                 OR np.full_route LIKE '% ' || v_next_fix || ' %')
@@ -505,6 +509,8 @@ BEGIN
                       AND np.full_route != ''
                     ORDER BY
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
+                      -- Prefer fix transitions over runway-specific transitions
+                      CASE WHEN np.computer_code ~ '^RW\d' THEN 1 ELSE 0 END,
                       CASE WHEN v_prev_fix IS NOT NULL
                            AND (np.full_route LIKE v_prev_fix || ' %'
                                 OR np.full_route LIKE '% ' || v_prev_fix || ' %')
@@ -537,7 +543,10 @@ BEGIN
                         IF v_proc_part IS NULL OR v_proc_part = '' THEN
                             CONTINUE;
                         END IF;
-                        IF v_proc_part ~ '/' OR v_proc_part ~ '^\d{2}[LRC]' THEN
+                        -- Skip runway designators (RW09L, 26L, 34B) and slash tokens
+                        IF v_proc_part ~ '/'
+                           OR v_proc_part ~ '^RW\d{2}[LRCB]?$'
+                           OR v_proc_part ~ '^\d{2}[LRCB]?$' THEN
                             CONTINUE;
                         END IF;
                         IF v_prev_fix IS NOT NULL AND UPPER(v_proc_part) = UPPER(v_prev_fix) THEN

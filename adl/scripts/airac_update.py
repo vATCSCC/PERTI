@@ -903,12 +903,17 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                     airport = 'K' + airport
                 airport = airport[:4] if airport else None
 
+            # Transition type: 'fix', 'runway', or None
+            trans_type_raw = row.get('TRANSITION_TYPE', '').strip()
+            trans_type = trans_type_raw if trans_type_raw in ('fix', 'runway') else None
+
             procedures.append({
                 'procedure_type': 'DP',
                 'airport_icao': airport,
                 'procedure_name': row.get('DP_NAME', '').strip()[:32],
                 'computer_code': clean_code[:16],
                 'transition_name': row.get('TRANSITION_NAME', '').strip()[:16] or None,
+                'transition_type': trans_type,
                 'full_route': row.get('ROUTE_POINTS', '').strip(),
                 'runways': orig_group[:64] if orig_group else None,
                 'is_superseded': is_superseded,
@@ -943,12 +948,16 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                     airport = 'K' + airport
                 airport = airport[:4] if airport else None
 
+            trans_type_raw = row.get('TRANSITION_TYPE', '').strip()
+            trans_type = trans_type_raw if trans_type_raw in ('fix', 'runway') else None
+
             procedures.append({
                 'procedure_type': 'STAR',
                 'airport_icao': airport,
                 'procedure_name': row.get('ARRIVAL_NAME', '').strip()[:32],
                 'computer_code': clean_code[:16],
                 'transition_name': row.get('TRANSITION_NAME', '').strip()[:16] or None,
+                'transition_type': trans_type,
                 'full_route': row.get('ROUTE_POINTS', '').strip(),
                 'runways': dest_group[:64] if dest_group else None,
                 'is_superseded': is_superseded,
@@ -984,12 +993,25 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
     cursor.execute("TRUNCATE TABLE dbo.nav_procedures")
     conn.commit()
 
+    # Ensure transition_type column exists (added for CIFP transition classification)
+    try:
+        cursor.execute("""
+            IF NOT EXISTS (SELECT 1 FROM sys.columns
+                           WHERE object_id = OBJECT_ID('dbo.nav_procedures')
+                             AND name = 'transition_type')
+            ALTER TABLE dbo.nav_procedures ADD transition_type NVARCHAR(10) NULL;
+        """)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+
     insert_sql = """
         INSERT INTO dbo.nav_procedures
         (procedure_type, airport_icao, procedure_name, computer_code, transition_name,
-         full_route, runways, is_active, is_superseded, superseded_cycle, superseded_reason,
+         transition_type, full_route, runways, is_active,
+         is_superseded, superseded_cycle, superseded_reason,
          source, effective_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'NASR', GETUTCDATE())
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'NASR', GETUTCDATE())
     """
 
     batch_size = 2000
@@ -1000,7 +1022,8 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
         batch = procedures[i:i + batch_size]
         batch_data = [
             (p['procedure_type'], p['airport_icao'] or 'ZZZZ', p['procedure_name'],
-             p['computer_code'], p['transition_name'], p['full_route'], p['runways'],
+             p['computer_code'], p['transition_name'], p['transition_type'],
+             p['full_route'], p['runways'],
              1 if p['is_superseded'] else 0,
              p['superseded_cycle'], p['superseded_reason'])
             for p in batch
@@ -1233,7 +1256,7 @@ def sync_ref_to_adl(tables: Optional[List[str]] = None, dry_run: bool = False) -
         ),
         'nav_procedures': (
             ['procedure_id', 'procedure_type', 'airport_icao', 'procedure_name', 'computer_code',
-             'transition_name', 'full_route', 'runways', 'is_active', 'source', 'effective_date',
+             'transition_name', 'transition_type', 'full_route', 'runways', 'is_active', 'source', 'effective_date',
              'is_superseded', 'superseded_cycle', 'superseded_reason'],
             True, None
         ),

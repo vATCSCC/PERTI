@@ -3120,6 +3120,9 @@
   },
   "rad": {
     "pageTitle": "Route Amendment Dialogue",
+    "map": {
+      "liveTraffic": "Live"
+    },
     "tabs": {
       "search": "Flight Search",
       "detail": "Flight Detail",
@@ -3147,8 +3150,13 @@
       "departing2h": "Departing within 2h",
       "preset": "Preset",
       "status": "Status",
+      "phase": "Phase",
+      "prefiled": "Prefiled",
+      "airbornePhase": "Airborne",
+      "departed": "Departed",
+      "arrived": "Arrived",
       "addToDetail": "Add to Detail",
-      "resultCount": "{count} flights",
+      "resultCount": "flights",
       "noResults": "No flights match your search criteria",
       "noSelection": "No flights selected",
       "addedToDetail": "{count} flight(s) added to Detail",
@@ -3171,7 +3179,11 @@
       "timestamp": "Timestamp",
       "route": "Route",
       "source": "Source",
-      "plottedRoutes": "Plotted {count} route(s) on map"
+      "plottedRoutes": "Plotted {count} route(s) on map",
+      "tracon": "TRACON",
+      "center": "Center",
+      "amendment": "Amendment",
+      "plotAll": "Plot All Routes"
     },
     "edit": {
       "retrieveRoutes": "Retrieve Routes",
@@ -3190,7 +3202,28 @@
       "applyToSelected": "Apply to Selected",
       "enterFindPattern": "Enter a find pattern",
       "patternNotFound": "Pattern not found in: {callsigns}",
-      "substringApplied": "Applied substring replacement to {count} flight(s)"
+      "substringApplied": "Applied substring replacement to {count} flight(s)",
+      "addRoute": "Add Route",
+      "routePlaceholder": "Enter route string...",
+      "plot": "Plot",
+      "color": "Color:",
+      "cdrCodePlaceholder": "CDR Code",
+      "cdrLookup": "CDR",
+      "currentRoutes": "Current Routes",
+      "amendmentPreview": "Amendment Preview",
+      "tmiAssociation": "TMI Association",
+      "deliveryChannels": "Delivery Channels",
+      "saveDraft": "Save Draft",
+      "sendAmendment": "Send Amendment",
+      "amendRoute": "Amend Route",
+      "pbPlayName": "Play Name",
+      "pbPlayPlaceholder": "e.g., ALASKII, JOHNN...",
+      "pbCdrCode": "CDR Code",
+      "pbCdrPlaceholder": "e.g., JFKBOS1, LGAORD2...",
+      "pbCityPair": "City Pair",
+      "pbCityPairPlaceholder": "e.g., JFKMIA, LGAATL...",
+      "pbNameCode": "Name / Code",
+      "pbSearchAll": "Search all..."
     },
     "amendment": {
       "noRecentRoutes": "No recently used routes found",
@@ -3217,6 +3250,7 @@
       "original": "Original",
       "assigned": "Assigned",
       "diff": "Diff",
+      "delta": "Delta",
       "noChange": "No change",
       "reordered": "Route reordered",
       "noTMI": "No TMI Association",
@@ -3249,7 +3283,15 @@
       "confirmDelete": "Delete this amendment?",
       "allTMI": "All TMI Programs",
       "amendmentExpired": "{callsign} amendment expired",
-      "compliance": "Compliance"
+      "compliance": "Compliance",
+      "pending": "Pending",
+      "alerts": "Alerts",
+      "assigned": "Assigned",
+      "filed": "Filed",
+      "delivery": "Delivery",
+      "lastRefresh": "Last:",
+      "noMatch": "no match",
+      "delta": "Delta"
     },
     "status": {
       "DRAFT": "Draft",

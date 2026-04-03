@@ -823,6 +823,20 @@ class XP12Parser:
 
         return dps, stars
 
+    @staticmethod
+    def _is_runway_transition(transition: str) -> bool:
+        """Detect if a CIFP transition identifier is a runway designator.
+
+        Handles both RW-prefixed (ARINC 424 standard: RW09L, RW27, RW34B)
+        and bare designators (09L, 27, 34B) that may appear in some datasets.
+        The 'B' suffix is ARINC 424 for 'both' parallel runways.
+        """
+        if not transition:
+            return False
+        if transition.startswith('RW'):
+            return bool(re.match(r'^RW\d{2}[LRCB]?$', transition))
+        return bool(re.match(r'^\d{2}[LRCB]?$', transition))
+
     def cifp_to_nasr_rows(self, parsed: Dict, eff_date: str) -> Tuple[List[Dict], List[Dict]]:
         """Convert parsed CIFP procedures to NASR-compatible CSV row format.
 
@@ -847,15 +861,25 @@ class XP12Parser:
                 fixes = entry['fixes']
                 route_points = ' '.join(fixes)
 
-                # Computer code format: PROC.BASE for DPs
-                comp_code = f"{proc_name}.{base_name}"
+                # Classify transition type and build computer code
+                # Three types: runway specification, fix transition, or base procedure
+                is_rwy = self._is_runway_transition(transition)
+                is_fix_trans = (not is_rwy and transition
+                                and transition != 'ALL'
+                                and transition != proc_name)
 
-                # Determine transition name
-                if transition.startswith('RW'):
-                    trans_name = f"{transition} TRANSITION"
-                elif transition and transition != 'ALL' and transition != proc_name:
+                if is_rwy:
+                    # Runway transition: PROC.RWxx (e.g., BPK5K.RW09L)
+                    rwy_norm = transition if transition.startswith('RW') else f"RW{transition}"
+                    comp_code = f"{proc_name}.{rwy_norm}"
+                    trans_name = f"RWY {rwy_norm[2:]}"  # "RWY 09L"
+                elif is_fix_trans:
+                    # Fix transition: PROC.FIX (e.g., BPK5K.RAKAM)
+                    comp_code = f"{proc_name}.{transition}"
                     trans_name = f"{transition} TRANSITION"
                 else:
+                    # Base procedure (no specific transition): PROC.BASE
+                    comp_code = f"{proc_name}.{base_name}"
                     trans_name = ''
 
                 # Body name: BASE-PROC
@@ -863,6 +887,9 @@ class XP12Parser:
 
                 # Full route from origin group
                 full_route = f"{airport} {route_points}"
+
+                # Transition type for DB storage
+                trans_type = 'runway' if is_rwy else ('fix' if is_fix_trans else '')
 
                 dp_rows.append({
                     'EFF_DATE': eff_date,
@@ -873,6 +900,7 @@ class XP12Parser:
                     'BODY_NAME': body_name,
                     'TRANSITION_COMPUTER_CODE': comp_code if trans_name else '',
                     'TRANSITION_NAME': trans_name,
+                    'TRANSITION_TYPE': trans_type,
                     'ROUTE_POINTS': route_points,
                     'ROUTE_FROM_ORIG_GROUP': full_route,
                 })
@@ -889,15 +917,24 @@ class XP12Parser:
                 fixes = entry['fixes']
                 route_points = ' '.join(fixes)
 
-                # Computer code format: BASE.PROC for STARs
-                comp_code = f"{base_name}.{proc_name}"
+                # Classify transition type and build computer code
+                is_rwy = self._is_runway_transition(transition)
+                is_fix_trans = (not is_rwy and transition
+                                and transition != 'ALL'
+                                and transition != proc_name)
 
-                # Determine transition name
-                if transition.startswith('RW'):
-                    trans_name = f"{transition} TRANSITION"
-                elif transition and transition != 'ALL' and transition != proc_name:
+                if is_rwy:
+                    # Runway transition: RWxx.PROC (e.g., RW09L.BPK5K)
+                    rwy_norm = transition if transition.startswith('RW') else f"RW{transition}"
+                    comp_code = f"{rwy_norm}.{proc_name}"
+                    trans_name = f"RWY {rwy_norm[2:]}"  # "RWY 09L"
+                elif is_fix_trans:
+                    # Fix transition: FIX.PROC (e.g., RAKAM.BPK5K)
+                    comp_code = f"{transition}.{proc_name}"
                     trans_name = f"{transition} TRANSITION"
                 else:
+                    # Base procedure (no specific transition): BASE.PROC
+                    comp_code = f"{base_name}.{proc_name}"
                     trans_name = ''
 
                 # Body name: BASE-PROC
@@ -905,6 +942,8 @@ class XP12Parser:
 
                 # Full route from dest group
                 full_route = f"{route_points} {airport}"
+
+                trans_type = 'runway' if is_rwy else ('fix' if is_fix_trans else '')
 
                 star_rows.append({
                     'EFF_DATE': eff_date,
@@ -915,6 +954,7 @@ class XP12Parser:
                     'BODY_NAME': body_name,
                     'TRANSITION_COMPUTER_CODE': comp_code if trans_name else '',
                     'TRANSITION_NAME': trans_name,
+                    'TRANSITION_TYPE': trans_type,
                     'ROUTE_POINTS': route_points,
                     'ROUTE_FROM_DEST_GROUP': full_route,
                 })
@@ -1152,6 +1192,14 @@ class NavDataTransformer:
                         route_points = ' '.join(combined)
                         full_from_orig = orig_group + ' ' + route_points if orig_group else route_points
                         
+                        # Classify NASR transition: runway if name starts with RW\d
+                        if trans_name and re.match(r'^RW\d{2}', trans_name):
+                            nasr_trans_type = 'runway'
+                        elif trans_name:
+                            nasr_trans_type = 'fix'
+                        else:
+                            nasr_trans_type = ''
+
                         results.append({
                             'EFF_DATE': eff_date,
                             'DP_NAME': metadata['name'],
@@ -1161,6 +1209,7 @@ class NavDataTransformer:
                             'BODY_NAME': body_name,
                             'TRANSITION_COMPUTER_CODE': trans_code,
                             'TRANSITION_NAME': trans_name,
+                            'TRANSITION_TYPE': nasr_trans_type,
                             'ROUTE_POINTS': route_points.strip(),
                             'ROUTE_FROM_ORIG_GROUP': full_from_orig.strip()
                         })
@@ -1176,6 +1225,7 @@ class NavDataTransformer:
                         'BODY_NAME': body_name,
                         'TRANSITION_COMPUTER_CODE': '',
                         'TRANSITION_NAME': '',
+                        'TRANSITION_TYPE': '',
                         'ROUTE_POINTS': route_points.strip(),
                         'ROUTE_FROM_ORIG_GROUP': full_from_orig.strip()
                     })
@@ -1228,6 +1278,14 @@ class NavDataTransformer:
                         route_points = ' '.join(combined)
                         full_from_dest = route_points + ' ' + dest_group if dest_group else route_points
                         
+                        # Classify NASR transition: runway if name starts with RW\d
+                        if trans_name and re.match(r'^RW\d{2}', trans_name):
+                            nasr_trans_type = 'runway'
+                        elif trans_name:
+                            nasr_trans_type = 'fix'
+                        else:
+                            nasr_trans_type = ''
+
                         results.append({
                             'EFF_DATE': eff_date,
                             'ARRIVAL_NAME': metadata['name'],
@@ -1237,6 +1295,7 @@ class NavDataTransformer:
                             'BODY_NAME': body_name,
                             'TRANSITION_COMPUTER_CODE': trans_code,
                             'TRANSITION_NAME': trans_name,
+                            'TRANSITION_TYPE': nasr_trans_type,
                             'ROUTE_POINTS': route_points.strip(),
                             'ROUTE_FROM_DEST_GROUP': full_from_dest.strip()
                         })
@@ -1252,6 +1311,7 @@ class NavDataTransformer:
                         'BODY_NAME': body_name,
                         'TRANSITION_COMPUTER_CODE': '',
                         'TRANSITION_NAME': '',
+                        'TRANSITION_TYPE': '',
                         'ROUTE_POINTS': route_points.strip(),
                         'ROUTE_FROM_DEST_GROUP': full_from_dest.strip()
                     })
@@ -2557,12 +2617,12 @@ class NASRNavDataUpdater:
         
         dp_fields = ['EFF_DATE', 'DP_NAME', 'DP_COMPUTER_CODE', 'ARTCC', 'ORIG_GROUP',
                     'BODY_NAME', 'TRANSITION_COMPUTER_CODE', 'TRANSITION_NAME',
-                    'ROUTE_POINTS', 'ROUTE_FROM_ORIG_GROUP']
+                    'TRANSITION_TYPE', 'ROUTE_POINTS', 'ROUTE_FROM_ORIG_GROUP']
         self.io.write_structured_csv('dp_full_routes.csv', final_dps, dp_fields)
-        
+
         star_fields = ['EFF_DATE', 'ARRIVAL_NAME', 'STAR_COMPUTER_CODE', 'ARTCC', 'DEST_GROUP',
                       'BODY_NAME', 'TRANSITION_COMPUTER_CODE', 'TRANSITION_NAME',
-                      'ROUTE_POINTS', 'ROUTE_FROM_DEST_GROUP']
+                      'TRANSITION_TYPE', 'ROUTE_POINTS', 'ROUTE_FROM_DEST_GROUP']
         self.io.write_structured_csv('star_full_routes.csv', final_stars, star_fields)
         
         # Update JavaScript files
