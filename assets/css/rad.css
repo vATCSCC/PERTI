@@ -28,7 +28,7 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
-    padding-top: 56px;
+    padding-top: var(--navbar-height, 76px);
     overflow: hidden;
     background: #1a1a2e;
     color: #ccc;
@@ -658,14 +658,19 @@
     top: 10px;
     right: 10px;
     max-height: calc(100% - 20px);
-    overflow-y: auto;
+    overflow: hidden;
     background: rgba(22, 33, 62, 0.95);
     border: 1px solid #445;
     color: #ccc;
 }
+.rad-map-section .pbcdr-search-body {
+    flex-shrink: 1;
+    overflow-y: auto;
+    max-height: 220px;
+}
 .rad-map-section .pbcdr-results-list {
-    max-height: none;
-    flex-grow: 1;
+    flex: 1 1 0;
+    min-height: 120px;
     overflow-y: auto;
 }
 .rad-map-section #pbcdr_search_panel .form-control {
@@ -755,9 +760,6 @@ body .swal2-popup .text-monospace { color: #6f8; }
 
 
 /* ── 17. PB/CDR Panel Dark Theme Completions ── */
-.rad-map-section .pbcdr-results-list {
-    min-height: 0;
-}
 .rad-map-section .pbcdr-results-header {
     background: #16213e !important;
     border-color: #334 !important;
