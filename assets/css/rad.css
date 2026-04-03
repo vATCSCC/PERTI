@@ -490,9 +490,7 @@
     font-family: Inconsolata, 'Courier New', monospace;
     font-size: 0.78rem;
     color: #6f8;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    word-break: break-all;
 }
 
 .rad-amendment-preview {
