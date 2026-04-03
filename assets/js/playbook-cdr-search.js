@@ -287,9 +287,9 @@ const PlaybookCDRSearch = (function() {
                 continue;
             }
 
-            // Origin airport filter
+            // Origin airport filter (supports comma-separated)
             if (filters.origApt) {
-                const origAptNorm = normalizeAirportCode(filters.origApt);
+                const origAptNorm = filters.origApt.split(',').map(function(c) { return normalizeAirportCode(c.trim()); }).join(',');
                 if (!pb.originAirportsSet || !matchesAnyToken(origAptNorm, pb.originAirportsSet)) {
                     continue;
                 }
@@ -309,9 +309,9 @@ const PlaybookCDRSearch = (function() {
                 }
             }
 
-            // Dest airport filter
+            // Dest airport filter (supports comma-separated)
             if (filters.destApt) {
-                const destAptNorm = normalizeAirportCode(filters.destApt);
+                const destAptNorm = filters.destApt.split(',').map(function(c) { return normalizeAirportCode(c.trim()); }).join(',');
                 if (!pb.destAirportsSet || !matchesAnyToken(destAptNorm, pb.destAirportsSet)) {
                     continue;
                 }
@@ -418,11 +418,12 @@ const PlaybookCDRSearch = (function() {
                 continue;
             }
 
-            // Origin airport filter
+            // Origin airport filter (supports comma-separated)
             if (filters.origApt) {
-                const origNorm = normalizeAirportCode(filters.origApt);
+                const origCodes = filters.origApt.split(',').map(function(c) { return normalizeAirportCode(c.trim()); });
+                const origRaw = filters.origApt.split(',').map(function(c) { return c.trim(); });
                 const prefOrig = (pref.origin || '').toUpperCase();
-                if (prefOrig !== origNorm && prefOrig !== filters.origApt) {
+                if (origCodes.indexOf(prefOrig) === -1 && origRaw.indexOf(prefOrig) === -1) {
                     continue;
                 }
             }
@@ -437,11 +438,12 @@ const PlaybookCDRSearch = (function() {
                 continue;
             }
 
-            // Dest airport filter
+            // Dest airport filter (supports comma-separated)
             if (filters.destApt) {
-                const destNorm = normalizeAirportCode(filters.destApt);
+                const destCodes = filters.destApt.split(',').map(function(c) { return normalizeAirportCode(c.trim()); });
+                const destRaw = filters.destApt.split(',').map(function(c) { return c.trim(); });
                 const prefDest = (pref.dest || '').toUpperCase();
-                if (prefDest !== destNorm && prefDest !== filters.destApt) {
+                if (destCodes.indexOf(prefDest) === -1 && destRaw.indexOf(prefDest) === -1) {
                     continue;
                 }
             }
@@ -615,14 +617,21 @@ const PlaybookCDRSearch = (function() {
     function matchesAnyToken(searchTerm, tokenSet) {
         if (!tokenSet || tokenSet.size === 0) {return false;}
 
-        // Direct match
-        if (tokenSet.has(searchTerm)) {return true;}
+        // Support comma-separated search terms (OR logic)
+        var terms = searchTerm.indexOf(',') !== -1
+            ? searchTerm.split(',').map(function(t) { return t.trim(); }).filter(Boolean)
+            : [searchTerm];
 
-        // Partial match - check if any token contains or starts with search term
-        const arr = Array.from(tokenSet);
-        for (let i = 0; i < arr.length; i++) {
-            if (arr[i].indexOf(searchTerm) !== -1 || searchTerm.indexOf(arr[i]) !== -1) {
-                return true;
+        var arr = Array.from(tokenSet);
+        for (var t = 0; t < terms.length; t++) {
+            var term = terms[t];
+            // Direct match
+            if (tokenSet.has(term)) {return true;}
+            // Partial match
+            for (var i = 0; i < arr.length; i++) {
+                if (arr[i].indexOf(term) !== -1 || term.indexOf(arr[i]) !== -1) {
+                    return true;
+                }
             }
         }
         return false;

@@ -363,7 +363,7 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
 
     cursor_ref.execute(
         "SELECT procedure_id, procedure_type, airport_icao, procedure_name, "
-        "computer_code, transition_name, full_route, runways, is_active, "
+        "computer_code, transition_name, transition_type, full_route, runways, is_active, "
         "source, effective_date, "
         "is_superseded, superseded_cycle, superseded_reason "
         "FROM dbo.nav_procedures"
@@ -403,15 +403,15 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     insert_sql = (
         "INSERT INTO nav_procedures "
         "(procedure_type, airport_icao, procedure_name, "
-        "computer_code, transition_name, full_route, runways, is_active, "
+        "computer_code, transition_name, transition_type, full_route, runways, is_active, "
         "source, effective_date, "
         "is_superseded, superseded_cycle, superseded_reason) VALUES %s"
     )
     for row in rows:
-        (proc_id, ptype, airport, pname, code, trans, route, runways,
+        (proc_id, ptype, airport, pname, code, trans, trans_type, route, runways,
          is_active, source, eff_date, is_sup, sup_cycle, sup_reason) = row
         batch.append((
-            ptype, airport, pname, code, trans, route, runways,
+            ptype, airport, pname, code, trans, trans_type, route, runways,
             bool(is_active) if is_active is not None else True,
             source, eff_date,
             bool(is_sup) if is_sup is not None else False,

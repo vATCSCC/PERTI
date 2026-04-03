@@ -55,8 +55,10 @@ if (!$perm) {
 <div class="rad-map-section" id="rad_map_section">
     <div class="rad-map-controls">
         <textarea id="routeSearch" class="rad-route-input" rows="2"></textarea>
-        <button id="plot_r" class="btn btn-sm btn-primary ml-2">Plot</button>
+        <button id="plot_r" class="btn btn-sm btn-primary ml-2" data-i18n="rad.edit.plot">Plot</button>
         <button id="rad_btn_pbcdr" class="btn btn-sm btn-outline-light ml-2" title="Playbook / CDR / Preferred Routes"><i class="fas fa-book"></i> PB/CDR</button>
+        <button id="rad_btn_live_traffic" class="btn btn-sm btn-outline-light ml-2" title="Toggle Live Traffic"><i class="fas fa-plane"></i> <span data-i18n="rad.map.liveTraffic">Live</span></button>
+        <input type="checkbox" id="adl_toggle" style="display:none;">
     </div>
     <div id="map_wrapper" class="rad-map-wrapper">
         <div id="placeholder"></div>
@@ -102,7 +104,6 @@ if (!$perm) {
                     <th style="width:30px;"></th>
                     <th data-sort="callsign" data-i18n="rad.search.callsign">Callsign</th>
                     <th data-sort="origin" data-i18n="rad.search.origDest">Orig/Dest</th>
-                    <th data-sort="actype" data-i18n="rad.search.type">Type</th>
                     <th data-sort="etd_utc" data-i18n="rad.search.times">Times</th>
                     <th data-sort="phase" data-i18n="rad.search.status">Status</th>
                 </tr></thead>
@@ -115,17 +116,17 @@ if (!$perm) {
                 <button class="btn btn-sm btn-outline-secondary mr-1" id="rad_btn_select_all_detail"><span data-i18n="rad.detail.selectAll">Select All</span></button>
                 <button class="btn btn-sm btn-outline-secondary mr-1" id="rad_btn_select_none_detail"><span data-i18n="rad.detail.selectNone">Select None</span></button>
                 <button class="btn btn-sm btn-outline-danger mr-2" id="rad_btn_remove_selected"><span data-i18n="rad.detail.removeSelected">Remove Selected</span></button>
-                <button class="btn btn-sm btn-outline-primary" id="rad_btn_plot_all"><i class="fas fa-route mr-1"></i>Plot All Routes</button>
+                <button class="btn btn-sm btn-outline-primary" id="rad_btn_plot_all"><i class="fas fa-route mr-1"></i><span data-i18n="rad.detail.plotAll">Plot All Routes</span></button>
             </div>
             <table class="table table-sm rad-table" id="rad_detail_table">
                 <thead><tr>
                     <th style="width:30px;"></th>
                     <th data-i18n="rad.search.callsign">Callsign</th>
                     <th data-i18n="rad.search.origDest">O/D</th>
-                    <th>TRACON</th>
-                    <th>Center</th>
-                    <th>Amendment</th>
-                    <th>Route</th>
+                    <th data-i18n="rad.detail.tracon">TRACON</th>
+                    <th data-i18n="rad.detail.center">Center</th>
+                    <th data-i18n="rad.detail.amendment">Amendment</th>
+                    <th data-i18n="rad.detail.route">Route</th>
                     <th data-i18n="rad.search.type">Type</th>
                     <th data-i18n="rad.search.times">Times</th>
                     <th data-i18n="rad.search.status">Phase</th>
@@ -148,7 +149,7 @@ if (!$perm) {
                     <div class="input-group input-group-sm mb-2">
                         <input type="text" id="rad_cdr_code" class="form-control" placeholder="CDR Code">
                         <div class="input-group-append">
-                            <button class="btn btn-outline-secondary" id="rad_btn_get_cdr">CDR</button>
+                            <button class="btn btn-outline-secondary" id="rad_btn_get_cdr" data-i18n="rad.edit.cdrLookup">CDR</button>
                         </div>
                     </div>
                     <div id="rad_substring_mode" class="rad-substring-panel mb-2">
@@ -163,12 +164,12 @@ if (!$perm) {
                         </div>
                         <button class="btn btn-sm btn-outline-primary" id="rad_btn_apply_substr"><i class="fas fa-sync-alt mr-1"></i><span data-i18n="rad.edit.applyToSelected">Apply to Selected</span></button>
                     </div>
-                    <label>Add Route</label>
+                    <label data-i18n="rad.edit.addRoute">Add Route</label>
                     <textarea id="rad_manual_route" class="form-control form-control-sm mb-2" rows="3" placeholder="Enter route string..."></textarea>
                     <div class="d-flex align-items-center mb-2">
                         <button class="btn btn-sm btn-info mr-1" id="rad_btn_validate" data-i18n="common.validate">Validate</button>
-                        <button class="btn btn-sm btn-primary mr-1" id="rad_btn_plot">Plot</button>
-                        <span class="rad-color-label mr-1">Color:</span>
+                        <button class="btn btn-sm btn-primary mr-1" id="rad_btn_plot" data-i18n="rad.edit.plot">Plot</button>
+                        <span class="rad-color-label mr-1" data-i18n="rad.edit.color">Color:</span>
                         <div class="rad-color-palette" id="rad_color_palette">
                             <div class="rad-color-swatch active" data-color="#4ECDC4" style="background:#4ECDC4;" title="Teal"></div>
                             <div class="rad-color-swatch" data-color="#FF6B6B" style="background:#FF6B6B;" title="Red"></div>
@@ -182,16 +183,16 @@ if (!$perm) {
                 </div>
                 <!-- Right: Current Routes + Create Amendment -->
                 <div class="col-md-7 rad-edit-right">
-                    <label>Current Routes</label>
+                    <label data-i18n="rad.edit.currentRoutes">Current Routes</label>
                     <div id="rad_current_routes" class="mb-2"></div>
-                    <label>Amendment Preview</label>
+                    <label data-i18n="rad.edit.amendmentPreview">Amendment Preview</label>
                     <div id="rad_amendment_preview" class="rad-amendment-preview mb-2"></div>
                     <div class="mb-2">
-                        <label>TMI Association</label>
+                        <label data-i18n="rad.edit.tmiAssociation">TMI Association</label>
                         <select id="rad_tmi_assoc" class="form-control form-control-sm"></select>
                     </div>
                     <div class="mb-2">
-                        <label>Delivery Channels</label>
+                        <label data-i18n="rad.edit.deliveryChannels">Delivery Channels</label>
                         <div class="form-check form-check-inline">
                             <input type="checkbox" class="form-check-input" id="rad_ch_cpdlc" checked>
                             <label class="form-check-label" for="rad_ch_cpdlc">CPDLC</label>
@@ -206,8 +207,8 @@ if (!$perm) {
                         </div>
                     </div>
                     <div class="d-flex">
-                        <button class="btn btn-sm btn-outline-success mr-1" id="rad_btn_save_draft">Save Draft</button>
-                        <button class="btn btn-sm btn-success" id="rad_btn_send_amendment">Send Amendment</button>
+                        <button class="btn btn-sm btn-outline-success mr-1" id="rad_btn_save_draft" data-i18n="rad.edit.saveDraft">Save Draft</button>
+                        <button class="btn btn-sm btn-success" id="rad_btn_send_amendment" data-i18n="rad.edit.sendAmendment">Send Amendment</button>
                     </div>
                 </div>
             </div>
@@ -218,10 +219,10 @@ if (!$perm) {
             <div id="rad_aggregate_bar" class="rad-aggregate-bar mb-2"></div>
             <div class="d-flex align-items-center mb-2">
                 <div class="btn-group btn-group-sm mr-3">
-                    <button class="btn btn-outline-secondary active" id="rad_filter_all">All</button>
-                    <button class="btn btn-outline-secondary" id="rad_filter_pending">Pending</button>
-                    <button class="btn btn-outline-secondary" id="rad_filter_noncompliant">Non-Compliant</button>
-                    <button class="btn btn-outline-secondary" id="rad_filter_alerts">Alerts</button>
+                    <button class="btn btn-outline-secondary active" id="rad_filter_all" data-i18n="common.all">All</button>
+                    <button class="btn btn-outline-secondary" id="rad_filter_pending" data-i18n="rad.monitoring.pending">Pending</button>
+                    <button class="btn btn-outline-secondary" id="rad_filter_noncompliant" data-i18n="rad.monitoring.nonCompliant">Non-Compliant</button>
+                    <button class="btn btn-outline-secondary" id="rad_filter_alerts" data-i18n="rad.monitoring.alerts">Alerts</button>
                 </div>
                 <select id="rad_tmi_filter" class="form-control form-control-sm rad-tmi-filter"></select>
             </div>
@@ -232,10 +233,11 @@ if (!$perm) {
                     <th data-i18n="rad.search.status">Status</th>
                     <th>RRSTAT</th>
                     <th>TMI</th>
-                    <th>Assigned</th>
-                    <th>Filed</th>
+                    <th data-i18n="rad.monitoring.assigned">Assigned</th>
+                    <th data-i18n="rad.monitoring.filed">Filed</th>
+                    <th data-i18n="rad.monitoring.delta">Delta</th>
                     <th data-i18n="rad.monitoring.sent">Sent</th>
-                    <th>Delivery</th>
+                    <th data-i18n="rad.monitoring.delivery">Delivery</th>
                     <th data-i18n="common.actions">Actions</th>
                 </tr></thead>
                 <tbody id="rad_monitoring_tbody"></tbody>

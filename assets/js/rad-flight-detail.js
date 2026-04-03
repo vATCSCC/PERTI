@@ -92,6 +92,15 @@ window.RADFlightDetail = (function() {
         });
     }
 
+    function getDccDot(artcc) {
+        if (!artcc || typeof FILTER_CONFIG === 'undefined') return '';
+        var dcc = FILTER_CONFIG.dccRegion;
+        var region = dcc.mapping[artcc];
+        if (!region) return '';
+        var color = dcc.colors[region] || dcc.colors['OTHER'];
+        return '<span class="rad-dcc-dot" style="background:' + color + ';" title="' + (dcc.labels[region] || region) + '"></span>';
+    }
+
     function renderRow(flight) {
         var csColor = RADEventBus.callsignColor(flight.callsign);
         var row = $('<tr data-gufi="' + flight.gufi + '">');
@@ -99,8 +108,8 @@ window.RADFlightDetail = (function() {
         row.append('<td><input type="checkbox" class="rad-detail-cb"></td>');
         row.append('<td class="rad-cs" style="color:' + csColor + ';">' + (flight.callsign || '') + '</td>');
         row.append('<td>' + (flight.origin || '') + ' / ' + (flight.dest || '') + '</td>');
-        row.append('<td>' + (flight.tracon || '') + ' / ' + (flight.dest_tracon || '') + '</td>');
-        row.append('<td>' + (flight.center || '') + ' / ' + (flight.dest_center || '') + '</td>');
+        row.append('<td>' + getDccDot(flight.center) + (flight.tracon || '') + ' / ' + getDccDot(flight.dest_center) + (flight.dest_tracon || '') + '</td>');
+        row.append('<td>' + getDccDot(flight.center) + (flight.center || '') + ' / ' + getDccDot(flight.dest_center) + (flight.dest_center || '') + '</td>');
         row.append('<td>' + getAmendmentBadge(flight.amendment_status) + '</td>');
         row.append('<td class="rad-route-cell">' + (flight.route || '') + '</td>');
         row.append('<td>' + (flight.actype || '') + '/' + (flight.weight_class || '') + '</td>');
@@ -112,9 +121,12 @@ window.RADFlightDetail = (function() {
     }
 
     function getAmendmentBadge(status) {
-        if (!status) return '<span class="rad-badge rad-badge-default">NONE</span>';
+        if (!status) return '<span class="rad-badge rad-badge-default">' + PERTII18n.t('common.none') + '</span>';
 
         var badgeClass = 'rad-badge-default';
+        var label = PERTII18n.t('rad.status.' + status);
+        if (label === 'rad.status.' + status) label = status;
+
         if (status === 'DRAFT') badgeClass = 'rad-badge-info';
         else if (status === 'SENT') badgeClass = 'rad-badge-warning';
         else if (status === 'DLVD') badgeClass = 'rad-badge-primary';
@@ -122,7 +134,7 @@ window.RADFlightDetail = (function() {
         else if (status === 'RJCT') badgeClass = 'rad-badge-danger';
         else if (status === 'EXPR') badgeClass = 'rad-badge-secondary';
 
-        return '<span class="rad-badge ' + badgeClass + '">' + status + '</span>';
+        return '<span class="rad-badge ' + badgeClass + '">' + label + '</span>';
     }
 
     function getPhaseBadge(phase) {

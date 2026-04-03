@@ -8,6 +8,7 @@ window.RADMonitoring = (function() {
     var previousExpiredCount = 0;
     var currentFilter = 'all';
     var currentTMIFilter = '';
+    var distanceCache = {};
 
     function init() {
         bindEvents();
@@ -101,6 +102,92 @@ window.RADMonitoring = (function() {
         previousExpiredCount = expiredCount;
     }
 
+    // =========================================================================
+    // Route distance helpers
+    // =========================================================================
+
+    function buildFullRoute(origin, routeStr, dest) {
+        var full = (routeStr || '').trim();
+        if (!full) return '';
+        if (origin) {
+            var first = full.split(/\s+/)[0] || '';
+            if (first.toUpperCase() !== origin.toUpperCase()) full = origin + ' ' + full;
+        }
+        if (dest) {
+            var parts = full.split(/\s+/);
+            var last = parts[parts.length - 1] || '';
+            if (last.toUpperCase() !== dest.toUpperCase()) full = full + ' ' + dest;
+        }
+        return full.toUpperCase();
+    }
+
+    function fetchDistances(routes, callback) {
+        var uncached = routes.filter(function(r) { return r && distanceCache[r] === undefined; });
+        if (uncached.length === 0) { callback(); return; }
+
+        $.ajax({
+            url: 'api/rad/distance.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ routes: uncached })
+        }).done(function(response) {
+            if (response.status === 'ok' && response.data) {
+                for (var key in response.data) {
+                    distanceCache[key] = response.data[key];
+                }
+            }
+            uncached.forEach(function(r) {
+                if (distanceCache[r] === undefined) distanceCache[r] = null;
+            });
+            callback();
+        }).fail(function() {
+            uncached.forEach(function(r) { distanceCache[r] = null; });
+            callback();
+        });
+    }
+
+    function computeMonitoringDeltas(filtered) {
+        if (!filtered || filtered.length === 0) return;
+
+        var routeStrings = [];
+        filtered.forEach(function(a) {
+            if (a.filed_route) routeStrings.push(buildFullRoute(a.origin, a.filed_route, a.dest));
+            if (a.assigned_route) routeStrings.push(buildFullRoute(a.origin, a.assigned_route, a.dest));
+        });
+
+        routeStrings = routeStrings.filter(function(v, i, a) { return v && a.indexOf(v) === i; });
+        if (routeStrings.length === 0) return;
+
+        fetchDistances(routeStrings, function() {
+            filtered.forEach(function(a) {
+                var $cell = $('#rad_monitoring_tbody tr[data-amid="' + a.id + '"] .rad-delta-cell');
+                if ($cell.length === 0) return;
+
+                if (!a.filed_route || !a.assigned_route) { $cell.html('--'); return; }
+
+                var filedFull = buildFullRoute(a.origin, a.filed_route, a.dest);
+                var assignedFull = buildFullRoute(a.origin, a.assigned_route, a.dest);
+                var filedDist = distanceCache[filedFull];
+                var assignedDist = distanceCache[assignedFull];
+
+                if (filedDist == null || assignedDist == null) {
+                    $cell.html('<span class="text-muted">--</span>');
+                    return;
+                }
+
+                var deltaNm = assignedDist - filedDist;
+                var deltaMin = deltaNm / 7; // ~420 kts estimate
+                var sign = deltaNm >= 0 ? '+' : '';
+                var color = deltaNm > 0 ? '#fd7e14' : (deltaNm < 0 ? '#28a745' : '#999');
+
+                $cell.html(
+                    '<span style="color:' + color + ';">' + sign + Math.round(deltaNm) + ' nm</span>' +
+                    '<br><span style="color:' + color + '; font-size:0.85em;">' + sign + Math.round(deltaMin) + ' min</span>'
+                );
+            });
+        });
+    }
+
     function renderSummary() {
         var counts = {
             total: amendments.length,
@@ -138,7 +225,7 @@ window.RADMonitoring = (function() {
         var ss = String(now.getUTCSeconds()).padStart(2, '0');
         html += '<div class="rad-refresh-indicator">' +
             '<span class="rad-refresh-badge">30s</span>' +
-            '<span class="rad-refresh-time">Last: ' + hh + ':' + mm + ':' + ss + 'Z</span>' +
+            '<span class="rad-refresh-time">' + PERTII18n.t('rad.monitoring.lastRefresh') + ' ' + hh + ':' + mm + ':' + ss + 'Z</span>' +
             '</div>';
 
         $('#rad_summary_cards').html(html);
@@ -157,19 +244,21 @@ window.RADMonitoring = (function() {
         tbody.empty();
 
         if (filtered.length === 0) {
-            tbody.html('<tr><td colspan="10" class="text-center text-muted">' + PERTII18n.t('rad.monitoring.noAmendments') + '</td></tr>');
+            tbody.html('<tr><td colspan="11" class="text-center text-muted">' + PERTII18n.t('rad.monitoring.noAmendments') + '</td></tr>');
             return;
         }
 
         filtered.forEach(function(amendment) {
             tbody.append(renderRow(amendment));
         });
+
+        computeMonitoringDeltas(filtered);
     }
 
     function renderRow(a) {
         var rowClass = a.status === 'EXPR' ? 'rad-alert-row' : '';
         var csColor = RADEventBus.callsignColor(a.callsign);
-        var row = $('<tr class="' + rowClass + '">');
+        var row = $('<tr class="' + rowClass + '" data-amid="' + a.id + '">');
 
         row.append('<td class="rad-cs" style="color:' + csColor + ';">' + (a.callsign || '') + '</td>');
         row.append('<td>' + (a.origin || '') + ' / ' + (a.dest || '') + '</td>');
@@ -178,6 +267,7 @@ window.RADMonitoring = (function() {
         row.append('<td>' + (a.tmi_id || '--') + '</td>');
         row.append('<td class="rad-route-cell">' + (a.assigned_route || '') + '</td>');
         row.append('<td class="rad-route-cell">' + (a.filed_route || '') + '</td>');
+        row.append('<td class="rad-delta-cell"><i class="fas fa-spinner fa-spin text-muted"></i></td>');
         row.append('<td>' + formatDateTime(a.sent_at) + '</td>');
         row.append('<td>' + (a.delivery_status || '--') + '</td>');
         row.append('<td>' + getActionButtons(a) + '</td>');
@@ -187,7 +277,8 @@ window.RADMonitoring = (function() {
 
     function getStatusBadge(status) {
         var badgeClass = 'rad-badge-default';
-        var label = status || 'UNKN';
+        var label = status ? PERTII18n.t('rad.status.' + status) : PERTII18n.t('common.unknown');
+        if (label === 'rad.status.' + status) label = status;
 
         if (status === 'DRAFT') badgeClass = 'rad-badge-info';
         else if (status === 'SENT') badgeClass = 'rad-badge-warning';
@@ -200,20 +291,18 @@ window.RADMonitoring = (function() {
     }
 
     function getRRSTATBadge(rrstat) {
-        if (!rrstat) return '<span class="rad-badge rad-badge-default">UNKN</span>';
+        if (!rrstat) return '<span class="rad-badge rad-badge-default">' + PERTII18n.t('rad.rrstat.UNKN') + '</span>';
 
         var badgeClass = 'rad-badge-default';
-        var label = rrstat;
+        var label = PERTII18n.t('rad.rrstat.' + rrstat, {});
+        if (label === 'rad.rrstat.' + rrstat) label = rrstat;
 
         if (rrstat === 'C') {
             badgeClass = 'rad-badge-success';
-            label = 'COMPLIANT';
         } else if (rrstat === 'NC') {
             badgeClass = 'rad-badge-danger';
-            label = 'NON-COMPLIANT';
         } else if (rrstat === 'EXC') {
             badgeClass = 'rad-badge-warning';
-            label = 'EXCEPTION';
         }
 
         return '<span class="rad-badge ' + badgeClass + '">' + label + '</span>';

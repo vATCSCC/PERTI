@@ -7,6 +7,8 @@ window.RADAmendment = (function() {
     var currentRoute = '';
     var perFlightRoutes = {}; // { gufi: computedRoute } for substring replace
     var autoPlotEnabled = true;
+    var distanceCache = {};
+    var distanceTimer = null;
 
     function init() {
         bindEvents();
@@ -354,6 +356,112 @@ window.RADAmendment = (function() {
         }
     }
 
+    // =========================================================================
+    // Route distance helpers
+    // =========================================================================
+
+    function buildFullRoute(origin, routeStr, dest) {
+        var full = (routeStr || '').trim();
+        if (!full) return '';
+        if (origin) {
+            var first = full.split(/\s+/)[0] || '';
+            if (first.toUpperCase() !== origin.toUpperCase()) full = origin + ' ' + full;
+        }
+        if (dest) {
+            var parts = full.split(/\s+/);
+            var last = parts[parts.length - 1] || '';
+            if (last.toUpperCase() !== dest.toUpperCase()) full = full + ' ' + dest;
+        }
+        return full.toUpperCase();
+    }
+
+    function fetchDistances(routes, callback) {
+        var uncached = routes.filter(function(r) { return r && distanceCache[r] === undefined; });
+        if (uncached.length === 0) { callback(); return; }
+
+        $.ajax({
+            url: 'api/rad/distance.php',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ routes: uncached })
+        }).done(function(response) {
+            if (response.status === 'ok' && response.data) {
+                for (var key in response.data) {
+                    distanceCache[key] = response.data[key];
+                }
+            }
+            uncached.forEach(function(r) {
+                if (distanceCache[r] === undefined) distanceCache[r] = null;
+            });
+            callback();
+        }).fail(function() {
+            uncached.forEach(function(r) { distanceCache[r] = null; });
+            callback();
+        });
+    }
+
+    function debouncedComputeDeltas() {
+        clearTimeout(distanceTimer);
+        distanceTimer = setTimeout(computeDeltas, 800);
+    }
+
+    function computeDeltas() {
+        var hasPerFlight = Object.keys(perFlightRoutes).length > 0;
+        if (currentFlights.length === 0) return;
+
+        var routeStrings = [];
+        currentFlights.forEach(function(flight) {
+            var original = flight.route || '';
+            var assigned = hasPerFlight ? (perFlightRoutes[flight.gufi] || '') : currentRoute;
+            if (original) routeStrings.push(buildFullRoute(flight.origin, original, flight.dest));
+            if (assigned) routeStrings.push(buildFullRoute(flight.origin, assigned, flight.dest));
+        });
+
+        // Deduplicate
+        routeStrings = routeStrings.filter(function(v, i, a) { return v && a.indexOf(v) === i; });
+        if (routeStrings.length === 0) return;
+
+        fetchDistances(routeStrings, function() {
+            currentFlights.forEach(function(flight) {
+                var $cell = $('#rad_amendment_preview tr[data-gufi="' + flight.gufi + '"] .rad-delta-cell');
+                if ($cell.length === 0) return;
+
+                var original = flight.route || '';
+                var assigned = hasPerFlight ? (perFlightRoutes[flight.gufi] || '') : currentRoute;
+                var noMatch = hasPerFlight && !perFlightRoutes[flight.gufi];
+                if (noMatch || !original || !assigned) { $cell.html('--'); return; }
+
+                var origFull = buildFullRoute(flight.origin, original, flight.dest);
+                var assignedFull = buildFullRoute(flight.origin, assigned, flight.dest);
+                var origDist = distanceCache[origFull];
+                var assignedDist = distanceCache[assignedFull];
+
+                if (origDist == null || assignedDist == null) {
+                    $cell.html('<span class="text-muted">--</span>');
+                    return;
+                }
+
+                $cell.html(formatDelta(assignedDist - origDist, flight.ete_minutes, origDist));
+            });
+        });
+    }
+
+    function formatDelta(deltaNm, eteMinutes, origDist) {
+        var deltaMin;
+        if (eteMinutes && origDist > 0) {
+            var avgSpeed = origDist / (eteMinutes / 60);
+            deltaMin = deltaNm / avgSpeed * 60;
+        } else {
+            deltaMin = deltaNm / 7; // ~420 kts estimate
+        }
+
+        var sign = deltaNm >= 0 ? '+' : '';
+        var color = deltaNm > 0 ? '#fd7e14' : (deltaNm < 0 ? '#28a745' : '#999');
+
+        return '<span style="color:' + color + ';">' + sign + Math.round(deltaNm) + ' nm</span>' +
+            '<br><span style="color:' + color + '; font-size:0.85em;">' + sign + Math.round(deltaMin) + ' min</span>';
+    }
+
     function setRoute(routeString) {
         currentRoute = routeString;
         $('#rad_manual_route').val(routeString);
@@ -393,7 +501,7 @@ window.RADAmendment = (function() {
         }
 
         var html = '<table class="table table-sm table-striped">';
-        html += '<thead><tr><th>' + PERTII18n.t('common.callsign') + '</th><th>' + PERTII18n.t('rad.amendment.original') + '</th><th>' + PERTII18n.t('rad.amendment.assigned') + '</th><th>' + PERTII18n.t('rad.amendment.diff') + '</th></tr></thead><tbody>';
+        html += '<thead><tr><th>' + PERTII18n.t('common.callsign') + '</th><th>' + PERTII18n.t('rad.amendment.original') + '</th><th>' + PERTII18n.t('rad.amendment.assigned') + '</th><th>' + PERTII18n.t('rad.amendment.diff') + '</th><th>' + PERTII18n.t('rad.amendment.delta') + '</th></tr></thead><tbody>';
 
         currentFlights.forEach(function(flight) {
             var original = flight.route || '';
@@ -401,11 +509,12 @@ window.RADAmendment = (function() {
             var diff = hasPerFlight ? generateSubstringDiff(original, assigned) : generateDiff(original, assigned);
             var noMatch = hasPerFlight && !perFlightRoutes[flight.gufi];
 
-            html += '<tr' + (noMatch ? ' class="text-muted"' : '') + '>' +
+            html += '<tr data-gufi="' + flight.gufi + '"' + (noMatch ? ' class="text-muted"' : '') + '>' +
                 '<td>' + flight.callsign + '</td>' +
                 '<td class="text-monospace">' + original + '</td>' +
-                '<td class="text-monospace">' + (noMatch ? '<em>no match</em>' : assigned) + '</td>' +
+                '<td class="text-monospace">' + (noMatch ? '<em>' + PERTII18n.t('rad.monitoring.noMatch') + '</em>' : assigned) + '</td>' +
                 '<td class="text-monospace">' + (noMatch ? '--' : diff) + '</td>' +
+                '<td class="rad-delta-cell">' + (noMatch ? '--' : '<i class="fas fa-spinner fa-spin text-muted"></i>') + '</td>' +
                 '</tr>';
         });
 
@@ -413,6 +522,7 @@ window.RADAmendment = (function() {
         $('#rad_amendment_preview').html(html);
 
         autoPlotRoutes();
+        debouncedComputeDeltas();
     }
 
     function generateDiff(original, assigned) {
@@ -558,6 +668,7 @@ window.RADAmendment = (function() {
     function clearForm() {
         currentRoute = '';
         perFlightRoutes = {};
+        clearTimeout(distanceTimer);
         $('#rad_manual_route').val('');
         $('#rad_cdr_code').val('');
         $('#rad_find').val('');

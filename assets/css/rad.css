@@ -50,7 +50,7 @@
 .rad-map-controls {
     position: absolute;
     top: 10px; left: 10px;
-    z-index: 10;
+    z-index: 500;
     display: flex;
     align-items: flex-start;
 }
@@ -359,8 +359,11 @@
 .rad-app .table tbody tr:hover {
     background: #1a2332;
 }
-.rad-app .table tbody tr.table-active {
+.rad-app .table tbody tr.table-active,
+.rad-app .table tbody tr.table-active td {
     background: #1e2d45 !important;
+    background-color: #1e2d45 !important;
+    color: #fff !important;
 }
 
 /* RAD-specific table overrides */
@@ -387,6 +390,16 @@
     color: #667;
     word-break: break-word;
     white-space: normal;
+}
+
+/* DCC region dot indicator */
+.rad-dcc-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 3px;
+    vertical-align: middle;
 }
 
 /* Route text in green monospace */
@@ -713,4 +726,114 @@ body .swal2-popup .text-monospace { color: #6f8; }
 }
 .rad-tabs-container::-webkit-scrollbar-thumb:hover {
     background: #445;
+}
+
+
+/* ── 16. Overlay Layer Control Dark Theme ── */
+.rad-map-section .maplibre-layer-control {
+    z-index: 500 !important;
+}
+.rad-map-section #layer-control-toggle {
+    background: rgba(22, 33, 62, 0.92) !important;
+    color: #89a !important;
+    border: 1px solid #456 !important;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.6) !important;
+}
+.rad-map-section #layer-control-toggle:hover {
+    background: rgba(34, 51, 68, 0.95) !important;
+    color: #ccc !important;
+}
+.rad-map-section #layer-control-panel {
+    background: rgba(22, 33, 62, 0.95) !important;
+    color: #ccc !important;
+    border: 1px solid #445 !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6) !important;
+}
+.rad-map-section #layer-control-panel label {
+    color: #ccc !important;
+    text-transform: none;
+    font-weight: 400;
+}
+
+
+/* ── 17. PB/CDR Panel Dark Theme Completions ── */
+.rad-map-section .pbcdr-results-list {
+    min-height: 0;
+}
+.rad-map-section .pbcdr-results-header {
+    background: #16213e !important;
+    border-color: #334 !important;
+    color: #89a;
+}
+.rad-map-section .pbcdr-results-count {
+    color: #667;
+}
+.rad-map-section .pbcdr-results-count strong {
+    color: #e94560;
+}
+.rad-map-section .pbcdr-result-item {
+    border-color: #223 !important;
+}
+.rad-map-section .pbcdr-result-item:hover {
+    background: #1e2d45 !important;
+}
+.rad-map-section .pbcdr-result-name {
+    color: #e94560;
+}
+.rad-map-section .pbcdr-result-route {
+    color: #6f8 !important;
+}
+.rad-map-section .pbcdr-result-meta span {
+    background: #223 !important;
+    color: #667 !important;
+}
+.rad-map-section .pbcdr-result-type.playbook {
+    background: #2a1f3d;
+    color: #a88fd8;
+}
+.rad-map-section .pbcdr-result-type.cdr {
+    background: #1a2f1a;
+    color: #6b6;
+}
+.rad-map-section .pbcdr-result-type.preferred {
+    background: #332a1a;
+    color: #da5;
+}
+.rad-map-section .pbcdr-bulk-actions {
+    background: #16213e !important;
+    border-color: #334 !important;
+}
+.rad-map-section .pbcdr-no-results {
+    color: #667;
+}
+.rad-map-section .pbcdr-no-results i {
+    color: #334;
+}
+
+/* PB/CDR scrollbar dark theme */
+.rad-map-section .pbcdr-results-list::-webkit-scrollbar,
+.rad-map-section #pbcdr_search_panel::-webkit-scrollbar {
+    width: 6px;
+}
+.rad-map-section .pbcdr-results-list::-webkit-scrollbar-track,
+.rad-map-section #pbcdr_search_panel::-webkit-scrollbar-track {
+    background: #16213e;
+}
+.rad-map-section .pbcdr-results-list::-webkit-scrollbar-thumb,
+.rad-map-section #pbcdr_search_panel::-webkit-scrollbar-thumb {
+    background: #445;
+    border-radius: 3px;
+}
+.rad-map-section .pbcdr-results-list::-webkit-scrollbar-thumb:hover,
+.rad-map-section #pbcdr_search_panel::-webkit-scrollbar-thumb:hover {
+    background: #556;
+}
+
+/* 18. Delta Cell */
+.rad-delta-cell {
+    white-space: nowrap;
+    min-width: 70px;
+    text-align: center;
+    font-size: 0.9em;
+    line-height: 1.3;
 }

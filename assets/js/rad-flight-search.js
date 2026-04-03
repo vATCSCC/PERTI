@@ -53,7 +53,17 @@ window.RADFlightSearch = (function() {
             '</div>' +
             '</div>' +
             '<div class="row mb-3">' +
-            '<div class="col-md-3">' +
+            '<div class="col-md-2">' +
+            '<label>' + PERTII18n.t('rad.search.phase') + '</label>' +
+            '<select id="rad_filter_phase" class="form-control">' +
+            '<option value="">' + PERTII18n.t('common.all') + '</option>' +
+            '<option value="PREFILED">' + PERTII18n.t('rad.search.prefiled') + '</option>' +
+            '<option value="AIRBORNE">' + PERTII18n.t('rad.search.airbornePhase') + '</option>' +
+            '<option value="DEPARTED">' + PERTII18n.t('rad.search.departed') + '</option>' +
+            '<option value="ARRIVED">' + PERTII18n.t('rad.search.arrived') + '</option>' +
+            '</select>' +
+            '</div>' +
+            '<div class="col-md-2">' +
             '<label>' + PERTII18n.t('rad.search.timeRange') + '</label>' +
             '<select id="rad_filter_time" class="form-control">' +
             '<option value="all">' + PERTII18n.t('rad.search.allFlights') + '</option>' +
@@ -114,7 +124,13 @@ window.RADFlightSearch = (function() {
             route: $('#rad_filter_route').val().trim().toUpperCase()
         };
 
-        // Time range filter → compute time_start/time_end
+        // Phase filter → maps to API 'status' param
+        var phaseVal = $('#rad_filter_phase').val();
+        if (phaseVal) {
+            currentFilters.status = phaseVal;
+        }
+
+        // Time range filter → compute time_start/time_end (may override phase)
         var timeVal = $('#rad_filter_time').val();
         if (timeVal === 'airborne') {
             currentFilters.status = 'ACTIVE';
@@ -148,7 +164,7 @@ window.RADFlightSearch = (function() {
         tbody.empty();
 
         if (searchResults.length === 0) {
-            tbody.html('<tr><td colspan="6" class="text-center text-muted">' + PERTII18n.t('rad.search.noResults') + '</td></tr>');
+            tbody.html('<tr><td colspan="5" class="text-center text-muted">' + PERTII18n.t('rad.search.noResults') + '</td></tr>');
             return;
         }
 
@@ -164,9 +180,8 @@ window.RADFlightSearch = (function() {
 
         var row = $('<tr data-gufi="' + flight.gufi + '">');
         row.append('<td><input type="checkbox" class="rad-search-cb"></td>');
-        row.append('<td><span class="sub-top rad-cs" style="color:' + csColor + ';">' + (flight.callsign || '') + '</span><span class="sub-bot">' + (flight.actype || '') + '</span></td>');
+        row.append('<td><span class="sub-top rad-cs" style="color:' + csColor + ';">' + (flight.callsign || '') + '</span><span class="sub-bot">' + (flight.actype || '') + '/' + (flight.weight_class || '') + '</span></td>');
         row.append('<td><span class="sub-top">' + (flight.origin || '') + ' → ' + (flight.dest || '') + '</span><span class="sub-bot">' + routeSnippet + '</span></td>');
-        row.append('<td>' + (flight.actype || '') + '/' + (flight.weight_class || '') + '</td>');
         row.append('<td><span class="sub-top">ETD: ' + formatTime(flight.etd_utc) + '</span><span class="sub-bot">ETA: ' + formatTime(flight.eta_utc) + '</span></td>');
         row.append('<td>' + phaseBadge + '</td>');
 
@@ -266,6 +281,7 @@ window.RADFlightSearch = (function() {
         $('#rad_filter_type').val('');
         $('#rad_filter_carrier').val('');
         $('#rad_filter_route').val('');
+        $('#rad_filter_phase').val('');
         $('#rad_filter_time').val('all');
         currentFilters = {};
         searchResults = [];

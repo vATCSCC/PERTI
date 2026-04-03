@@ -71,6 +71,19 @@ window.RADController = (function() {
                     pbcdrInited = true;
                 }
             }
+            // Auto-default origin/dest from Detail flights
+            if (panel.classList.contains('show') && window.RADFlightDetail) {
+                var flights = RADFlightDetail.getFlights();
+                if (flights.length > 0) {
+                    var origins = [], dests = [];
+                    flights.forEach(function(f) {
+                        if (f.origin && origins.indexOf(f.origin) === -1) origins.push(f.origin);
+                        if (f.dest && dests.indexOf(f.dest) === -1) dests.push(f.dest);
+                    });
+                    if (origins.length > 0) $('#pbcdr_orig_apt').val(origins.join(','));
+                    if (dests.length > 0) $('#pbcdr_dest_apt').val(dests.join(','));
+                }
+            }
         });
 
         // PBCDR panel close button
@@ -92,6 +105,21 @@ window.RADController = (function() {
             }
         });
 
+        // Live traffic toggle
+        var liveTrafficEnabled = false;
+        $('#rad_btn_live_traffic').on('click', function() {
+            if (!window.ADL) return;
+            liveTrafficEnabled = !liveTrafficEnabled;
+            var $btn = $(this);
+            if (liveTrafficEnabled) {
+                $('#adl_toggle').prop('checked', true).trigger('change');
+                $btn.removeClass('btn-outline-light').addClass('btn-success');
+            } else {
+                $('#adl_toggle').prop('checked', false).trigger('change');
+                $btn.removeClass('btn-success').addClass('btn-outline-light');
+            }
+        });
+
         // PBCDR tab click handler
         $(document).on('click', '.pbcdr-tab', function() {
             var tabType = $(this).data('tab');
@@ -107,17 +135,17 @@ window.RADController = (function() {
 
             if (nameLabel && nameInput) {
                 if (tabType === 'playbook') {
-                    nameLabel.textContent = 'Play Name';
-                    nameInput.placeholder = 'e.g., ALASKII, JOHNN...';
+                    nameLabel.textContent = PERTII18n.t('rad.edit.pbPlayName');
+                    nameInput.placeholder = PERTII18n.t('rad.edit.pbPlayPlaceholder');
                 } else if (tabType === 'cdr') {
-                    nameLabel.textContent = 'CDR Code';
-                    nameInput.placeholder = 'e.g., JFKBOS1, LGAORD2...';
+                    nameLabel.textContent = PERTII18n.t('rad.edit.pbCdrCode');
+                    nameInput.placeholder = PERTII18n.t('rad.edit.pbCdrPlaceholder');
                 } else if (tabType === 'preferred') {
-                    nameLabel.textContent = 'City Pair';
-                    nameInput.placeholder = 'e.g., JFKMIA, LGAATL...';
+                    nameLabel.textContent = PERTII18n.t('rad.edit.pbCityPair');
+                    nameInput.placeholder = PERTII18n.t('rad.edit.pbCityPairPlaceholder');
                 } else {
-                    nameLabel.textContent = 'Name / Code';
-                    nameInput.placeholder = 'Search all...';
+                    nameLabel.textContent = PERTII18n.t('rad.edit.pbNameCode');
+                    nameInput.placeholder = PERTII18n.t('rad.edit.pbSearchAll');
                 }
             }
         });
@@ -134,7 +162,7 @@ window.RADController = (function() {
                 enableFlights: true,
                 enableContextMenu: true,
                 contextMenuItems: [
-                    { label: 'Amend Route', action: function(flight) {
+                    { label: PERTII18n.t('rad.edit.amendRoute'), action: function(flight) {
                         RADEventBus.emit('flight:selected', flight);
                         $('#tab-edit').tab('show');
                     }}
