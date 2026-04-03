@@ -50,12 +50,30 @@ window.RADController = (function() {
         if (window.RADAmendment) RADAmendment.init();
         if (window.RADMonitoring) RADMonitoring.init();
 
-        // Tab change: start/stop monitoring poll
+        // Tab change: start/stop monitoring poll + auto-plot routes
+        var PLOT_COLORS = ['#00BFFF','#FF6347','#32CD32','#FFD700','#FF69B4','#00CED1','#FFA500','#9370DB'];
+
         $('#radTabs a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
             if (e.target.id === 'tab-monitoring' && window.RADMonitoring) {
                 RADMonitoring.startPolling();
-            } else if (window.RADMonitoring) {
-                RADMonitoring.stopPolling();
+                RADMonitoring.plotRoutes();
+            } else if (e.target.id === 'tab-detail' && window.RADFlightDetail) {
+                if (window.RADMonitoring) RADMonitoring.stopPolling();
+                // Auto-plot all detail flights with cycling colors
+                var flights = RADFlightDetail.getFlights();
+                if (flights.length > 0) {
+                    var lines = [];
+                    flights.forEach(function(f, idx) {
+                        if (f.route) lines.push(f.route + ';' + PLOT_COLORS[idx % PLOT_COLORS.length]);
+                    });
+                    $('#routeSearch').val(lines.join('\n'));
+                    if (window.MapLibreRoute) window.MapLibreRoute.processRoutes();
+                }
+            } else {
+                if (window.RADMonitoring) RADMonitoring.stopPolling();
+                // Clear routes plotted by previous tab (monitoring/detail)
+                $('#routeSearch').val('');
+                if (window.MapLibreRoute) window.MapLibreRoute.processRoutes();
             }
         });
 

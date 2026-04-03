@@ -266,11 +266,21 @@ window.RADFlightSearch = (function() {
             return;
         }
 
-        selected.forEach(function(flight) {
-            RADEventBus.emit('flight:selected', flight);
-        });
+        var added = selected.length;
+        if (window.RADFlightDetail && RADFlightDetail.addFlightsBatch) {
+            added = RADFlightDetail.addFlightsBatch(selected);
+            // Notify amendment module of each flight
+            selected.forEach(function(flight) {
+                RADEventBus.emit('flight:selected', flight);
+            });
+        } else {
+            // Fallback to per-flight emit
+            selected.forEach(function(flight) {
+                RADEventBus.emit('flight:selected', flight);
+            });
+        }
 
-        PERTIDialog.success(PERTII18n.t('rad.search.addedToDetail', { count: selected.length }));
+        PERTIDialog.success(PERTII18n.t('rad.search.addedToDetail', { count: added }));
         $('#rad_search_tbody .rad-search-cb:checked').prop('checked', false);
     }
 

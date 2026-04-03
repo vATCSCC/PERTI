@@ -55,10 +55,12 @@ if (!$perm) {
 <div class="rad-map-section" id="rad_map_section">
     <div class="rad-map-controls">
         <textarea id="routeSearch" class="rad-route-input" rows="2"></textarea>
-        <button id="plot_r" class="btn btn-sm btn-primary ml-2" data-i18n="rad.edit.plot">Plot</button>
-        <button id="rad_btn_pbcdr" class="btn btn-sm btn-outline-light ml-2" title="Playbook / CDR / Preferred Routes"><i class="fas fa-book"></i> PB/CDR</button>
-        <button id="rad_btn_live_traffic" class="btn btn-sm btn-outline-light ml-2" title="Toggle Live Traffic"><i class="fas fa-plane"></i> <span data-i18n="rad.map.liveTraffic">Live</span></button>
-        <input type="checkbox" id="adl_toggle" style="display:none;">
+        <div class="rad-map-controls-row">
+            <button id="plot_r" class="btn btn-sm btn-primary" data-i18n="rad.edit.plot">Plot</button>
+            <button id="rad_btn_pbcdr" class="btn btn-sm btn-outline-light" title="Playbook / CDR / Preferred Routes"><i class="fas fa-book"></i> PB/CDR/PR</button>
+            <button id="rad_btn_live_traffic" class="btn btn-sm btn-outline-light" title="Toggle Live Traffic"><i class="fas fa-plane"></i> <span data-i18n="rad.map.liveTraffic">Live</span></button>
+            <input type="checkbox" id="adl_toggle" style="display:none;">
+        </div>
     </div>
     <div id="map_wrapper" class="rad-map-wrapper">
         <div id="placeholder"></div>

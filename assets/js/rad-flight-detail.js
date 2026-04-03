@@ -5,13 +5,16 @@
 window.RADFlightDetail = (function() {
     var selectedFlights = [];
     var lastHighlightRoute = null;
+    var batchMode = false;
 
     function init() {
         bindEvents();
 
-        // Listen for flight selections
+        // Listen for flight selections (skipped during batch adds)
         RADEventBus.on('flight:selected', function(data) {
-            addFlight(data);
+            if (!batchMode) {
+                addFlight(data);
+            }
         });
 
         // Listen for amendment updates
@@ -76,6 +79,24 @@ window.RADFlightDetail = (function() {
         selectedFlights.push(flight);
         renderTable();
         updateBadge();
+    }
+
+    function addFlightsBatch(flights) {
+        batchMode = true;
+        var added = 0;
+        flights.forEach(function(flight) {
+            var exists = selectedFlights.some(function(f) { return f.gufi === flight.gufi; });
+            if (!exists) {
+                selectedFlights.push(flight);
+                added++;
+            }
+        });
+        batchMode = false;
+        if (added > 0) {
+            renderTable();
+            updateBadge();
+        }
+        return added;
     }
 
     function renderTable() {
@@ -307,6 +328,7 @@ window.RADFlightDetail = (function() {
     return {
         init: init,
         addFlight: addFlight,
+        addFlightsBatch: addFlightsBatch,
         getSelected: getSelected,
         getFlights: getFlights
     };
