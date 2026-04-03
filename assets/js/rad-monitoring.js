@@ -245,6 +245,7 @@ window.RADMonitoring = (function() {
 
         if (filtered.length === 0) {
             tbody.html('<tr><td colspan="11" class="text-center text-muted">' + PERTII18n.t('rad.monitoring.noAmendments') + '</td></tr>');
+            plotAmendmentRoutes(filtered);
             return;
         }
 
@@ -253,6 +254,41 @@ window.RADMonitoring = (function() {
         });
 
         computeMonitoringDeltas(filtered);
+        plotAmendmentRoutes(filtered);
+    }
+
+    function plotAmendmentRoutes(filtered) {
+        // Only plot when monitoring tab is active
+        if (!$('#tab-monitoring').hasClass('active')) return;
+
+        if (!filtered || filtered.length === 0) {
+            $('#routeSearch').val('');
+            if (window.MapLibreRoute) window.MapLibreRoute.processRoutes();
+            return;
+        }
+
+        var lines = [];
+
+        // Filed (original) routes in gray dashed
+        filtered.forEach(function(a) {
+            if (a.filed_route) {
+                var full = buildFullRoute(a.origin, a.filed_route, a.dest);
+                if (full) lines.push(full + ';#666666');
+            }
+        });
+
+        // Assigned (amended) routes in teal
+        filtered.forEach(function(a) {
+            if (a.assigned_route) {
+                var full = buildFullRoute(a.origin, a.assigned_route, a.dest);
+                if (full) lines.push(full + ';#4ECDC4');
+            }
+        });
+
+        $('#routeSearch').val(lines.join('\n'));
+        if (window.MapLibreRoute) {
+            window.MapLibreRoute.processRoutes();
+        }
     }
 
     function renderRow(a) {
@@ -489,6 +525,7 @@ window.RADMonitoring = (function() {
     return {
         init: init,
         startPolling: startPolling,
-        stopPolling: stopPolling
+        stopPolling: stopPolling,
+        plotRoutes: function() { plotAmendmentRoutes(getFilteredAmendments()); }
     };
 })();

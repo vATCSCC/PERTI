@@ -3188,7 +3188,7 @@
     "edit": {
       "retrieveRoutes": "Retrieve Routes",
       "recentlySent": "Recently Sent",
-      "searchDb": "Search Playbook / CDR / Preferred",
+      "searchDb": "Search Playbook / CDR / Preferred Routes",
       "manualPlaceholder": "Enter route string manually...",
       "createAmendment": "Create Route Amendment",
       "routeOptions": "Route Options",
