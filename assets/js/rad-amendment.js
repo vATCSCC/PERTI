@@ -145,12 +145,19 @@ window.RADAmendment = (function() {
     }
 
     function getCDR() {
-        var code = $('#rad_cdr_code').val().trim();
+        var code = $('#rad_cdr_code').val().trim().toUpperCase();
         if (!code) {
             PERTIDialog.warning(PERTII18n.t('rad.amendment.enterCDRCode'));
             return;
         }
 
+        // Check in-memory CSV data first (authoritative, 47K+ CDRs)
+        if (window.cdrMap && window.cdrMap[code]) {
+            setRoute(window.cdrMap[code]);
+            return;
+        }
+
+        // Fallback to API (queries DB which may be stale)
         $.get('api/rad/routes.php', { source: 'cdr', code: code })
             .done(function(response) {
                 if (response.status === 'ok' && response.data) {
