@@ -55,10 +55,20 @@ window.RADController = (function() {
             if (window.RADRole) RADRole.setOverride(role || null);
         });
 
-        // VA selector
-        $('#rad_va_airline').on('change', function() {
-            var airline = $(this).val();
-            if (window.RADRole) RADRole.setVAContext(airline);
+        // VA carrier input (debounced — trigger on Enter or blur)
+        var vaDebounce = null;
+        $('#rad_va_airline').on('input', function() {
+            clearTimeout(vaDebounce);
+            var airline = $(this).val().toUpperCase().trim();
+            vaDebounce = setTimeout(function() {
+                if (window.RADRole) RADRole.setVAContext(airline || null);
+            }, 600);
+        }).on('keydown', function(e) {
+            if (e.key === 'Enter') {
+                clearTimeout(vaDebounce);
+                var airline = $(this).val().toUpperCase().trim();
+                if (window.RADRole) RADRole.setVAContext(airline || null);
+            }
         });
 
         // Initialize sub-modules
