@@ -55,7 +55,10 @@ if (!$perm) {
 <div class="rad-role-bar d-flex align-items-center px-3 py-1" style="background:#16213e; border-bottom:1px solid #334; font-size:0.82rem;">
     <span class="text-muted mr-2" data-i18n="rad.role.detecting">Detecting role...</span>
     <span id="rad_role_indicator"></span>
-    <div id="rad_va_selector" class="ml-auto" style="display:none;">
+    <div class="rad-role-select-wrap ml-3" style="display:none;">
+        <select id="rad_role_selector" class="form-control form-control-sm rad-role-select"></select>
+    </div>
+    <div id="rad_va_selector" class="ml-2" style="display:none;">
         <select id="rad_va_airline" class="form-control form-control-sm" style="width:auto;display:inline-block;background:#111;color:#ccc;border-color:#445;font-size:0.82rem;">
             <option value="">-- Select VA --</option>
         </select>

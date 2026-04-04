@@ -3349,7 +3349,9 @@
       "pilot": "Pilot",
       "va": "Virtual Airline",
       "observer": "Observer",
-      "detecting": "Detecting role..."
+      "detecting": "Detecting role...",
+      "auto": "Auto",
+      "override": "override"
     },
     "tos": {
       "title": "Trajectory Option Set",

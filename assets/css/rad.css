@@ -36,6 +36,25 @@
 .rad-app ~ footer.cs-footer { display: none !important; }
 body:has(.rad-app) { background: #1a1a2e !important; }
 
+/* Role selector & override indicator */
+.rad-role-select {
+    width: auto;
+    display: inline-block;
+    background: #111;
+    color: #ccc;
+    border-color: #445;
+    font-size: 0.78rem;
+    padding: 1px 6px;
+    height: auto;
+}
+.rad-role-override-tag {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    color: #fa5;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+}
+
 
 /* ── 3. Map Section ── */
 .rad-map-section {
