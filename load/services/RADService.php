@@ -459,6 +459,193 @@ class RADService
         return ['success' => true, 'status' => $new_status];
     }
 
+    // =========================================================================
+    // TOS (Trajectory Option Set)
+    // =========================================================================
+
+    /**
+     * Submit a Trajectory Option Set for an ISSUED amendment.
+     */
+    public function submitTOS(int $amendment_id, int $cid, string $role, array $options): array
+    {
+        if (!$this->radTableExists()) return ['error' => 'RAD tables not yet deployed'];
+
+        $amendment = $this->getAmendment($amendment_id);
+        if (!$amendment) return ['error' => 'Amendment not found'];
+        if ($amendment['status'] !== 'ISSUED') {
+            return ['error' => 'TOS can only be submitted for ISSUED amendments'];
+        }
+        if (empty($options) || !is_array($options)) {
+            return ['error' => 'At least one route option is required'];
+        }
+
+        // Create TOS record
+        $sql = "INSERT INTO dbo.rad_tos (amendment_id, gufi, submitted_by, submitted_role)
+                OUTPUT INSERTED.id
+                VALUES (?, ?, ?, ?)";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [
+            $amendment_id, $amendment['gufi'], $cid, $role
+        ]);
+        if ($stmt === false) return ['error' => 'TOS insert failed'];
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        $tos_id = $row['id'] ?? null;
+        sqlsrv_free_stmt($stmt);
+        if (!$tos_id) return ['error' => 'Failed to get TOS ID'];
+
+        // Insert options
+        foreach ($options as $opt) {
+            $opt_sql = "INSERT INTO dbo.rad_tos_options (tos_id, rank, route_string, option_type, distance_nm, time_minutes)
+                        VALUES (?, ?, ?, ?, ?, ?)";
+            $opt_stmt = sqlsrv_query($this->conn_tmi, $opt_sql, [
+                $tos_id,
+                (int)($opt['rank'] ?? 0),
+                $opt['route_string'] ?? '',
+                $opt['option_type'] ?? 'pilot_option',
+                isset($opt['distance_nm']) ? (float)$opt['distance_nm'] : null,
+                isset($opt['time_minutes']) ? (int)$opt['time_minutes'] : null,
+            ]);
+            if ($opt_stmt) sqlsrv_free_stmt($opt_stmt);
+        }
+
+        // Transition amendment to TOS_PENDING
+        $upd = "UPDATE dbo.rad_amendments
+                SET status = 'TOS_PENDING', tos_id = ?, rejected_by = ?, rejected_utc = SYSUTCDATETIME(), actor_role = ?
+                WHERE id = ?";
+        $upd_stmt = sqlsrv_query($this->conn_tmi, $upd, [$tos_id, $cid, $role, $amendment_id]);
+        if ($upd_stmt) sqlsrv_free_stmt($upd_stmt);
+
+        $this->logTransition($amendment_id, 'ISSUED', 'TOS_PENDING',
+            "TOS submitted by $role (CID: $cid, TOS #$tos_id)", $cid);
+
+        $this->broadcastWebSocket('tos:submitted', [
+            'tos_id' => $tos_id, 'amendment_id' => $amendment_id,
+            'gufi' => $amendment['gufi'],
+        ]);
+
+        return ['success' => true, 'tos_id' => $tos_id, 'status' => 'TOS_PENDING'];
+    }
+
+    /**
+     * Get TOS data with options for an amendment.
+     */
+    public function getTOS(int $amendment_id): ?array
+    {
+        $sql = "SELECT * FROM dbo.rad_tos WHERE amendment_id = ? ORDER BY id DESC";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$amendment_id]);
+        if (!$stmt) return null;
+        $tos = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        if (!$tos) return null;
+
+        foreach ($tos as $k => $v) {
+            if ($v instanceof \DateTimeInterface) $tos[$k] = $v->format('Y-m-d\TH:i:s') . 'Z';
+        }
+
+        // Get options
+        $opt_sql = "SELECT * FROM dbo.rad_tos_options WHERE tos_id = ? ORDER BY rank ASC";
+        $opt_stmt = sqlsrv_query($this->conn_tmi, $opt_sql, [$tos['id']]);
+        $options = [];
+        if ($opt_stmt) {
+            while ($opt = sqlsrv_fetch_array($opt_stmt, SQLSRV_FETCH_ASSOC)) {
+                $options[] = $opt;
+            }
+            sqlsrv_free_stmt($opt_stmt);
+        }
+        $tos['options'] = $options;
+
+        return $tos;
+    }
+
+    /**
+     * Resolve TOS: accept an option, counter-propose, or force.
+     */
+    public function resolveTOS(int $tos_id, string $action, ?int $accepted_rank, ?string $counter_route, int $tmu_cid): array
+    {
+        $sql = "SELECT * FROM dbo.rad_tos WHERE id = ?";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$tos_id]);
+        if (!$stmt) return ['error' => 'Query failed'];
+        $tos = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        if (!$tos) return ['error' => 'TOS not found'];
+
+        $amendment_id = $tos['amendment_id'];
+        $amendment = $this->getAmendment($amendment_id);
+        if (!$amendment || $amendment['status'] !== 'TOS_PENDING') {
+            return ['error' => 'Amendment not in TOS_PENDING state'];
+        }
+
+        // Resolve TOS record
+        $upd = "UPDATE dbo.rad_tos SET resolved_utc = SYSUTCDATETIME(), resolved_action = ?,
+                resolved_option_rank = ?, resolved_by = ? WHERE id = ?";
+        $upd_stmt = sqlsrv_query($this->conn_tmi, $upd, [$action, $accepted_rank, $tmu_cid, $tos_id]);
+        if ($upd_stmt) sqlsrv_free_stmt($upd_stmt);
+
+        if ($action === 'FORCE') {
+            $force_sql = "UPDATE dbo.rad_amendments
+                          SET status = 'FORCED', forced_utc = SYSUTCDATETIME(), resolved_by = ?, actor_role = 'TMU'
+                          WHERE id = ?";
+            $force_stmt = sqlsrv_query($this->conn_tmi, $force_sql, [$tmu_cid, $amendment_id]);
+            if ($force_stmt) sqlsrv_free_stmt($force_stmt);
+            $this->logTransition($amendment_id, 'TOS_PENDING', 'FORCED', "Forced by TMU (CID: $tmu_cid)", $tmu_cid);
+
+            $this->broadcastWebSocket('tos:resolved', [
+                'tos_id' => $tos_id, 'amendment_id' => $amendment_id, 'action' => 'FORCE',
+            ]);
+
+            return ['success' => true, 'status' => 'FORCED'];
+        }
+
+        // ACCEPT or COUNTER -- resolve original, create new DRAFT
+        $resolve_sql = "UPDATE dbo.rad_amendments
+                        SET status = 'TOS_RESOLVED', resolved_utc = SYSUTCDATETIME(), resolved_by = ?, actor_role = 'TMU'
+                        WHERE id = ?";
+        $resolve_stmt = sqlsrv_query($this->conn_tmi, $resolve_sql, [$tmu_cid, $amendment_id]);
+        if ($resolve_stmt) sqlsrv_free_stmt($resolve_stmt);
+        $this->logTransition($amendment_id, 'TOS_PENDING', 'TOS_RESOLVED', "Resolved ($action) by TMU (CID: $tmu_cid)", $tmu_cid);
+
+        // Determine new route
+        $new_route = null;
+        if ($action === 'ACCEPT' && $accepted_rank !== null) {
+            $opt_sql = "SELECT route_string FROM dbo.rad_tos_options WHERE tos_id = ? AND rank = ?";
+            $opt_stmt = sqlsrv_query($this->conn_tmi, $opt_sql, [$tos_id, $accepted_rank]);
+            if ($opt_stmt) {
+                $opt_row = sqlsrv_fetch_array($opt_stmt, SQLSRV_FETCH_ASSOC);
+                $new_route = $opt_row['route_string'] ?? null;
+                sqlsrv_free_stmt($opt_stmt);
+            }
+        } elseif ($action === 'COUNTER' && $counter_route) {
+            $new_route = $counter_route;
+        }
+
+        // Create new DRAFT amendment linked to resolved one
+        $new_amendment_id = null;
+        if ($new_route) {
+            $result = $this->createAmendment($amendment['gufi'], $new_route, [
+                'created_by' => $tmu_cid,
+                'tmi_reroute_id' => $amendment['tmi_reroute_id'],
+                'tmi_id_label' => $amendment['tmi_id_label'],
+                'delivery_channels' => $amendment['delivery_channels'],
+                'notes' => "TOS resolution from amendment #$amendment_id",
+            ]);
+            if (isset($result['id'])) {
+                $new_amendment_id = $result['id'];
+                $link_sql = "UPDATE dbo.rad_amendments SET parent_amendment_id = ? WHERE id = ?";
+                $link_stmt = sqlsrv_query($this->conn_tmi, $link_sql, [$amendment_id, $new_amendment_id]);
+                if ($link_stmt) sqlsrv_free_stmt($link_stmt);
+            }
+        }
+
+        $this->broadcastWebSocket('tos:resolved', [
+            'tos_id' => $tos_id, 'amendment_id' => $amendment_id,
+            'action' => $action, 'new_amendment_id' => $new_amendment_id,
+        ]);
+
+        return [
+            'success' => true, 'status' => 'TOS_RESOLVED',
+            'new_amendment_id' => $new_amendment_id,
+        ];
+    }
+
     /**
      * Get amendments with optional filters.
      */

@@ -22,6 +22,9 @@ window.RADMonitoring = (function() {
             refresh();
         });
 
+        RADEventBus.on('tos:submitted', function() { refresh(); });
+        RADEventBus.on('tos:resolved', function() { refresh(); });
+
         // Initial load
         refresh();
     }
@@ -66,6 +69,22 @@ window.RADMonitoring = (function() {
         $(document).on('click', '.rad-btn-reject', function() {
             var id = $(this).data('id');
             rejectAmendment(id);
+        });
+
+        $(document).on('click', '.rad-btn-enter-tos', function() {
+            var id = $(this).data('id');
+            var amendment = amendments.find(function(a) { return a.id === id; });
+            if (amendment && window.RADTOS) {
+                RADTOS.showEntryForm(amendment);
+            }
+        });
+
+        $(document).on('click', '.rad-btn-resolve-tos', function() {
+            var id = $(this).data('id');
+            var amendment = amendments.find(function(a) { return a.id === id; });
+            if (amendment && window.RADTOS) {
+                RADTOS.showResolutionPanel(amendment);
+            }
         });
 
         // Load TMI programs for filter
@@ -315,7 +334,11 @@ window.RADMonitoring = (function() {
 
         row.append('<td class="rad-cs" style="color:' + csColor + ';">' + (a.callsign || '') + '</td>');
         row.append('<td>' + (a.origin || '') + ' / ' + (a.dest || '') + '</td>');
-        row.append('<td>' + getStatusBadge(a.status) + '</td>');
+        var statusHtml = getStatusBadge(a.status);
+        if (a.status === 'TOS_PENDING') {
+            statusHtml += ' <span class="rad-badge rad-badge-warning" style="font-size:0.62rem;">TOS</span>';
+        }
+        row.append('<td>' + statusHtml + '</td>');
         row.append('<td>' + getRRSTATBadge(a.rrstat) + '</td>');
         row.append('<td>' + (a.tmi_id || '--') + '</td>');
         row.append('<td class="rad-route-cell">' + (a.assigned_route || '') + '</td>');
@@ -379,6 +402,15 @@ window.RADMonitoring = (function() {
             if (!window.RADRole || RADRole.can('can_accept_reject')) {
                 html += '<button class="btn btn-sm btn-outline-success rad-btn-accept mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.actions.acceptOnBehalf') + '</button>';
                 html += '<button class="btn btn-sm btn-outline-danger rad-btn-reject mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.actions.rejectOnBehalf') + '</button>';
+            }
+            if (window.RADRole && RADRole.can('can_submit_tos')) {
+                html += '<button class="btn btn-sm btn-outline-warning rad-btn-enter-tos mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.tos.title') + '</button>';
+            }
+        }
+
+        if (a.status === 'TOS_PENDING') {
+            if (window.RADRole && RADRole.can('can_resolve_tos')) {
+                html += '<button class="btn btn-sm btn-outline-info rad-btn-resolve-tos mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.tos.resolve') + '</button>';
             }
         }
 
