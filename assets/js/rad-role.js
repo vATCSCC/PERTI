@@ -1,16 +1,22 @@
 /**
- * RAD Role Module — Role detection and UI capability gating.
+ * RAD Role Module — Role detection, manual override, and UI capability gating.
  *
  * Public API:
  *   RADRole.init()
  *   RADRole.getRole() -> 'TMU'|'ATC'|'PILOT'|'VA'|'OBSERVER'
+ *   RADRole.getDetectedRole() -> auto-detected role before any override
+ *   RADRole.isOverride() -> boolean
  *   RADRole.getContext()
  *   RADRole.can(capability)
+ *   RADRole.setOverride(role)   — manually set role (or null to clear)
  *   RADRole.setVAContext(airlineIcao)
  *   RADRole.onRoleChanged(callback)
  */
 window.RADRole = (function() {
     var currentRole = null;
+    var detectedRole = null;
+    var overrideActive = false;
+    var allowedRoles = [];
     var currentContext = {};
     var capabilities = {};
     var allowedTabs = [];
@@ -33,12 +39,21 @@ window.RADRole = (function() {
             params.va_airline = savedVA;
         }
 
+        // Check sessionStorage for role override
+        var savedOverride = sessionStorage.getItem('RAD_ROLE_OVERRIDE');
+        if (savedOverride) {
+            params.override_role = savedOverride;
+        }
+
         $.get('api/rad/role.php', params)
             .done(function(response) {
                 if (response.status === 'ok' && response.data) {
                     var d = response.data;
                     var oldRole = currentRole;
                     currentRole = d.role;
+                    detectedRole = d.detected_role || d.role;
+                    overrideActive = d.is_override || false;
+                    allowedRoles = d.allowed_roles || [d.role];
                     currentContext = d.context || {};
                     capabilities = d.capabilities || {};
                     allowedTabs = capabilities.tabs || [];
@@ -48,6 +63,8 @@ window.RADRole = (function() {
                     if (oldRole !== currentRole) {
                         RADEventBus.emit('role:detected', {
                             role: currentRole,
+                            detectedRole: detectedRole,
+                            isOverride: overrideActive,
                             context: currentContext,
                             capabilities: capabilities
                         });
@@ -58,8 +75,10 @@ window.RADRole = (function() {
                 }
             })
             .fail(function() {
-                // Default to observer on failure
                 currentRole = 'OBSERVER';
+                detectedRole = 'OBSERVER';
+                overrideActive = false;
+                allowedRoles = ['OBSERVER'];
                 capabilities = {};
                 allowedTabs = [];
                 applyRoleUI();
@@ -67,7 +86,7 @@ window.RADRole = (function() {
     }
 
     function applyRoleUI() {
-        // Update role indicator
+        // Update role indicator badge
         var $indicator = $('#rad_role_indicator');
         if ($indicator.length) {
             var roleKey = (currentRole || 'observer').toLowerCase();
@@ -81,12 +100,32 @@ window.RADRole = (function() {
                 'OBSERVER': 'badge-secondary'
             }[currentRole] || 'badge-secondary';
 
-            $indicator.html(
-                '<span class="badge ' + badgeClass + '">' + roleLabel + '</span>' +
-                (currentContext.callsign ? ' <span class="text-muted ml-1">' + currentContext.callsign + '</span>' : '') +
-                (currentContext.artcc_id ? ' <span class="text-muted">(' + currentContext.artcc_id + ')</span>' : '') +
-                (currentContext.airline_icao ? ' <span class="text-muted">[' + currentContext.airline_icao + ']</span>' : '')
-            );
+            var html = '<span class="badge ' + badgeClass + '">' + roleLabel + '</span>';
+            if (overrideActive) {
+                html += ' <span class="rad-role-override-tag">' + PERTII18n.t('rad.role.override') + '</span>';
+            }
+            if (currentContext.callsign) html += ' <span class="text-muted ml-1">' + currentContext.callsign + '</span>';
+            if (currentContext.artcc_id) html += ' <span class="text-muted">(' + currentContext.artcc_id + ')</span>';
+            if (currentContext.airline_icao) html += ' <span class="text-muted">[' + currentContext.airline_icao + ']</span>';
+            $indicator.html(html);
+        }
+
+        // Update role selector dropdown
+        var $selector = $('#rad_role_selector');
+        if ($selector.length && allowedRoles.length > 1) {
+            $selector.closest('.rad-role-select-wrap').css('display', '');
+            var currentVal = $selector.val();
+            var selectedVal = overrideActive ? currentRole : '';
+            $selector.empty();
+            $selector.append('<option value="">' + PERTII18n.t('rad.role.auto') + ' (' + detectedRole + ')</option>');
+            allowedRoles.forEach(function(role) {
+                if (role === 'OBSERVER') return; // no use selecting observer manually
+                var label = PERTII18n.t('rad.role.' + role.toLowerCase());
+                if (label === 'rad.role.' + role.toLowerCase()) label = role;
+                $selector.append('<option value="' + role + '"' + (selectedVal === role ? ' selected' : '') + '>' + label + '</option>');
+            });
+        } else if ($selector.length) {
+            $selector.closest('.rad-role-select-wrap').css('display', 'none');
         }
 
         // Show/hide tabs based on role
@@ -107,7 +146,7 @@ window.RADRole = (function() {
             $('#tab-' + allowedTabs[0]).tab('show');
         }
 
-        // Show VA selector only when no role detected (or already VA)
+        // Show VA selector only when role is OBSERVER or VA
         var $vaSelector = $('#rad_va_selector');
         if ($vaSelector.length) {
             if (currentRole === 'OBSERVER' || currentRole === 'VA') {
@@ -116,6 +155,15 @@ window.RADRole = (function() {
                 $vaSelector.css('display', 'none');
             }
         }
+    }
+
+    function setOverride(role) {
+        if (role) {
+            sessionStorage.setItem('RAD_ROLE_OVERRIDE', role);
+        } else {
+            sessionStorage.removeItem('RAD_ROLE_OVERRIDE');
+        }
+        fetchRole();
     }
 
     function setVAContext(airlineIcao) {
@@ -130,8 +178,11 @@ window.RADRole = (function() {
     return {
         init: init,
         getRole: function() { return currentRole; },
+        getDetectedRole: function() { return detectedRole; },
+        isOverride: function() { return overrideActive; },
         getContext: function() { return currentContext; },
         can: function(cap) { return capabilities[cap] === true; },
+        setOverride: setOverride,
         setVAContext: setVAContext,
         onRoleChanged: function(cb) { changeCallbacks.push(cb); },
         refresh: function() { fetchRole(); }

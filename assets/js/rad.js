@@ -49,6 +49,12 @@ window.RADController = (function() {
             RADRole.init();
         }
 
+        // Role override selector
+        $('#rad_role_selector').on('change', function() {
+            var role = $(this).val();
+            if (window.RADRole) RADRole.setOverride(role || null);
+        });
+
         // VA selector
         $('#rad_va_airline').on('change', function() {
             var airline = $(this).val();
