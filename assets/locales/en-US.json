@@ -3288,6 +3288,7 @@
       "batchIssueConfirm": "Mark {count} amendment(s) as issued?",
       "batchAcceptConfirm": "Accept {count} amendment(s) on behalf of pilot?",
       "batchRejectConfirm": "Reject {count} amendment(s) on behalf of pilot?",
+      "batchRevertConfirm": "Revert {count} amendment(s) to previous status?",
       "batchComplete": "{count} amendment(s) {action} completed.",
       "allTMI": "All TMI Programs",
       "amendmentExpired": "{callsign} amendment expired",
@@ -3321,7 +3322,11 @@
       "issue": "Issue to Pilot",
       "markIssued": "Mark as Issued",
       "acceptOnBehalf": "Accept",
-      "rejectOnBehalf": "Reject"
+      "rejectOnBehalf": "Reject",
+      "revert": "Undo",
+      "revertTitle": "Revert to previous status",
+      "revertConfirm": "Revert {status} back to previous status?",
+      "reverted": "Reverted from {from} to {to}"
     },
     "status": {
       "DRAFT": "Draft",

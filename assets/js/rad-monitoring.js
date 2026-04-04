@@ -9,6 +9,7 @@ window.RADMonitoring = (function() {
     var currentFilter = 'all';
     var currentTMIFilter = '';
     var distanceCache = {};
+    var deltaHtmlCache = {};  // amendment_id -> { key, html }
 
     function init() {
         bindEvents();
@@ -71,6 +72,11 @@ window.RADMonitoring = (function() {
             rejectAmendment(id);
         });
 
+        $(document).on('click', '.rad-btn-revert', function() {
+            var id = $(this).data('id');
+            revertAmendment(id);
+        });
+
         // Batch selection
         $(document).on('change', '.rad-row-select', function() {
             updateBatchActionBar();
@@ -100,6 +106,11 @@ window.RADMonitoring = (function() {
         $('#rad_batch_reject').on('click', function() {
             var ids = getSelectedIdsByStatus(['ISSUED']);
             if (ids.length > 0) batchAction('reject', ids, PERTII18n.t('rad.monitoring.batchRejectConfirm', { count: ids.length }));
+        });
+
+        $('#rad_batch_revert').on('click', function() {
+            var ids = getSelectedIdsByStatus(['ISSUED', 'ACPT', 'RJCT', 'FORCED']);
+            if (ids.length > 0) batchAction('revert', ids, PERTII18n.t('rad.monitoring.batchRevertConfirm', { count: ids.length }));
         });
 
         $('#rad_batch_delete').on('click', function() {
@@ -219,8 +230,24 @@ window.RADMonitoring = (function() {
     function computeMonitoringDeltas(filtered) {
         if (!filtered || filtered.length === 0) return;
 
-        var routeStrings = [];
+        // Check which amendments already have cached delta HTML
+        var needFetch = [];
         filtered.forEach(function(a) {
+            var cacheKey = (a.filed_route || '') + '|' + (a.assigned_route || '') + '|' + (a.origin || '') + '|' + (a.dest || '');
+            var cached = deltaHtmlCache[a.id];
+            if (cached && cached.key === cacheKey) {
+                // Use cached HTML immediately
+                var $cell = $('#rad_monitoring_tbody tr[data-amid="' + a.id + '"] .rad-delta-cell');
+                if ($cell.length) $cell.html(cached.html);
+            } else {
+                needFetch.push(a);
+            }
+        });
+
+        if (needFetch.length === 0) return;
+
+        var routeStrings = [];
+        needFetch.forEach(function(a) {
             if (a.filed_route) routeStrings.push(buildFullRoute(a.origin, a.filed_route, a.dest));
             if (a.assigned_route) routeStrings.push(buildFullRoute(a.origin, a.assigned_route, a.dest));
         });
@@ -229,31 +256,35 @@ window.RADMonitoring = (function() {
         if (routeStrings.length === 0) return;
 
         fetchDistances(routeStrings, function() {
-            filtered.forEach(function(a) {
+            needFetch.forEach(function(a) {
                 var $cell = $('#rad_monitoring_tbody tr[data-amid="' + a.id + '"] .rad-delta-cell');
                 if ($cell.length === 0) return;
 
-                if (!a.filed_route || !a.assigned_route) { $cell.html('--'); return; }
+                var cacheKey = (a.filed_route || '') + '|' + (a.assigned_route || '') + '|' + (a.origin || '') + '|' + (a.dest || '');
+                var html;
 
-                var filedFull = buildFullRoute(a.origin, a.filed_route, a.dest);
-                var assignedFull = buildFullRoute(a.origin, a.assigned_route, a.dest);
-                var filedDist = distanceCache[filedFull];
-                var assignedDist = distanceCache[assignedFull];
+                if (!a.filed_route || !a.assigned_route) {
+                    html = '--';
+                } else {
+                    var filedFull = buildFullRoute(a.origin, a.filed_route, a.dest);
+                    var assignedFull = buildFullRoute(a.origin, a.assigned_route, a.dest);
+                    var filedDist = distanceCache[filedFull];
+                    var assignedDist = distanceCache[assignedFull];
 
-                if (filedDist == null || assignedDist == null) {
-                    $cell.html('<span class="text-muted">--</span>');
-                    return;
+                    if (filedDist == null || assignedDist == null) {
+                        html = '<span class="text-muted">--</span>';
+                    } else {
+                        var deltaNm = assignedDist - filedDist;
+                        var deltaMin = deltaNm / 7; // ~420 kts estimate
+                        var sign = deltaNm >= 0 ? '+' : '';
+                        var color = deltaNm > 0 ? '#fd7e14' : (deltaNm < 0 ? '#28a745' : '#999');
+                        html = '<span style="color:' + color + ';">' + sign + Math.round(deltaNm) + ' nm</span>' +
+                            '<br><span style="color:' + color + '; font-size:0.85em;">' + sign + Math.round(deltaMin) + ' min</span>';
+                    }
                 }
 
-                var deltaNm = assignedDist - filedDist;
-                var deltaMin = deltaNm / 7; // ~420 kts estimate
-                var sign = deltaNm >= 0 ? '+' : '';
-                var color = deltaNm > 0 ? '#fd7e14' : (deltaNm < 0 ? '#28a745' : '#999');
-
-                $cell.html(
-                    '<span style="color:' + color + ';">' + sign + Math.round(deltaNm) + ' nm</span>' +
-                    '<br><span style="color:' + color + '; font-size:0.85em;">' + sign + Math.round(deltaMin) + ' min</span>'
-                );
+                $cell.html(html);
+                deltaHtmlCache[a.id] = { key: cacheKey, html: html };
             });
         });
     }
@@ -368,7 +399,8 @@ window.RADMonitoring = (function() {
         var csColor = RADEventBus.callsignColor(a.callsign);
         var row = $('<tr class="' + rowClass + '" data-amid="' + a.id + '">');
 
-        var hasActions = (a.status === 'DRAFT' || a.status === 'SENT' || a.status === 'DLVD' || a.status === 'ISSUED');
+        var hasActions = (a.status === 'DRAFT' || a.status === 'SENT' || a.status === 'DLVD' || a.status === 'ISSUED'
+            || a.status === 'ACPT' || a.status === 'RJCT' || a.status === 'FORCED');
         row.append('<td>' + (hasActions ? '<input type="checkbox" class="rad-row-select" data-id="' + a.id + '" data-status="' + a.status + '">' : '') + '</td>');
         row.append('<td class="rad-cs" style="color:' + csColor + ';">' + (a.callsign || '') + '</td>');
         row.append('<td>' + (a.origin || '') + ' / ' + (a.dest || '') + '</td>');
@@ -428,6 +460,7 @@ window.RADMonitoring = (function() {
 
     function getActionButtons(a) {
         var html = '';
+        var canRevert = ['ISSUED', 'ACPT', 'RJCT', 'FORCED'];
 
         if (a.status === 'SENT' || a.status === 'DLVD') {
             if (!window.RADRole || RADRole.can('can_issue')) {
@@ -458,6 +491,14 @@ window.RADMonitoring = (function() {
 
         if (a.status === 'DRAFT' || a.status === 'SENT') {
             html += '<button class="btn btn-sm btn-outline-danger rad-btn-delete" data-id="' + a.id + '">' + PERTII18n.t('common.delete') + '</button>';
+        }
+
+        // Undo/revert button for reversible states
+        if (canRevert.indexOf(a.status) !== -1) {
+            if (!window.RADRole || RADRole.can('can_issue')) {
+                html += '<button class="btn btn-sm btn-outline-secondary rad-btn-revert ml-1" data-id="' + a.id + '" title="' + PERTII18n.t('rad.actions.revertTitle') + '">' +
+                    '<i class="fas fa-undo"></i></button>';
+            }
         }
 
         return html;
@@ -669,6 +710,34 @@ window.RADMonitoring = (function() {
             });
     }
 
+    function revertAmendment(id) {
+        var amendment = amendments.find(function(a) { return a.id === id; });
+        var statusLabel = amendment ? amendment.status : '';
+        PERTIDialog.confirm(PERTII18n.t('rad.actions.revertConfirm', { status: statusLabel }))
+            .then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: 'api/rad/amendment.php',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ id: id, action: 'revert' })
+                    })
+                        .done(function(response) {
+                            if (response.status === 'ok') {
+                                var reverted = response.data || {};
+                                PERTIDialog.success(PERTII18n.t('rad.actions.reverted', { from: reverted.reverted_from || '', to: reverted.status || '' }));
+                                refresh();
+                            } else {
+                                PERTIDialog.warning(response.message || PERTII18n.t('error.updateFailed'));
+                            }
+                        })
+                        .fail(function() {
+                            PERTIDialog.warning(PERTII18n.t('error.networkError'));
+                        });
+                }
+            });
+    }
+
     function getSelectedIdsByStatus(statuses) {
         var ids = [];
         $('.rad-row-select:checked').each(function() {
@@ -681,13 +750,13 @@ window.RADMonitoring = (function() {
     }
 
     function updateBatchActionBar() {
-        var counts = { DRAFT: 0, SENT: 0, DLVD: 0, ISSUED: 0 };
+        var counts = { DRAFT: 0, SENT: 0, DLVD: 0, ISSUED: 0, ACPT: 0, RJCT: 0, FORCED: 0 };
         $('.rad-row-select:checked').each(function() {
             var status = $(this).data('status');
             if (counts[status] !== undefined) counts[status]++;
         });
 
-        var total = counts.DRAFT + counts.SENT + counts.DLVD + counts.ISSUED;
+        var total = counts.DRAFT + counts.SENT + counts.DLVD + counts.ISSUED + counts.ACPT + counts.RJCT + counts.FORCED;
 
         if (total === 0) {
             $('#rad_batch_bar').hide();
@@ -723,6 +792,14 @@ window.RADMonitoring = (function() {
             $('#rad_batch_reject').show().find('span').text(PERTII18n.t('rad.actions.rejectOnBehalf') + ' (' + counts.ISSUED + ')');
         } else {
             $('#rad_batch_reject').hide();
+        }
+
+        // Revert: ISSUED + ACPT + RJCT + FORCED
+        var revertCount = counts.ISSUED + counts.ACPT + counts.RJCT + counts.FORCED;
+        if (revertCount > 0) {
+            $('#rad_batch_revert').show().find('span').text(PERTII18n.t('rad.actions.revert') + ' (' + revertCount + ')');
+        } else {
+            $('#rad_batch_revert').hide();
         }
 
         // Delete: DRAFT + SENT

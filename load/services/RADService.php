@@ -459,6 +459,73 @@ class RADService
         return ['success' => true, 'status' => $new_status];
     }
 
+    /**
+     * Revert amendment to its previous status (undo last transition).
+     * Allowed reversals: ISSUED→SENT, ACPT→ISSUED, RJCT→ISSUED, FORCED→TOS_PENDING.
+     */
+    public function revertAmendment(int $id, int $cid, string $role): array
+    {
+        if (!$this->radTableExists()) return ['error' => 'RAD tables not yet deployed'];
+
+        $amendment = $this->getAmendment($id);
+        if (!$amendment) return ['error' => 'Amendment not found'];
+
+        // Define allowed reversals: current_status => revert_to
+        $reversals = [
+            'ISSUED' => 'SENT',
+            'ACPT'   => 'ISSUED',
+            'RJCT'   => 'ISSUED',
+            'FORCED' => 'TOS_PENDING',
+        ];
+
+        $current = $amendment['status'];
+        if (!isset($reversals[$current])) {
+            return ['error' => "Cannot revert status '$current'"];
+        }
+        $revert_to = $reversals[$current];
+
+        // Check amendment log for the actual previous status (in case ISSUED came from DLVD not SENT)
+        $log_sql = "SELECT TOP 1 status_from FROM dbo.rad_amendment_log
+                    WHERE amendment_id = ? AND status_to = ?
+                    ORDER BY changed_utc DESC";
+        $log_stmt = sqlsrv_query($this->conn_tmi, $log_sql, [$id, $current]);
+        if ($log_stmt) {
+            $log_row = sqlsrv_fetch_array($log_stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($log_stmt);
+            if ($log_row && $log_row['status_from']) {
+                $revert_to = $log_row['status_from'];
+            }
+        }
+
+        // Clear fields that were set during the forward transition
+        $clear_fields = '';
+        if ($current === 'ISSUED') {
+            $clear_fields = ', issued_by = NULL, issued_utc = NULL';
+        } elseif ($current === 'ACPT') {
+            $clear_fields = ', resolved_utc = NULL';
+        } elseif ($current === 'RJCT') {
+            $clear_fields = ', rejected_by = NULL, rejected_utc = NULL';
+        } elseif ($current === 'FORCED') {
+            $clear_fields = ', forced_utc = NULL, resolved_by = NULL';
+        }
+
+        $sql = "UPDATE dbo.rad_amendments SET status = ?, actor_role = ?$clear_fields WHERE id = ?";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$revert_to, $role, $id]);
+        if ($stmt === false) return ['error' => 'Update failed'];
+        sqlsrv_free_stmt($stmt);
+
+        $this->logTransition($id, $current, $revert_to,
+            "Reverted by $role (CID: $cid)", $cid);
+
+        $this->broadcastWebSocket('rad:amendment_update', [
+            'amendment_id' => $id,
+            'gufi' => $amendment['gufi'],
+            'status' => $revert_to,
+        ]);
+
+        return ['success' => true, 'status' => $revert_to, 'reverted_from' => $current];
+    }
+
     // =========================================================================
     // TOS (Trajectory Option Set)
     // =========================================================================

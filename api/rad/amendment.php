@@ -11,7 +11,7 @@ $action = $body['action'] ?? $_GET['action'] ?? null;
 
 // POST and DELETE operations: TMU required by default, role-aware for specific actions
 if ($method === 'POST' || $method === 'DELETE') {
-    $role_actions = ['issue', 'accept', 'reject'];
+    $role_actions = ['issue', 'accept', 'reject', 'revert'];
     if (!in_array($action, $role_actions)) {
         rad_require_tmu($cid);
     }
@@ -32,7 +32,7 @@ if ($method === 'GET') {
 
     // ---- Batch operations: POST with ids[] array ----
     $ids = $body['ids'] ?? null;
-    if (is_array($ids) && !empty($ids) && in_array($action, ['send', 'issue', 'accept', 'reject', 'cancel'])) {
+    if (is_array($ids) && !empty($ids) && in_array($action, ['send', 'issue', 'accept', 'reject', 'revert', 'cancel'])) {
         // Role checks for batch
         if ($action === 'issue') {
             $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
@@ -40,6 +40,8 @@ if ($method === 'GET') {
             $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA', 'PILOT']);
         } elseif ($action === 'reject') {
             $role = rad_require_role((int)$cid, ['ATC', 'VA', 'PILOT']);
+        } elseif ($action === 'revert') {
+            $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
         }
 
         $results = [];
@@ -52,6 +54,7 @@ if ($method === 'GET') {
             elseif ($action === 'issue') $r = $svc->issueAmendment($batchId, (int)$cid, $role);
             elseif ($action === 'accept') $r = $svc->acceptAmendment($batchId, (int)$cid, $role);
             elseif ($action === 'reject') $r = $svc->rejectAmendment($batchId, (int)$cid, $role, false);
+            elseif ($action === 'revert') $r = $svc->revertAmendment($batchId, (int)$cid, $role);
             elseif ($action === 'cancel') $r = $svc->cancelAmendment($batchId, (int)$cid);
 
             if ($r && isset($r['error'])) {
@@ -111,6 +114,15 @@ if ($method === 'GET') {
         $with_tos = !empty($body['with_tos']);
         $result = $svc->rejectAmendment($id, (int)$cid, $role, $with_tos);
         if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
+        rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
+
+    } elseif ($action === 'revert') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) rad_respond_json(400, ['status' => 'error', 'message' => 'id required']);
+        $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
+        $result = $svc->revertAmendment($id, (int)$cid, $role);
+        if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
+        rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
 
     } else {
         // Create new amendment — accept both JS and direct field names
