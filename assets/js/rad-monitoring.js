@@ -58,6 +58,16 @@ window.RADMonitoring = (function() {
             issueAmendment(id);
         });
 
+        $(document).on('click', '.rad-btn-accept', function() {
+            var id = $(this).data('id');
+            acceptAmendment(id);
+        });
+
+        $(document).on('click', '.rad-btn-reject', function() {
+            var id = $(this).data('id');
+            rejectAmendment(id);
+        });
+
         // Load TMI programs for filter
         loadTMIPrograms();
     }
@@ -359,8 +369,17 @@ window.RADMonitoring = (function() {
         var html = '';
 
         if (a.status === 'SENT' || a.status === 'DLVD') {
-            html += '<button class="btn btn-sm btn-outline-info rad-btn-issue mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.actions.markIssued') + '</button>';
+            if (!window.RADRole || RADRole.can('can_issue')) {
+                html += '<button class="btn btn-sm btn-outline-info rad-btn-issue mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.actions.markIssued') + '</button>';
+            }
             html += '<button class="btn btn-sm btn-outline-primary rad-btn-resend mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.monitoring.resend') + '</button>';
+        }
+
+        if (a.status === 'ISSUED') {
+            if (!window.RADRole || RADRole.can('can_accept_reject')) {
+                html += '<button class="btn btn-sm btn-outline-success rad-btn-accept mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.actions.acceptOnBehalf') + '</button>';
+                html += '<button class="btn btn-sm btn-outline-danger rad-btn-reject mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.actions.rejectOnBehalf') + '</button>';
+            }
         }
 
         if (a.status === 'DRAFT') {
@@ -531,6 +550,46 @@ window.RADMonitoring = (function() {
                                 refresh();
                             } else {
                                 PERTIDialog.warning(response.message || PERTII18n.t('error.deleteFailed'));
+                            }
+                        })
+                        .fail(function() {
+                            PERTIDialog.warning(PERTII18n.t('error.networkError'));
+                        });
+                }
+            });
+    }
+
+    function acceptAmendment(id) {
+        PERTIDialog.confirm(PERTII18n.t('rad.actions.acceptOnBehalf') + '?')
+            .then(function(result) {
+                if (result.isConfirmed) {
+                    $.post('api/rad/amendment.php', { id: id, action: 'accept' })
+                        .done(function(response) {
+                            if (response.status === 'ok') {
+                                PERTIDialog.success(PERTII18n.t('rad.status.ACPT'));
+                                refresh();
+                            } else {
+                                PERTIDialog.warning(response.message || PERTII18n.t('error.updateFailed'));
+                            }
+                        })
+                        .fail(function() {
+                            PERTIDialog.warning(PERTII18n.t('error.networkError'));
+                        });
+                }
+            });
+    }
+
+    function rejectAmendment(id) {
+        PERTIDialog.confirm(PERTII18n.t('rad.actions.rejectOnBehalf') + '?')
+            .then(function(result) {
+                if (result.isConfirmed) {
+                    $.post('api/rad/amendment.php', { id: id, action: 'reject' })
+                        .done(function(response) {
+                            if (response.status === 'ok') {
+                                PERTIDialog.success(PERTII18n.t('rad.status.RJCT'));
+                                refresh();
+                            } else {
+                                PERTIDialog.warning(response.message || PERTII18n.t('error.updateFailed'));
                             }
                         })
                         .fail(function() {

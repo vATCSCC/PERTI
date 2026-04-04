@@ -70,3 +70,43 @@ function rad_require_tmu($cid) {
     }
     $stmt->close();
 }
+
+/**
+ * Detect role for CID and return it. Does NOT block -- returns role string.
+ * Roles: TMU, ATC, PILOT, VA, OBSERVER
+ */
+function rad_detect_role($cid) {
+    global $conn_sqli, $conn_adl;
+
+    // TMU check
+    $stmt = $conn_sqli->prepare("SELECT 1 FROM admin_users WHERE cid=? LIMIT 1");
+    $stmt->bind_param('i', $cid);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $is_tmu = $result && $result->num_rows > 0;
+    $stmt->close();
+    if ($is_tmu) return 'TMU';
+
+    // ATC check (VNAS)
+    require_once(__DIR__ . '/../../load/services/VNASService.php');
+    if (VNASService::isActiveController((int)$cid)) return 'ATC';
+
+    return 'OBSERVER';
+}
+
+/**
+ * Require specific role(s) for an action.
+ * @param int $cid
+ * @param array $allowed_roles e.g. ['TMU', 'ATC']
+ * @return string The detected role
+ */
+function rad_require_role($cid, array $allowed_roles) {
+    $role = rad_detect_role($cid);
+    if (!in_array($role, $allowed_roles)) {
+        rad_respond_json(403, [
+            'status' => 'error',
+            'message' => 'This action requires role: ' . implode(' or ', $allowed_roles) . '. Your role: ' . $role
+        ]);
+    }
+    return $role;
+}
