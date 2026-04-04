@@ -41,14 +41,14 @@ if ($method === 'POST') {
         $gufi = $_GET['gufi'] ?? null;
         if (!$gufi) rad_respond_json(400, ['status' => 'error', 'message' => 'gufi required']);
         $result = $svc->getRouteOptions($gufi);
-        if (isset($result['error'])) rad_respond_json(404, ['status' => 'error', 'message' => $result['error']]);
+        if (isset($result['error'])) rad_respond_json(200, ['status' => 'error', 'message' => $result['error']]);
         rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
 
     } elseif ($source === 'cdr') {
         $code = $_GET['code'] ?? null;
         if (!$code) rad_respond_json(400, ['status' => 'error', 'message' => 'code required']);
         $result = $svc->getCDRRoute($code);
-        if (isset($result['error'])) rad_respond_json(404, ['status' => 'error', 'message' => $result['error']]);
+        if (isset($result['error'])) rad_respond_json(200, ['status' => 'error', 'message' => $result['error']]);
         rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
 
     } else {
