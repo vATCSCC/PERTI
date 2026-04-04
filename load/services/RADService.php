@@ -399,6 +399,67 @@ class RADService
     }
 
     /**
+     * Accept amendment on behalf of pilot.
+     */
+    public function acceptAmendment(int $id, int $cid, string $role): array
+    {
+        if (!$this->radTableExists()) return ['error' => 'RAD tables not yet deployed'];
+
+        $amendment = $this->getAmendment($id);
+        if (!$amendment) return ['error' => 'Amendment not found'];
+        if ($amendment['status'] !== 'ISSUED') {
+            return ['error' => 'Only ISSUED amendments can be accepted'];
+        }
+
+        $sql = "UPDATE dbo.rad_amendments
+                SET status = 'ACPT', resolved_utc = SYSUTCDATETIME(), actor_role = ?
+                WHERE id = ?";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$role, $id]);
+        if ($stmt === false) return ['error' => 'Update failed'];
+        sqlsrv_free_stmt($stmt);
+
+        $this->logTransition($id, 'ISSUED', 'ACPT', "Accepted by $role (CID: $cid)", $cid);
+
+        $this->broadcastWebSocket('rad:amendment_update', [
+            'amendment_id' => $id, 'gufi' => $amendment['gufi'], 'status' => 'ACPT',
+        ]);
+
+        return ['success' => true, 'status' => 'ACPT'];
+    }
+
+    /**
+     * Reject amendment (with or without TOS).
+     */
+    public function rejectAmendment(int $id, int $cid, string $role, bool $with_tos = false): array
+    {
+        if (!$this->radTableExists()) return ['error' => 'RAD tables not yet deployed'];
+
+        $amendment = $this->getAmendment($id);
+        if (!$amendment) return ['error' => 'Amendment not found'];
+        if ($amendment['status'] !== 'ISSUED') {
+            return ['error' => 'Only ISSUED amendments can be rejected'];
+        }
+
+        $new_status = $with_tos ? 'TOS_PENDING' : 'RJCT';
+
+        $sql = "UPDATE dbo.rad_amendments
+                SET status = ?, rejected_by = ?, rejected_utc = SYSUTCDATETIME(), actor_role = ?
+                WHERE id = ?";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$new_status, $cid, $role, $id]);
+        if ($stmt === false) return ['error' => 'Update failed'];
+        sqlsrv_free_stmt($stmt);
+
+        $detail = $with_tos ? "Rejected with TOS by $role" : "Rejected by $role";
+        $this->logTransition($id, 'ISSUED', $new_status, "$detail (CID: $cid)", $cid);
+
+        $this->broadcastWebSocket('rad:amendment_update', [
+            'amendment_id' => $id, 'gufi' => $amendment['gufi'], 'status' => $new_status,
+        ]);
+
+        return ['success' => true, 'status' => $new_status];
+    }
+
+    /**
      * Get amendments with optional filters.
      */
     public function getAmendments(array $filters = []): array

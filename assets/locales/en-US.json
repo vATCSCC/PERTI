@@ -3334,6 +3334,14 @@
       "UNKN": "Unknown",
       "OK": "Exception",
       "EXC": "Excluded"
+    },
+    "role": {
+      "tmu": "TMU",
+      "atc": "ATC",
+      "pilot": "Pilot",
+      "va": "Virtual Airline",
+      "observer": "Observer",
+      "detecting": "Detecting role..."
     }
   },
   "navdata": {

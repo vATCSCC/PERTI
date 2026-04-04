@@ -44,6 +44,17 @@ window.RADController = (function() {
             }
         });
 
+        // Initialize role detection (must be before other modules)
+        if (window.RADRole) {
+            RADRole.init();
+        }
+
+        // VA selector
+        $('#rad_va_airline').on('change', function() {
+            var airline = $(this).val();
+            if (window.RADRole) RADRole.setVAContext(airline);
+        });
+
         // Initialize sub-modules
         if (window.RADFlightSearch) RADFlightSearch.init();
         if (window.RADFlightDetail) RADFlightDetail.init();

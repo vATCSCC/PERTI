@@ -52,6 +52,15 @@ if (!$perm) {
 <?php include("load/nav.php"); ?>
 
 <div class="rad-app">
+<div class="rad-role-bar d-flex align-items-center px-3 py-1" style="background:#16213e; border-bottom:1px solid #334; font-size:0.82rem;">
+    <span class="text-muted mr-2" data-i18n="rad.role.detecting">Detecting role...</span>
+    <span id="rad_role_indicator"></span>
+    <div id="rad_va_selector" class="ml-auto" style="display:none;">
+        <select id="rad_va_airline" class="form-control form-control-sm" style="width:auto;display:inline-block;background:#111;color:#ccc;border-color:#445;font-size:0.82rem;">
+            <option value="">-- Select VA --</option>
+        </select>
+    </div>
+</div>
 <div class="rad-map-section" id="rad_map_section">
     <div class="rad-map-controls">
         <textarea id="routeSearch" class="rad-route-input" rows="2"></textarea>
@@ -262,6 +271,7 @@ if (!$perm) {
 <script src="assets/js/playbook-cdr-search.js<?= _v('assets/js/playbook-cdr-search.js') ?>"></script>
 <!-- RAD modules -->
 <script src="assets/js/rad-event-bus.js<?= _v('assets/js/rad-event-bus.js') ?>"></script>
+<script src="assets/js/rad-role.js<?= _v('assets/js/rad-role.js') ?>"></script>
 <script src="assets/js/rad-flight-search.js<?= _v('assets/js/rad-flight-search.js') ?>"></script>
 <script src="assets/js/rad-flight-detail.js<?= _v('assets/js/rad-flight-detail.js') ?>"></script>
 <script src="assets/js/rad-amendment.js<?= _v('assets/js/rad-amendment.js') ?>"></script>
