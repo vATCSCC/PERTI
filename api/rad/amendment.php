@@ -9,10 +9,22 @@ $method = $_SERVER['REQUEST_METHOD'];
 $body = rad_read_payload();
 $action = $body['action'] ?? $_GET['action'] ?? null;
 
-// POST and DELETE operations: TMU required by default, role-aware for specific actions
+// POST and DELETE operations: role-aware checks (captures $role for service calls)
+$role = null;
 if ($method === 'POST' || $method === 'DELETE') {
-    $role_actions = ['issue', 'accept', 'reject', 'revert'];
-    if (!in_array($action, $role_actions)) {
+    if (in_array($action, ['create', 'send', 'resend', 'cancel'])) {
+        $role = rad_require_role((int)$cid, ['TMU', 'ATC']);
+    } elseif (in_array($action, ['issue'])) {
+        $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
+    } elseif (in_array($action, ['accept'])) {
+        $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA', 'PILOT']);
+    } elseif (in_array($action, ['reject'])) {
+        $role = rad_require_role((int)$cid, ['ATC', 'VA', 'PILOT']);
+    } elseif (in_array($action, ['revert'])) {
+        $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
+    } elseif ($method === 'DELETE') {
+        $role = rad_require_role((int)$cid, ['TMU', 'ATC']);
+    } else {
         rad_require_tmu($cid);
     }
 }
@@ -33,17 +45,6 @@ if ($method === 'GET') {
     // ---- Batch operations: POST with ids[] array ----
     $ids = $body['ids'] ?? null;
     if (is_array($ids) && !empty($ids) && in_array($action, ['send', 'issue', 'accept', 'reject', 'revert', 'cancel'])) {
-        // Role checks for batch
-        if ($action === 'issue') {
-            $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
-        } elseif ($action === 'accept') {
-            $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA', 'PILOT']);
-        } elseif ($action === 'reject') {
-            $role = rad_require_role((int)$cid, ['ATC', 'VA', 'PILOT']);
-        } elseif ($action === 'revert') {
-            $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
-        }
-
         $results = [];
         $errors = [];
         foreach ($ids as $rawId) {
@@ -94,7 +95,6 @@ if ($method === 'GET') {
     } elseif ($action === 'issue') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) rad_respond_json(400, ['status' => 'error', 'message' => 'id required']);
-        $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
         $result = $svc->issueAmendment($id, (int)$cid, $role);
         if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
         rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
@@ -102,7 +102,6 @@ if ($method === 'GET') {
     } elseif ($action === 'accept') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) rad_respond_json(400, ['status' => 'error', 'message' => 'id required']);
-        $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA', 'PILOT']);
         $result = $svc->acceptAmendment($id, (int)$cid, $role);
         if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
         rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
@@ -110,7 +109,6 @@ if ($method === 'GET') {
     } elseif ($action === 'reject') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) rad_respond_json(400, ['status' => 'error', 'message' => 'id required']);
-        $role = rad_require_role((int)$cid, ['ATC', 'VA', 'PILOT']);
         $with_tos = !empty($body['with_tos']);
         $result = $svc->rejectAmendment($id, (int)$cid, $role, $with_tos);
         if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
@@ -119,7 +117,6 @@ if ($method === 'GET') {
     } elseif ($action === 'revert') {
         $id = (int)($body['id'] ?? 0);
         if (!$id) rad_respond_json(400, ['status' => 'error', 'message' => 'id required']);
-        $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
         $result = $svc->revertAmendment($id, (int)$cid, $role);
         if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
         rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
