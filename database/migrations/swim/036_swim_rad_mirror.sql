@@ -5,6 +5,7 @@
 CREATE TABLE dbo.swim_rad_amendments (
     id              INT PRIMARY KEY,
     gufi            UNIQUEIDENTIFIER NOT NULL,
+    gufi_legacy     NVARCHAR(64) NULL,
     callsign        VARCHAR(10) NOT NULL,
     origin          CHAR(4) NOT NULL,
     destination     CHAR(4) NOT NULL,
@@ -23,12 +24,12 @@ CREATE TABLE dbo.swim_rad_amendments (
     delivered_utc   DATETIME2,
     resolved_utc    DATETIME2,
     expires_utc     DATETIME2,
-    notes           VARCHAR(500)
+    notes           VARCHAR(500),
+    synced_utc      DATETIME2 NULL DEFAULT SYSUTCDATETIME()
 );
 
 CREATE INDEX IX_swim_rad_gufi ON dbo.swim_rad_amendments (gufi);
-CREATE INDEX IX_swim_rad_status ON dbo.swim_rad_amendments (status)
-    WHERE status NOT IN ('ACPT','RJCT','EXPR');
+CREATE INDEX IX_swim_rad_status ON dbo.swim_rad_amendments (status);
 
 -- Feature gating column on swim_api_keys
 -- NULL = all features allowed. JSON array = restricted to listed features.

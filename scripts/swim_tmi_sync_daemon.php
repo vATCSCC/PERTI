@@ -686,9 +686,9 @@ function getTier1TmiConfigs(): array {
             'swim_table' => 'swim_rad_amendments',
             'pk' => 'id',
             'watermark' => 'created_utc',
-            'source_query' => 'SELECT id, gufi, callsign, origin, destination, original_route, assigned_route, assigned_route_geojson, status, rrstat, tmi_reroute_id, tmi_id_label, delivery_channels, route_color, created_by, created_utc, sent_utc, delivered_utc, resolved_utc, expires_utc, notes FROM dbo.rad_amendments',
+            'source_query' => 'SELECT id, gufi, gufi_legacy, callsign, origin, destination, original_route, assigned_route, assigned_route_geojson, status, rrstat, tmi_reroute_id, tmi_id_label, delivery_channels, route_color, created_by, created_utc, sent_utc, delivered_utc, resolved_utc, expires_utc, notes FROM dbo.rad_amendments',
             'columns' => [
-                'id' => 'INT', 'gufi' => 'UNIQUEIDENTIFIER',
+                'id' => 'INT', 'gufi' => 'UNIQUEIDENTIFIER', 'gufi_legacy' => 'NVARCHAR(64)',
                 'callsign' => 'VARCHAR(10)', 'origin' => 'CHAR(4)', 'destination' => 'CHAR(4)',
                 'original_route' => 'VARCHAR(MAX)', 'assigned_route' => 'VARCHAR(MAX)',
                 'assigned_route_geojson' => 'VARCHAR(MAX)',
