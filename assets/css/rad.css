@@ -34,6 +34,7 @@
     color: #ccc;
 }
 .rad-app ~ footer.cs-footer { display: none !important; }
+body:has(.rad-app) { background: #1a1a2e !important; }
 
 
 /* ── 3. Map Section ── */
@@ -661,6 +662,7 @@
 .rad-map-section #pbcdr_search_panel {
     top: 10px;
     right: 10px;
+    z-index: 600;
     max-height: calc(100% - 20px);
     overflow: hidden;
     background: rgba(22, 33, 62, 0.95);
@@ -738,7 +740,7 @@ body .swal2-popup .text-monospace { color: #6f8; }
 
 /* ── 16. Overlay Layer Control Dark Theme ── */
 .rad-map-section .maplibre-layer-control {
-    z-index: 500 !important;
+    z-index: 999 !important;
 }
 .rad-map-section #layer-control-toggle {
     background: rgba(22, 33, 62, 0.92) !important;
