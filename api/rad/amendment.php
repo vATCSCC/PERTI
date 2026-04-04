@@ -30,6 +30,43 @@ if ($method === 'GET') {
 
 } elseif ($method === 'POST') {
 
+    // ---- Batch operations: POST with ids[] array ----
+    $ids = $body['ids'] ?? null;
+    if (is_array($ids) && !empty($ids) && in_array($action, ['send', 'issue', 'accept', 'reject', 'cancel'])) {
+        // Role checks for batch
+        if ($action === 'issue') {
+            $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA']);
+        } elseif ($action === 'accept') {
+            $role = rad_require_role((int)$cid, ['TMU', 'ATC', 'VA', 'PILOT']);
+        } elseif ($action === 'reject') {
+            $role = rad_require_role((int)$cid, ['ATC', 'VA', 'PILOT']);
+        }
+
+        $results = [];
+        $errors = [];
+        foreach ($ids as $rawId) {
+            $batchId = (int)$rawId;
+            if (!$batchId) continue;
+            $r = null;
+            if ($action === 'send') $r = $svc->sendAmendment($batchId, (int)$cid);
+            elseif ($action === 'issue') $r = $svc->issueAmendment($batchId, (int)$cid, $role);
+            elseif ($action === 'accept') $r = $svc->acceptAmendment($batchId, (int)$cid, $role);
+            elseif ($action === 'reject') $r = $svc->rejectAmendment($batchId, (int)$cid, $role, false);
+            elseif ($action === 'cancel') $r = $svc->cancelAmendment($batchId, (int)$cid);
+
+            if ($r && isset($r['error'])) {
+                $errors[] = $batchId . ': ' . $r['error'];
+            } else {
+                $results[] = $batchId;
+            }
+        }
+        if (!empty($errors) && empty($results)) {
+            rad_respond_json(400, ['status' => 'error', 'message' => implode('; ', $errors)]);
+        }
+        rad_respond_json(200, ['status' => 'ok', 'data' => ['processed' => $results, 'errors' => $errors]]);
+    }
+
+    // ---- Single-item operations ----
     if ($action === 'send' && !empty($body['id'])) {
         // Send an existing DRAFT amendment by ID
         $id = (int)$body['id'];
@@ -74,7 +111,6 @@ if ($method === 'GET') {
         $with_tos = !empty($body['with_tos']);
         $result = $svc->rejectAmendment($id, (int)$cid, $role, $with_tos);
         if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
-        rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
 
     } else {
         // Create new amendment — accept both JS and direct field names

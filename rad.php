@@ -238,7 +238,13 @@ if (!$perm) {
                     <button class="btn btn-outline-secondary" id="rad_filter_alerts" data-i18n="rad.monitoring.alerts">Alerts</button>
                 </div>
                 <select id="rad_tmi_filter" class="form-control form-control-sm rad-tmi-filter"></select>
-                <button class="btn btn-sm btn-outline-danger ml-auto" id="rad_batch_delete" style="display:none;" data-i18n="rad.monitoring.deleteSelected">Delete Selected</button>
+                <div class="rad-batch-actions ml-auto" id="rad_batch_bar" style="display:none;">
+                    <button class="btn btn-sm btn-outline-success mr-1" id="rad_batch_send" style="display:none;"><i class="fas fa-paper-plane mr-1"></i><span></span></button>
+                    <button class="btn btn-sm btn-outline-info mr-1" id="rad_batch_issue" style="display:none;"><i class="fas fa-check-circle mr-1"></i><span></span></button>
+                    <button class="btn btn-sm btn-outline-success mr-1" id="rad_batch_accept" style="display:none;"><i class="fas fa-thumbs-up mr-1"></i><span></span></button>
+                    <button class="btn btn-sm btn-outline-warning mr-1" id="rad_batch_reject" style="display:none;"><i class="fas fa-thumbs-down mr-1"></i><span></span></button>
+                    <button class="btn btn-sm btn-outline-danger" id="rad_batch_delete"><i class="fas fa-trash mr-1"></i><span></span></button>
+                </div>
             </div>
             <table class="table table-sm rad-table" id="rad_monitoring_table">
                 <thead><tr>
