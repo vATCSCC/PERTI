@@ -623,6 +623,18 @@
 .rad-aggregate-unknown      { background: #89a; }
 .rad-aggregate-exception    { background: #556; }
 
+/* Batch action bar */
+.rad-batch-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.rad-batch-actions .btn {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    white-space: nowrap;
+}
+
 /* Auto-refresh indicator */
 .rad-refresh-indicator {
     display: flex;

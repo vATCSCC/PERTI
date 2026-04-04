@@ -73,22 +73,38 @@ window.RADMonitoring = (function() {
 
         // Batch selection
         $(document).on('change', '.rad-row-select', function() {
-            updateBatchDeleteButton();
+            updateBatchActionBar();
         });
 
         $('#rad_select_all').on('change', function() {
             var checked = $(this).prop('checked');
             $('.rad-row-select').prop('checked', checked);
-            updateBatchDeleteButton();
+            updateBatchActionBar();
+        });
+
+        $('#rad_batch_send').on('click', function() {
+            var ids = getSelectedIdsByStatus(['DRAFT']);
+            if (ids.length > 0) batchAction('send', ids, PERTII18n.t('rad.monitoring.batchSendConfirm', { count: ids.length }));
+        });
+
+        $('#rad_batch_issue').on('click', function() {
+            var ids = getSelectedIdsByStatus(['SENT', 'DLVD']);
+            if (ids.length > 0) batchAction('issue', ids, PERTII18n.t('rad.monitoring.batchIssueConfirm', { count: ids.length }));
+        });
+
+        $('#rad_batch_accept').on('click', function() {
+            var ids = getSelectedIdsByStatus(['ISSUED']);
+            if (ids.length > 0) batchAction('accept', ids, PERTII18n.t('rad.monitoring.batchAcceptConfirm', { count: ids.length }));
+        });
+
+        $('#rad_batch_reject').on('click', function() {
+            var ids = getSelectedIdsByStatus(['ISSUED']);
+            if (ids.length > 0) batchAction('reject', ids, PERTII18n.t('rad.monitoring.batchRejectConfirm', { count: ids.length }));
         });
 
         $('#rad_batch_delete').on('click', function() {
-            var ids = [];
-            $('.rad-row-select:checked').each(function() {
-                ids.push($(this).data('id'));
-            });
-            if (ids.length === 0) return;
-            batchDeleteAmendments(ids);
+            var ids = getSelectedIdsByStatus(['DRAFT', 'SENT']);
+            if (ids.length > 0) batchAction('cancel', ids, PERTII18n.t('rad.monitoring.confirmBatchDelete', { count: ids.length }));
         });
 
         $(document).on('click', '.rad-btn-enter-tos', function() {
@@ -352,8 +368,8 @@ window.RADMonitoring = (function() {
         var csColor = RADEventBus.callsignColor(a.callsign);
         var row = $('<tr class="' + rowClass + '" data-amid="' + a.id + '">');
 
-        var canDelete = (a.status === 'DRAFT' || a.status === 'SENT');
-        row.append('<td>' + (canDelete ? '<input type="checkbox" class="rad-row-select" data-id="' + a.id + '">' : '') + '</td>');
+        var hasActions = (a.status === 'DRAFT' || a.status === 'SENT' || a.status === 'DLVD' || a.status === 'ISSUED');
+        row.append('<td>' + (hasActions ? '<input type="checkbox" class="rad-row-select" data-id="' + a.id + '" data-status="' + a.status + '">' : '') + '</td>');
         row.append('<td class="rad-cs" style="color:' + csColor + ';">' + (a.callsign || '') + '</td>');
         row.append('<td>' + (a.origin || '') + ' / ' + (a.dest || '') + '</td>');
         var statusHtml = getStatusBadge(a.status);
@@ -653,37 +669,93 @@ window.RADMonitoring = (function() {
             });
     }
 
-    function updateBatchDeleteButton() {
-        var count = $('.rad-row-select:checked').length;
-        if (count > 0) {
-            $('#rad_batch_delete').show().text(PERTII18n.t('rad.monitoring.deleteSelected') + ' (' + count + ')');
+    function getSelectedIdsByStatus(statuses) {
+        var ids = [];
+        $('.rad-row-select:checked').each(function() {
+            var status = $(this).data('status');
+            if (statuses.indexOf(status) !== -1) {
+                ids.push($(this).data('id'));
+            }
+        });
+        return ids;
+    }
+
+    function updateBatchActionBar() {
+        var counts = { DRAFT: 0, SENT: 0, DLVD: 0, ISSUED: 0 };
+        $('.rad-row-select:checked').each(function() {
+            var status = $(this).data('status');
+            if (counts[status] !== undefined) counts[status]++;
+        });
+
+        var total = counts.DRAFT + counts.SENT + counts.DLVD + counts.ISSUED;
+
+        if (total === 0) {
+            $('#rad_batch_bar').hide();
+            return;
+        }
+
+        $('#rad_batch_bar').show();
+
+        // Send: DRAFT only
+        if (counts.DRAFT > 0) {
+            $('#rad_batch_send').show().find('span').text(PERTII18n.t('rad.monitoring.send') + ' (' + counts.DRAFT + ')');
+        } else {
+            $('#rad_batch_send').hide();
+        }
+
+        // Issue: SENT + DLVD
+        var issueCount = counts.SENT + counts.DLVD;
+        if (issueCount > 0) {
+            $('#rad_batch_issue').show().find('span').text(PERTII18n.t('rad.actions.markIssued') + ' (' + issueCount + ')');
+        } else {
+            $('#rad_batch_issue').hide();
+        }
+
+        // Accept: ISSUED
+        if (counts.ISSUED > 0) {
+            $('#rad_batch_accept').show().find('span').text(PERTII18n.t('rad.actions.acceptOnBehalf') + ' (' + counts.ISSUED + ')');
+        } else {
+            $('#rad_batch_accept').hide();
+        }
+
+        // Reject: ISSUED
+        if (counts.ISSUED > 0) {
+            $('#rad_batch_reject').show().find('span').text(PERTII18n.t('rad.actions.rejectOnBehalf') + ' (' + counts.ISSUED + ')');
+        } else {
+            $('#rad_batch_reject').hide();
+        }
+
+        // Delete: DRAFT + SENT
+        var deleteCount = counts.DRAFT + counts.SENT;
+        if (deleteCount > 0) {
+            $('#rad_batch_delete').show().find('span').text(PERTII18n.t('rad.monitoring.deleteSelected') + ' (' + deleteCount + ')');
         } else {
             $('#rad_batch_delete').hide();
         }
     }
 
-    function batchDeleteAmendments(ids) {
-        PERTIDialog.confirm(PERTII18n.t('rad.monitoring.confirmBatchDelete', { count: ids.length }))
+    function batchAction(action, ids, confirmMsg) {
+        var isDelete = (action === 'cancel');
+        PERTIDialog.confirm(confirmMsg)
             .then(function(result) {
                 if (result.isConfirmed) {
-                    $.ajax({
-                        url: 'api/rad/amendment.php',
-                        type: 'DELETE',
-                        contentType: 'application/json',
-                        data: JSON.stringify({ ids: ids })
-                    })
+                    var ajaxOpts = isDelete
+                        ? { url: 'api/rad/amendment.php', type: 'DELETE', contentType: 'application/json', data: JSON.stringify({ ids: ids }) }
+                        : { url: 'api/rad/amendment.php', type: 'POST', contentType: 'application/json', data: JSON.stringify({ action: action, ids: ids }) };
+
+                    $.ajax(ajaxOpts)
                     .done(function(response) {
                         if (response.status === 'ok') {
-                            var deleted = (response.data && response.data.deleted) || [];
+                            var processed = (response.data && (response.data.processed || response.data.deleted)) || [];
                             var errors = (response.data && response.data.errors) || [];
-                            PERTIDialog.success(PERTII18n.t('rad.monitoring.batchDeleted', { count: deleted.length }));
+                            PERTIDialog.success(PERTII18n.t('rad.monitoring.batchComplete', { action: action, count: processed.length }));
                             if (errors.length > 0) {
                                 PERTIDialog.warning(errors.join('; '));
                             }
                             $('#rad_select_all').prop('checked', false);
                             refresh();
                         } else {
-                            PERTIDialog.warning(response.message || PERTII18n.t('error.deleteFailed'));
+                            PERTIDialog.warning(response.message || PERTII18n.t('error.updateFailed'));
                         }
                     })
                     .fail(function() {
