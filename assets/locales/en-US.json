@@ -3293,12 +3293,38 @@
       "noMatch": "no match",
       "delta": "Delta"
     },
+    "clearance": {
+      "builder": "Clearance Builder",
+      "preview": "Clearance Preview",
+      "filedRoute": "Filed Route",
+      "assignedRoute": "Assigned Route",
+      "generatedClearance": "Generated Clearance",
+      "closingPhrase": "Closing Phrase",
+      "thenAsFiled": "then as filed",
+      "restUnchanged": "rest of route unchanged",
+      "autoDetected": "Auto-detected from route diff",
+      "anchor": "Anchor Fix",
+      "amendment": "Amendment",
+      "noChanges": "Routes are identical — no amendment needed",
+      "copyToClipboard": "Copy to Clipboard",
+      "copied": "Clearance copied to clipboard"
+    },
+    "actions": {
+      "issue": "Issue to Pilot",
+      "markIssued": "Mark as Issued",
+      "acceptOnBehalf": "Accept",
+      "rejectOnBehalf": "Reject"
+    },
     "status": {
       "DRAFT": "Draft",
       "SENT": "Sent",
       "DLVD": "Delivered",
+      "ISSUED": "Issued",
       "ACPT": "Accepted",
       "RJCT": "Rejected",
+      "TOS_PENDING": "TOS Pending",
+      "TOS_RESOLVED": "TOS Resolved",
+      "FORCED": "Forced",
       "EXPR": "Expired"
     },
     "rrstat": {

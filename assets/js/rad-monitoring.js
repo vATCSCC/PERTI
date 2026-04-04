@@ -53,6 +53,11 @@ window.RADMonitoring = (function() {
             deleteAmendment(id);
         });
 
+        $(document).on('click', '.rad-btn-issue', function() {
+            var id = $(this).data('id');
+            issueAmendment(id);
+        });
+
         // Load TMI programs for filter
         loadTMIPrograms();
     }
@@ -191,12 +196,9 @@ window.RADMonitoring = (function() {
     function renderSummary() {
         var counts = {
             total: amendments.length,
-            draft: 0,
-            sent: 0,
-            dlvd: 0,
-            acpt: 0,
-            rjct: 0,
-            expr: 0
+            draft: 0, sent: 0, dlvd: 0, issued: 0,
+            acpt: 0, rjct: 0, expr: 0,
+            tos_pending: 0, tos_resolved: 0, forced: 0
         };
 
         amendments.forEach(function(a) {
@@ -204,9 +206,13 @@ window.RADMonitoring = (function() {
             if (status === 'DRAFT') counts.draft++;
             else if (status === 'SENT') counts.sent++;
             else if (status === 'DLVD') counts.dlvd++;
+            else if (status === 'ISSUED') counts.issued++;
             else if (status === 'ACPT') counts.acpt++;
             else if (status === 'RJCT') counts.rjct++;
             else if (status === 'EXPR') counts.expr++;
+            else if (status === 'TOS_PENDING') counts.tos_pending++;
+            else if (status === 'TOS_RESOLVED') counts.tos_resolved++;
+            else if (status === 'FORCED') counts.forced++;
         });
 
         var html = '';
@@ -214,6 +220,7 @@ window.RADMonitoring = (function() {
         html += buildCard(PERTII18n.t('rad.monitoring.draft'), counts.draft, 'info');
         html += buildCard(PERTII18n.t('rad.monitoring.sent'), counts.sent, 'warning');
         html += buildCard(PERTII18n.t('rad.monitoring.delivered'), counts.dlvd, 'primary');
+        html += buildCard(PERTII18n.t('rad.status.ISSUED'), counts.issued, 'info');
         html += buildCard(PERTII18n.t('rad.monitoring.accepted'), counts.acpt, 'success');
         html += buildCard(PERTII18n.t('rad.monitoring.rejected'), counts.rjct, 'danger');
         html += buildCard(PERTII18n.t('rad.monitoring.expired'), counts.expr, 'secondary');
@@ -319,8 +326,12 @@ window.RADMonitoring = (function() {
         if (status === 'DRAFT') badgeClass = 'rad-badge-info';
         else if (status === 'SENT') badgeClass = 'rad-badge-warning';
         else if (status === 'DLVD') badgeClass = 'rad-badge-primary';
+        else if (status === 'ISSUED') badgeClass = 'rad-badge-info';
         else if (status === 'ACPT') badgeClass = 'rad-badge-success';
         else if (status === 'RJCT') badgeClass = 'rad-badge-danger';
+        else if (status === 'TOS_PENDING') badgeClass = 'rad-badge-warning';
+        else if (status === 'TOS_RESOLVED') badgeClass = 'rad-badge-primary';
+        else if (status === 'FORCED') badgeClass = 'rad-badge-danger';
         else if (status === 'EXPR') badgeClass = 'rad-badge-secondary';
 
         return '<span class="rad-badge ' + badgeClass + '">' + label + '</span>';
@@ -348,6 +359,7 @@ window.RADMonitoring = (function() {
         var html = '';
 
         if (a.status === 'SENT' || a.status === 'DLVD') {
+            html += '<button class="btn btn-sm btn-outline-info rad-btn-issue mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.actions.markIssued') + '</button>';
             html += '<button class="btn btn-sm btn-outline-primary rad-btn-resend mr-1" data-id="' + a.id + '">' + PERTII18n.t('rad.monitoring.resend') + '</button>';
         }
 
@@ -390,7 +402,7 @@ window.RADMonitoring = (function() {
         // Status filter
         if (currentFilter === 'pending') {
             filtered = filtered.filter(function(a) {
-                return a.status === 'SENT' || a.status === 'DLVD';
+                return a.status === 'SENT' || a.status === 'DLVD' || a.status === 'ISSUED';
             });
         } else if (currentFilter === 'noncompliant') {
             filtered = filtered.filter(function(a) {
@@ -398,7 +410,7 @@ window.RADMonitoring = (function() {
             });
         } else if (currentFilter === 'alerts') {
             filtered = filtered.filter(function(a) {
-                return a.status === 'EXPR' || a.status === 'RJCT';
+                return a.status === 'EXPR' || a.status === 'RJCT' || a.status === 'TOS_PENDING';
             });
         }
 
@@ -441,9 +453,30 @@ window.RADMonitoring = (function() {
         $('#rad_aggregate_bar').html(html);
     }
 
+    function issueAmendment(id) {
+        PERTIDialog.confirm(PERTII18n.t('rad.actions.issue') + '?')
+            .then(function(result) {
+                if (result.isConfirmed) {
+                    $.post('api/rad/amendment.php', { id: id, action: 'issue', role: 'TMU' })
+                        .done(function(response) {
+                            if (response.status === 'ok') {
+                                PERTIDialog.success(PERTII18n.t('rad.status.ISSUED'));
+                                refresh();
+                            } else {
+                                PERTIDialog.warning(response.message || PERTII18n.t('error.updateFailed'));
+                            }
+                        })
+                        .fail(function() {
+                            PERTIDialog.warning(PERTII18n.t('error.networkError'));
+                        });
+                }
+            });
+    }
+
     function updateBadge() {
         var active = amendments.filter(function(a) {
-            return a.status !== 'ACPT' && a.status !== 'RJCT' && a.status !== 'EXPR';
+            return a.status !== 'ACPT' && a.status !== 'RJCT' && a.status !== 'EXPR'
+                && a.status !== 'TOS_RESOLVED' && a.status !== 'FORCED';
         }).length;
 
         $('#rad_monitoring_badge').text(active);

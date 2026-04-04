@@ -13,6 +13,11 @@ window.RADAmendment = (function() {
     function init() {
         bindEvents();
 
+        // Initialize clearance builder
+        if (window.RADClearanceBuilder) {
+            RADClearanceBuilder.init('rad_clearance_builder');
+        }
+
         // Listen for flight selections
         RADEventBus.on('flight:selected', function(data) {
             if (!currentFlights.some(function(f) { return f.gufi === data.gufi; })) {
@@ -517,6 +522,21 @@ window.RADAmendment = (function() {
 
         autoPlotRoutes();
         debouncedComputeDeltas();
+
+        // Update clearance builder
+        if (window.RADClearanceBuilder && currentFlights.length > 0) {
+            var flight = currentFlights[0];
+            var original = flight.route || '';
+            var hasPerFlight = Object.keys(perFlightRoutes).length > 0;
+            var assigned = hasPerFlight ? (perFlightRoutes[flight.gufi] || '') : currentRoute;
+            if (assigned) {
+                RADClearanceBuilder.setRoutes(original, assigned, flight.callsign, flight.dest);
+            } else {
+                RADClearanceBuilder.reset();
+            }
+        } else if (window.RADClearanceBuilder) {
+            RADClearanceBuilder.reset();
+        }
     }
 
     function generateDiff(original, assigned) {
@@ -656,6 +676,12 @@ window.RADAmendment = (function() {
             payload.route = route;  // single route (existing behavior)
         }
 
+        // Attach clearance data if available
+        if (window.RADClearanceBuilder) {
+            payload.clearance_text = RADClearanceBuilder.getClearanceText();
+            payload.clearance_segments = JSON.stringify(RADClearanceBuilder.getSegments());
+        }
+
         return payload;
     }
 
@@ -668,6 +694,7 @@ window.RADAmendment = (function() {
         $('#rad_find').val('');
         $('#rad_replace').val('');
         $('#rad_amendment_preview').html('<div class="text-muted">' + PERTII18n.t('rad.amendment.noPreview') + '</div>');
+        if (window.RADClearanceBuilder) RADClearanceBuilder.reset();
         // Re-plot: shows only original routes in gray (amendment routes cleared)
         autoPlotRoutes();
     }

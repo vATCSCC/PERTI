@@ -48,6 +48,14 @@ if ($method === 'GET') {
         if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
         rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
 
+    } elseif ($action === 'issue') {
+        $id = (int)($body['id'] ?? 0);
+        if (!$id) rad_respond_json(400, ['status' => 'error', 'message' => 'id required']);
+        $role = $body['role'] ?? 'TMU';
+        $result = $svc->issueAmendment($id, (int)$cid, $role);
+        if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
+        rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
+
     } else {
         // Create new amendment — accept both JS and direct field names
         $route  = $body['route'] ?? $body['assigned_route'] ?? null;
@@ -70,13 +78,16 @@ if ($method === 'GET') {
         if (is_array($channels)) $channels = implode(',', $channels);
 
         $options = [
-            'delivery_channels' => $channels,
-            'tmi_reroute_id'    => $body['tmi_reroute_id'] ?? null,
-            'tmi_id_label'      => $body['tmi_id'] ?? $body['tmi_id_label'] ?? null,
-            'route_color'       => $body['route_color'] ?? null,
-            'notes'             => $body['notes'] ?? null,
-            'send'              => ($action === 'send') || !empty($body['send']),
-            'created_by'        => (int)$cid,
+            'delivery_channels'  => $channels,
+            'tmi_reroute_id'     => $body['tmi_reroute_id'] ?? null,
+            'tmi_id_label'       => $body['tmi_id'] ?? $body['tmi_id_label'] ?? null,
+            'route_color'        => $body['route_color'] ?? null,
+            'notes'              => $body['notes'] ?? null,
+            'send'               => ($action === 'send') || !empty($body['send']),
+            'created_by'         => (int)$cid,
+            'clearance_text'     => $body['clearance_text'] ?? null,
+            'clearance_segments' => $body['clearance_segments'] ?? null,
+            'closing_phrase'     => $body['closing_phrase'] ?? null,
         ];
 
         // Create amendment for each GUFI

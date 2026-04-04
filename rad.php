@@ -189,6 +189,8 @@ if (!$perm) {
                     <div id="rad_current_routes" class="mb-2"></div>
                     <label data-i18n="rad.edit.amendmentPreview">Amendment Preview</label>
                     <div id="rad_amendment_preview" class="rad-amendment-preview mb-2"></div>
+                    <label data-i18n="rad.clearance.builder">Clearance Builder</label>
+                    <div id="rad_clearance_builder" class="mb-2"></div>
                     <div class="mb-2">
                         <label data-i18n="rad.edit.tmiAssociation">TMI Association</label>
                         <select id="rad_tmi_assoc" class="form-control form-control-sm"></select>
@@ -263,6 +265,7 @@ if (!$perm) {
 <script src="assets/js/rad-flight-search.js<?= _v('assets/js/rad-flight-search.js') ?>"></script>
 <script src="assets/js/rad-flight-detail.js<?= _v('assets/js/rad-flight-detail.js') ?>"></script>
 <script src="assets/js/rad-amendment.js<?= _v('assets/js/rad-amendment.js') ?>"></script>
+<script src="assets/js/rad-clearance-builder.js<?= _v('assets/js/rad-clearance-builder.js') ?>"></script>
 <script src="assets/js/rad-monitoring.js<?= _v('assets/js/rad-monitoring.js') ?>"></script>
 <script src="assets/js/rad.js<?= _v('assets/js/rad.js') ?>"></script>
 </body>

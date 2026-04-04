@@ -845,3 +845,112 @@ body .swal2-popup .text-monospace { color: #6f8; }
     font-size: 0.9em;
     line-height: 1.3;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   20. Clearance Builder
+   ═══════════════════════════════════════════════════════════════ */
+
+.rad-clearance-diff {
+    background: #0d1117;
+    border: 1px solid #334;
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    font-family: Inconsolata, 'Courier New', monospace;
+    font-size: 0.82rem;
+}
+.rad-clearance-diff-label {
+    color: #667;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.rad-diff-row {
+    margin-bottom: 4px;
+    line-height: 1.8;
+}
+.rad-diff-label {
+    color: #89a;
+    font-size: 0.75rem;
+    display: inline-block;
+    width: 100px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.rad-diff-anchor {
+    color: #5a5;
+    font-weight: 600;
+}
+.rad-diff-removed {
+    color: #f66;
+    text-decoration: line-through;
+}
+.rad-diff-inserted {
+    color: #4ECDC4;
+    font-weight: 700;
+}
+.rad-diff-unchanged {
+    color: #6f8;
+}
+
+.rad-clearance-segments {
+    margin-bottom: 10px;
+}
+.rad-clearance-segment {
+    background: #111;
+    border: 1px solid #334;
+    border-radius: 3px;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    font-family: Inconsolata, 'Courier New', monospace;
+    font-size: 0.82rem;
+    color: #ccc;
+}
+.rad-segment-badge {
+    background: #335;
+    color: #aaf;
+    font-size: 0.68rem;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+.rad-segment-removed {
+    color: #667;
+    font-size: 0.78rem;
+}
+
+.rad-clearance-closing {
+    margin-bottom: 10px;
+    color: #89a;
+    font-size: 0.82rem;
+}
+.rad-clearance-closing select {
+    background: #16213e;
+    color: #ccc;
+    border-color: #445;
+    font-size: 0.82rem;
+}
+
+.rad-clearance-preview {
+    background: #16213e;
+    border: 1px solid #445;
+    border-radius: 4px;
+    padding: 10px 12px;
+}
+.rad-clearance-preview-label {
+    color: #89a;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.rad-clearance-text {
+    color: #4ECDC4;
+    font-family: Inconsolata, 'Courier New', monospace;
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.6;
+    word-break: break-word;
+}

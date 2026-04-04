@@ -231,9 +231,10 @@ class RADService
         $sql = "INSERT INTO dbo.rad_amendments
             (gufi, callsign, origin, destination, original_route, assigned_route,
              status, tmi_reroute_id, tmi_id_label, delivery_channels, route_color,
-             created_by, notes, expires_utc)
+             created_by, notes, clearance_text, clearance_segments, closing_phrase,
+             expires_utc)
             OUTPUT INSERTED.id
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     DATEADD(HOUR, 6, SYSUTCDATETIME()))";
 
         $params = [
@@ -250,6 +251,9 @@ class RADService
             $options['route_color'] ?? null,
             $options['created_by'] ?? null,
             $options['notes'] ?? null,
+            $options['clearance_text'] ?? null,
+            $options['clearance_segments'] ?? null,
+            $options['closing_phrase'] ?? null,
         ];
 
         $stmt = sqlsrv_query($this->conn_tmi, $sql, $params);
@@ -359,6 +363,42 @@ class RADService
     }
 
     /**
+     * Mark amendment as ISSUED (ATC/VA has issued clearance to pilot).
+     * TMU can also mark ISSUED to bypass ATC handoff.
+     */
+    public function issueAmendment(int $id, int $issuer_cid, string $issuer_role = 'TMU'): array
+    {
+        if (!$this->radTableExists()) return ['error' => 'RAD tables not yet deployed'];
+
+        $amendment = $this->getAmendment($id);
+        if (!$amendment) return ['error' => 'Amendment not found'];
+
+        // Valid transitions: SENT -> ISSUED, DLVD -> ISSUED
+        if (!in_array($amendment['status'], ['SENT', 'DLVD'])) {
+            return ['error' => 'Only SENT/DLVD amendments can be marked as ISSUED'];
+        }
+
+        $sql = "UPDATE dbo.rad_amendments
+                SET status = 'ISSUED', issued_by = ?, issued_utc = SYSUTCDATETIME(), actor_role = ?
+                WHERE id = ?";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql, [$issuer_cid, $issuer_role, $id]);
+        if ($stmt === false) return ['error' => 'Update failed'];
+        sqlsrv_free_stmt($stmt);
+
+        $this->logTransition($id, $amendment['status'], 'ISSUED',
+            "Issued by $issuer_role (CID: $issuer_cid)", $issuer_cid);
+
+        $this->broadcastWebSocket('rad:amendment_update', [
+            'amendment_id' => $id,
+            'gufi' => $amendment['gufi'],
+            'status' => 'ISSUED',
+            'issued_by' => $issuer_cid,
+        ]);
+
+        return ['success' => true, 'status' => 'ISSUED'];
+    }
+
+    /**
      * Get amendments with optional filters.
      */
     public function getAmendments(array $filters = []): array
@@ -427,7 +467,7 @@ class RADService
         // Gracefully handle missing rad_amendments table
         if (!$this->radTableExists()) return $empty;
 
-        $where = ["status IN ('SENT','DLVD')"];
+        $where = ["status IN ('SENT','DLVD','ISSUED')"];
         $params = [];
 
         if (!empty($filters['amendment_ids'])) {
@@ -491,7 +531,7 @@ class RADService
     public function runComplianceCheck(): array
     {
         $sql = "SELECT id, gufi, assigned_route, status FROM dbo.rad_amendments
-                WHERE status IN ('SENT', 'DLVD')";
+                WHERE status IN ('SENT', 'DLVD', 'ISSUED')";
         $stmt = sqlsrv_query($this->conn_tmi, $sql);
         if (!$stmt) return ['error' => 'Query failed'];
 
@@ -507,7 +547,7 @@ class RADService
 
             // Check for status transitions
             $new_status = $amend['status'];
-            if ($new_rrstat === 'C' && in_array($amend['status'], ['SENT', 'DLVD'])) {
+            if ($new_rrstat === 'C' && in_array($amend['status'], ['SENT', 'DLVD', 'ISSUED'])) {
                 $new_status = 'ACPT';
                 $transitioned++;
             } elseif (in_array($flight['phase'], ['enroute', 'departed', 'descending', 'taxiing']) && !empty($flight['atd_utc'])) {
