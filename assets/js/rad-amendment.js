@@ -581,17 +581,33 @@ window.RADAmendment = (function() {
     }
 
     function loadTMIPrograms() {
-        $.get('api/tmi/gdp_preview.php')
+        $.get('api/tmi/active.php?include=programs,advisories,reroutes')
             .done(function(response) {
-                if (response.status === 'ok' && response.data) {
-                    var select = $('#rad_tmi_assoc');
-                    select.empty();
-                    select.append('<option value="">' + PERTII18n.t('rad.amendment.noTMI') + '</option>');
+                if (response.status !== 'ok' || !response.data) return;
+                var d = response.data;
+                var select = $('#rad_tmi_assoc');
+                select.empty();
+                select.append('<option value="">' + PERTII18n.t('rad.amendment.noTMI') + '</option>');
 
-                    (response.data || []).forEach(function(program) {
-                        select.append('<option value="' + program.program_id + '">' + program.name + '</option>');
-                    });
-                }
+                // Active programs (GDP/GS)
+                (d.programs || []).forEach(function(p) {
+                    var label = (p.program_type || 'GDP') + ' ' + (p.ctl_element || '') + ': ' + (p.program_name || 'Program ' + p.program_id);
+                    select.append('<option value="' + (p.program_type || 'GDP') + '-' + p.program_id + '">' + label + '</option>');
+                });
+
+                // Active advisories
+                (d.advisories || []).forEach(function(a) {
+                    var num = a.advisory_number || a.advisory_id;
+                    var label = 'ADV ' + num + ': ' + (a.subject || a.advisory_type || a.ctl_element || '');
+                    select.append('<option value="ADV-' + num + '">' + label + '</option>');
+                });
+
+                // Active reroutes
+                (d.reroutes || []).forEach(function(r) {
+                    var label = 'RRT: ' + (r.name || 'Reroute ' + r.reroute_id);
+                    if (r.adv_number) label += ' (ADV ' + r.adv_number + ')';
+                    select.append('<option value="RRT-' + r.reroute_id + '" data-reroute-id="' + r.reroute_id + '">' + label + '</option>');
+                });
             });
     }
 
@@ -661,10 +677,12 @@ window.RADAmendment = (function() {
             return null;
         }
 
+        var $tmiOption = $('#rad_tmi_assoc option:selected');
         var payload = {
             action: action,
             channels: channels,
-            tmi_id: $('#rad_tmi_assoc').val() || null
+            tmi_id: $('#rad_tmi_assoc').val() || null,
+            tmi_reroute_id: $tmiOption.data('reroute-id') || null
         };
 
         if (hasPerFlight) {

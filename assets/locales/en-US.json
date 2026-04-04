@@ -3356,7 +3356,9 @@
       "observer": "Observer",
       "detecting": "Detecting role...",
       "auto": "Auto",
-      "override": "override"
+      "override": "override",
+      "carrierPlaceholder": "Carrier (e.g. AAL)",
+      "allCarriers": "All Carriers"
     },
     "tos": {
       "title": "Trajectory Option Set",

@@ -26,6 +26,12 @@ window.RADMonitoring = (function() {
         RADEventBus.on('tos:submitted', function() { refresh(); });
         RADEventBus.on('tos:resolved', function() { refresh(); });
 
+        // Re-render when carrier filter changes
+        RADEventBus.on('carrier:changed', function() {
+            renderTable();
+            renderAggregateBar();
+        });
+
         // Initial load
         refresh();
     }
@@ -523,6 +529,24 @@ window.RADMonitoring = (function() {
 
     function getFilteredAmendments() {
         var filtered = amendments;
+
+        // Carrier filter (VA mode — filter by callsign prefix)
+        if (window.RADRole) {
+            var carrier = RADRole.getCarrier();
+            if (carrier) {
+                filtered = filtered.filter(function(a) {
+                    return a.callsign && a.callsign.toUpperCase().indexOf(carrier) === 0;
+                });
+            }
+            // Pilot mode — filter to own flights only
+            var role = RADRole.getRole();
+            var ctx = RADRole.getContext();
+            if (role === 'PILOT' && ctx && ctx.callsign) {
+                filtered = filtered.filter(function(a) {
+                    return a.callsign === ctx.callsign || (ctx.flight_gufi && a.gufi === ctx.flight_gufi);
+                });
+            }
+        }
 
         // TMI filter
         if (currentTMIFilter) {

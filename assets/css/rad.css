@@ -64,16 +64,17 @@ body:has(.rad-app) { background: #1a1a2e !important; }
     border-bottom: 2px solid #334;
     background: #0d1117;
 }
-.rad-map-wrapper { width: 100%; height: 100%; }
+.rad-map-wrapper { width: 100%; height: 100%; position: relative; }
 #graphic { width: 100%; height: 100%; }
 
 .rad-map-controls {
     position: absolute;
-    top: 10px; left: 10px;
+    bottom: 10px; left: 10px;
     z-index: 500;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    pointer-events: auto;
 }
 .rad-map-controls-row {
     display: flex;
@@ -81,7 +82,7 @@ body:has(.rad-app) { background: #1a1a2e !important; }
     gap: 6px;
 }
 .rad-route-input {
-    width: 420px;
+    width: 360px;
     font-family: Inconsolata, monospace;
     font-size: 0.82rem;
     background: rgba(22, 33, 62, 0.92);

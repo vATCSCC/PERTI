@@ -59,9 +59,9 @@ if (!$perm) {
         <select id="rad_role_selector" class="form-control form-control-sm rad-role-select"></select>
     </div>
     <div id="rad_va_selector" class="ml-2" style="display:none;">
-        <select id="rad_va_airline" class="form-control form-control-sm" style="width:auto;display:inline-block;background:#111;color:#ccc;border-color:#445;font-size:0.82rem;">
-            <option value="">-- Select VA --</option>
-        </select>
+        <input type="text" id="rad_va_airline" class="form-control form-control-sm rad-role-select" list="rad_carrier_list"
+               placeholder="Carrier (e.g. AAL)" style="width:100px;" maxlength="4" autocomplete="off">
+        <datalist id="rad_carrier_list"></datalist>
     </div>
 </div>
 <div class="rad-map-section" id="rad_map_section">

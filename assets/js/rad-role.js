@@ -22,6 +22,7 @@ window.RADRole = (function() {
     var allowedTabs = [];
     var changeCallbacks = [];
     var refreshTimer = null;
+    var carrierFilter = sessionStorage.getItem('RAD_VA_CONTEXT') || '';
 
     function init() {
         fetchRole();
@@ -57,6 +58,16 @@ window.RADRole = (function() {
                     currentContext = d.context || {};
                     capabilities = d.capabilities || {};
                     allowedTabs = capabilities.tabs || [];
+
+                    // Populate carrier datalist if provided
+                    if (d.carriers && d.carriers.length > 0) {
+                        var $dl = $('#rad_carrier_list');
+                        if ($dl.length && $dl.children().length === 0) {
+                            d.carriers.forEach(function(c) {
+                                $dl.append('<option value="' + c.icao + '">' + c.icao + ' — ' + (c.name || '') + '</option>');
+                            });
+                        }
+                    }
 
                     applyRoleUI();
 
@@ -146,10 +157,10 @@ window.RADRole = (function() {
             $('#tab-' + allowedTabs[0]).tab('show');
         }
 
-        // Show VA selector only when role is OBSERVER or VA
+        // Show VA carrier selector for VA and TMU roles
         var $vaSelector = $('#rad_va_selector');
         if ($vaSelector.length) {
-            if (currentRole === 'OBSERVER' || currentRole === 'VA') {
+            if (currentRole === 'VA' || currentRole === 'TMU') {
                 $vaSelector.css('display', '');
             } else {
                 $vaSelector.css('display', 'none');
@@ -167,12 +178,15 @@ window.RADRole = (function() {
     }
 
     function setVAContext(airlineIcao) {
-        if (airlineIcao) {
-            sessionStorage.setItem('RAD_VA_CONTEXT', airlineIcao);
+        carrierFilter = (airlineIcao || '').toUpperCase().trim();
+        if (carrierFilter) {
+            sessionStorage.setItem('RAD_VA_CONTEXT', carrierFilter);
         } else {
             sessionStorage.removeItem('RAD_VA_CONTEXT');
         }
-        fetchRole(airlineIcao || undefined);
+        fetchRole(carrierFilter || undefined);
+        // Notify monitoring to re-filter
+        RADEventBus.emit('carrier:changed', { carrier: carrierFilter });
     }
 
     return {
@@ -181,6 +195,7 @@ window.RADRole = (function() {
         getDetectedRole: function() { return detectedRole; },
         isOverride: function() { return overrideActive; },
         getContext: function() { return currentContext; },
+        getCarrier: function() { return carrierFilter; },
         can: function(cap) { return capabilities[cap] === true; },
         setOverride: setOverride,
         setVAContext: setVAContext,

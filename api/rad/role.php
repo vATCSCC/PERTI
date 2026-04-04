@@ -25,7 +25,7 @@ $ROLE_CAPS = [
         'can_submit_tos' => true,
         'can_resolve_tos' => false,
         'can_force' => false,
-        'tabs' => ['detail', 'monitoring'],
+        'tabs' => ['search', 'detail', 'monitoring'],
     ],
     'VA' => [
         'can_create_amendment' => false,
@@ -34,7 +34,7 @@ $ROLE_CAPS = [
         'can_submit_tos' => true,
         'can_resolve_tos' => false,
         'can_force' => false,
-        'tabs' => ['detail', 'monitoring'],
+        'tabs' => ['search', 'detail', 'monitoring'],
     ],
     'PILOT' => [
         'can_create_amendment' => false,
@@ -43,7 +43,7 @@ $ROLE_CAPS = [
         'can_submit_tos' => true,
         'can_resolve_tos' => false,
         'can_force' => false,
-        'tabs' => ['monitoring'],
+        'tabs' => ['search', 'detail', 'monitoring'],
     ],
     'OBSERVER' => [
         'can_create_amendment' => false,
@@ -152,6 +152,30 @@ foreach ($ROLE_RANK as $role => $rank) {
     }
 }
 
+// Fetch common carriers for VA dropdown (active airlines from ADL)
+$carriers = [];
+if ($effective_role === 'VA' || $effective_role === 'TMU') {
+    global $conn_adl;
+    if ($conn_adl) {
+        $carrier_sql = "SELECT DISTINCT a.airline_icao, al.name
+                        FROM dbo.adl_flight_aircraft a
+                        INNER JOIN dbo.adl_flight_core c ON c.flight_uid = a.flight_uid
+                        LEFT JOIN dbo.airlines al ON al.icao = a.airline_icao
+                        WHERE c.is_active = 1 AND a.airline_icao IS NOT NULL AND a.airline_icao <> ''
+                        ORDER BY a.airline_icao";
+        $carrier_stmt = sqlsrv_query($conn_adl, $carrier_sql);
+        if ($carrier_stmt) {
+            while ($cr = sqlsrv_fetch_array($carrier_stmt, SQLSRV_FETCH_ASSOC)) {
+                $carriers[] = [
+                    'icao' => $cr['airline_icao'],
+                    'name' => $cr['name'] ?? $cr['airline_icao'],
+                ];
+            }
+            sqlsrv_free_stmt($carrier_stmt);
+        }
+    }
+}
+
 rad_respond_json(200, [
     'status' => 'ok',
     'data' => [
@@ -162,5 +186,6 @@ rad_respond_json(200, [
         'cid' => $cid_int,
         'context' => $effective_context,
         'capabilities' => $ROLE_CAPS[$effective_role],
+        'carriers' => $carriers,
     ],
 ]);
