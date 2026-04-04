@@ -186,7 +186,7 @@ window.RADClearanceBuilder = (function() {
         var parts = [];
         parts.push(callsign || '{CALLSIGN}');
         parts.push('CLEARED TO');
-        parts.push(diff.clearance_limit || clearanceLimit || '{DESTINATION}');
+        parts.push(clearanceLimit || '{DESTINATION}');
         parts.push('VIA');
 
         diff.segments.forEach(function(seg, idx) {
