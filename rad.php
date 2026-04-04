@@ -246,6 +246,7 @@ if (!$perm) {
                     <button class="btn btn-sm btn-outline-info mr-1" id="rad_batch_issue" style="display:none;"><i class="fas fa-check-circle mr-1"></i><span></span></button>
                     <button class="btn btn-sm btn-outline-success mr-1" id="rad_batch_accept" style="display:none;"><i class="fas fa-thumbs-up mr-1"></i><span></span></button>
                     <button class="btn btn-sm btn-outline-warning mr-1" id="rad_batch_reject" style="display:none;"><i class="fas fa-thumbs-down mr-1"></i><span></span></button>
+                    <button class="btn btn-sm btn-outline-secondary mr-1" id="rad_batch_revert" style="display:none;"><i class="fas fa-undo mr-1"></i><span></span></button>
                     <button class="btn btn-sm btn-outline-danger" id="rad_batch_delete"><i class="fas fa-trash mr-1"></i><span></span></button>
                 </div>
             </div>
