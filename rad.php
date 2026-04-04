@@ -276,6 +276,7 @@ if (!$perm) {
 <script src="assets/js/rad-flight-detail.js<?= _v('assets/js/rad-flight-detail.js') ?>"></script>
 <script src="assets/js/rad-amendment.js<?= _v('assets/js/rad-amendment.js') ?>"></script>
 <script src="assets/js/rad-clearance-builder.js<?= _v('assets/js/rad-clearance-builder.js') ?>"></script>
+<script src="assets/js/rad-tos.js<?= _v('assets/js/rad-tos.js') ?>"></script>
 <script src="assets/js/rad-monitoring.js<?= _v('assets/js/rad-monitoring.js') ?>"></script>
 <script src="assets/js/rad.js<?= _v('assets/js/rad.js') ?>"></script>
 </body>

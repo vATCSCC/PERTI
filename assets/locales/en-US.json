@@ -3342,6 +3342,33 @@
       "va": "Virtual Airline",
       "observer": "Observer",
       "detecting": "Detecting role..."
+    },
+    "tos": {
+      "title": "Trajectory Option Set",
+      "pilotPreferences": "Pilot Preferences (ranked)",
+      "addOption": "+ Add Route Option",
+      "submitTos": "Submit TOS",
+      "rejectWithoutTos": "Reject Without TOS",
+      "counterPropose": "Counter-Propose New Route",
+      "forceOriginal": "Force Original Amendment",
+      "asOriginallyFiled": "As Originally Filed",
+      "asAmended": "As Amended",
+      "pilotOption": "Pilot Option",
+      "plotAll": "Plot All",
+      "clear": "Clear",
+      "baseline": "baseline",
+      "resolve": "Resolve TOS",
+      "mapLegend": "Map",
+      "rank": "Rank",
+      "route": "Route",
+      "distance": "Distance",
+      "time": "Time",
+      "delta": "Delta",
+      "accept": "Accept",
+      "resolved": "TOS Resolved",
+      "forced": "Amendment Forced",
+      "submitted": "TOS submitted successfully",
+      "noOptions": "No route options submitted"
     }
   },
   "navdata": {

@@ -954,3 +954,80 @@ body .swal2-popup .text-monospace { color: #6f8; }
     line-height: 1.6;
     word-break: break-word;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   21. TOS (Trajectory Option Set)
+   ═══════════════════════════════════════════════════════════════ */
+
+.rad-tos-entry {
+    text-align: left;
+}
+.rad-tos-entry h6 {
+    color: #89a;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.rad-tos-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid #334;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    background: #111;
+    transition: background 0.15s;
+}
+.rad-tos-option:hover {
+    background: #1a2332;
+}
+
+.rad-tos-rank {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #e94560;
+    min-width: 24px;
+}
+
+.rad-tos-type {
+    font-size: 0.75rem;
+    color: #89a;
+    min-width: 120px;
+}
+
+.rad-tos-route {
+    font-family: Inconsolata, 'Courier New', monospace;
+    font-size: 0.78rem;
+    color: #6f8;
+    word-break: break-word;
+    white-space: normal;
+}
+
+.rad-tos-pilot-option .tos-route-input {
+    flex: 1;
+    background: #0d1117;
+    border: 1px solid #445;
+    color: #6f8;
+    font-family: Inconsolata, 'Courier New', monospace;
+    font-size: 0.82rem;
+    padding: 4px 8px;
+    border-radius: 3px;
+}
+.rad-tos-pilot-option .tos-route-input:focus {
+    outline: none;
+    border-color: #e94560;
+    box-shadow: 0 0 0 2px rgba(233, 69, 96, 0.15);
+}
+
+.tos-color-swatch {
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s;
+}
+.tos-color-swatch:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+}
