@@ -1,4 +1,4 @@
-origin,dest,route,type,area,altitude,aircraft,direction,dep_artcc,arr_artcc,origin_tracon,dest_tracon
+origin_code,dest_code,route_string,route_type,area,altitude,aircraft,direction,dep_artcc,arr_artcc,origin_tracon,dest_tracon
 AIR,KMRB,"AIR J162",HSD,,,,"E BND",,ZDC,,PCT
 AIR,TRIXY,"AIR J34 TRIXY",HSD,,,,"E BND",,,,
 ALLEX,ALLRY,"ALLEX ALLRY",NAR,"N503B: DIRECT",,,EASTBOUND,,,,
