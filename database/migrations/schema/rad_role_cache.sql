@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS rad_role_cache (
     callsign        VARCHAR(20) NULL,
     flight_gufi     VARCHAR(64) NULL,
     airline_icao    VARCHAR(4) NULL,
-    detected_utc    DATETIME NOT NULL DEFAULT UTC_TIMESTAMP,
+    detected_utc    DATETIME NOT NULL DEFAULT (UTC_TIMESTAMP()),
     expires_utc     DATETIME NOT NULL,
     INDEX IX_rad_role_expires (expires_utc)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

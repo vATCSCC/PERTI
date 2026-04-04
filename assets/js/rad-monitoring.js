@@ -71,6 +71,26 @@ window.RADMonitoring = (function() {
             rejectAmendment(id);
         });
 
+        // Batch selection
+        $(document).on('change', '.rad-row-select', function() {
+            updateBatchDeleteButton();
+        });
+
+        $('#rad_select_all').on('change', function() {
+            var checked = $(this).prop('checked');
+            $('.rad-row-select').prop('checked', checked);
+            updateBatchDeleteButton();
+        });
+
+        $('#rad_batch_delete').on('click', function() {
+            var ids = [];
+            $('.rad-row-select:checked').each(function() {
+                ids.push($(this).data('id'));
+            });
+            if (ids.length === 0) return;
+            batchDeleteAmendments(ids);
+        });
+
         $(document).on('click', '.rad-btn-enter-tos', function() {
             var id = $(this).data('id');
             var amendment = amendments.find(function(a) { return a.id === id; });
@@ -280,7 +300,7 @@ window.RADMonitoring = (function() {
         tbody.empty();
 
         if (filtered.length === 0) {
-            tbody.html('<tr><td colspan="11" class="text-center text-muted">' + PERTII18n.t('rad.monitoring.noAmendments') + '</td></tr>');
+            tbody.html('<tr><td colspan="12" class="text-center text-muted">' + PERTII18n.t('rad.monitoring.noAmendments') + '</td></tr>');
             plotAmendmentRoutes(filtered);
             return;
         }
@@ -332,6 +352,8 @@ window.RADMonitoring = (function() {
         var csColor = RADEventBus.callsignColor(a.callsign);
         var row = $('<tr class="' + rowClass + '" data-amid="' + a.id + '">');
 
+        var canDelete = (a.status === 'DRAFT' || a.status === 'SENT');
+        row.append('<td>' + (canDelete ? '<input type="checkbox" class="rad-row-select" data-id="' + a.id + '">' : '') + '</td>');
         row.append('<td class="rad-cs" style="color:' + csColor + ';">' + (a.callsign || '') + '</td>');
         row.append('<td>' + (a.origin || '') + ' / ' + (a.dest || '') + '</td>');
         var statusHtml = getStatusBadge(a.status);
@@ -627,6 +649,46 @@ window.RADMonitoring = (function() {
                         .fail(function() {
                             PERTIDialog.warning(PERTII18n.t('error.networkError'));
                         });
+                }
+            });
+    }
+
+    function updateBatchDeleteButton() {
+        var count = $('.rad-row-select:checked').length;
+        if (count > 0) {
+            $('#rad_batch_delete').show().text(PERTII18n.t('rad.monitoring.deleteSelected') + ' (' + count + ')');
+        } else {
+            $('#rad_batch_delete').hide();
+        }
+    }
+
+    function batchDeleteAmendments(ids) {
+        PERTIDialog.confirm(PERTII18n.t('rad.monitoring.confirmBatchDelete', { count: ids.length }))
+            .then(function(result) {
+                if (result.isConfirmed) {
+                    $.ajax({
+                        url: 'api/rad/amendment.php',
+                        type: 'DELETE',
+                        contentType: 'application/json',
+                        data: JSON.stringify({ ids: ids })
+                    })
+                    .done(function(response) {
+                        if (response.status === 'ok') {
+                            var deleted = (response.data && response.data.deleted) || [];
+                            var errors = (response.data && response.data.errors) || [];
+                            PERTIDialog.success(PERTII18n.t('rad.monitoring.batchDeleted', { count: deleted.length }));
+                            if (errors.length > 0) {
+                                PERTIDialog.warning(errors.join('; '));
+                            }
+                            $('#rad_select_all').prop('checked', false);
+                            refresh();
+                        } else {
+                            PERTIDialog.warning(response.message || PERTII18n.t('error.deleteFailed'));
+                        }
+                    })
+                    .fail(function() {
+                        PERTIDialog.warning(PERTII18n.t('error.networkError'));
+                    });
                 }
             });
     }
