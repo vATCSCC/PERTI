@@ -785,7 +785,8 @@ class XP12Parser:
                 continue
 
             # Relaxed validation: must match international naming pattern
-            if not re.match(r'^[A-Z]{2,7}\d?[A-Z]?$', proc_name):
+            # Covers: standard (BPK5K), Chinese 2-digit (ADB01D), Haikou (AGT1WD), Brazilian (SEP146)
+            if not re.match(r'^[A-Z]{2,7}\d{0,3}[A-Z]{0,2}$', proc_name):
                 continue
 
             # Sort by sequence and extract fixes

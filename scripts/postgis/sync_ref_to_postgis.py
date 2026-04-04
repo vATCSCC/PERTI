@@ -354,12 +354,19 @@ def sync_coded_departure_routes(cursor_ref, cursor_gis, conn_gis, dry_run=False)
 def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     """Sync nav_procedures from REF to PostGIS using UPSERT strategy.
 
-    PostGIS has ~97K nav_procedures (87K from CIFP base transitions via
-    generate_base_transitions.py). A full DELETE+INSERT from REF (~14K)
-    would destroy this richer data. Instead, we only delete REF-sourced
-    records (source='NASR') and re-insert them, preserving CIFP data.
+    The NASR pipeline now generates properly transition-separated records
+    for both US (NASR source) and international (CIFP source) airports.
+    We delete all records except cifp_base and synthetic_base (which are
+    generated separately by generate_base_transitions.py), then re-insert
+    from VATSIM_REF.
     """
-    print("\n  Syncing nav_procedures (UPSERT - preserving CIFP)...")
+    print("\n  Syncing nav_procedures (UPSERT - preserving cifp_base/synthetic_base)...")
+
+    # Ensure transition_type column exists (migration 021)
+    cursor_gis.execute(
+        "ALTER TABLE nav_procedures ADD COLUMN IF NOT EXISTS transition_type VARCHAR(10)"
+    )
+    conn_gis.commit()
 
     cursor_ref.execute(
         "SELECT procedure_id, procedure_type, airport_icao, procedure_name, "
@@ -385,16 +392,16 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     cursor_gis.execute("SELECT COUNT(*) FROM nav_procedures")
     before_total = cursor_gis.fetchone()[0]
 
-    # Delete only REF-sourced records, preserving CIFP base transitions.
-    # Old syncs used source='dp_full_routes.csv'/'star_full_routes.csv';
-    # new syncs use source='NASR'. Delete all non-CIFP sources.
+    # Delete all records except cifp_base and synthetic_base (generated separately).
+    # The old 'CIFP' source records were corrupted (concatenated all transitions);
+    # the NASR pipeline now properly handles international procedures via CIFP parsing.
     cursor_gis.execute(
-        "DELETE FROM nav_procedures WHERE source NOT IN ('CIFP', 'cifp_base', 'synthetic_base') "
+        "DELETE FROM nav_procedures WHERE source NOT IN ('cifp_base', 'synthetic_base') "
         "OR source IS NULL"
     )
     deleted = cursor_gis.rowcount
     conn_gis.commit()
-    print(f"    Deleted {deleted:,} non-CIFP records (preserved CIFP)")
+    print(f"    Deleted {deleted:,} records (preserved cifp_base + synthetic_base)")
 
     # Insert REF records (omit procedure_id — let PostGIS auto-assign to avoid
     # PK conflicts with existing CIFP records that use procedure_id 1..97K)

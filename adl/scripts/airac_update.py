@@ -361,6 +361,28 @@ def import_nav_fixes(conn, dry_run: bool = False, airac_cycle: str = None) -> Tu
         old_rows = snapshot_table(conn, 'nav_fixes',
                                   'fix_name, lat, lon', 'fix_type')
 
+    # Rich snapshot for supersession preservation
+    old_fix_snapshot = []
+    if airac_cycle:
+        snap_cursor = conn.cursor()
+        snap_cursor.execute("""
+            SELECT fix_name, fix_type, lat, lon,
+                   is_superseded, superseded_cycle, superseded_reason
+            FROM dbo.nav_fixes
+        """)
+        for row in snap_cursor.fetchall():
+            old_fix_snapshot.append({
+                'fix_name': row[0],
+                'fix_type': row[1],
+                'lat': float(row[2]) if row[2] is not None else 0.0,
+                'lon': float(row[3]) if row[3] is not None else 0.0,
+                'is_superseded': bool(row[4]),
+                'superseded_cycle': row[5],
+                'superseded_reason': row[6],
+            })
+        print(f"    Supersession snapshot: {len(old_fix_snapshot):,} entries "
+              f"({sum(1 for f in old_fix_snapshot if f['is_superseded']):,} already superseded)")
+
     # Get current count
     cursor.execute("SELECT COUNT(*) FROM dbo.nav_fixes")
     existing = cursor.fetchone()[0]
@@ -405,6 +427,93 @@ def import_nav_fixes(conn, dry_run: bool = False, airac_cycle: str = None) -> Tu
         print(f"\r  Progress: {inserted:,}/{len(fixes):,} ({pct:.0f}%)", end="", flush=True)
 
     print()
+
+    # ---- Supersession Preservation for nav_fixes ----
+    if airac_cycle and old_fix_snapshot:
+        # Build lookup of imported active fixes: (name, type, lat6, lon6) for exact match
+        imported_fix_coords = set()
+        imported_fix_names = set()  # (name, type) for removal detection
+        imported_sup_fixes = set()  # (name, type, lat6, lon6, sup_cycle) for superseded dedup
+        for f in fixes:
+            key = (f['fix_name'], f['fix_type'])
+            lat6 = round(f['lat'], 6)
+            lon6 = round(f['lon'], 6)
+            if f['is_superseded']:
+                imported_sup_fixes.add((*key, lat6, lon6, f['superseded_cycle']))
+            else:
+                imported_fix_coords.add((*key, lat6, lon6))
+                imported_fix_names.add(key)
+
+        superseded_fix_inserts = []
+        for old in old_fix_snapshot:
+            key = (old['fix_name'], old['fix_type'])
+            lat6 = round(old['lat'], 6)
+            lon6 = round(old['lon'], 6)
+            coord_key = (*key, lat6, lon6)
+
+            if old['is_superseded']:
+                check = (*key, lat6, lon6, old['superseded_cycle'])
+                if check not in imported_sup_fixes:
+                    superseded_fix_inserts.append(old)
+            else:
+                if coord_key in imported_fix_coords:
+                    pass  # Exact match — already imported
+                elif key in imported_fix_names:
+                    # Same name at different coordinates — moved
+                    superseded_fix_inserts.append({
+                        **old, 'is_superseded': True,
+                        'superseded_cycle': airac_cycle, 'superseded_reason': 'moved',
+                    })
+                else:
+                    # Name not in new data — removed
+                    superseded_fix_inserts.append({
+                        **old, 'is_superseded': True,
+                        'superseded_cycle': airac_cycle, 'superseded_reason': 'removed',
+                    })
+
+        if superseded_fix_inserts:
+            newly_moved = sum(1 for s in superseded_fix_inserts
+                              if s.get('superseded_reason') == 'moved'
+                              and s.get('superseded_cycle') == airac_cycle)
+            newly_removed = sum(1 for s in superseded_fix_inserts
+                                if s.get('superseded_reason') == 'removed'
+                                and s.get('superseded_cycle') == airac_cycle)
+            carried_fwd = len(superseded_fix_inserts) - newly_moved - newly_removed
+            print(f"\n  Supersession preservation: {len(superseded_fix_inserts):,} fixes")
+            print(f"    Carried forward: {carried_fwd:,}  "
+                  f"Newly moved: {newly_moved:,}  Newly removed: {newly_removed:,}")
+
+            sup_inserted = 0
+            for i in range(0, len(superseded_fix_inserts), batch_size):
+                batch = superseded_fix_inserts[i:i + batch_size]
+                batch_data = [
+                    (s['fix_name'], s['fix_type'], s['lat'], s['lon'],
+                     1, s['superseded_cycle'], s['superseded_reason'])
+                    for s in batch
+                ]
+                try:
+                    cursor.executemany(insert_sql, batch_data)
+                    conn.commit()
+                    sup_inserted += len(batch)
+                except Exception as e:
+                    conn.rollback()
+                    # Retry row-by-row on batch failure
+                    for row in batch_data:
+                        try:
+                            cursor.execute(insert_sql, row)
+                            conn.commit()
+                            sup_inserted += 1
+                        except Exception as e2:
+                            conn.rollback()
+                            errors += 1
+                            if errors <= 10:
+                                print(f"\n  ERROR superseded fix insert: {e2}")
+                                print(f"    Data: {row[:2]}")
+
+            inserted += sup_inserted
+            print(f"    Inserted {sup_inserted:,} superseded fixes")
+        else:
+            print("\n  No superseded fixes to preserve (CSV already complete)")
 
     # Changelog: key by (fix_name, lat, lon) with normalized formatting.
     # Coordinate moves appear as remove+add pairs which is correct for nav_fixes
@@ -983,6 +1092,34 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                                   'computer_code, transition_name',
                                   'procedure_type, full_route')
 
+    # Rich snapshot for supersession preservation (all columns needed for re-insert).
+    # This ensures outdated navdata is preserved even if CSVs lack _old_ entries.
+    old_proc_snapshot = []
+    if airac_cycle:
+        snap_cursor = conn.cursor()
+        snap_cursor.execute("""
+            SELECT procedure_type, airport_icao, procedure_name, computer_code, transition_name,
+                   transition_type, full_route, runways,
+                   is_superseded, superseded_cycle, superseded_reason
+            FROM dbo.nav_procedures
+        """)
+        for row in snap_cursor.fetchall():
+            old_proc_snapshot.append({
+                'procedure_type': row[0],
+                'airport_icao': row[1],
+                'procedure_name': row[2],
+                'computer_code': row[3],
+                'transition_name': row[4],
+                'transition_type': row[5],
+                'full_route': row[6],
+                'runways': row[7],
+                'is_superseded': bool(row[8]),
+                'superseded_cycle': row[9],
+                'superseded_reason': row[10],
+            })
+        print(f"    Supersession snapshot: {len(old_proc_snapshot):,} entries "
+              f"({sum(1 for p in old_proc_snapshot if p['is_superseded']):,} already superseded)")
+
     # Get current count
     cursor.execute("SELECT COUNT(*) FROM dbo.nav_procedures")
     existing = cursor.fetchone()[0]
@@ -1052,6 +1189,102 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
         print(f"\r  Progress: {inserted:,}/{len(procedures):,} ({pct:.0f}%)", end="", flush=True)
 
     print()
+
+    # ---- Supersession Preservation ----
+    # Re-insert old entries that are missing from the CSV import so outdated
+    # navdata is never silently lost.  Three cases:
+    #   1. Old ACTIVE entries removed from new cycle  → re-insert as superseded (reason='removed')
+    #   2. Old ACTIVE entries with changed full_route  → re-insert old version as superseded (reason='changed')
+    #   3. Old SUPERSEDED entries not in CSV            → carry forward as-is
+    if airac_cycle and old_proc_snapshot:
+        # Build lookup of what was just imported from CSV.
+        # Use a set of routes per key because the same (code, trans) can appear
+        # for different runway groups at the same airport with different routes.
+        imported_active = {}      # (code, trans_str) -> set of full_routes
+        imported_superseded = set()  # (code, trans_str, sup_cycle) for dedup
+        for p in procedures:
+            key = (p['computer_code'], str(p['transition_name']))
+            if p['is_superseded']:
+                imported_superseded.add((*key, p['superseded_cycle']))
+            else:
+                imported_active.setdefault(key, set()).add(p['full_route'])
+
+        superseded_inserts = []
+        for old in old_proc_snapshot:
+            code = old['computer_code']
+            trans = str(old['transition_name'])
+            key = (code, trans)
+
+            if old['is_superseded']:
+                # Already-superseded entry from previous cycle — carry forward
+                # unless CSV already includes it
+                check = (*key, old['superseded_cycle'])
+                if check not in imported_superseded:
+                    superseded_inserts.append(old)
+            else:
+                # Active entry in old DB
+                if key not in imported_active:
+                    # Removed from new AIRAC cycle
+                    superseded_inserts.append({
+                        **old,
+                        'is_superseded': True,
+                        'superseded_cycle': airac_cycle,
+                        'superseded_reason': 'removed',
+                    })
+                elif old['full_route'] not in imported_active[key]:
+                    # Route changed — preserve old version
+                    superseded_inserts.append({
+                        **old,
+                        'is_superseded': True,
+                        'superseded_cycle': airac_cycle,
+                        'superseded_reason': 'changed',
+                    })
+
+        if superseded_inserts:
+            newly_removed = sum(1 for s in superseded_inserts
+                                if s.get('superseded_reason') == 'removed'
+                                and s.get('superseded_cycle') == airac_cycle)
+            newly_changed = sum(1 for s in superseded_inserts
+                                if s.get('superseded_reason') == 'changed'
+                                and s.get('superseded_cycle') == airac_cycle)
+            carried_fwd = len(superseded_inserts) - newly_removed - newly_changed
+            print(f"\n  Supersession preservation: {len(superseded_inserts):,} entries")
+            print(f"    Carried forward: {carried_fwd:,}  "
+                  f"Newly removed: {newly_removed:,}  Newly changed: {newly_changed:,}")
+
+            sup_inserted = 0
+            for i in range(0, len(superseded_inserts), batch_size):
+                batch = superseded_inserts[i:i + batch_size]
+                batch_data = [
+                    (s['procedure_type'], s['airport_icao'] or 'ZZZZ', s['procedure_name'],
+                     s['computer_code'], s['transition_name'], s['transition_type'],
+                     s['full_route'], s['runways'],
+                     1,  # is_superseded = always true here
+                     s['superseded_cycle'], s['superseded_reason'])
+                    for s in batch
+                ]
+                try:
+                    cursor.executemany(insert_sql, batch_data)
+                    conn.commit()
+                    sup_inserted += len(batch)
+                except Exception as e:
+                    conn.rollback()
+                    for row in batch_data:
+                        try:
+                            cursor.execute(insert_sql, row)
+                            conn.commit()
+                            sup_inserted += 1
+                        except Exception as e2:
+                            conn.rollback()
+                            errors += 1
+                            if errors <= 20:
+                                print(f"\n  ERROR superseded insert: {e2}")
+                                print(f"    Data: {row[:4]}")
+
+            inserted += sup_inserted
+            print(f"    Inserted {sup_inserted:,} superseded entries")
+        else:
+            print("\n  No superseded entries to preserve (CSV already complete)")
 
     # Changelog
     if airac_cycle and old_rows:
@@ -1287,6 +1520,19 @@ def sync_ref_to_adl(tables: Optional[List[str]] = None, dry_run: bool = False) -
     cursor_ref = conn_ref.cursor()
     cursor_adl = conn_adl.cursor()
     cursor_adl.fast_executemany = True
+
+    # Ensure transition_type column exists on ADL nav_procedures
+    if 'nav_procedures' in table_defs:
+        try:
+            cursor_adl.execute("""
+                IF NOT EXISTS (SELECT 1 FROM sys.columns
+                               WHERE object_id = OBJECT_ID('dbo.nav_procedures')
+                                 AND name = 'transition_type')
+                ALTER TABLE dbo.nav_procedures ADD transition_type NVARCHAR(10) NULL;
+            """)
+            conn_adl.commit()
+        except Exception:
+            conn_adl.rollback()
 
     results = {}
 
