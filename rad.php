@@ -238,9 +238,11 @@ if (!$perm) {
                     <button class="btn btn-outline-secondary" id="rad_filter_alerts" data-i18n="rad.monitoring.alerts">Alerts</button>
                 </div>
                 <select id="rad_tmi_filter" class="form-control form-control-sm rad-tmi-filter"></select>
+                <button class="btn btn-sm btn-outline-danger ml-auto" id="rad_batch_delete" style="display:none;" data-i18n="rad.monitoring.deleteSelected">Delete Selected</button>
             </div>
             <table class="table table-sm rad-table" id="rad_monitoring_table">
                 <thead><tr>
+                    <th style="width:30px;"><input type="checkbox" id="rad_select_all" title="Select all"></th>
                     <th data-i18n="rad.search.callsign">Callsign</th>
                     <th data-i18n="rad.search.origDest">O/D</th>
                     <th data-i18n="rad.search.status">Status</th>

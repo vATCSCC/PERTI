@@ -140,8 +140,29 @@ if ($method === 'GET') {
     }
 
 } elseif ($method === 'DELETE') {
+    // Batch delete: ids[] array or single id
+    $ids = $body['ids'] ?? null;
+    if (is_array($ids) && !empty($ids)) {
+        $results = [];
+        $errors = [];
+        foreach ($ids as $rawId) {
+            $delId = (int)$rawId;
+            if (!$delId) continue;
+            $r = $svc->cancelAmendment($delId, (int)$cid);
+            if (isset($r['error'])) {
+                $errors[] = $delId . ': ' . $r['error'];
+            } else {
+                $results[] = $delId;
+            }
+        }
+        if (!empty($errors) && empty($results)) {
+            rad_respond_json(400, ['status' => 'error', 'message' => implode('; ', $errors)]);
+        }
+        rad_respond_json(200, ['status' => 'ok', 'data' => ['deleted' => $results, 'errors' => $errors]]);
+    }
+
     $id = (int)($_GET['id'] ?? $body['id'] ?? 0);
-    if (!$id) rad_respond_json(400, ['status' => 'error', 'message' => 'id required']);
+    if (!$id) rad_respond_json(400, ['status' => 'error', 'message' => 'id or ids[] required']);
     $result = $svc->cancelAmendment($id, (int)$cid);
     if (isset($result['error'])) rad_respond_json(400, ['status' => 'error', 'message' => $result['error']]);
     rad_respond_json(200, ['status' => 'ok', 'data' => $result]);
