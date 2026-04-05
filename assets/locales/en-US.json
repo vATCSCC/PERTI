@@ -645,7 +645,11 @@
       "validating": "Validating...",
       "validationFailed": "Route validation failed",
       "validationPassed": "Route validation passed",
-      "validationUnavailable": "Route validation unavailable"
+      "validationUnavailable": "Route validation unavailable",
+      "originAirports": "Origin Airports",
+      "originArtccs": "Origin ARTCCs",
+      "destAirports": "Dest Airports",
+      "destArtccs": "Dest ARTCCs"
     },
     "routes": {
       "createTemplate": "Create Template",
