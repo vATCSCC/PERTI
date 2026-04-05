@@ -92,12 +92,16 @@ window.RADController = (function() {
                 RADMonitoring.plotRoutes();
             } else if (e.target.id === 'tab-detail' && window.RADFlightDetail) {
                 if (window.RADMonitoring) RADMonitoring.stopPolling();
-                // Auto-plot all detail flights with cycling colors
+                // Auto-plot all detail flights with cycling colors (deduplicated)
                 var flights = RADFlightDetail.getFlights();
                 if (flights.length > 0) {
                     var lines = [];
+                    var seen = {};
                     flights.forEach(function(f, idx) {
-                        if (f.route) lines.push(f.route + ';' + PLOT_COLORS[idx % PLOT_COLORS.length]);
+                        if (f.route && !seen[f.route]) {
+                            lines.push(f.route + ';' + PLOT_COLORS[idx % PLOT_COLORS.length]);
+                            seen[f.route] = true;
+                        }
                     });
                     $('#routeSearch').val(lines.join('\n'));
                     if (window.MapLibreRoute) window.MapLibreRoute.processRoutes();

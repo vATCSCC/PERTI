@@ -9,6 +9,7 @@ window.RADAmendment = (function() {
     var autoPlotEnabled = true;
     var distanceCache = {};
     var distanceTimer = null;
+    var autoPlotTimer = null;
 
     function init() {
         bindEvents();
@@ -329,27 +330,35 @@ window.RADAmendment = (function() {
 
     /**
      * Auto-plot original routes (gray) and amended routes (user color) on the map.
-     * Directly sets #routeSearch textarea and calls processRoutes().
+     * Directly sets #routeSearch textarea. Debounces processRoutes() so rapid
+     * flight additions (N flights) trigger only 1 route resolution instead of N.
      */
     function autoPlotRoutes() {
-        if (!autoPlotEnabled || currentFlights.length === 0) return;
+        if (!autoPlotEnabled || currentFlights.length === 0) {
+            clearTimeout(autoPlotTimer);
+            return;
+        }
 
         var lines = [];
+        var seen = {};
         var hasPerFlight = Object.keys(perFlightRoutes).length > 0;
         var amendColor = $('#rad_route_color').val() || '#FF6600';
 
-        // Original filed routes in gray
+        // Original filed routes in gray (deduplicated)
         currentFlights.forEach(function(flight) {
-            if (flight.route) {
+            if (flight.route && !seen[flight.route]) {
                 lines.push(flight.route + ';#808080');
+                seen[flight.route] = true;
             }
         });
 
-        // Amended routes in user-specified color
+        // Amended routes in user-specified color (deduplicated)
         if (hasPerFlight) {
             Object.keys(perFlightRoutes).forEach(function(gufi) {
-                if (perFlightRoutes[gufi]) {
-                    lines.push(perFlightRoutes[gufi] + ';' + amendColor);
+                var r = perFlightRoutes[gufi];
+                if (r && !seen['amend:' + r]) {
+                    lines.push(r + ';' + amendColor);
+                    seen['amend:' + r] = true;
                 }
             });
         } else if (currentRoute) {
@@ -357,9 +366,14 @@ window.RADAmendment = (function() {
         }
 
         $('#routeSearch').val(lines.join('\n'));
-        if (window.MapLibreRoute) {
-            window.MapLibreRoute.processRoutes();
-        }
+        // Debounce processRoutes — textarea is set instantly but expensive
+        // route resolution waits until flight additions settle (200ms)
+        clearTimeout(autoPlotTimer);
+        autoPlotTimer = setTimeout(function() {
+            if (window.MapLibreRoute) {
+                window.MapLibreRoute.processRoutes();
+            }
+        }, 200);
     }
 
     // =========================================================================

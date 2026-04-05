@@ -377,20 +377,27 @@ window.RADMonitoring = (function() {
         }
 
         var lines = [];
+        var seen = {};
 
-        // Filed (original) routes in gray dashed
+        // Filed (original) routes in gray dashed (deduplicated)
         filtered.forEach(function(a) {
             if (a.filed_route) {
                 var full = buildFullRoute(a.origin, a.filed_route, a.dest);
-                if (full) lines.push(full + ';#666666');
+                if (full && !seen[full]) {
+                    lines.push(full + ';#666666');
+                    seen[full] = true;
+                }
             }
         });
 
-        // Assigned (amended) routes in teal
+        // Assigned (amended) routes in teal (deduplicated)
         filtered.forEach(function(a) {
             if (a.assigned_route) {
                 var full = buildFullRoute(a.origin, a.assigned_route, a.dest);
-                if (full) lines.push(full + ';#4ECDC4');
+                if (full && !seen['a:' + full]) {
+                    lines.push(full + ';#4ECDC4');
+                    seen['a:' + full] = true;
+                }
             }
         });
 
