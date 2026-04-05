@@ -3320,9 +3320,12 @@
     },
     "actions": {
       "issue": "Issue to Pilot",
+      "issueConfirm": "Issue this amendment to the pilot?",
       "markIssued": "Mark as Issued",
       "acceptOnBehalf": "Accept",
+      "acceptConfirm": "Accept this amendment on behalf of the pilot?",
       "rejectOnBehalf": "Reject",
+      "rejectConfirm": "Reject this amendment on behalf of the pilot?",
       "revert": "Undo",
       "revertTitle": "Revert to previous status",
       "revertConfirm": "Revert {status} back to previous status?",
