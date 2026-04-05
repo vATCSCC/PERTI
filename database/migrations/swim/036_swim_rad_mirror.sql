@@ -4,8 +4,7 @@
 
 CREATE TABLE dbo.swim_rad_amendments (
     id              INT PRIMARY KEY,
-    gufi            UNIQUEIDENTIFIER NOT NULL,
-    gufi_legacy     NVARCHAR(64) NULL,
+    gufi            NVARCHAR(64) NOT NULL,
     callsign        VARCHAR(10) NOT NULL,
     origin          CHAR(4) NOT NULL,
     destination     CHAR(4) NOT NULL,

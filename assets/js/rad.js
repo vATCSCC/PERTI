@@ -8,25 +8,31 @@ window.RADController = (function() {
         // Initialize event bus consumers for map
         RADEventBus.on('route:plot', function(data) {
             if (window.MapLibreRoute && data.routeString) {
-                // Put route in textarea and trigger plot (processRoutes reads from #routeSearch)
                 var $textarea = $('#routeSearch');
                 var existing = $textarea.val().trim();
                 var route = data.routeString.trim();
-                // Avoid duplicating the same route
-                if (existing.indexOf(route) === -1) {
-                    $textarea.val(existing ? existing + '\n' + route : route);
+                var colorSuffix = data.color ? ';' + data.color : '';
+                var routeLine = route + colorSuffix;
+                // Duplicate check: compare route base (before ;color) against existing lines
+                var routeBase = route.split(';')[0].trim();
+                var lines = existing ? existing.split('\n') : [];
+                var alreadyExists = lines.some(function(line) {
+                    return line.split(';')[0].trim() === routeBase;
+                });
+                if (!alreadyExists) {
+                    $textarea.val(existing ? existing + '\n' + routeLine : routeLine);
                 }
                 window.MapLibreRoute.processRoutes();
             }
         });
 
         RADEventBus.on('route:clear', function(data) {
-            // Clear all routes by emptying textarea and re-processing
             if (data && data.routeString) {
-                // Remove specific route from textarea
+                // Remove specific route (match on route base, ignoring ;color suffix)
                 var $textarea = $('#routeSearch');
+                var routeBase = data.routeString.trim().split(';')[0].trim();
                 var lines = $textarea.val().split('\n').filter(function(l) {
-                    return l.trim() !== data.routeString.trim();
+                    return l.split(';')[0].trim() !== routeBase;
                 });
                 $textarea.val(lines.join('\n'));
             } else {
