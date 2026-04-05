@@ -3224,7 +3224,7 @@ function writeUrlState() {
         params.delete('airport'); // comparison uses 'compare' param instead
     }
 
-    history.replaceState(null, '', '#' + params.toString());
+    history.replaceState(null, '', window.location.pathname + '#' + params.toString());
 }
 
 // ===========================================================================
