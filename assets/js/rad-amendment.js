@@ -631,8 +631,9 @@ window.RADAmendment = (function() {
                     PERTIDialog.warning(response.message || PERTII18n.t('error.saveFailed'));
                 }
             })
-            .fail(function() {
-                PERTIDialog.warning(PERTII18n.t('error.networkError'));
+            .fail(function(jqXHR) {
+                var msg = (jqXHR.responseJSON && jqXHR.responseJSON.message) || PERTII18n.t('error.networkError');
+                PERTIDialog.warning(msg);
             });
     }
 
@@ -653,8 +654,9 @@ window.RADAmendment = (function() {
                                 PERTIDialog.warning(response.message || PERTII18n.t('error.sendFailed'));
                             }
                         })
-                        .fail(function() {
-                            PERTIDialog.warning(PERTII18n.t('error.networkError'));
+                        .fail(function(jqXHR) {
+                            var msg = (jqXHR.responseJSON && jqXHR.responseJSON.message) || PERTII18n.t('error.networkError');
+                            PERTIDialog.warning(msg);
                         });
                 }
             });

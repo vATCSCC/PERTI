@@ -687,8 +687,10 @@ window.RADMonitoring = (function() {
                                 PERTIDialog.warning(response.message || 'error.deleteFailed');
                             }
                         })
-                        .fail(function() {
-                            PERTIDialog.warning('error.networkError');
+                        .fail(function(jqXHR) {
+                            var msg = (jqXHR.responseJSON && jqXHR.responseJSON.message) || 'error.networkError';
+                            PERTIDialog.warning(msg);
+                            refresh();
                         });
                 }
             });
