@@ -362,15 +362,19 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     """
     print("\n  Syncing nav_procedures (UPSERT - preserving cifp_base/synthetic_base)...")
 
-    # Ensure transition_type column exists (migration 021)
-    cursor_gis.execute(
-        "ALTER TABLE nav_procedures ADD COLUMN IF NOT EXISTS transition_type VARCHAR(10)"
-    )
+    # Ensure new columns exist (migrations 021, 022)
+    for col_ddl in [
+        "ALTER TABLE nav_procedures ADD COLUMN IF NOT EXISTS transition_type VARCHAR(10)",
+        "ALTER TABLE nav_procedures ADD COLUMN IF NOT EXISTS body_name VARCHAR(64)",
+        "ALTER TABLE nav_procedures ADD COLUMN IF NOT EXISTS runway_group TEXT",
+    ]:
+        cursor_gis.execute(col_ddl)
     conn_gis.commit()
 
     cursor_ref.execute(
         "SELECT procedure_id, procedure_type, airport_icao, procedure_name, "
-        "computer_code, transition_name, transition_type, full_route, runways, is_active, "
+        "computer_code, transition_name, transition_type, full_route, runways, "
+        "body_name, runway_group, is_active, "
         "source, effective_date, "
         "is_superseded, superseded_cycle, superseded_reason "
         "FROM dbo.nav_procedures"
@@ -410,15 +414,18 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     insert_sql = (
         "INSERT INTO nav_procedures "
         "(procedure_type, airport_icao, procedure_name, "
-        "computer_code, transition_name, transition_type, full_route, runways, is_active, "
+        "computer_code, transition_name, transition_type, full_route, runways, "
+        "body_name, runway_group, is_active, "
         "source, effective_date, "
         "is_superseded, superseded_cycle, superseded_reason) VALUES %s"
     )
     for row in rows:
         (proc_id, ptype, airport, pname, code, trans, trans_type, route, runways,
-         is_active, source, eff_date, is_sup, sup_cycle, sup_reason) = row
+         body_name, runway_group, is_active, source, eff_date,
+         is_sup, sup_cycle, sup_reason) = row
         batch.append((
             ptype, airport, pname, code, trans, trans_type, route, runways,
+            body_name, runway_group,
             bool(is_active) if is_active is not None else True,
             source, eff_date,
             bool(is_sup) if is_sup is not None else False,
