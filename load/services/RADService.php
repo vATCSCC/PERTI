@@ -337,7 +337,8 @@ class RADService
     }
 
     /**
-     * Cancel a DRAFT or SENT amendment (deletes it).
+     * Cancel/delete an amendment. Any status is allowed — operators need to
+     * clean up stale, test, or resolved amendments regardless of lifecycle state.
      */
     public function cancelAmendment(int $id, ?int $user_cid = null): array
     {
@@ -346,9 +347,6 @@ class RADService
         }
         $amendment = $this->getAmendment($id);
         if (!$amendment) return ['error' => 'Amendment not found'];
-        if (!in_array($amendment['status'], ['DRAFT', 'SENT'])) {
-            return ['error' => 'Only DRAFT/SENT amendments can be cancelled'];
-        }
 
         // Clear adl_flight_tmi reference
         $this->clearAdlFlightTmi($amendment['gufi']);
