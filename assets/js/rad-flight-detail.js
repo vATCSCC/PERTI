@@ -281,24 +281,19 @@ window.RADFlightDetail = (function() {
             return;
         }
 
-        // Clear textarea and replot all selected flights
-        RADEventBus.emit('route:clear', {});
-        lastHighlightRoute = null;
-
-        var plotted = 0;
+        // Directly set textarea with all routes (single processRoutes call)
+        var lines = [];
         selectedFlights.forEach(function(flight, idx) {
             if (flight.route) {
-                RADEventBus.emit('route:plot', {
-                    routeString: flight.route,
-                    color: PLOT_COLORS[idx % PLOT_COLORS.length],
-                    id: 'rad-flight-all-' + idx
-                });
-                plotted++;
+                lines.push(flight.route + ';' + PLOT_COLORS[idx % PLOT_COLORS.length]);
             }
         });
+        $('#routeSearch').val(lines.join('\n'));
+        if (window.MapLibreRoute) window.MapLibreRoute.processRoutes();
+        lastHighlightRoute = null;
 
-        if (plotted > 0) {
-            PERTIDialog.success(PERTII18n.t('rad.detail.plottedRoutes', { count: plotted }));
+        if (lines.length > 0) {
+            PERTIDialog.success(PERTII18n.t('rad.detail.plottedRoutes', { count: lines.length }));
         }
     }
 
