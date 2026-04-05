@@ -334,7 +334,10 @@ window.RADAmendment = (function() {
      * flight additions (N flights) trigger only 1 route resolution instead of N.
      */
     function autoPlotRoutes() {
-        if (!autoPlotEnabled || currentFlights.length === 0) return;
+        if (!autoPlotEnabled || currentFlights.length === 0) {
+            clearTimeout(autoPlotTimer);
+            return;
+        }
 
         var lines = [];
         var seen = {};
