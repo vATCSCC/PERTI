@@ -910,7 +910,7 @@
                         type: 'raster',
                         source: 'carto-dark'
                     }],
-                    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'
+                    glyphs: '/assets/fonts/{fontstack}/{range}.pbf'
                 },
                 center: [-30, 52],
                 zoom: 3,

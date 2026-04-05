@@ -1492,7 +1492,7 @@ $(document).ready(function() {
                     type: 'raster',
                     source: 'carto-dark',
                 }],
-                glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+                glyphs: '/assets/fonts/{fontstack}/{range}.pbf',
             },
             center: [-98.35, 39.5],
             zoom: 4,

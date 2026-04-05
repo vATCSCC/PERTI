@@ -4244,7 +4244,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             container: container,
             style: {
                 version: 8,
-                glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+                glyphs: '/assets/fonts/{fontstack}/{range}.pbf',
                 sources: {
                     'carto-dark': {
                         type: 'raster',
@@ -8084,7 +8084,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
             container: container,
             style: {
                 version: 8,
-                glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+                glyphs: '/assets/fonts/{fontstack}/{range}.pbf',
                 sources: { 'carto-dark': {
                     type: 'raster',
                     tiles: [

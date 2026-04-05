@@ -1286,7 +1286,7 @@
 
         // Changelog toggle (inline, legacy)
         html += '<div class="pb-changelog">';
-        html += '<div class="pb-changelog-header" id="pb_changelog_toggle"><i class="fas fa-chevron-right"></i> ' + t('playbook.changelog') + '</div>';
+        html += '<div class="pb-changelog-header" id="pb_changelog_toggle"><i class="fas fa-chevron-right"></i> ' + t('playbook.changelogTitle') + '</div>';
         html += '<div id="pb_changelog_content" style="display:none;"></div>';
         html += '</div>';
 

@@ -631,7 +631,7 @@ function initSuaMap() {
         container: 'sua-map',
         style: {
             version: 8,
-            glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+            glyphs: '/assets/fonts/{fontstack}/{range}.pbf',
             sources: {
                 'osm': {
                     type: 'raster',

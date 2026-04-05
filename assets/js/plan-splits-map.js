@@ -46,7 +46,7 @@
             container: 'plan_splits_map',
             style: {
                 version: 8,
-                glyphs: 'https://cdn.protomaps.com/fonts/pbf/{fontstack}/{range}.pbf',
+                glyphs: '/assets/fonts/{fontstack}/{range}.pbf',
                 sources: {
                     'carto-dark': {
                         type: 'raster',
