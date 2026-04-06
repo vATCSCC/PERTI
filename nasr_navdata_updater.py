@@ -2199,7 +2199,7 @@ class NavDataIO:
         for part in group_str.strip().split():
             if '/' in part:
                 airport, rwys = part.split('/', 1)
-                runways = rwys.split('|') if rwys else []
+                runways = [r for r in rwys.split('|') if r] if rwys else []
             else:
                 airport = part
                 runways = []
