@@ -209,7 +209,7 @@ def _build_runway_group_json(group_str: str,
     for part in group_str.strip().split():
         if '/' in part:
             airport, rwys = part.split('/', 1)
-            runways = rwys.split('|') if rwys else []
+            runways = [r for r in rwys.split('|') if r] if rwys else []
         else:
             airport = part
             runways = []
@@ -1590,7 +1590,8 @@ def sync_ref_to_adl(tables: Optional[List[str]] = None, dry_run: bool = False) -
         ),
         'nav_procedures': (
             ['procedure_id', 'procedure_type', 'airport_icao', 'procedure_name', 'computer_code',
-             'transition_name', 'transition_type', 'full_route', 'runways', 'is_active', 'source', 'effective_date',
+             'transition_name', 'transition_type', 'full_route', 'runways', 'body_name', 'runway_group',
+             'is_active', 'source', 'effective_date',
              'is_superseded', 'superseded_cycle', 'superseded_reason'],
             True, None
         ),

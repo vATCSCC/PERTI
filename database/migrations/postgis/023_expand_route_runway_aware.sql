@@ -213,15 +213,24 @@ BEGIN
               )
             ORDER BY
               CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
-              -- Runway preference: check both dep and arr runways for dot-notation
-              CASE WHEN np.runway_group IS NOT NULL AND v_dep_runways IS NOT NULL
+              -- Fix-match first: for dot-notation (ENE.PARCH4), the left side is the
+              -- transition fix — a direct identifier with higher semantic priority
+              -- than runway affinity.
+              CASE WHEN np.full_route LIKE UPPER(v_dot_left) || ' %' THEN 0 ELSE 1 END,
+              -- Runway preference as tiebreaker: check both dep and arr runways.
+              -- Match airport+runway pair (not just runway substring) to avoid
+              -- false positives when different airports share a runway number.
+              CASE WHEN np.runway_group IS NOT NULL
+                   AND v_dep_airport IS NOT NULL AND v_dep_runways IS NOT NULL
+                   AND np.runway_group LIKE '%' || v_dep_airport || '%'
                    AND np.runway_group LIKE '%' || split_part(v_dep_runways, '|', 1) || '%'
                    THEN 0
-                   WHEN np.runway_group IS NOT NULL AND v_arr_runways IS NOT NULL
+                   WHEN np.runway_group IS NOT NULL
+                   AND v_arr_airport IS NOT NULL AND v_arr_runways IS NOT NULL
+                   AND np.runway_group LIKE '%' || v_arr_airport || '%'
                    AND np.runway_group LIKE '%' || split_part(v_arr_runways, '|', 1) || '%'
                    THEN 0
                    ELSE 1 END,
-              CASE WHEN np.full_route LIKE UPPER(v_dot_left) || ' %' THEN 0 ELSE 1 END,
               length(np.full_route) DESC
             LIMIT 1;
 
@@ -383,8 +392,10 @@ BEGIN
                       AND np.full_route != ''
                     ORDER BY
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
-                      -- DP: prefer departure runway match
-                      CASE WHEN np.runway_group IS NOT NULL AND v_dep_runways IS NOT NULL
+                      -- DP: prefer departure airport+runway match
+                      CASE WHEN np.runway_group IS NOT NULL
+                           AND v_dep_airport IS NOT NULL AND v_dep_runways IS NOT NULL
+                           AND np.runway_group LIKE '%' || v_dep_airport || '%'
                            AND np.runway_group LIKE '%' || split_part(v_dep_runways, '|', 1) || '%'
                            THEN 0 ELSE 1 END,
                       length(np.full_route) ASC
@@ -409,8 +420,10 @@ BEGIN
                       -- runway transitions (PROC.RWxx) are airport-config-dependent
                       -- and we don't know the active runway during route expansion.
                       CASE WHEN np.computer_code ~ '\.(RW\d|RW$)' THEN 1 ELSE 0 END,
-                      -- DP: prefer departure runway match
-                      CASE WHEN np.runway_group IS NOT NULL AND v_dep_runways IS NOT NULL
+                      -- DP: prefer departure airport+runway match
+                      CASE WHEN np.runway_group IS NOT NULL
+                           AND v_dep_airport IS NOT NULL AND v_dep_runways IS NOT NULL
+                           AND np.runway_group LIKE '%' || v_dep_airport || '%'
                            AND np.runway_group LIKE '%' || split_part(v_dep_runways, '|', 1) || '%'
                            THEN 0 ELSE 1 END,
                       CASE WHEN v_next_fix IS NOT NULL
@@ -436,8 +449,10 @@ BEGIN
                       AND np.full_route != ''
                     ORDER BY
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
-                      -- STAR: prefer arrival runway match
-                      CASE WHEN np.runway_group IS NOT NULL AND v_arr_runways IS NOT NULL
+                      -- STAR: prefer arrival airport+runway match
+                      CASE WHEN np.runway_group IS NOT NULL
+                           AND v_arr_airport IS NOT NULL AND v_arr_runways IS NOT NULL
+                           AND np.runway_group LIKE '%' || v_arr_airport || '%'
                            AND np.runway_group LIKE '%' || split_part(v_arr_runways, '|', 1) || '%'
                            THEN 0 ELSE 1 END,
                       length(np.full_route) ASC
@@ -460,8 +475,10 @@ BEGIN
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
                       -- Prefer fix transitions over runway-specific transitions
                       CASE WHEN np.computer_code ~ '^RW\d' THEN 1 ELSE 0 END,
-                      -- STAR: prefer arrival runway match
-                      CASE WHEN np.runway_group IS NOT NULL AND v_arr_runways IS NOT NULL
+                      -- STAR: prefer arrival airport+runway match
+                      CASE WHEN np.runway_group IS NOT NULL
+                           AND v_arr_airport IS NOT NULL AND v_arr_runways IS NOT NULL
+                           AND np.runway_group LIKE '%' || v_arr_airport || '%'
                            AND np.runway_group LIKE '%' || split_part(v_arr_runways, '|', 1) || '%'
                            THEN 0 ELSE 1 END,
                       CASE WHEN v_prev_fix IS NOT NULL
@@ -486,12 +503,17 @@ BEGIN
                     ORDER BY
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
                       -- Use whichever runway context matches (dep for DP, arr for STAR)
-                      CASE WHEN np.runway_group IS NOT NULL AND v_dep_runways IS NOT NULL
+                      -- Match airport+runway pair to avoid cross-airport false positives.
+                      CASE WHEN np.runway_group IS NOT NULL
+                           AND v_dep_airport IS NOT NULL AND v_dep_runways IS NOT NULL
                            AND np.procedure_type IN ('DP', 'SID')
+                           AND np.runway_group LIKE '%' || v_dep_airport || '%'
                            AND np.runway_group LIKE '%' || split_part(v_dep_runways, '|', 1) || '%'
                            THEN 0
-                           WHEN np.runway_group IS NOT NULL AND v_arr_runways IS NOT NULL
+                           WHEN np.runway_group IS NOT NULL
+                           AND v_arr_airport IS NOT NULL AND v_arr_runways IS NOT NULL
                            AND np.procedure_type = 'STAR'
+                           AND np.runway_group LIKE '%' || v_arr_airport || '%'
                            AND np.runway_group LIKE '%' || split_part(v_arr_runways, '|', 1) || '%'
                            THEN 0
                            ELSE 1 END,
