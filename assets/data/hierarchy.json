@@ -1,0 +1,168 @@
+{
+  "_meta": {
+    "description": "VATSWIM geographic hierarchy reference data",
+    "version": "1.0.0",
+    "last_updated": "2026-04-05"
+  },
+  "regions": [
+    {
+      "code": "AMAS",
+      "name": "Americas",
+      "divisions": [
+        {
+          "code": "VATUSA",
+          "name": "VATSIM United States",
+          "icao_prefixes": ["K", "PA", "PH", "PG", "PW", "PM"],
+          "dcc_regions": [
+            {
+              "code": "EASTERN",
+              "name": "Eastern Service Area",
+              "centers": ["KZBW", "KZNY", "KZDC", "KZOB", "KZID", "KZTL", "KZJX", "KZMA"]
+            },
+            {
+              "code": "CENTRAL",
+              "name": "Central Service Area",
+              "centers": ["KZAU", "KZMP", "KZKC", "KZME", "KZFW", "KZHU"]
+            },
+            {
+              "code": "WESTERN",
+              "name": "Western Service Area",
+              "centers": ["KZDV", "KZAB", "KZLC", "KZLA", "KZOA", "KZSE"]
+            },
+            {
+              "code": "ALASKA",
+              "name": "Alaskan Region",
+              "centers": ["PAZA"]
+            }
+          ]
+        },
+        {
+          "code": "VATCAN",
+          "name": "VATSIM Canada",
+          "icao_prefixes": ["C"],
+          "dcc_regions": [],
+          "centers": ["CZEG", "CZWG", "CZYZ", "CZUL", "CZQX", "CZQM", "CZVR"]
+        },
+        {
+          "code": "VATCAR",
+          "name": "VATSIM Caribbean",
+          "icao_prefixes": ["M", "T"],
+          "dcc_regions": [],
+          "centers": []
+        },
+        {
+          "code": "VATSAM",
+          "name": "VATSIM South America",
+          "icao_prefixes": ["S"],
+          "dcc_regions": [],
+          "centers": []
+        },
+        {
+          "code": "VATMEX",
+          "name": "VATSIM Mexico",
+          "icao_prefixes": ["MM"],
+          "dcc_regions": [],
+          "centers": ["MMEX", "MMTY", "MMID"]
+        }
+      ]
+    },
+    {
+      "code": "EMEA",
+      "name": "Europe, Middle East and Africa",
+      "divisions": [
+        {
+          "code": "VATEUR",
+          "name": "VATSIM Europe",
+          "icao_prefixes": [],
+          "dcc_regions": [],
+          "centers": [],
+          "note": "Subdivisions per vACC. Centers resolved from PostGIS artcc_boundaries WHERE hierarchy_type='FIR'."
+        },
+        {
+          "code": "VATUK",
+          "name": "VATSIM United Kingdom",
+          "icao_prefixes": ["EG"],
+          "dcc_regions": [],
+          "centers": ["EGTT", "EGPX"]
+        },
+        {
+          "code": "VATMENA",
+          "name": "VATSIM Middle East and North Africa",
+          "icao_prefixes": ["O", "H"],
+          "dcc_regions": [],
+          "centers": []
+        },
+        {
+          "code": "VATAFA",
+          "name": "VATSIM Africa",
+          "icao_prefixes": ["F", "D", "G"],
+          "dcc_regions": [],
+          "centers": []
+        }
+      ]
+    },
+    {
+      "code": "APAC",
+      "name": "Asia Pacific",
+      "divisions": [
+        {
+          "code": "VATPAC",
+          "name": "VATSIM Pacific",
+          "icao_prefixes": ["Y", "NZ"],
+          "dcc_regions": [],
+          "centers": []
+        },
+        {
+          "code": "VATJPN",
+          "name": "VATSIM Japan",
+          "icao_prefixes": ["RJ", "RO"],
+          "dcc_regions": [],
+          "centers": ["RJJJ", "RJTG"]
+        },
+        {
+          "code": "VATKOR",
+          "name": "VATSIM Korea",
+          "icao_prefixes": ["RK"],
+          "dcc_regions": [],
+          "centers": ["RKRR"]
+        },
+        {
+          "code": "VATPRC",
+          "name": "VATSIM China",
+          "icao_prefixes": ["Z"],
+          "dcc_regions": [],
+          "centers": []
+        },
+        {
+          "code": "VATSEA",
+          "name": "VATSIM Southeast Asia",
+          "icao_prefixes": ["V", "W"],
+          "dcc_regions": [],
+          "centers": []
+        }
+      ]
+    }
+  ],
+  "curated_lists": {
+    "oep35": {
+      "name": "OEP 35 Airports",
+      "description": "FAA Operational Evolution Partnership core 35 airports",
+      "airports": ["KATL","KBOS","KBWI","KCLE","KCLT","KCVG","KDCA","KDEN","KDFW","KDTW","KEWR","KFLL","KHNL","KHOU","KIAD","KIAH","KJFK","KLAS","KLAX","KLGA","KMCO","KMDW","KMEM","KMIA","KMSP","KORD","KPBI","KPDX","KPHL","KPHX","KPIT","KSAN","KSEA","KSFO","KSLC","KSTL","KTPA"]
+    },
+    "core30": {
+      "name": "Core 30 Airports",
+      "description": "FAA Core 30 high-delay airports for ATCSCC monitoring",
+      "airports": ["KATL","KBOS","KBWI","KCLE","KCLT","KDCA","KDEN","KDFW","KDTW","KEWR","KFLL","KIAH","KJFK","KLAS","KLAX","KLGA","KMCO","KMDW","KMEM","KMIA","KMSP","KORD","KPHL","KPHX","KPIT","KSAN","KSEA","KSFO","KSLC","KTPA"]
+    },
+    "aspm82": {
+      "name": "ASPM 82 Airports",
+      "description": "FAA Aviation System Performance Metrics 82-airport set",
+      "airports": ["KABQ","KANC","KATL","KAUS","KBDL","KBHM","KBNA","KBOS","KBTV","KBUF","KBUR","KBWI","KCLE","KCLT","KCMH","KCVG","KDAL","KDCA","KDEN","KDFW","KDTW","KELP","KEWR","KFLL","KFNT","KGRR","KGSO","KHNL","KHOU","KHPN","KIAD","KIAH","KICT","KIND","KISP","KJAX","KJFK","KLAS","KLAX","KLGA","KLIT","KMCI","KMCO","KMDW","KMEM","KMHT","KMIA","KMKE","KMSP","KMSY","KOAK","KOKC","KOMA","KONT","KORD","KORF","KPBI","KPDX","KPHL","KPHX","KPIT","KPVD","KRDU","KRIC","KRNO","KROC","KRSW","KSAN","KSAT","KSDF","KSEA","KSFO","KSJC","KSLC","KSMF","KSNA","KSTL","KSWF","KSYR","KTEB","KTPA","KTUL","KTUS"]
+    },
+    "opsnet45": {
+      "name": "OPSNET 45 Airports",
+      "description": "FAA Operations Network 45-airport performance tracking set",
+      "airports": ["KABQ","KATL","KAUS","KBNA","KBOS","KBWI","KCLE","KCLT","KCVG","KDCA","KDEN","KDFW","KDTW","KELP","KEWR","KFLL","KHNL","KHOU","KIAD","KIAH","KIND","KJAX","KJFK","KLAS","KLAX","KLGA","KMCI","KMCO","KMDW","KMEM","KMIA","KMKE","KMSP","KMSY","KOAK","KORD","KPDX","KPHL","KPHX","KPIT","KSAN","KSEA","KSFO","KSLC","KSTL","KTPA"]
+    }
+  }
+}

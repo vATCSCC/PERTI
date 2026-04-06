@@ -552,8 +552,17 @@ $SWIM_CACHE_TTL = [
     'positions'      => 2,
     'tmi_programs'   => 10,
     'metering'       => 5,
-    'reference'      => 300,
-    'stats'          => 60
+    'reference'           => 300,
+    'reference_nav'       => 86400,   // 24h - AIRAC-stable
+    'reference_airspace'  => 86400,   // 24h - AIRAC-stable
+    'reference_facility'  => 86400,   // 24h - AIRAC-stable
+    'reference_aircraft'  => 604800,  // 7 days - rarely changes
+    'reference_airline'   => 604800,  // 7 days - rarely changes
+    'reference_route'     => 3600,    // 1h - derived from recent data
+    'reference_airac'     => 86400,   // 24h - changes only at cycle boundary
+    'reference_hierarchy' => 86400,   // 24h - static structure
+    'reference_bulk'      => 86400,   // 24h - regenerated per AIRAC cycle
+    'stats'               => 60
     // TODO: Uncomment when migration 024 is deployed and controller data is ready
     // 'controllers_list' => 5
 ];

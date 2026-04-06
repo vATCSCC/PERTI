@@ -962,6 +962,98 @@ class XP12Parser:
 
         return dp_rows, star_rows
 
+    def compose_cifp_full_routes(self, parsed: Dict) -> Dict:
+        """Compose CIFP routes by layering common body with runway/enroute transitions.
+
+        ARINC 424 route types:
+            2 = SID runway transition (initial departure from runway)
+            3 = SID common route (shared body)
+            4 = STAR runway transition (final approach to runway)
+            5 = STAR common route (shared body)
+            6 = SID/STAR enroute transition (connects to enroute structure)
+
+        For SIDs:  runway(2) + common(3) + enroute(6)
+        For STARs: enroute(6) + common(5) + runway(4)
+
+        Short transitions that would otherwise fail the 2-fix minimum are
+        now valid because they are composed with the common body.
+        """
+        composed_dps = self._compose_proc_group(parsed.get('dps', []),
+                                                common_type=3, rwy_type=2,
+                                                rwy_before_body=True)
+        composed_stars = self._compose_proc_group(parsed.get('stars', []),
+                                                  common_type=5, rwy_type=4,
+                                                  rwy_before_body=False)
+        return {'dps': composed_dps, 'stars': composed_stars}
+
+    def _compose_proc_group(self, entries: List[Dict], common_type: int,
+                            rwy_type: int, rwy_before_body: bool) -> List[Dict]:
+        """Compose one set of procedure entries (DPs or STARs)."""
+        groups = defaultdict(list)
+        for e in entries:
+            groups[(e['airport'], e['proc_name'])].append(e)
+
+        result = []
+        for (airport, proc_name), group in groups.items():
+            # Separate common body from transitions
+            body = None
+            transitions = []
+            for entry in group:
+                rt = entry.get('route_type', 0)
+                trans = entry.get('transition', '')
+                is_common = (rt == common_type
+                             or trans in (proc_name, 'ALL', ''))
+                if is_common:
+                    if body is None or len(entry['fixes']) > len(body['fixes']):
+                        body = entry
+                else:
+                    transitions.append(entry)
+
+            if not body:
+                # No common body found — emit transitions unchanged
+                result.extend(group)
+                continue
+
+            body_fixes = body['fixes']
+
+            for trans in transitions:
+                rt = trans.get('route_type', 0)
+                if rt == rwy_type:
+                    if rwy_before_body:
+                        composed = self._join_fix_seqs(trans['fixes'], body_fixes)
+                    else:
+                        composed = self._join_fix_seqs(body_fixes, trans['fixes'])
+                elif rt == 6:  # enroute transition
+                    if rwy_before_body:
+                        # SID enroute: body + enroute
+                        composed = self._join_fix_seqs(body_fixes, trans['fixes'])
+                    else:
+                        # STAR enroute: enroute + body
+                        composed = self._join_fix_seqs(trans['fixes'], body_fixes)
+                else:
+                    composed = trans['fixes']
+
+                result.append({**trans, 'fixes': composed})
+
+            # Also emit the common body itself (useful for fallback lookups)
+            result.append(body)
+
+        return result
+
+    @staticmethod
+    def _join_fix_seqs(first: List[str], second: List[str]) -> List[str]:
+        """Join two fix sequences, deduplicating consecutive overlaps at the junction."""
+        if not first:
+            return list(second)
+        if not second:
+            return list(first)
+        combined = list(first)
+        for fix in second:
+            if combined and combined[-1] == fix:
+                continue
+            combined.append(fix)
+        return combined
+
     @staticmethod
     def _build_fix_sequences(edge_set: set) -> List[List[str]]:
         """
@@ -1848,7 +1940,275 @@ class NavDataIO:
             writer.writeheader()
             writer.writerows(records)
         logger.info(f"Wrote {len(records)} records to {filename}")
-    
+
+    # ------------------------------------------------------------------
+    # Unified Procedures JSON
+    # ------------------------------------------------------------------
+
+    def write_procedures_json(self, filename: str, dp_rows: List[Dict],
+                              star_rows: List[Dict], airac_cycle: str = None,
+                              lid_to_icao: Dict[str, str] = None):
+        """Write unified procedures JSON file.
+
+        Converts DP and STAR CSV row formats into a single JSON with:
+        - Normalized computer codes (dot-notation, _old_ stripped)
+        - Structured runway groups with robust FAA LID -> ICAO conversion
+        - Extracted procedure number / letter
+        - Transition fix identification
+
+        Args:
+            lid_to_icao: FAA LID -> ICAO mapping for non-CONUS airports.
+                         Built via build_lid_to_icao_map(). If None, falls
+                         back to naive K-prefix for 3-char alphabetic codes.
+        """
+        procedures = []
+
+        for row in dp_rows:
+            proc = self._csv_row_to_proc_json(row, 'DP', lid_to_icao)
+            if proc:
+                procedures.append(proc)
+
+        for row in star_rows:
+            proc = self._csv_row_to_proc_json(row, 'STAR', lid_to_icao)
+            if proc:
+                procedures.append(proc)
+
+        dp_count = sum(1 for p in procedures if p['procedure_type'] == 'DP')
+        star_count = len(procedures) - dp_count
+        active = sum(1 for p in procedures if not p.get('is_superseded'))
+
+        output = {
+            'metadata': {
+                'generated_utc': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                'airac_cycle': airac_cycle or '',
+                'format_version': '1.0',
+                'counts': {
+                    'dp': dp_count,
+                    'star': star_count,
+                    'total': len(procedures),
+                    'active': active,
+                    'superseded': len(procedures) - active,
+                }
+            },
+            'procedures': procedures,
+        }
+
+        filepath = self.data_dir / filename
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(output, f, separators=(',', ':'), ensure_ascii=False)
+        logger.info(f"Wrote {len(procedures)} procedures to {filename} "
+                    f"({dp_count} DP, {star_count} STAR, "
+                    f"{active} active, {len(procedures) - active} superseded)")
+
+    def _csv_row_to_proc_json(self, row: Dict, proc_type: str,
+                              lid_to_icao: Dict[str, str] = None) -> Optional[Dict]:
+        """Convert a single DP or STAR CSV row to the unified JSON dict."""
+        if proc_type == 'DP':
+            raw_code = row.get('DP_COMPUTER_CODE', '').strip()
+            proc_name_field = row.get('DP_NAME', '').strip()
+            airport_group = row.get('ORIG_GROUP', '').strip()
+            full_with_airport = row.get('ROUTE_FROM_ORIG_GROUP', '').strip()
+        else:
+            raw_code = row.get('STAR_COMPUTER_CODE', '').strip()
+            proc_name_field = row.get('ARRIVAL_NAME', '').strip()
+            airport_group = row.get('DEST_GROUP', '').strip()
+            full_with_airport = row.get('ROUTE_FROM_DEST_GROUP', '').strip()
+
+        if not raw_code:
+            return None
+
+        # Strip _old_ suffix
+        clean_code, is_sup, sup_cycle, sup_reason = self._strip_old_suffix(raw_code)
+
+        # Extract procedure identifier from dot notation
+        # DP:   PROC_ID.BODY  (left = procedure)
+        # STAR: BODY.PROC_ID  (right = procedure)
+        if '.' in clean_code:
+            dot_left, dot_right = clean_code.split('.', 1)
+            proc_identifier = dot_left if proc_type == 'DP' else dot_right
+        else:
+            proc_identifier = clean_code
+
+        base_name, proc_number, proc_letter = self._extract_proc_parts(proc_identifier)
+
+        # Computer code: prefer transition-specific code, else main code
+        trans_code_raw = row.get('TRANSITION_COMPUTER_CODE', '').strip()
+        if trans_code_raw:
+            computer_code = self._strip_old_suffix(trans_code_raw)[0]
+        else:
+            computer_code = clean_code
+
+        # Transition fix: from dot-notation of transition code
+        transition_fix = None
+        trans_type = row.get('TRANSITION_TYPE', '').strip() or None
+        if trans_code_raw and '.' in trans_code_raw:
+            tc_clean = self._strip_old_suffix(trans_code_raw)[0]
+            tc_left, tc_right = tc_clean.split('.', 1)
+            # DP transitions: CODE.FIX  ->  fix is right
+            # STAR transitions: FIX.CODE ->  fix is left
+            transition_fix = tc_right if proc_type == 'DP' else tc_left
+
+        # Structured runway group with robust FAA LID -> ICAO conversion
+        runway_group = self._parse_runway_group(airport_group, lid_to_icao)
+
+        # Airport ICAO from first entry in runway group
+        airport_icao = runway_group[0]['airport'] if runway_group else None
+
+        # Source: CIFP rows use 4-char ICAO as ARTCC; NASR uses Z-prefixed 3-char
+        artcc = row.get('ARTCC', '').strip()
+        source = 'CIFP' if (len(artcc) == 4 and not artcc.startswith('Z')) else 'NASR'
+
+        route_points = row.get('ROUTE_POINTS', '').strip()
+
+        result = {
+            'procedure_type': proc_type,
+            'airport_icao': airport_icao,
+            'procedure_name': proc_identifier,
+            'procedure_number': proc_number,
+            'procedure_letter': proc_letter,
+            'computer_code': computer_code,
+            'transition_fix': transition_fix,
+            'transition_type': trans_type,
+            'runway_group': runway_group,
+            'full_route': route_points,
+            'artcc': artcc,
+            'body_name': row.get('BODY_NAME', '').strip() or None,
+            'transition_name': row.get('TRANSITION_NAME', '').strip() or None,
+            'full_route_with_airport': full_with_airport or None,
+            'source': source,
+            'effective_date': row.get('EFF_DATE', '').strip() or None,
+        }
+
+        if is_sup:
+            result['is_superseded'] = True
+            result['superseded_cycle'] = sup_cycle
+            result['superseded_reason'] = sup_reason
+
+        return result
+
+    @staticmethod
+    def _strip_old_suffix(code: str) -> Tuple[str, bool, Optional[str], Optional[str]]:
+        """Strip _old_ suffix from a code. Returns (clean, is_superseded, cycle, reason)."""
+        m = re.match(r'^(.+?)_old_(\d{4})_(\w+)$', code, re.IGNORECASE)
+        if m:
+            return m.group(1), True, m.group(2), m.group(3)
+        m = re.match(r'^(.+?)_old_(pre\d{4})$', code, re.IGNORECASE)
+        if m:
+            return m.group(1), True, m.group(2), None
+        m = re.match(r'^(.+?)_old_(.+)$', code, re.IGNORECASE)
+        if m:
+            return m.group(1), True, m.group(2), None
+        m = re.match(r'^(.+?)_OLD$', code)
+        if m:
+            return m.group(1), True, None, None
+        return code, False, None, None
+
+    @staticmethod
+    def _extract_proc_parts(identifier: str) -> Tuple[str, Optional[str], Optional[str]]:
+        """Extract (base_name, procedure_number, procedure_letter) from procedure identifier.
+
+        Examples:
+          DEEZZ6   -> ('DEEZZ', '6', None)
+          BPK5K    -> ('BPK', '5', 'K')
+          AALLE4   -> ('AALLE', '4', None)
+          AGT1WD   -> ('AGT', '1', 'WD')    (Haikou multi-char suffix)
+          ADB01D   -> ('ADB', '01', 'D')     (Chinese 2-digit)
+          SEP146   -> ('SEP', '146', None)    (Brazilian)
+          OMNI     -> ('OMNI', None, None)    (all-alpha, no numeric)
+        """
+        m = re.match(r'^([A-Z]+)(\d{1,3})([A-Z]{0,2})$', identifier)
+        if m:
+            return m.group(1), m.group(2), (m.group(3) or None)
+        # All-alpha identifier (no digits)
+        if re.match(r'^[A-Z]+$', identifier):
+            return identifier, None, None
+        return identifier, None, None
+
+    @staticmethod
+    def build_lid_to_icao_map(apts_csv_path: str = None,
+                               airports_full: Dict = None) -> Dict[str, str]:
+        """Build FAA LID -> ICAO airport code mapping.
+
+        Sources (in priority order):
+        1. airports_full dict from parse_airports_full() — {ARPT_ID: {ICAO_ID: ...}}
+        2. apts.csv file — ARPT_ID,ICAO_ID columns
+
+        Returns dict mapping FAA LID (e.g. 'SJU') to ICAO (e.g. 'TJSJ').
+        Entries with no ICAO_ID are omitted (caller falls back to K-prefix).
+        """
+        lid_to_icao = {}
+
+        if airports_full:
+            for arpt_id, info in airports_full.items():
+                icao = info.get('ICAO_ID', '').strip() if isinstance(info, dict) else ''
+                if icao and len(icao) == 4:
+                    lid_to_icao[arpt_id] = icao
+
+        if not lid_to_icao and apts_csv_path:
+            try:
+                with open(apts_csv_path, 'r', encoding='utf-8-sig', errors='replace') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        arpt_id = row.get('ARPT_ID', '').strip()
+                        icao = row.get('ICAO_ID', '').strip()
+                        if arpt_id and icao and len(icao) == 4:
+                            lid_to_icao[arpt_id] = icao
+            except Exception as e:
+                logger.warning(f"Could not read apts.csv for LID->ICAO map: {e}")
+
+        if lid_to_icao:
+            logger.debug(f"Built LID->ICAO map with {len(lid_to_icao)} entries")
+        return lid_to_icao
+
+    @staticmethod
+    def _lid_to_icao_convert(airport: str, lid_to_icao: Dict[str, str] = None) -> str:
+        """Convert a FAA LID airport code to ICAO.
+
+        Conversion logic:
+        1. If already 4+ chars, assume ICAO — return as-is
+        2. Lookup in lid_to_icao map (handles SJU->TJSJ, HNL->PHNL, ANC->PANC, etc.)
+        3. If 3-char alphabetic and not in map, use K-prefix (most CONUS airports)
+        4. Otherwise return as-is (alphanumeric LIDs like 57C, 3R9)
+        """
+        if len(airport) >= 4:
+            return airport
+        if lid_to_icao and airport in lid_to_icao:
+            return lid_to_icao[airport]
+        if len(airport) == 3 and airport.isalpha():
+            return 'K' + airport
+        return airport
+
+    @staticmethod
+    def _parse_runway_group(group_str: str,
+                            lid_to_icao: Dict[str, str] = None) -> List[Dict]:
+        """Parse ORIG_GROUP/DEST_GROUP into structured [{airport, runways}].
+
+        Uses lid_to_icao lookup for robust FAA LID -> ICAO conversion.
+        Handles non-CONUS airports: SJU->TJSJ, HNL->PHNL, ANC->PANC,
+        STT->TIST, GUM->PGUM, etc.
+
+        Input:  "SJU/08|10|26|28 MKE/01L|01R ENW"
+        Output: [{"airport":"TJSJ","runways":["08","10","26","28"]},
+                 {"airport":"KMKE","runways":["01L","01R"]},
+                 {"airport":"KENW","runways":[]}]
+        """
+        if not group_str or not group_str.strip():
+            return []
+
+        result = []
+        for part in group_str.strip().split():
+            if '/' in part:
+                airport, rwys = part.split('/', 1)
+                runways = rwys.split('|') if rwys else []
+            else:
+                airport = part
+                runways = []
+
+            airport = NavDataIO._lid_to_icao_convert(airport, lid_to_icao)
+            result.append({'airport': airport, 'runways': runways})
+
+        return result
+
     def backup_file(self, filename: str, backup_dir: Path):
         """Create timestamped backup of a file."""
         filepath = self.data_dir / filename
@@ -2332,7 +2692,12 @@ class NASRNavDataUpdater:
         return combined
 
     def _parse_xp12_procedures(self) -> Tuple[List[Dict], List[Dict]]:
-        """Parse XP12 CIFP international procedures. Returns (dp_rows, star_rows)."""
+        """Parse XP12 CIFP international procedures. Returns (dp_rows, star_rows).
+
+        Pipeline: parse_cifp_procedures -> compose_cifp_full_routes -> cifp_to_nasr_rows
+        The composition step layers common body with runway/enroute transitions
+        so that each emitted row represents a complete flyable route segment.
+        """
         parser = self._get_xp12_parser()
         if not parser:
             return [], []
@@ -2341,8 +2706,14 @@ class NASRNavDataUpdater:
             logger.info("XP12: CIFP directory not found, skipping international procedures")
             return [], []
         parsed = parser.parse_cifp_procedures()
+        # Compose body + transition layers before flattening to CSV rows
+        composed = parser.compose_cifp_full_routes(parsed)
+        logger.info(f"XP12 CIFP composed: {len(composed['dps'])} DPs "
+                    f"(was {len(parsed['dps'])}), "
+                    f"{len(composed['stars'])} STARs "
+                    f"(was {len(parsed['stars'])})")
         eff_date = parser.get_effective_date() or datetime.now().strftime('%m/%d/%Y')
-        return parser.cifp_to_nasr_rows(parsed, eff_date)
+        return parser.cifp_to_nasr_rows(composed, eff_date)
 
     def run(self) -> bool:
         """Execute the full update process."""
@@ -2592,11 +2963,11 @@ class NASRNavDataUpdater:
             source_removed=nasr_removed_cdrs)
         final_dps = self.merger.merge_list_records(
             existing_dps, new_dps,
-            ['DP_COMPUTER_CODE', 'TRANSITION_COMPUTER_CODE'], 'dps',
+            ['DP_COMPUTER_CODE', 'TRANSITION_COMPUTER_CODE', 'ORIG_GROUP', 'BODY_NAME'], 'dps',
             source_removed=nasr_removed_dps)
         final_stars = self.merger.merge_list_records(
             existing_stars, new_stars,
-            ['STAR_COMPUTER_CODE', 'TRANSITION_COMPUTER_CODE'], 'stars',
+            ['STAR_COMPUTER_CODE', 'TRANSITION_COMPUTER_CODE', 'DEST_GROUP', 'BODY_NAME'], 'stars',
             source_removed=nasr_removed_stars)
         
         # Remove duplicates
@@ -2625,7 +2996,18 @@ class NASRNavDataUpdater:
                       'BODY_NAME', 'TRANSITION_COMPUTER_CODE', 'TRANSITION_NAME',
                       'TRANSITION_TYPE', 'ROUTE_POINTS', 'ROUTE_FROM_DEST_GROUP']
         self.io.write_structured_csv('star_full_routes.csv', final_stars, star_fields)
-        
+
+        # Build FAA LID -> ICAO lookup for robust runway_group airport conversion
+        # Uses apts.csv which was just written (or exists from prior run)
+        apts_csv_path = str(self.output_dir / 'apts.csv')
+        lid_to_icao = NavDataIO.build_lid_to_icao_map(apts_csv_path=apts_csv_path)
+
+        # Write unified procedures JSON (all DPs + STARs in one structured file)
+        current_cycle_id = AIRACCycle.get_cycle_id(cycles[0])
+        self.io.write_procedures_json('procedures.json', final_dps, final_stars,
+                                      airac_cycle=current_cycle_id,
+                                      lid_to_icao=lid_to_icao)
+
         # Update JavaScript files
         logger.info("\nUpdating JavaScript files...")
         self.js_dir.mkdir(parents=True, exist_ok=True)

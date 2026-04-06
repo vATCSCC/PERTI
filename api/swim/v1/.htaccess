@@ -30,6 +30,9 @@
     RewriteCond %{DOCUMENT_ROOT}/api/swim/v1/tmi/$1.php -f
     RewriteRule ^tmi/([a-zA-Z0-9_-]+)/?$ tmi/$1.php [L,QSA]
 
+    # Reference library: /reference/{domain}/{path...} -> /reference/{domain}.php
+    RewriteRule ^reference/([a-zA-Z0-9_-]+)/(.+)$ reference/$1.php [L,QSA]
+
     # Clean URLs: Rewrite /endpoint to /endpoint.php
     # Only if the request is not a file and .php version exists
     RewriteCond %{REQUEST_FILENAME} !-f

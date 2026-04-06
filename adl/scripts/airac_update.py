@@ -148,6 +148,76 @@ def classify_airway_type(name: str) -> str:
         return 'OTHER'
 
 
+def _build_lid_to_icao_map() -> Dict[str, str]:
+    """Build FAA LID -> ICAO airport code mapping from apts.csv.
+
+    Handles non-CONUS airports: SJU->TJSJ, HNL->PHNL, ANC->PANC,
+    STT->TIST, GUM->PGUM, etc.
+    """
+    apts_csv = (DATA_DIR / "apts.csv").resolve()
+    lid_to_icao = {}
+    try:
+        with open(apts_csv, 'r', encoding='utf-8-sig', errors='replace') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                arpt_id = row.get('ARPT_ID', '').strip()
+                icao = row.get('ICAO_ID', '').strip()
+                if arpt_id and icao and len(icao) == 4:
+                    lid_to_icao[arpt_id] = icao
+    except Exception as e:
+        print(f"  WARNING: Could not read apts.csv for LID->ICAO map: {e}")
+    if lid_to_icao:
+        print(f"  Built LID->ICAO map with {len(lid_to_icao)} entries")
+    return lid_to_icao
+
+
+def _lid_to_icao_convert(airport: str, lid_to_icao: Dict[str, str]) -> str:
+    """Convert a FAA LID airport code to ICAO.
+
+    Conversion logic:
+    1. If already 4+ chars, assume ICAO — return as-is
+    2. Lookup in lid_to_icao map (handles SJU->TJSJ, HNL->PHNL, ANC->PANC, etc.)
+    3. If 3-char alphabetic and not in map, use K-prefix (most CONUS airports)
+    4. Otherwise return as-is (alphanumeric LIDs like 57C, 3R9)
+    """
+    if len(airport) >= 4:
+        return airport
+    if lid_to_icao and airport in lid_to_icao:
+        return lid_to_icao[airport]
+    if len(airport) == 3 and airport.isalpha():
+        return 'K' + airport
+    return airport
+
+
+def _build_runway_group_json(group_str: str,
+                              lid_to_icao: Dict[str, str] = None) -> Optional[str]:
+    """Convert ORIG_GROUP/DEST_GROUP to JSON runway_group array.
+
+    Uses lid_to_icao lookup for robust FAA LID -> ICAO conversion.
+    Handles non-CONUS airports: SJU->TJSJ, HNL->PHNL, ANC->PANC,
+    STT->TIST, GUM->PGUM, etc.
+
+    Input:  "SJU/08|10|26|28 MKE/01L|01R ENW"
+    Output: '[{"airport":"TJSJ","runways":["08","10","26","28"]},
+              {"airport":"KMKE","runways":["01L","01R"]},
+              {"airport":"KENW","runways":[]}]'
+    Returns None for empty input.
+    """
+    if not group_str or not group_str.strip():
+        return None
+    result = []
+    for part in group_str.strip().split():
+        if '/' in part:
+            airport, rwys = part.split('/', 1)
+            runways = rwys.split('|') if rwys else []
+        else:
+            airport = part
+            runways = []
+        airport = _lid_to_icao_convert(airport, lid_to_icao or {})
+        result.append({'airport': airport, 'runways': runways})
+    return json.dumps(result, separators=(',', ':')) if result else None
+
+
 # ==============================================================================
 # Database Connection
 # ==============================================================================
@@ -985,6 +1055,9 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
     cursor = conn.cursor()
     cursor.fast_executemany = True
 
+    # Build robust FAA LID -> ICAO mapping from apts.csv
+    lid_to_icao = _build_lid_to_icao_map()
+
     procedures = []
 
     # Load DPs
@@ -999,7 +1072,7 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
 
             clean_code, is_superseded, sup_cycle, sup_reason = parse_old_suffix(computer_code)
 
-            # Extract airport from ORIG_GROUP (e.g., "MKE/01L|01R" -> "KMKE")
+            # Extract airport from ORIG_GROUP (e.g., "SJU/08|10" -> "TJSJ")
             orig_group = row.get('ORIG_GROUP', '').strip()
             airport = None
             if orig_group:
@@ -1008,9 +1081,7 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                     airport = first_part.split('/')[0]
                 else:
                     airport = first_part
-                if airport and len(airport) == 3:
-                    airport = 'K' + airport
-                airport = airport[:4] if airport else None
+                airport = _lid_to_icao_convert(airport, lid_to_icao) if airport else None
 
             # Transition type: 'fix', 'runway', or None
             trans_type_raw = row.get('TRANSITION_TYPE', '').strip()
@@ -1025,6 +1096,8 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                 'transition_type': trans_type,
                 'full_route': row.get('ROUTE_POINTS', '').strip(),
                 'runways': orig_group[:64] if orig_group else None,
+                'body_name': row.get('BODY_NAME', '').strip()[:64] or None,
+                'runway_group': _build_runway_group_json(orig_group, lid_to_icao),
                 'is_superseded': is_superseded,
                 'superseded_cycle': sup_cycle,
                 'superseded_reason': sup_reason,
@@ -1044,7 +1117,7 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
 
             clean_code, is_superseded, sup_cycle, sup_reason = parse_old_suffix(computer_code)
 
-            # Extract airport from DEST_GROUP
+            # Extract airport from DEST_GROUP (e.g., "HNL/22L|22R" -> "PHNL")
             dest_group = row.get('DEST_GROUP', '').strip()
             airport = None
             if dest_group:
@@ -1053,9 +1126,7 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                     airport = first_part.split('/')[0]
                 else:
                     airport = first_part
-                if airport and len(airport) == 3:
-                    airport = 'K' + airport
-                airport = airport[:4] if airport else None
+                airport = _lid_to_icao_convert(airport, lid_to_icao) if airport else None
 
             trans_type_raw = row.get('TRANSITION_TYPE', '').strip()
             trans_type = trans_type_raw if trans_type_raw in ('fix', 'runway') else None
@@ -1069,6 +1140,8 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                 'transition_type': trans_type,
                 'full_route': row.get('ROUTE_POINTS', '').strip(),
                 'runways': dest_group[:64] if dest_group else None,
+                'body_name': row.get('BODY_NAME', '').strip()[:64] or None,
+                'runway_group': _build_runway_group_json(dest_group, lid_to_icao),
                 'is_superseded': is_superseded,
                 'superseded_cycle': sup_cycle,
                 'superseded_reason': sup_reason,
@@ -1084,12 +1157,12 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
         print("  [DRY RUN] Would import to VATSIM_REF.nav_procedures")
         return len(procedures), 0
 
-    # Snapshot for changelog
+    # Snapshot for changelog (include runway_group + body_name for per-variant tracking)
     old_rows = {}
     if airac_cycle:
         print("  Snapshotting existing data for changelog...")
         old_rows = snapshot_table(conn, 'nav_procedures',
-                                  'computer_code, transition_name',
+                                  'computer_code, transition_name, runway_group, body_name',
                                   'procedure_type, full_route')
 
     # Rich snapshot for supersession preservation (all columns needed for re-insert).
@@ -1099,7 +1172,7 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
         snap_cursor = conn.cursor()
         snap_cursor.execute("""
             SELECT procedure_type, airport_icao, procedure_name, computer_code, transition_name,
-                   transition_type, full_route, runways,
+                   transition_type, full_route, runways, body_name, runway_group,
                    is_superseded, superseded_cycle, superseded_reason
             FROM dbo.nav_procedures
         """)
@@ -1113,9 +1186,11 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                 'transition_type': row[5],
                 'full_route': row[6],
                 'runways': row[7],
-                'is_superseded': bool(row[8]),
-                'superseded_cycle': row[9],
-                'superseded_reason': row[10],
+                'body_name': row[8],
+                'runway_group': row[9],
+                'is_superseded': bool(row[10]),
+                'superseded_cycle': row[11],
+                'superseded_reason': row[12],
             })
         print(f"    Supersession snapshot: {len(old_proc_snapshot):,} entries "
               f"({sum(1 for p in old_proc_snapshot if p['is_superseded']):,} already superseded)")
@@ -1130,25 +1205,30 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
     cursor.execute("TRUNCATE TABLE dbo.nav_procedures")
     conn.commit()
 
-    # Ensure transition_type column exists (added for CIFP transition classification)
-    try:
-        cursor.execute("""
-            IF NOT EXISTS (SELECT 1 FROM sys.columns
-                           WHERE object_id = OBJECT_ID('dbo.nav_procedures')
-                             AND name = 'transition_type')
-            ALTER TABLE dbo.nav_procedures ADD transition_type NVARCHAR(10) NULL;
-        """)
-        conn.commit()
-    except Exception:
-        conn.rollback()
+    # Ensure new columns exist (idempotent DDL)
+    for col_name, col_type in [
+        ('transition_type', 'NVARCHAR(10)'),
+        ('body_name', 'NVARCHAR(64)'),
+        ('runway_group', 'NVARCHAR(MAX)'),
+    ]:
+        try:
+            cursor.execute(f"""
+                IF NOT EXISTS (SELECT 1 FROM sys.columns
+                               WHERE object_id = OBJECT_ID('dbo.nav_procedures')
+                                 AND name = '{col_name}')
+                ALTER TABLE dbo.nav_procedures ADD {col_name} {col_type} NULL;
+            """)
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
     insert_sql = """
         INSERT INTO dbo.nav_procedures
         (procedure_type, airport_icao, procedure_name, computer_code, transition_name,
-         transition_type, full_route, runways, is_active,
+         transition_type, full_route, runways, body_name, runway_group, is_active,
          is_superseded, superseded_cycle, superseded_reason,
          source, effective_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'NASR', GETUTCDATE())
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 'NASR', GETUTCDATE())
     """
 
     batch_size = 2000
@@ -1160,7 +1240,7 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
         batch_data = [
             (p['procedure_type'], p['airport_icao'] or 'ZZZZ', p['procedure_name'],
              p['computer_code'], p['transition_name'], p['transition_type'],
-             p['full_route'], p['runways'],
+             p['full_route'], p['runways'], p.get('body_name'), p.get('runway_group'),
              1 if p['is_superseded'] else 0,
              p['superseded_cycle'], p['superseded_reason'])
             for p in batch
@@ -1198,22 +1278,31 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
     #   3. Old SUPERSEDED entries not in CSV            → carry forward as-is
     if airac_cycle and old_proc_snapshot:
         # Build lookup of what was just imported from CSV.
-        # Use a set of routes per key because the same (code, trans) can appear
-        # for different runway groups at the same airport with different routes.
-        imported_active = {}      # (code, trans_str) -> set of full_routes
-        imported_superseded = set()  # (code, trans_str, sup_cycle) for dedup
+        # Key includes runway_group + body_name for per-variant tracking — different
+        # variants of the same (code, trans) have different routes.
+        imported_active = {}      # (code, trans_str, rwy_group, body_name) -> full_route
+        imported_superseded = set()  # (code, trans_str, rwy_group, body_name, sup_cycle) dedup
+        # Also keep a broader key for fallback (handles transition from NULL→populated columns)
+        imported_active_broad = {}  # (code, trans_str) -> set of full_routes
         for p in procedures:
-            key = (p['computer_code'], str(p['transition_name']))
+            rg = str(p.get('runway_group') or '')
+            bn = str(p.get('body_name') or '')
+            key = (p['computer_code'], str(p['transition_name']), rg, bn)
+            broad_key = (p['computer_code'], str(p['transition_name']))
             if p['is_superseded']:
                 imported_superseded.add((*key, p['superseded_cycle']))
             else:
-                imported_active.setdefault(key, set()).add(p['full_route'])
+                imported_active[key] = p['full_route']
+                imported_active_broad.setdefault(broad_key, set()).add(p['full_route'])
 
         superseded_inserts = []
         for old in old_proc_snapshot:
             code = old['computer_code']
             trans = str(old['transition_name'])
-            key = (code, trans)
+            rg = str(old.get('runway_group') or '')
+            bn = str(old.get('body_name') or '')
+            key = (code, trans, rg, bn)
+            broad_key = (code, trans)
 
             if old['is_superseded']:
                 # Already-superseded entry from previous cycle — carry forward
@@ -1222,17 +1311,26 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                 if check not in imported_superseded:
                     superseded_inserts.append(old)
             else:
-                # Active entry in old DB
-                if key not in imported_active:
-                    # Removed from new AIRAC cycle
+                # Active entry in old DB — check precise key first, then broad fallback
+                if key in imported_active:
+                    # Same variant exists — check if route changed
+                    if old['full_route'] != imported_active[key]:
+                        superseded_inserts.append({
+                            **old,
+                            'is_superseded': True,
+                            'superseded_cycle': airac_cycle,
+                            'superseded_reason': 'changed',
+                        })
+                elif broad_key not in imported_active_broad:
+                    # Entire procedure removed from new AIRAC cycle
                     superseded_inserts.append({
                         **old,
                         'is_superseded': True,
                         'superseded_cycle': airac_cycle,
                         'superseded_reason': 'removed',
                     })
-                elif old['full_route'] not in imported_active[key]:
-                    # Route changed — preserve old version
+                elif old['full_route'] not in imported_active_broad[broad_key]:
+                    # Route changed or variant removed (runway_group mismatch)
                     superseded_inserts.append({
                         **old,
                         'is_superseded': True,
@@ -1258,7 +1356,7 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
                 batch_data = [
                     (s['procedure_type'], s['airport_icao'] or 'ZZZZ', s['procedure_name'],
                      s['computer_code'], s['transition_name'], s['transition_type'],
-                     s['full_route'], s['runways'],
+                     s['full_route'], s['runways'], s.get('body_name'), s.get('runway_group'),
                      1,  # is_superseded = always true here
                      s['superseded_cycle'], s['superseded_reason'])
                     for s in batch
@@ -1286,11 +1384,14 @@ def import_procedures(conn, dry_run: bool = False, airac_cycle: str = None) -> T
         else:
             print("\n  No superseded entries to preserve (CSV already complete)")
 
-    # Changelog
+    # Changelog (key includes runway_group + body_name for per-variant tracking)
     if airac_cycle and old_rows:
         new_rows = {}
         for p in procedures:
-            key = (p['computer_code'], str(p['transition_name']))
+            key = (_normalize_key_val(p['computer_code']),
+                   _normalize_key_val(p.get('transition_name')),
+                   _normalize_key_val(p.get('runway_group')),
+                   _normalize_key_val(p.get('body_name')))
             new_rows[key] = {'procedure_type': p['procedure_type'],
                              'full_route': p['full_route']}
         generate_changelog(conn, 'nav_procedures', old_rows, new_rows, airac_cycle)

@@ -79,6 +79,15 @@ server {
         fastcgi_read_timeout 600;
     }
 
+    # SWIM API: reference/{domain}/{path...} - all reference library endpoints
+    location ~ ^/api/swim/v1/reference/(airports|navigation|airspace|facilities|aircraft|airlines|routes|airac|utilities|hierarchy|bulk)/(.+) {
+        fastcgi_pass 127.0.0.1:9000;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/api/swim/v1/reference/$1.php;
+        fastcgi_param QUERY_STRING $query_string;
+        fastcgi_read_timeout 600;
+    }
+
     # SWIM API: reference/taxi-times/{airport}
     location ~ ^/api/swim/v1/reference/taxi-times/[A-Za-z0-9]+ {
         fastcgi_pass 127.0.0.1:9000;
