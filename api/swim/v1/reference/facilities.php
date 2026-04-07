@@ -217,7 +217,7 @@ function handleTraconDetail($code, $include_geometry, $format, $cache_params, $f
     if (isset($tracon['geometry'])) $tracon['geometry'] = json_decode($tracon['geometry'], true);
 
     // Get airports within this TRACON via spatial containment
-    $apt_sql = "SELECT a.icao_id, a.iata_id, a.airport_name
+    $apt_sql = "SELECT a.icao_id, a.arpt_id, a.arpt_name
                 FROM airports a, tracon_boundaries t
                 WHERE t.tracon_code = :code
                 AND ST_Contains(t.geom, a.geom)
