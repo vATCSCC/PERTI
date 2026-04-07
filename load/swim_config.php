@@ -187,6 +187,9 @@ $SWIM_DATA_AUTHORITY = [
     // TODO: Uncomment when migration 024 is deployed and controller data is ready
     // // Controller data - vNAS primary, VATSIM datafeed fallback
     // 'controller'    => ['VNAS', true]
+
+    // vNAS configuration data - CRC local sync agent only (immutable)
+    'vnas_config'   => ['VNAS_CONFIG_SYNC', false],
 ];
 
 /**
