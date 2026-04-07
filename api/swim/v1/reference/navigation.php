@@ -96,11 +96,11 @@ switch ($sub) {
 
 function handleFixDetail($conn, $name, $include_geometry, $format, $cache_params, $format_options) {
     $geom = $include_geometry ? ", ST_AsGeoJSON(geom, 5) AS geometry" : "";
-    $sql = "SELECT fix_name, latitude, longitude, fix_type, artcc_code, country_code,
-                   is_superseded, airac_cycle $geom
+    $sql = "SELECT fix_name, lat, lon, fix_type, artcc_id,
+                   is_superseded $geom
             FROM nav_fixes
             WHERE fix_name = :name AND (is_superseded = false OR is_superseded IS NULL)
-            ORDER BY country_code";
+            ORDER BY fix_name";
     $stmt = $conn->prepare($sql);
     $stmt->execute([':name' => $name]);
     $fixes = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -111,8 +111,9 @@ function handleFixDetail($conn, $name, $include_geometry, $format, $cache_params
 
     foreach ($fixes as &$f) {
         if (isset($f['geometry'])) $f['geometry'] = json_decode($f['geometry'], true);
-        $f['latitude'] = (float)$f['latitude'];
-        $f['longitude'] = (float)$f['longitude'];
+        $f['latitude'] = (float)$f['lat'];
+        $f['longitude'] = (float)$f['lon'];
+        unset($f['lat'], $f['lon']);
     }
 
     SwimResponse::formatted([
@@ -150,12 +151,8 @@ function handleFixList($conn, $include_geometry, $format, $cache_params, $format
         $params[':type'] = strtoupper($type);
     }
     if ($artcc) {
-        $where[] = "artcc_code = :artcc";
+        $where[] = "artcc_id = :artcc";
         $params[':artcc'] = strtoupper($artcc);
-    }
-    if ($country) {
-        $where[] = "country_code = :country";
-        $params[':country'] = strtoupper($country);
     }
 
     $order_by = "fix_name";
@@ -182,7 +179,7 @@ function handleFixList($conn, $include_geometry, $format, $cache_params, $format
     $count_stmt->execute($params);
     $total = (int)($count_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
-    $sql = "SELECT fix_name, latitude, longitude, fix_type, artcc_code, country_code $geom
+    $sql = "SELECT fix_name, lat, lon, fix_type, artcc_id $geom
             FROM nav_fixes $where_sql ORDER BY $order_by LIMIT :limit OFFSET :offset";
     $params[':limit'] = $per_page;
     $params[':offset'] = $offset;
@@ -193,8 +190,9 @@ function handleFixList($conn, $include_geometry, $format, $cache_params, $format
 
     foreach ($fixes as &$f) {
         if (isset($f['geometry'])) $f['geometry'] = json_decode($f['geometry'], true);
-        $f['latitude'] = (float)$f['latitude'];
-        $f['longitude'] = (float)$f['longitude'];
+        $f['latitude'] = (float)$f['lat'];
+        $f['longitude'] = (float)$f['lon'];
+        unset($f['lat'], $f['lon']);
     }
 
     $data = ['fixes' => $fixes, 'count' => count($fixes), 'total' => $total];
@@ -206,7 +204,7 @@ function handleFixList($conn, $include_geometry, $format, $cache_params, $format
 function handleAirwayDetail($conn, $name, $include_geometry, $format, $cache_params, $format_options) {
     $geom = $include_geometry ? ", ST_AsGeoJSON(geom, 5) AS geometry" : "";
 
-    $sql = "SELECT sequence_num, fix_from, fix_to, course, distance_nm, min_altitude_ft $geom
+    $sql = "SELECT sequence_num, from_fix, to_fix, distance_nm $geom
             FROM airway_segments
             WHERE airway_name = :name
             ORDER BY sequence_num";
@@ -306,7 +304,7 @@ function handleAirwayList($conn, $format, $cache_params, $format_options) {
     $count_stmt->execute($params);
     $total = (int)($count_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
-    $sql = "SELECT airway_name, airway_type, airac_cycle
+    $sql = "SELECT airway_name, airway_type, source
             FROM airways $where_sql
             ORDER BY airway_name
             LIMIT :limit OFFSET :offset";
@@ -326,8 +324,8 @@ function handleAirwayList($conn, $format, $cache_params, $format_options) {
 function handleProcedureDetail($conn, $computer_code, $include_geometry, $format, $cache_params, $format_options) {
     $geom = $include_geometry ? ", ST_AsGeoJSON(geom, 5) AS geometry" : "";
     $sql = "SELECT computer_code, procedure_name, procedure_type, airport_icao,
-                   transition_name, transition_type, route_string, waypoints,
-                   source, airac_cycle, is_superseded $geom
+                   transition_name, transition_type, full_route,
+                   source, is_superseded $geom
             FROM nav_procedures
             WHERE computer_code = :code
             LIMIT 1";
@@ -340,9 +338,6 @@ function handleProcedureDetail($conn, $computer_code, $include_geometry, $format
     }
 
     if (isset($row['geometry'])) $row['geometry'] = json_decode($row['geometry'], true);
-    if (isset($row['waypoints']) && is_string($row['waypoints'])) {
-        $row['waypoints'] = json_decode($row['waypoints'], true);
-    }
 
     SwimResponse::formatted(['procedure' => $row], $format, 'reference_nav', $cache_params, $format_options);
 }
@@ -384,7 +379,7 @@ function handleProcedureList($conn, $format, $cache_params, $format_options) {
     $total = (int)($count_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
     $sql = "SELECT computer_code, procedure_name, procedure_type, airport_icao,
-                   transition_name, transition_type, source, airac_cycle
+                   transition_name, transition_type, source
             FROM nav_procedures $where_sql
             ORDER BY airport_icao, procedure_type, procedure_name
             LIMIT :limit OFFSET :offset";

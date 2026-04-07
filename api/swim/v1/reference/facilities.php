@@ -90,7 +90,7 @@ function handleCenterList($include_geometry, $format, $cache_params, $format_opt
     if (!$conn) SwimResponse::error('GIS unavailable', 503, 'SERVICE_UNAVAILABLE');
 
     $geom = $include_geometry ? ", ST_AsGeoJSON(geom, 5) AS geometry" : "";
-    $sql = "SELECT artcc_code, artcc_name, hierarchy_type, is_oceanic $geom
+    $sql = "SELECT artcc_code, fir_name, hierarchy_type, is_oceanic $geom
             FROM artcc_boundaries ORDER BY artcc_code";
     $stmt = $conn->query($sql);
     $centers = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -110,7 +110,7 @@ function handleCenterDetail($code, $include_geometry, $format, $cache_params, $f
     if (!$conn) SwimResponse::error('GIS unavailable', 503, 'SERVICE_UNAVAILABLE');
 
     $geom = $include_geometry ? ", ST_AsGeoJSON(geom, 5) AS geometry" : "";
-    $sql = "SELECT artcc_code, artcc_name, hierarchy_type, is_oceanic $geom
+    $sql = "SELECT artcc_code, fir_name, hierarchy_type, is_oceanic $geom
             FROM artcc_boundaries WHERE artcc_code = :code LIMIT 1";
     $stmt = $conn->prepare($sql);
     $stmt->execute([':code' => $code]);
@@ -164,7 +164,7 @@ function handleCenterSectors($code, $format, $cache_params, $format_options) {
     $params = [':code' => $code];
     if ($strata) { $where[] = "sector_type = :strata"; $params[':strata'] = strtoupper($strata); }
 
-    $sql = "SELECT sector_code, sector_name, sector_type, floor_fl, ceiling_fl
+    $sql = "SELECT sector_code, sector_name, sector_type, floor_altitude, ceiling_altitude
             FROM sector_boundaries WHERE " . implode(' AND ', $where) . "
             ORDER BY sector_type, sector_code";
     $stmt = $conn->prepare($sql);
@@ -217,11 +217,11 @@ function handleTraconDetail($code, $include_geometry, $format, $cache_params, $f
     if (isset($tracon['geometry'])) $tracon['geometry'] = json_decode($tracon['geometry'], true);
 
     // Get airports within this TRACON via spatial containment
-    $apt_sql = "SELECT a.icao_code, a.faa_lid, a.name
+    $apt_sql = "SELECT a.icao_id, a.iata_id, a.airport_name
                 FROM airports a, tracon_boundaries t
                 WHERE t.tracon_code = :code
                 AND ST_Contains(t.geom, a.geom)
-                ORDER BY a.icao_code";
+                ORDER BY a.icao_id";
     $apt_stmt = $conn->prepare($apt_sql);
     $apt_stmt->execute([':code' => $code]);
     $airports = $apt_stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -61,13 +61,13 @@ function resolvePoint($param_name) {
     $code = strtoupper(trim($val));
 
     // Try airports first
-    $stmt = $conn->prepare("SELECT latitude AS lat, longitude AS lon FROM airports WHERE icao_code = :code OR faa_lid = :code LIMIT 1");
+    $stmt = $conn->prepare("SELECT lat, lon FROM airports WHERE icao_id = :code OR iata_id = :code LIMIT 1");
     $stmt->execute([':code' => $code]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($row) return ['lat' => (float)$row['lat'], 'lon' => (float)$row['lon'], 'label' => $code];
 
     // Try fixes
-    $stmt2 = $conn->prepare("SELECT latitude AS lat, longitude AS lon FROM nav_fixes WHERE fix_name = :code AND (is_superseded = false OR is_superseded IS NULL) LIMIT 1");
+    $stmt2 = $conn->prepare("SELECT lat, lon FROM nav_fixes WHERE fix_name = :code AND (is_superseded = false OR is_superseded IS NULL) LIMIT 1");
     $stmt2->execute([':code' => $code]);
     $row2 = $stmt2->fetch(PDO::FETCH_ASSOC);
     if ($row2) return ['lat' => (float)$row2['lat'], 'lon' => (float)$row2['lon'], 'label' => $code];

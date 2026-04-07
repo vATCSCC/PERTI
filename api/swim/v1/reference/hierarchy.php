@@ -149,7 +149,7 @@ function handleCenterNode($data, $code, $include_geometry, $format, $cache_param
     if (!$conn) SwimResponse::error('GIS unavailable', 503, 'SERVICE_UNAVAILABLE');
 
     $geom = $include_geometry ? ", ST_AsGeoJSON(geom, 5) AS geometry" : "";
-    $stmt = $conn->prepare("SELECT artcc_code, artcc_name, hierarchy_type $geom FROM artcc_boundaries WHERE artcc_code = :code LIMIT 1");
+    $stmt = $conn->prepare("SELECT artcc_code, fir_name, hierarchy_type $geom FROM artcc_boundaries WHERE artcc_code = :code LIMIT 1");
     $stmt->execute([':code' => $code]);
     $center = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -175,7 +175,7 @@ function handleCenterNode($data, $code, $include_geometry, $format, $cache_param
     SwimResponse::formatted([
         'node' => [
             'code' => $center['artcc_code'],
-            'name' => $center['artcc_name'],
+            'name' => $center['fir_name'],
             'type' => 'center',
             'geometry' => $center['geometry'] ?? null,
             'detail_url' => "/api/swim/v1/reference/facilities/centers/$code",
@@ -204,8 +204,8 @@ function handleTraconNode($data, $code, $include_geometry, $format, $cache_param
     if (isset($tracon['geometry'])) $tracon['geometry'] = json_decode($tracon['geometry'], true);
 
     // Get airports within TRACON
-    $apt_sql = "SELECT a.icao_code, a.faa_lid, a.name FROM airports a, tracon_boundaries t
-                WHERE t.tracon_code = :code AND ST_Contains(t.geom, a.geom) ORDER BY a.icao_code";
+    $apt_sql = "SELECT a.icao_id, a.iata_id, a.airport_name FROM airports a, tracon_boundaries t
+                WHERE t.tracon_code = :code AND ST_Contains(t.geom, a.geom) ORDER BY a.icao_id";
     $apt_stmt = $conn->prepare($apt_sql);
     $apt_stmt->execute([':code' => $code]);
     $airports = $apt_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -224,7 +224,7 @@ function handleTraconNode($data, $code, $include_geometry, $format, $cache_param
         'breadcrumb' => $breadcrumb,
         'children' => [
             'airports' => array_map(fn($a) => [
-                'code' => $a['icao_code'], 'faa_lid' => $a['faa_lid'], 'name' => $a['name'], 'type' => 'airport'
+                'code' => $a['icao_id'], 'iata_id' => $a['iata_id'], 'name' => $a['airport_name'], 'type' => 'airport'
             ], $airports),
         ],
         'summary' => ['total_airports' => count($airports)],
@@ -263,7 +263,7 @@ function handleHierarchySearch($data, $format, $cache_params, $format_options) {
     $conn = get_conn_gis();
     if ($conn) {
         if (!$type_filter || $type_filter === 'center') {
-            $stmt = $conn->prepare("SELECT artcc_code AS code, artcc_name AS name FROM artcc_boundaries WHERE artcc_code ILIKE :q OR artcc_name ILIKE :qw LIMIT 20");
+            $stmt = $conn->prepare("SELECT artcc_code AS code, fir_name AS name FROM artcc_boundaries WHERE artcc_code ILIKE :q OR fir_name ILIKE :qw LIMIT 20");
             $stmt->execute([':q' => $q_upper . '%', ':qw' => '%' . $q . '%']);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) { $results[] = array_merge($r, ['type' => 'center']); }
         }
@@ -273,7 +273,7 @@ function handleHierarchySearch($data, $format, $cache_params, $format_options) {
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) { $results[] = array_merge($r, ['type' => 'tracon']); }
         }
         if (!$type_filter || $type_filter === 'airport') {
-            $stmt = $conn->prepare("SELECT icao_code AS code, name FROM airports WHERE icao_code ILIKE :q OR faa_lid ILIKE :q OR name ILIKE :qw OR city ILIKE :qw LIMIT 20");
+            $stmt = $conn->prepare("SELECT icao_id AS code, airport_name AS name FROM airports WHERE icao_id ILIKE :q OR iata_id ILIKE :q OR airport_name ILIKE :qw LIMIT 20");
             $stmt->execute([':q' => $q_upper . '%', ':qw' => '%' . $q . '%']);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) { $results[] = array_merge($r, ['type' => 'airport']); }
         }
@@ -297,10 +297,10 @@ function handleChildren($data, $type, $code, $format, $cache_params, $format_opt
         if (!$conn) SwimResponse::error('GIS unavailable', 503, 'SERVICE_UNAVAILABLE');
 
         $offset = ($page - 1) * $per_page;
-        $sql = "SELECT a.icao_code, a.faa_lid, a.name, a.city
+        $sql = "SELECT a.icao_id, a.iata_id, a.airport_name
                 FROM airports a, artcc_boundaries b
                 WHERE b.artcc_code = :code AND ST_Contains(b.geom, a.geom)
-                ORDER BY a.icao_code LIMIT :limit OFFSET :offset";
+                ORDER BY a.icao_id LIMIT :limit OFFSET :offset";
         $stmt = $conn->prepare($sql);
         $stmt->execute([':code' => $code, ':limit' => $per_page, ':offset' => $offset]);
         $airports = $stmt->fetchAll(PDO::FETCH_ASSOC);
