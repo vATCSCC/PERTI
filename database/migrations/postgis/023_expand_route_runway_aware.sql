@@ -141,6 +141,15 @@ BEGIN
             v_slash_parts := string_to_array(v_part, '/');
             FOR v_j IN 1..array_length(v_slash_parts, 1) LOOP
                 IF v_slash_parts[v_j] IS NOT NULL AND v_slash_parts[v_j] != '' THEN
+                    -- Skip runway designators (e.g., 31L, 04R, 10, 28) that follow
+                    -- an airport identifier. Without this filter, bare runway numbers
+                    -- like '10' that happen to match a nav_fix name would appear as
+                    -- waypoints in the expanded route.
+                    IF v_j > 1 AND v_slash_parts[1] ~ '^[A-Z]{3,4}$'
+                       AND (v_slash_parts[v_j] ~ '^\d{2}[LRCB]?$'
+                            OR v_slash_parts[v_j] ~ '^\d{2}[LRCB]?\|') THEN
+                        CONTINUE;  -- runway designator, skip
+                    END IF;
                     v_processed := array_append(v_processed, v_slash_parts[v_j]);
                 END IF;
             END LOOP;
