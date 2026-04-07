@@ -67,15 +67,15 @@ function handlePopularRoutes($format, $cache_params, $format_options) {
         SwimResponse::error('Database unavailable', 503, 'SERVICE_UNAVAILABLE');
     }
 
-    $sql = "SELECT r.route_string,
+    $sql = "SELECT r.normalized_route AS route_string,
                    COUNT(*) AS frequency,
-                   AVG(f.flight_time_sec) AS avg_flight_time_sec,
-                   MAX(t.date) AS last_seen
+                   AVG(f.ete_minutes) * 60 AS avg_flight_time_sec,
+                   MAX(t.flight_date) AS last_seen
             FROM route_history_facts f
-            JOIN dim_route r ON f.route_id = r.id
-            JOIN dim_time t ON f.time_id = t.id
-            WHERE r.origin_icao = :origin AND r.dest_icao = :dest
-            GROUP BY r.route_string
+            JOIN dim_route r ON f.route_dim_id = r.route_dim_id
+            JOIN dim_time t ON f.time_dim_id = t.time_dim_id
+            WHERE f.origin_icao = :origin AND f.dest_icao = :dest
+            GROUP BY r.normalized_route
             ORDER BY frequency DESC
             LIMIT 20";
 
@@ -115,14 +115,13 @@ function handleRouteStatistics($format, $cache_params, $format_options) {
 
     // Aggregate stats
     $sql = "SELECT COUNT(*) AS total_flights,
-                   COUNT(DISTINCT r.route_string) AS unique_routes,
-                   AVG(f.flight_time_sec) AS avg_flight_time_sec,
-                   MIN(t.date) AS earliest_date,
-                   MAX(t.date) AS latest_date
+                   COUNT(DISTINCT f.route_dim_id) AS unique_routes,
+                   AVG(f.ete_minutes) * 60 AS avg_flight_time_sec,
+                   MIN(t.flight_date) AS earliest_date,
+                   MAX(t.flight_date) AS latest_date
             FROM route_history_facts f
-            JOIN dim_route r ON f.route_id = r.id
-            JOIN dim_time t ON f.time_id = t.id
-            WHERE r.origin_icao = :origin AND r.dest_icao = :dest";
+            JOIN dim_time t ON f.time_dim_id = t.time_dim_id
+            WHERE f.origin_icao = :origin AND f.dest_icao = :dest";
     $stmt = $conn_pdo->prepare($sql);
     $stmt->execute([':origin' => $origin, ':dest' => $dest]);
     $stats = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -130,9 +129,8 @@ function handleRouteStatistics($format, $cache_params, $format_options) {
     // Common aircraft types
     $type_sql = "SELECT at.icao_code, COUNT(*) AS flights
                  FROM route_history_facts f
-                 JOIN dim_route r ON f.route_id = r.id
-                 JOIN dim_aircraft_type at ON f.aircraft_type_id = at.id
-                 WHERE r.origin_icao = :origin AND r.dest_icao = :dest
+                 JOIN dim_aircraft_type at ON f.aircraft_dim_id = at.aircraft_dim_id
+                 WHERE f.origin_icao = :origin AND f.dest_icao = :dest
                  GROUP BY at.icao_code
                  ORDER BY flights DESC LIMIT 10";
     $type_stmt = $conn_pdo->prepare($type_sql);

@@ -204,7 +204,7 @@ function handleTraconNode($data, $code, $include_geometry, $format, $cache_param
     if (isset($tracon['geometry'])) $tracon['geometry'] = json_decode($tracon['geometry'], true);
 
     // Get airports within TRACON
-    $apt_sql = "SELECT a.icao_id, a.iata_id, a.airport_name FROM airports a, tracon_boundaries t
+    $apt_sql = "SELECT a.icao_id, a.arpt_id, a.arpt_name FROM airports a, tracon_boundaries t
                 WHERE t.tracon_code = :code AND ST_Contains(t.geom, a.geom) ORDER BY a.icao_id";
     $apt_stmt = $conn->prepare($apt_sql);
     $apt_stmt->execute([':code' => $code]);
@@ -224,7 +224,7 @@ function handleTraconNode($data, $code, $include_geometry, $format, $cache_param
         'breadcrumb' => $breadcrumb,
         'children' => [
             'airports' => array_map(fn($a) => [
-                'code' => $a['icao_id'], 'iata_id' => $a['iata_id'], 'name' => $a['airport_name'], 'type' => 'airport'
+                'code' => $a['icao_id'], 'faa_lid' => $a['arpt_id'], 'name' => $a['arpt_name'], 'type' => 'airport'
             ], $airports),
         ],
         'summary' => ['total_airports' => count($airports)],
@@ -273,7 +273,7 @@ function handleHierarchySearch($data, $format, $cache_params, $format_options) {
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) { $results[] = array_merge($r, ['type' => 'tracon']); }
         }
         if (!$type_filter || $type_filter === 'airport') {
-            $stmt = $conn->prepare("SELECT icao_id AS code, airport_name AS name FROM airports WHERE icao_id ILIKE :q OR iata_id ILIKE :q OR airport_name ILIKE :qw LIMIT 20");
+            $stmt = $conn->prepare("SELECT icao_id AS code, arpt_name AS name FROM airports WHERE icao_id ILIKE :q OR arpt_id ILIKE :q OR arpt_name ILIKE :qw LIMIT 20");
             $stmt->execute([':q' => $q_upper . '%', ':qw' => '%' . $q . '%']);
             foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) { $results[] = array_merge($r, ['type' => 'airport']); }
         }
@@ -297,7 +297,7 @@ function handleChildren($data, $type, $code, $format, $cache_params, $format_opt
         if (!$conn) SwimResponse::error('GIS unavailable', 503, 'SERVICE_UNAVAILABLE');
 
         $offset = ($page - 1) * $per_page;
-        $sql = "SELECT a.icao_id, a.iata_id, a.airport_name
+        $sql = "SELECT a.icao_id, a.arpt_id, a.arpt_name
                 FROM airports a, artcc_boundaries b
                 WHERE b.artcc_code = :code AND ST_Contains(b.geom, a.geom)
                 ORDER BY a.icao_id LIMIT :limit OFFSET :offset";

@@ -61,7 +61,7 @@ function resolvePoint($param_name) {
     $code = strtoupper(trim($val));
 
     // Try airports first
-    $stmt = $conn->prepare("SELECT lat, lon FROM airports WHERE icao_id = :code OR iata_id = :code LIMIT 1");
+    $stmt = $conn->prepare("SELECT lat, lon FROM airports WHERE icao_id = :code OR arpt_id = :code LIMIT 1");
     $stmt->execute([':code' => $code]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($row) return ['lat' => (float)$row['lat'], 'lon' => (float)$row['lon'], 'label' => $code];
