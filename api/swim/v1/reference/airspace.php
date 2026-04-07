@@ -222,7 +222,7 @@ function handleFirs($conn, $include_geometry, $format, $cache_params, $format_op
     $count_stmt->execute($params);
     $total = (int)($count_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
-    $sql = "SELECT artcc_code, artcc_name, hierarchy_type, is_oceanic $geom
+    $sql = "SELECT artcc_code, fir_name, hierarchy_type, is_oceanic $geom
             FROM artcc_boundaries $where_sql
             ORDER BY artcc_code LIMIT :limit OFFSET :offset";
     $params[':limit'] = $per_page;
@@ -261,7 +261,7 @@ function handleSectors($conn, $include_geometry, $format, $cache_params, $format
     $count_stmt->execute($params);
     $total = (int)($count_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
-    $sql = "SELECT sector_code, sector_name, parent_artcc, sector_type, floor_fl, ceiling_fl $geom
+    $sql = "SELECT sector_code, sector_name, parent_artcc, sector_type, floor_altitude, ceiling_altitude $geom
             FROM sector_boundaries $where_sql
             ORDER BY parent_artcc, sector_code LIMIT :limit OFFSET :offset";
     $params[':limit'] = $per_page;
@@ -281,9 +281,9 @@ function handleSectors($conn, $include_geometry, $format, $cache_params, $format
 
 function getBoundaryTable($type) {
     $tables = [
-        'artcc' => ['table' => 'artcc_boundaries', 'code_col' => 'artcc_code', 'list_cols' => 'artcc_code, artcc_name, hierarchy_type, is_oceanic'],
+        'artcc' => ['table' => 'artcc_boundaries', 'code_col' => 'artcc_code', 'list_cols' => 'artcc_code, fir_name, hierarchy_type, is_oceanic'],
         'tracon' => ['table' => 'tracon_boundaries', 'code_col' => 'tracon_code', 'list_cols' => 'tracon_code, tracon_name, parent_artcc'],
-        'sector' => ['table' => 'sector_boundaries', 'code_col' => 'sector_code', 'list_cols' => 'sector_code, sector_name, parent_artcc, sector_type, floor_fl, ceiling_fl'],
+        'sector' => ['table' => 'sector_boundaries', 'code_col' => 'sector_code', 'list_cols' => 'sector_code, sector_name, parent_artcc, sector_type, floor_altitude, ceiling_altitude'],
     ];
     return $tables[strtolower($type)] ?? null;
 }

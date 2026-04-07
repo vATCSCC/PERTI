@@ -10,6 +10,9 @@
  *   GET /reference/routes/statistics?origin=KJFK&dest=KLAX  - Aggregate city-pair stats
  */
 
+// Load MySQL BEFORE SWIM auth (auth.php sets PERTI_SWIM_ONLY which skips MySQL)
+require_once __DIR__ . '/../../../../load/config.php';
+require_once __DIR__ . '/../../../../load/connect.php';
 require_once __DIR__ . '/../auth.php';
 
 $auth = swim_init_auth(true, false);

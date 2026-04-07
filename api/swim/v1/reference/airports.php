@@ -84,10 +84,10 @@ function handleLookup($format, $cache_params, $format_options) {
     }
 
     if ($faa) {
-        $stmt = $conn->prepare("SELECT icao_code, faa_lid, name, city, state_code, country_code FROM airports WHERE faa_lid = :faa LIMIT 5");
+        $stmt = $conn->prepare("SELECT icao_id, iata_id, airport_name, country_code, region_code FROM airports WHERE iata_id = :faa LIMIT 5");
         $stmt->execute([':faa' => strtoupper($faa)]);
     } else {
-        $stmt = $conn->prepare("SELECT icao_code, faa_lid, name, city, state_code, country_code FROM airports WHERE icao_code = :icao LIMIT 5");
+        $stmt = $conn->prepare("SELECT icao_id, iata_id, airport_name, country_code, region_code FROM airports WHERE icao_id = :icao LIMIT 5");
         $stmt->execute([':icao' => strtoupper($icao)]);
     }
 
@@ -109,11 +109,11 @@ function handleAirportProfile($code, $include_geometry, $format, $cache_params, 
     }
 
     $geom_col = $include_geometry ? ", ST_AsGeoJSON(geom, 5) AS geometry" : "";
-    $sql = "SELECT icao_code, faa_lid, name, city, state_code, country_code,
-                   latitude, longitude, elevation_ft, mag_var, is_towered, airport_class
+    $sql = "SELECT icao_id, iata_id, airport_name, country_code, region_code,
+                   lat, lon, elevation_ft, airport_type, parent_artcc, parent_tracon
                    $geom_col
             FROM airports
-            WHERE " . (strlen($code) === 3 ? "faa_lid = :code" : "icao_code = :code") . "
+            WHERE " . (strlen($code) === 3 ? "iata_id = :code" : "icao_id = :code") . "
             LIMIT 1";
 
     $stmt = $conn->prepare($sql);
@@ -122,11 +122,11 @@ function handleAirportProfile($code, $include_geometry, $format, $cache_params, 
 
     if (!$row) {
         // Try the other field
-        $alt_sql = "SELECT icao_code, faa_lid, name, city, state_code, country_code,
-                           latitude, longitude, elevation_ft, mag_var, is_towered, airport_class
+        $alt_sql = "SELECT icao_id, iata_id, airport_name, country_code, region_code,
+                           lat, lon, elevation_ft, airport_type, parent_artcc, parent_tracon
                            $geom_col
                     FROM airports
-                    WHERE " . (strlen($code) === 3 ? "icao_code = :code" : "faa_lid = :code") . "
+                    WHERE " . (strlen($code) === 3 ? "icao_id = :code" : "iata_id = :code") . "
                     LIMIT 1";
         $stmt2 = $conn->prepare($alt_sql);
         $stmt2->execute([':code' => $code]);
@@ -151,7 +151,7 @@ function handleFacilities($code, $format, $cache_params, $format_options) {
     }
 
     $conn = get_conn_gis();
-    $stmt = $conn->prepare("SELECT latitude, longitude FROM airports WHERE icao_code = :code OR faa_lid = :code LIMIT 1");
+    $stmt = $conn->prepare("SELECT lat, lon FROM airports WHERE icao_id = :code OR iata_id = :code LIMIT 1");
     $stmt->execute([':code' => $code]);
     $apt = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -159,7 +159,7 @@ function handleFacilities($code, $format, $cache_params, $format_options) {
         SwimResponse::error("Airport not found: $code", 404, 'NOT_FOUND');
     }
 
-    $boundaries = $gis->getBoundariesAtPoint((float)$apt['latitude'], (float)$apt['longitude']);
+    $boundaries = $gis->getBoundariesAtPoint((float)$apt['lat'], (float)$apt['lon']);
 
     SwimResponse::formatted([
         'airport' => $code,
@@ -268,10 +268,10 @@ function handleSearch($include_geometry, $format, $cache_params, $format_options
     $geom_col = $include_geometry ? ", ST_AsGeoJSON(geom, 5) AS geometry" : "";
     $where = [];
     $params = [];
-    $order_by = "name";
+    $order_by = "airport_name";
 
     if ($q) {
-        $where[] = "(icao_code ILIKE :q OR faa_lid ILIKE :q OR name ILIKE :qw OR city ILIKE :qw)";
+        $where[] = "(icao_id ILIKE :q OR iata_id ILIKE :q OR airport_name ILIKE :qw)";
         $params[':q'] = $q . '%';
         $params[':qw'] = '%' . $q . '%';
     }
@@ -297,7 +297,7 @@ function handleSearch($include_geometry, $format, $cache_params, $format_options
     }
 
     if ($airport_class) {
-        $where[] = "airport_class = :class";
+        $where[] = "airport_type = :class";
         $params[':class'] = $airport_class;
     }
 
@@ -311,8 +311,8 @@ function handleSearch($include_geometry, $format, $cache_params, $format_options
     $total = (int)($count_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
     // Fetch
-    $sql = "SELECT icao_code, faa_lid, name, city, state_code, country_code,
-                   latitude, longitude, elevation_ft, airport_class $geom_col
+    $sql = "SELECT icao_id, iata_id, airport_name, country_code, region_code,
+                   lat, lon, elevation_ft, airport_type $geom_col
             FROM airports $where_sql
             ORDER BY $order_by
             LIMIT :limit OFFSET :offset";

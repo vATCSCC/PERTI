@@ -76,9 +76,9 @@ if ($airline_code !== null) {
 
 function handleSingleAirline($conn, $code, $format, $cache_params, $format_options) {
     // Try ICAO first, then IATA
-    $sql = "SELECT icao_code, iata_code, name, callsign, country
+    $sql = "SELECT icao, iata, name, callsign, country
             FROM dbo.airlines
-            WHERE icao_code = ? OR iata_code = ?";
+            WHERE icao = ? OR iata = ?";
     $stmt = sqlsrv_query($conn, $sql, [$code, $code]);
     if ($stmt === false) {
         SwimResponse::error('Database query failed', 500, 'DB_ERROR');
@@ -100,7 +100,7 @@ function handleAirlineList($conn, $search, $country, $page, $per_page, $format, 
     $params = [];
 
     if ($search) {
-        $where[] = "(name LIKE ? OR callsign LIKE ? OR icao_code LIKE ? OR iata_code LIKE ?)";
+        $where[] = "(name LIKE ? OR callsign LIKE ? OR icao LIKE ? OR iata LIKE ?)";
         $like = '%' . $search . '%';
         $params = array_merge($params, [$like, $like, $like, $like]);
     }
@@ -124,10 +124,10 @@ function handleAirlineList($conn, $search, $country, $page, $per_page, $format, 
 
     // Fetch page
     $offset = ($page - 1) * $per_page;
-    $sql = "SELECT icao_code, iata_code, name, callsign, country
+    $sql = "SELECT icao, iata, name, callsign, country
             FROM dbo.airlines
             $where_sql
-            ORDER BY icao_code
+            ORDER BY icao
             OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
     $params[] = $offset;
     $params[] = $per_page;
@@ -154,8 +154,8 @@ function handleAirlineList($conn, $search, $country, $page, $per_page, $format, 
 
 function formatAirlineRow($row) {
     return [
-        'icao_code' => $row['icao_code'] ?? null,
-        'iata_code' => $row['iata_code'] ?? null,
+        'icao_code' => $row['icao'] ?? null,
+        'iata_code' => $row['iata'] ?? null,
         'name' => $row['name'] ?? null,
         'callsign' => $row['callsign'] ?? null,
         'country' => $row['country'] ?? null,

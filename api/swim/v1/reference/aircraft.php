@@ -154,7 +154,7 @@ function handleTypeList($families, $format, $cache_params, $format_options) {
     $params = [];
 
     if ($search) {
-        $where[] = "(ICAO_Code LIKE ? OR Manufacturer LIKE ? OR Model LIKE ?)";
+        $where[] = "(ICAO_Code LIKE ? OR Manufacturer LIKE ? OR Model_FAA LIKE ?)";
         $like = '%' . $search . '%';
         $params = array_merge($params, [$like, $like, $like]);
     }
@@ -163,15 +163,15 @@ function handleTypeList($families, $format, $cache_params, $format_options) {
         $params[] = '%' . $manufacturer . '%';
     }
     if ($weight_class) {
-        $where[] = "WeightClass = ?";
+        $where[] = "FAA_Weight = ?";
         $params[] = strtoupper($weight_class);
     }
     if ($wake_category) {
-        $where[] = "WTC = ?";
+        $where[] = "ICAO_WTC = ?";
         $params[] = strtoupper($wake_category);
     }
     if ($engine_type) {
-        $where[] = "EngineType LIKE ?";
+        $where[] = "Physical_Class_Engine LIKE ?";
         $params[] = '%' . $engine_type . '%';
     }
 
@@ -311,11 +311,11 @@ function handlePerformance($icao, $format, $cache_params, $format_options) {
 function formatTypeRow($row) {
     return [
         'icao_code' => $row['ICAO_Code'] ?? $row['icao_code'] ?? null,
-        'name' => $row['TypeName'] ?? $row['Model'] ?? null,
+        'name' => $row['Model_FAA'] ?? $row['Model_BADA'] ?? null,
         'manufacturer' => $row['Manufacturer'] ?? null,
-        'weight_class' => $row['WeightClass'] ?? null,
-        'wake_category' => $row['WTC'] ?? null,
-        'engine_type' => $row['EngineType'] ?? null,
-        'engine_count' => isset($row['EngineCount']) ? (int)$row['EngineCount'] : null,
+        'weight_class' => $row['FAA_Weight'] ?? null,
+        'wake_category' => $row['ICAO_WTC'] ?? null,
+        'engine_type' => $row['Physical_Class_Engine'] ?? null,
+        'engine_count' => isset($row['Num_Engines']) ? (int)$row['Num_Engines'] : null,
     ];
 }
