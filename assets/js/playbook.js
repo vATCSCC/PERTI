@@ -1329,11 +1329,11 @@
         if (hasGroups) html += '<th style="width:8px;padding:0;"></th>';
         html += '<th style="width:8%">' + t('playbook.table.origin') + '</th>';
         html += '<th style="width:3.5%">' + t('playbook.table.tracon') + '</th>';
-        html += '<th style="width:3.5%">' + t('playbook.table.artcc') + '</th>';
+        html += '<th style="width:4.5%">' + t('playbook.table.artcc') + '</th>';
         html += '<th>' + t('playbook.routeString') + '</th>';
         html += '<th style="width:8%">' + t('playbook.table.dest') + '</th>';
         html += '<th style="width:3.5%">' + t('playbook.table.tracon') + '</th>';
-        html += '<th style="width:3.5%">' + t('playbook.table.artcc') + '</th>';
+        html += '<th style="width:4.5%">' + t('playbook.table.artcc') + '</th>';
         html += '<th style="width:7%">' + t('playbook.table.traversed') + '</th>';
         html += '<th style="width:3%">' + t('playbook.table.remarks') + '</th>';
         html += '</tr></thead><tbody>';
@@ -1433,10 +1433,10 @@
         html += '<table class="pb-route-table"><thead><tr>';
         html += '<th class="pb-route-check" style="width:24px"><input type="checkbox" id="pb_check_all"></th>';
         html += '<th style="width:10%">' + t('playbook.table.origin') + '</th>';
-        html += '<th style="width:5%">' + t('playbook.table.artcc') + '</th>';
+        html += '<th style="width:6%">' + t('playbook.table.artcc') + '</th>';
         html += '<th>' + t('playbook.routeString') + '</th>';
         html += '<th style="width:10%">' + t('playbook.table.dest') + '</th>';
-        html += '<th style="width:5%">' + t('playbook.table.artcc') + '</th>';
+        html += '<th style="width:6%">' + t('playbook.table.artcc') + '</th>';
         html += '<th style="width:7%">' + t('playbook.table.traversed') + '</th>';
         html += '</tr></thead><tbody>';
 
