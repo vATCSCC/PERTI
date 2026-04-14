@@ -121,6 +121,23 @@
         return airports;
     }
 
+    // Check if an origGroup string contains a specific runway for a given airport.
+    // origGroup format: "DFW/17C|17R|18L|18R KORD/09R" (FAA or ICAO codes)
+    function origGroupMatchesRunway(origGroup, airport, runway) {
+        if (!origGroup || !airport || !runway) {return false;}
+        const groups = origGroup.split(/\s+/);
+        for (const grp of groups) {
+            const slashIdx = grp.indexOf('/');
+            if (slashIdx < 0) {continue;}
+            const apt = grp.substring(0, slashIdx);
+            const rwys = grp.substring(slashIdx + 1).split('|');
+            if (normalizeAirport(apt) === airport && rwys.indexOf(runway) !== -1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // DP LOADING - loads dp_full_routes.csv
     // ═══════════════════════════════════════════════════════════════════════════
@@ -880,7 +897,7 @@
     /**
      * Get the best matching DP route for a given transition code and origin.
      */
-    window.getDpRoutePoints = function(transCode, originAirport) {
+    window.getDpRoutePoints = function(transCode, originAirport, depRunway) {
         if (!transCode) {return null;}
         const upper = transCode.toUpperCase();
         const records = window.dpFullRoutesByTransition[upper];
@@ -893,7 +910,7 @@
                 const pattern = rootName + '#.' + parts[1];
                 const patternMatch = window.dpPatternIndex[pattern];
                 if (patternMatch) {
-                    return window.getDpRoutePoints(patternMatch.code, originAirport);
+                    return window.getDpRoutePoints(patternMatch.code, originAirport, depRunway);
                 }
             }
             return null;
@@ -909,6 +926,15 @@
             }
         }
 
+        // Filter by departure runway if specified (e.g. depRunway='17C')
+        if (depRunway && originAirport) {
+            const originUpper = normalizeAirport(originAirport.toUpperCase());
+            const rwyFiltered = filtered.filter(r => origGroupMatchesRunway(r.origGroup, originUpper, depRunway));
+            if (rwyFiltered.length > 0) {
+                filtered = rwyFiltered;
+            }
+        }
+
         // Sort by effDate descending and take most recent
         filtered.sort((a, b) => (b.effDate || 0) - (a.effDate || 0));
         const best = filtered[0];
@@ -919,7 +945,7 @@
     /**
      * Get the best matching STAR route for a given transition code and destination.
      */
-    window.getStarRoutePoints = function(transCode, destAirport) {
+    window.getStarRoutePoints = function(transCode, destAirport, arrRunway) {
         if (!transCode) {return null;}
         const upper = transCode.toUpperCase();
         const records = window.starFullRoutesByTransition[upper];
@@ -932,7 +958,7 @@
                 const pattern = parts[0] + '.' + rootName + '#';
                 const patternMatch = window.starPatternIndex[pattern];
                 if (patternMatch) {
-                    return window.getStarRoutePoints(patternMatch.code, destAirport);
+                    return window.getStarRoutePoints(patternMatch.code, destAirport, arrRunway);
                 }
             }
             return null;
@@ -945,6 +971,15 @@
             const destFiltered = records.filter(r => r.destinations && r.destinations.indexOf(destUpper) !== -1);
             if (destFiltered.length > 0) {
                 filtered = destFiltered;
+            }
+        }
+
+        // Filter by arrival runway if specified
+        if (arrRunway && destAirport) {
+            const destUpper = normalizeAirport(destAirport.toUpperCase());
+            const rwyFiltered = filtered.filter(r => origGroupMatchesRunway(r.destGroup, destUpper, arrRunway));
+            if (rwyFiltered.length > 0) {
+                filtered = rwyFiltered;
             }
         }
 
@@ -964,7 +999,7 @@
      * @param {Object} procInfo - Info from preprocessRouteProcedures
      * @returns {Object} { tokens: [...], solidMask: [...], fanRoutes: [...] }
      */
-    window.expandRouteProcedures = function(tokens, solidMask, procInfo) {
+    window.expandRouteProcedures = function(tokens, solidMask, procInfo, depRunway, arrRunway) {
         if (!tokens || !tokens.length) {
             return { tokens: [], solidMask: [], fanRoutes: [] };
         }
@@ -1004,8 +1039,8 @@
             const upper = tok.toUpperCase();
             const solid = inSolid[i];
 
-            // Try to expand as DP transition
-            const dpRoute = window.getDpRoutePoints(upper, originAirport);
+            // Try to expand as DP transition (with runway context)
+            const dpRoute = window.getDpRoutePoints(upper, originAirport, depRunway);
             if (dpRoute && dpRoute.length) {
                 for (const pt of dpRoute) {
                     outTokens.push(pt);
@@ -1014,8 +1049,8 @@
                 continue;
             }
 
-            // Try to expand as STAR transition
-            const starRoute = window.getStarRoutePoints(upper, destAirport);
+            // Try to expand as STAR transition (with runway context)
+            const starRoute = window.getStarRoutePoints(upper, destAirport, arrRunway);
             if (starRoute && starRoute.length) {
                 for (const pt of starRoute) {
                     outTokens.push(pt);
