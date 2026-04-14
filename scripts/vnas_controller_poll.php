@@ -352,8 +352,162 @@ function vnas_ctrl_poll(bool $debug = false): array {
         }
     }
 
-    // Step 3: Publish WebSocket events
+    // Step 3: Staffing, consolidation, and top-down detection (2B)
+    $conn_adl = get_conn_adl();
+    $staffingEvents = [];
+
+    if ($conn_adl && !empty($enrichBatch)) {
+        $staffedCount = 0;
+        $consolidations = [];
+        $topdowns = [];
+
+        foreach ($enrichBatch as $ctrl) {
+            if ($ctrl['is_observer']) continue;
+            $cid = $ctrl['cid'];
+            $artcc = $ctrl['artcc_id'];
+
+            // 3a. ERAM position → boundary staffing
+            if (!empty($ctrl['eram_sector_id']) && !empty($artcc)) {
+                $sql = "UPDATE b SET
+                            b.is_staffed = 1,
+                            b.staffed_by_cid = ?,
+                            b.staffed_updated_utc = SYSUTCDATETIME()
+                        FROM dbo.adl_boundary b
+                        INNER JOIN dbo.vnas_position_sector_map psm
+                            ON psm.boundary_id = b.boundary_id
+                        INNER JOIN dbo.vnas_positions p
+                            ON p.position_ulid = psm.position_ulid
+                        WHERE p.parent_artcc = ?
+                          AND p.eram_sector_id = ?";
+                $stmt = @sqlsrv_query($conn_adl, $sql, [$cid, $artcc, $ctrl['eram_sector_id']]);
+                if ($stmt !== false) {
+                    $staffedCount += max(0, sqlsrv_rows_affected($stmt));
+                    sqlsrv_free_stmt($stmt);
+                }
+            }
+
+            // 3b. STARS TCP → boundary staffing via tcp_sector_map
+            if (!empty($ctrl['stars_sector_id']) && !empty($artcc)) {
+                $sql = "UPDATE b SET
+                            b.is_staffed = 1,
+                            b.staffed_by_cid = ?,
+                            b.staffed_updated_utc = SYSUTCDATETIME()
+                        FROM dbo.adl_boundary b
+                        INNER JOIN dbo.vnas_tcp_sector_map tsm
+                            ON tsm.boundary_id = b.boundary_id
+                        WHERE tsm.parent_artcc = ?
+                          AND tsm.sector_id = ?
+                          AND tsm.boundary_id IS NOT NULL";
+                $stmt = @sqlsrv_query($conn_adl, $sql, [$cid, $artcc, $ctrl['stars_sector_id']]);
+                if ($stmt !== false) {
+                    $staffedCount += max(0, sqlsrv_rows_affected($stmt));
+                    sqlsrv_free_stmt($stmt);
+                }
+            }
+
+            // 3c. Consolidation: multiple secondary positions in same ARTCC
+            $secondaryPositions = !empty($ctrl['secondary_json']) ? json_decode($ctrl['secondary_json'], true) : [];
+            if (is_array($secondaryPositions) && count($secondaryPositions) > 0) {
+                $consolidations[] = [
+                    'cid'         => $cid,
+                    'artcc'       => $artcc,
+                    'primary'     => $ctrl['position_name'] ?? $ctrl['facility_id'],
+                    'secondaries' => count($secondaryPositions),
+                ];
+            }
+
+            // 3d. Top-down: positions spanning multiple facilities
+            if (is_array($secondaryPositions) && count($secondaryPositions) > 0) {
+                $primaryFacility = $ctrl['facility_id'];
+                $coveredFacilities = [];
+                foreach ($secondaryPositions as $sec) {
+                    $secFac = $sec['facilityId'] ?? null;
+                    if ($secFac && $secFac !== $primaryFacility) {
+                        $coveredFacilities[] = $secFac;
+                    }
+                }
+                if (!empty($coveredFacilities)) {
+                    $topdowns[] = [
+                        'cid'       => $cid,
+                        'artcc'     => $artcc,
+                        'primary'   => $primaryFacility,
+                        'covered'   => array_unique($coveredFacilities),
+                    ];
+                }
+            }
+        }
+
+        // 3e. Unstaffing sweep: clear boundaries not updated in last 90s
+        $sweepSql = "UPDATE dbo.adl_boundary SET
+                         is_staffed = 0,
+                         staffed_by_cid = NULL,
+                         staffed_updated_utc = NULL
+                     WHERE is_staffed = 1
+                       AND staffed_updated_utc < DATEADD(SECOND, -90, SYSUTCDATETIME())";
+        $sweepStmt = @sqlsrv_query($conn_adl, $sweepSql);
+        $unstaffedCount = 0;
+        if ($sweepStmt !== false) {
+            $unstaffedCount = max(0, sqlsrv_rows_affected($sweepStmt));
+            sqlsrv_free_stmt($sweepStmt);
+        }
+
+        $stats['staffed_boundaries'] = $staffedCount;
+        $stats['unstaffed_sweep'] = $unstaffedCount;
+        $stats['consolidations'] = count($consolidations);
+        $stats['topdowns'] = count($topdowns);
+
+        if ($debug) {
+            vnas_ctrl_log("  Staffing: {$staffedCount} boundaries staffed, {$unstaffedCount} swept");
+            vnas_ctrl_log("  Consolidation: " . count($consolidations) . " controllers with secondary positions");
+            vnas_ctrl_log("  Top-down: " . count($topdowns) . " controllers covering multiple facilities");
+        }
+
+        // Build staffing WebSocket events
+        foreach ($consolidations as $c) {
+            $staffingEvents[] = [
+                'type' => 'controller.consolidation',
+                'data' => $c,
+            ];
+        }
+        foreach ($topdowns as $t) {
+            $staffingEvents[] = [
+                'type' => 'controller.topdown',
+                'data' => $t,
+            ];
+        }
+
+        // 3f. Facility staffing metrics
+        $metricSql = "SELECT
+                          c.vnas_facility_id,
+                          c.vnas_artcc_id,
+                          COUNT(*) AS staffed
+                      FROM dbo.swim_controllers c
+                      WHERE c.is_active = 1
+                        AND c.vnas_facility_id IS NOT NULL
+                        AND (c.is_observer = 0 OR c.is_observer IS NULL)
+                      GROUP BY c.vnas_facility_id, c.vnas_artcc_id";
+        $metricStmt = @sqlsrv_query($conn_swim, $metricSql);
+        if ($metricStmt) {
+            while ($row = sqlsrv_fetch_array($metricStmt, SQLSRV_FETCH_ASSOC)) {
+                $staffingEvents[] = [
+                    'type' => 'facility.staffing',
+                    'data' => [
+                        'facility_id' => $row['vnas_facility_id'],
+                        'artcc_id'    => $row['vnas_artcc_id'],
+                        'staffed'     => (int)$row['staffed'],
+                    ],
+                ];
+            }
+            sqlsrv_free_stmt($metricStmt);
+        }
+    }
+
+    // Step 4: Publish WebSocket events
     $wsEvents = [];
+    // Include staffing events
+    foreach ($staffingEvents as $se) {
+        $wsEvents[] = $se;
+    }
 
     if ($stats['inserted'] > 0) {
         // Query newly connected controllers for event payload
@@ -427,9 +581,10 @@ function vnas_ctrl_poll(bool $debug = false): array {
         vnas_ctrl_reset_circuit();
     }
 
-    $msg = sprintf('%d fetched, +%d new, ~%d updated, -%d disc, %d enriched',
+    $msg = sprintf('%d fetched, +%d new, ~%d updated, -%d disc, %d enriched, %d staffed, %d swept',
         $stats['fetched'], $stats['inserted'], $stats['updated'],
-        $stats['disconnected'], $stats['enriched']);
+        $stats['disconnected'], $stats['enriched'],
+        $stats['staffed_boundaries'] ?? 0, $stats['unstaffed_sweep'] ?? 0);
 
     return [
         'success' => true,

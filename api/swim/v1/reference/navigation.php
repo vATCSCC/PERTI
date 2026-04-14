@@ -319,13 +319,50 @@ function handleAirwayList($conn, $format, $cache_params, $format_options) {
     SwimResponse::paginatedFormatted($data, $total, $page, $per_page, $format, 'reference_nav', $cache_params, $format_options);
 }
 
+// === PROCEDURE HELPERS ===
+
+/**
+ * Check if body_name/runway_group columns exist in PostGIS nav_procedures.
+ * Returns SQL fragment for SELECT if available, empty string otherwise.
+ * Cached per-request via static variable.
+ */
+function _procExtraCols($conn) {
+    static $result = null;
+    if ($result !== null) return $result;
+    try {
+        $stmt = $conn->prepare(
+            "SELECT column_name FROM information_schema.columns
+             WHERE table_name = 'nav_procedures' AND column_name IN ('body_name', 'runway_group')"
+        );
+        $stmt->execute();
+        $cols = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        if (in_array('body_name', $cols) && in_array('runway_group', $cols)) {
+            $result = ", body_name, runway_group";
+        } else {
+            $result = "";
+        }
+    } catch (Exception $e) {
+        $result = "";
+    }
+    return $result;
+}
+
+/**
+ * Remove null body_name/runway_group from response row to keep output clean.
+ */
+function _stripNullProcCols(&$row) {
+    if (array_key_exists('body_name', $row) && $row['body_name'] === null) unset($row['body_name']);
+    if (array_key_exists('runway_group', $row) && $row['runway_group'] === null) unset($row['runway_group']);
+}
+
 // === PROCEDURE HANDLERS ===
 
 function handleProcedureDetail($conn, $computer_code, $include_geometry, $format, $cache_params, $format_options) {
     $geom = $include_geometry ? ", ST_AsGeoJSON(geom, 5) AS geometry" : "";
+    $extra_cols = _procExtraCols($conn);
     $sql = "SELECT computer_code, procedure_name, procedure_type, airport_icao,
                    transition_name, transition_type, full_route,
-                   source, is_superseded $geom
+                   source, is_superseded $extra_cols $geom
             FROM nav_procedures
             WHERE computer_code = :code
             LIMIT 1";
@@ -338,6 +375,7 @@ function handleProcedureDetail($conn, $computer_code, $include_geometry, $format
     }
 
     if (isset($row['geometry'])) $row['geometry'] = json_decode($row['geometry'], true);
+    _stripNullProcCols($row);
 
     SwimResponse::formatted(['procedure' => $row], $format, 'reference_nav', $cache_params, $format_options);
 }
@@ -378,8 +416,9 @@ function handleProcedureList($conn, $format, $cache_params, $format_options) {
     $count_stmt->execute($params);
     $total = (int)($count_stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0);
 
+    $extra_cols = _procExtraCols($conn);
     $sql = "SELECT computer_code, procedure_name, procedure_type, airport_icao,
-                   transition_name, transition_type, source
+                   transition_name, transition_type, source $extra_cols
             FROM nav_procedures $where_sql
             ORDER BY airport_icao, procedure_type, procedure_name
             LIMIT :limit OFFSET :offset";
@@ -389,6 +428,9 @@ function handleProcedureList($conn, $format, $cache_params, $format_options) {
     $stmt = $conn->prepare($sql);
     $stmt->execute($params);
     $procs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($procs as &$p) { _stripNullProcCols($p); }
+    unset($p);
 
     $data = ['procedures' => $procs, 'count' => count($procs), 'total' => $total];
     SwimResponse::paginatedFormatted($data, $total, $page, $per_page, $format, 'reference_nav', $cache_params, $format_options);
@@ -404,7 +446,8 @@ function handleProceduresByAirport($conn, $icao, $format, $cache_params, $format
         $params[':type'] = strtoupper($type);
     }
 
-    $sql = "SELECT procedure_name, procedure_type, transition_name, transition_type, computer_code, source
+    $extra_cols = _procExtraCols($conn);
+    $sql = "SELECT procedure_name, procedure_type, transition_name, transition_type, computer_code, source $extra_cols
             FROM nav_procedures
             WHERE " . implode(' AND ', $where) . "
             ORDER BY procedure_type, procedure_name, transition_type, transition_name";
@@ -423,11 +466,14 @@ function handleProceduresByAirport($conn, $icao, $format, $cache_params, $format
                 'transitions' => [],
             ];
         }
-        $grouped[$key]['transitions'][] = [
+        $trans = [
             'transition_name' => $row['transition_name'],
             'transition_type' => $row['transition_type'],
             'computer_code' => $row['computer_code'],
         ];
+        if (!empty($row['body_name'])) $trans['body_name'] = $row['body_name'];
+        if (!empty($row['runway_group'])) $trans['runway_group'] = $row['runway_group'];
+        $grouped[$key]['transitions'][] = $trans;
     }
 
     SwimResponse::formatted([

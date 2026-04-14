@@ -168,6 +168,8 @@ def _build_lid_to_icao_map() -> Dict[str, str]:
         print(f"  WARNING: Could not read apts.csv for LID->ICAO map: {e}")
     if lid_to_icao:
         print(f"  Built LID->ICAO map with {len(lid_to_icao)} entries")
+    else:
+        print("  WARNING: LID->ICAO map is empty — non-CONUS airports will use K-prefix fallback")
     return lid_to_icao
 
 

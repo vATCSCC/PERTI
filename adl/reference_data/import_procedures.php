@@ -91,37 +91,51 @@ if (!file_exists($dpFile)) {
         $lineNum = 0;
         
         $insertSql = "
-            INSERT INTO dbo.nav_procedures 
-            (procedure_type, airport_icao, procedure_name, computer_code, transition_name, 
-             full_route, runways, is_active, source, effective_date)
-            VALUES ('DP', ?, ?, ?, ?, ?, ?, 1, 'dp_full_routes.csv', ?)
+            INSERT INTO dbo.nav_procedures
+            (procedure_type, airport_icao, procedure_name, computer_code, transition_name,
+             transition_type, full_route, runways, body_name, runway_group,
+             is_active, source, effective_date)
+            VALUES ('DP', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'dp_full_routes.csv', ?)
         ";
-        
+
+        // Column index map (resolved from header or defaults)
+        $colMap = null;
+
         while (($line = fgets($handle)) !== false) {
             $lineNum++;
             $line = trim($line);
             if (empty($line)) continue;
-            
-            // Skip header row
+
+            // Parse header row to build column index map
             if ($lineNum == 1 && strpos($line, 'EFF_DATE,') === 0) {
-                echo "  Skipping header row\n";
+                echo "  Parsing header row\n";
+                $headers = str_getcsv($line);
+                $colMap = array_flip(array_map('trim', $headers));
                 continue;
             }
-            
+
             $parts = str_getcsv($line);
-            if (count($parts) < 9) continue;
-            
-            // Columns: EFF_DATE, DP_NAME, DP_COMPUTER_CODE, ARTCC, ORIG_GROUP, 
-            //          BODY_NAME, TRANSITION_COMPUTER_CODE, TRANSITION_NAME, ROUTE_POINTS, ROUTE_FROM_ORIG_GROUP
-            $effDate = trim($parts[0] ?? '');
-            $dpName = trim($parts[1] ?? '');
-            $computerCode = trim($parts[2] ?? '');
-            $artcc = trim($parts[3] ?? '');
-            $origGroup = trim($parts[4] ?? '');
-            $bodyName = trim($parts[5] ?? '');
-            $transCode = trim($parts[6] ?? '');
-            $transName = trim($parts[7] ?? '');
-            $routePoints = trim($parts[8] ?? '');
+            if (count($parts) < 10) continue;
+
+            // Columns (11): EFF_DATE, DP_NAME, DP_COMPUTER_CODE, ARTCC, ORIG_GROUP,
+            //   BODY_NAME, TRANSITION_COMPUTER_CODE, TRANSITION_NAME, TRANSITION_TYPE,
+            //   ROUTE_POINTS, ROUTE_FROM_ORIG_GROUP
+            $col = function($name, $default = '') use ($parts, $colMap) {
+                if ($colMap !== null && isset($colMap[$name])) {
+                    return trim($parts[$colMap[$name]] ?? $default);
+                }
+                return $default;
+            };
+            $effDate = $col('EFF_DATE');
+            $dpName = $col('DP_NAME');
+            $computerCode = $col('DP_COMPUTER_CODE');
+            $artcc = $col('ARTCC');
+            $origGroup = $col('ORIG_GROUP');
+            $bodyName = $col('BODY_NAME');
+            $transCode = $col('TRANSITION_COMPUTER_CODE');
+            $transName = $col('TRANSITION_NAME');
+            $transType = $col('TRANSITION_TYPE');
+            $routePoints = $col('ROUTE_POINTS');
             
             if (empty($computerCode) || empty($routePoints)) continue;
             
@@ -144,18 +158,24 @@ if (!file_exists($dpFile)) {
                 $runways = implode(',', array_unique($matches[1]));
             }
             
+            // Build runway_group from origGroup (e.g., "JFK/04L|04R|13L|13R DEN/25|26")
+            $runwayGroup = !empty($origGroup) ? $origGroup : null;
+
             $params = [
                 $airport,
                 $dpName,
                 $computerCode,
                 empty($transName) ? null : $transName,
+                empty($transType) ? null : $transType,
                 $routePoints,
                 $runways,
+                empty($bodyName) ? null : $bodyName,
+                $runwayGroup,
                 $effDateObj
             ];
-            
+
             $stmt = sqlsrv_query($conn, $insertSql, $params);
-            
+
             if ($stmt === false) {
                 $errors++;
                 if ($errors <= 5) {
@@ -165,12 +185,12 @@ if (!file_exists($dpFile)) {
                 $totalDps++;
                 sqlsrv_free_stmt($stmt);
             }
-            
+
             if ($totalDps % 1000 == 0) {
                 echo "  Processed $totalDps DPs...\n";
             }
         }
-        
+
         fclose($handle);
         echo "  Imported $totalDps DPs ($errors errors)\n";
     }
@@ -193,37 +213,51 @@ if (!file_exists($starFile)) {
         $lineNum = 0;
         
         $insertSql = "
-            INSERT INTO dbo.nav_procedures 
-            (procedure_type, airport_icao, procedure_name, computer_code, transition_name, 
-             full_route, runways, is_active, source, effective_date)
-            VALUES ('STAR', ?, ?, ?, ?, ?, ?, 1, 'star_full_routes.csv', ?)
+            INSERT INTO dbo.nav_procedures
+            (procedure_type, airport_icao, procedure_name, computer_code, transition_name,
+             transition_type, full_route, runways, body_name, runway_group,
+             is_active, source, effective_date)
+            VALUES ('STAR', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'star_full_routes.csv', ?)
         ";
-        
+
+        // Column index map (resolved from header or defaults)
+        $colMap = null;
+
         while (($line = fgets($handle)) !== false) {
             $lineNum++;
             $line = trim($line);
             if (empty($line)) continue;
-            
-            // Skip header row
+
+            // Parse header row to build column index map
             if ($lineNum == 1 && strpos($line, 'EFF_DATE,') === 0) {
-                echo "  Skipping header row\n";
+                echo "  Parsing header row\n";
+                $headers = str_getcsv($line);
+                $colMap = array_flip(array_map('trim', $headers));
                 continue;
             }
-            
+
             $parts = str_getcsv($line);
-            if (count($parts) < 9) continue;
-            
-            // Columns: EFF_DATE, ARRIVAL_NAME, STAR_COMPUTER_CODE, ARTCC, DEST_GROUP,
-            //          BODY_NAME, TRANSITION_COMPUTER_CODE, TRANSITION_NAME, ROUTE_POINTS, ROUTE_FROM_DEST_GROUP
-            $effDate = trim($parts[0] ?? '');
-            $starName = trim($parts[1] ?? '');
-            $computerCode = trim($parts[2] ?? '');
-            $artcc = trim($parts[3] ?? '');
-            $destGroup = trim($parts[4] ?? '');
-            $bodyName = trim($parts[5] ?? '');
-            $transCode = trim($parts[6] ?? '');
-            $transName = trim($parts[7] ?? '');
-            $routePoints = trim($parts[8] ?? '');
+            if (count($parts) < 10) continue;
+
+            // Columns (11): EFF_DATE, ARRIVAL_NAME, STAR_COMPUTER_CODE, ARTCC, DEST_GROUP,
+            //   BODY_NAME, TRANSITION_COMPUTER_CODE, TRANSITION_NAME, TRANSITION_TYPE,
+            //   ROUTE_POINTS, ROUTE_FROM_DEST_GROUP
+            $col = function($name, $default = '') use ($parts, $colMap) {
+                if ($colMap !== null && isset($colMap[$name])) {
+                    return trim($parts[$colMap[$name]] ?? $default);
+                }
+                return $default;
+            };
+            $effDate = $col('EFF_DATE');
+            $starName = $col('ARRIVAL_NAME');
+            $computerCode = $col('STAR_COMPUTER_CODE');
+            $artcc = $col('ARTCC');
+            $destGroup = $col('DEST_GROUP');
+            $bodyName = $col('BODY_NAME');
+            $transCode = $col('TRANSITION_COMPUTER_CODE');
+            $transName = $col('TRANSITION_NAME');
+            $transType = $col('TRANSITION_TYPE');
+            $routePoints = $col('ROUTE_POINTS');
             
             if (empty($computerCode) || empty($routePoints)) continue;
             
@@ -254,16 +288,22 @@ if (!file_exists($starFile)) {
                 $runways = implode(',', array_unique($matches[1]));
             }
             
+            // Build runway_group from destGroup (e.g., "JFK/04L|04R|13L|13R DEN/25|26")
+            $runwayGroup = !empty($destGroup) ? $destGroup : null;
+
             $params = [
                 $airport,
                 $starName,
                 $computerCode,
                 empty($transName) ? null : $transName,
+                empty($transType) ? null : $transType,
                 $routePoints,
                 $runways,
+                empty($bodyName) ? null : $bodyName,
+                $runwayGroup,
                 $effDateObj
             ];
-            
+
             $stmt = sqlsrv_query($conn, $insertSql, $params);
             
             if ($stmt === false) {

@@ -275,22 +275,6 @@ $(document).ready(function() {
         return result;
     }
 
-    // Departure procedure datasets (DPs)
-    const dpByComputerCode = {};
-    const dpPatternIndex = {};
-    const dpByLeftCode = {};
-    const dpByRootName = {};
-    const dpRouteBodyIndex = {};
-    const dpRouteTransitionIndex = {};
-    const dpDataLoaded = false;
-    const dpBodyPointSet = new Set();
-    const dpActiveBodyPoints = new Set();
-
-    // STAR procedure datasets
-    const starFullRoutesByTransition = {};
-    const starFullRoutesByStarCode = {};
-    const starDataLoaded = false;
-
     const warnedFixes = new Set();
 
     // Route rendering state

@@ -2303,56 +2303,6 @@ class JSFileUpdater:
         variant_info = f" (+{len(extra_variants)} extra variants)" if extra_variants else ""
         logger.info(f"Wrote {len(airways)} airways to awys.js{variant_info}")
     
-    def update_procs_js(self, dp_routes: List[Dict], star_routes: List[Dict]):
-        """
-        Update procs.js from DP and STAR routes.
-        Format: var procs = [["PROC_NAME","POINT1 POINT2 ..."], ...]
-        
-        Extracts unique procedure names with their route points.
-        """
-        filepath = self.js_dir / 'procs.js'
-        
-        # Collect all procedures (DPs and STARs)
-        procs = {}
-        
-        # Process DPs - use DP_COMPUTER_CODE base (before .) as key
-        for dp in dp_routes:
-            code = dp.get('DP_COMPUTER_CODE', '')
-            route_points = dp.get('ROUTE_POINTS', '')
-            if code and route_points:
-                # Extract base code (e.g., "ACCRA5" from "ACCRA5.ACCRA")
-                base_code = code.split('.')[0] if '.' in code else code
-                # Keep longest route for each procedure
-                if base_code not in procs or len(route_points) > len(procs[base_code]):
-                    procs[base_code] = route_points
-        
-        # Process STARs - use STAR_COMPUTER_CODE base as key
-        for star in star_routes:
-            code = star.get('STAR_COMPUTER_CODE', '')
-            route_points = star.get('ROUTE_POINTS', '')
-            if code and route_points:
-                base_code = code.split('.')[0] if '.' in code else code
-                if base_code not in procs or len(route_points) > len(procs[base_code]):
-                    procs[base_code] = route_points
-        
-        # Build the array entries
-        entries = []
-        for proc_name in sorted(procs.keys()):
-            points = procs[proc_name]
-            proc_name_escaped = proc_name.replace('"', '\\"')
-            points_escaped = points.replace('"', '\\"')
-            entries.append(f'["{proc_name_escaped}","{points_escaped}"]')
-        
-        # Add null terminator entry
-        entries.append('["",null]')
-        
-        js_content = f"var procs = [{','.join(entries)}]"
-        
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(js_content)
-        
-        logger.info(f"Wrote {len(procs)} procedures to procs.js")
-    
     def read_awys_js(self) -> Dict[str, str]:
         """Read existing awys.js and parse to dictionary."""
         filepath = self.js_dir / 'awys.js'
@@ -2380,29 +2330,6 @@ class JSFileUpdater:
         
         return airways
     
-    def read_procs_js(self) -> Dict[str, str]:
-        """Read existing procs.js and parse to dictionary."""
-        filepath = self.js_dir / 'procs.js'
-        if not filepath.exists():
-            return {}
-        
-        procs = {}
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            match = re.search(r'var\s+procs\s*=\s*\[(.*)\]', content, re.DOTALL)
-            if match:
-                array_content = match.group(1)
-                for entry_match in re.finditer(r'\["([^"]*)",\s*"([^"]*)"\]', array_content):
-                    proc_name = entry_match.group(1)
-                    points = entry_match.group(2)
-                    if proc_name:
-                        procs[proc_name] = points
-        except Exception as e:
-            logger.error(f"Error reading procs.js: {e}")
-        
-        return procs
 
 
 class ChangeLogger:
@@ -3012,7 +2939,6 @@ class NASRNavDataUpdater:
         logger.info("\nUpdating JavaScript files...")
         self.js_dir.mkdir(parents=True, exist_ok=True)
         self.js_updater.update_awys_js(final_airways, xp12_extra_airway_variants)
-        self.js_updater.update_procs_js(final_dps, final_stars)
         
         # Generate change report
         logger.info("\nGenerating change report...")

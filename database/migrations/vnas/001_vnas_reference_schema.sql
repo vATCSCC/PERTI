@@ -80,7 +80,7 @@ BEGIN
         subset                    SMALLINT      NOT NULL,
         sector_id                 NVARCHAR(4)   NOT NULL,
         parent_tcp_id             NVARCHAR(32)  NULL,
-        terminal_sector           BIT           NULL,
+        terminal_sector           NVARCHAR(2)   NULL,
         imported_utc              DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME()
     );
     CREATE INDEX IX_vnas_stars_tcps_facility ON dbo.vnas_stars_tcps (facility_id, sector_id);
@@ -124,7 +124,7 @@ BEGIN
         bank_id                   NVARCHAR(32)  NOT NULL PRIMARY KEY,
         facility_id               NVARCHAR(8)   NOT NULL,
         parent_artcc              NVARCHAR(4)   NOT NULL,
-        source_system             NVARCHAR(4)   NOT NULL,
+        source_system             NVARCHAR(8)   NOT NULL,
         category                  NVARCHAR(16)  NULL,
         priority                  NVARCHAR(16)  NULL,
         subset                    INT           NULL,
@@ -161,11 +161,11 @@ BEGIN
     CREATE TABLE dbo.vnas_video_map_index (
         map_id                    NVARCHAR(32)  NOT NULL PRIMARY KEY,
         parent_artcc              NVARCHAR(4)   NOT NULL,
-        map_name                  NVARCHAR(100) NOT NULL,
+        map_name                  NVARCHAR(500) NOT NULL,
         short_name                NVARCHAR(50)  NULL,
         stars_id                  NVARCHAR(16)  NULL,
         tags_json                 NVARCHAR(MAX) NULL,
-        source_file_name          NVARCHAR(100) NULL,
+        source_file_name          NVARCHAR(500) NULL,
         stars_brightness_category NVARCHAR(20)  NULL,
         stars_always_visible      BIT           NULL,
         tdm_only                  BIT           NULL,
