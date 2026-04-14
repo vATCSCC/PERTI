@@ -118,6 +118,58 @@ function vnasBatchInsert($conn, $table, $columns, $rows, $batch_size = 50) {
 }
 
 // ------------------------------------------------------------------
+// Batch MERGE helper (for tables with cross-ARTCC shared PKs)
+// ------------------------------------------------------------------
+/**
+ * Insert rows that don't already exist (skip duplicates on PK).
+ *
+ * @param resource $conn      sqlsrv connection
+ * @param string   $table     Fully-qualified table name
+ * @param string   $pk_col    Primary key column name
+ * @param string[] $columns   Ordered column names
+ * @param array[]  $rows      Rows as associative arrays
+ * @return int Number of rows inserted (excludes skipped duplicates)
+ * @throws Exception on sqlsrv failure
+ */
+function vnasBatchMerge($conn, $table, $pk_col, $columns, $rows) {
+    if (empty($rows)) return 0;
+
+    $total = 0;
+    $col_list = implode(', ', $columns);
+
+    // Process one row at a time with INSERT...WHERE NOT EXISTS
+    foreach ($rows as $row) {
+        $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+        $sql = "INSERT INTO {$table} ({$col_list})
+                SELECT {$placeholders}
+                WHERE NOT EXISTS (SELECT 1 FROM {$table} WHERE {$pk_col} = ?)";
+        $params = [];
+        foreach ($columns as $col) {
+            $val = $row[$col] ?? null;
+            if (is_array($val) || is_object($val)) {
+                $val = json_encode($val, JSON_UNESCAPED_UNICODE);
+            }
+            if (is_bool($val)) {
+                $val = $val ? 1 : 0;
+            }
+            $params[] = $val;
+        }
+        // Add PK value for the WHERE NOT EXISTS check
+        $params[] = $row[$pk_col] ?? null;
+
+        $stmt = sqlsrv_query($conn, $sql, $params);
+        if ($stmt === false) {
+            $errors = sqlsrv_errors();
+            throw new Exception("Merge insert to {$table} failed: " . ($errors[0]['message'] ?? 'Unknown'));
+        }
+        $total += sqlsrv_rows_affected($stmt);
+        sqlsrv_free_stmt($stmt);
+    }
+
+    return $total;
+}
+
+// ------------------------------------------------------------------
 // Begin transaction
 // ------------------------------------------------------------------
 if (sqlsrv_begin_transaction($conn_adl) === false) {
@@ -226,14 +278,14 @@ try {
     );
 
     // ==================================================================
-    // 7. INSERT transceivers
+    // 7. UPSERT transceivers (shared across ARTCCs — same UUID may exist)
     // ==================================================================
     $xcvr_columns = [
         'transceiver_id', 'parent_artcc', 'transceiver_name',
         'lat', 'lon', 'height_msl_meters', 'height_agl_meters'
     ];
-    $counts['transceivers'] = vnasBatchInsert(
-        $conn_adl, 'dbo.vnas_transceivers', $xcvr_columns, $body['transceivers'], 200
+    $counts['transceivers'] = vnasBatchMerge(
+        $conn_adl, 'dbo.vnas_transceivers', 'transceiver_id', $xcvr_columns, $body['transceivers']
     );
 
     // ==================================================================
@@ -281,7 +333,7 @@ try {
                     b.boundary_type
                 FROM dbo.vnas_positions p
                 JOIN dbo.adl_boundary b
-                    ON b.artcc_code = p.parent_artcc
+                    ON b.parent_artcc = p.parent_artcc
                     AND b.boundary_code = p.eram_sector_id
                 WHERE p.parent_artcc = ?
                     AND p.eram_sector_id IS NOT NULL";
@@ -307,7 +359,7 @@ try {
                     t.parent_artcc
                 FROM dbo.vnas_stars_tcps t
                 LEFT JOIN dbo.adl_boundary b
-                    ON b.artcc_code = t.parent_artcc
+                    ON b.parent_artcc = t.parent_artcc
                     AND b.boundary_code = t.sector_id
                 WHERE t.parent_artcc = ?";
     $stmt = sqlsrv_query($conn_adl, $tsm_sql, [$artcc_code]);
