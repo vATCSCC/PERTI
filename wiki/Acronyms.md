@@ -1,6 +1,6 @@
 # Acronyms & Terminology
 
-*Last updated: March 12, 2026*
+*Last updated: April 14, 2026*
 
 This reference defines acronyms and terminology used throughout PERTI and VATSIM traffic management.
 
@@ -286,6 +286,7 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 | **RNP** | Required Navigation Performance |
 | **GPS** | Global Positioning System |
 | **ILS** | Instrument Landing System |
+| **NAT** | North Atlantic Tracks - oceanic routing system |
 
 ---
 
@@ -337,11 +338,15 @@ TFMS uses a consistent prefix/suffix naming convention for times. Understanding 
 | **VATUSA** | VATSIM USA Division |
 | **VATCAN** | VATSIM Canada Division |
 | **CANOC** | Canadian Network Operations Centre (VATCAN traffic management) |
+| **CRC** | Combined Radar Controller - vNAS ATC client application |
 | **ECFMP** | EUROCONTROL-style Flow Management Position (used by VATSIM European divisions) |
 | **vATCSCC** | Virtual Air Traffic Control System Command Center |
 | **CTP** | Cross The Pond - major transatlantic VATSIM event |
 | **FNO** | Friday Night Operations - regular VATSIM event |
 | **NTMO** | National Traffic Management Officer |
+| **TCP** | Terminal Control Position - STARS radar position entry in vNAS |
+| **ULID** | Universally Unique Lexicographically Sortable Identifier - used for vNAS position IDs |
+| **vNAS** | Virtual National Airspace System - VATSIM's centralized ATC facility/position configuration |
 
 ---
 

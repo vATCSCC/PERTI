@@ -225,11 +225,23 @@ Ground Delay Tool unified API for managing GS, GDP, and AFP programs. Uses `VATS
 | `/api/gdt/programs/create.php` | POST | Create new GS/GDP/AFP program |
 | `/api/gdt/programs/list.php` | GET | List programs with filtering |
 | `/api/gdt/programs/get.php` | GET | Get single program with slots |
+| `/api/gdt/programs/active.php` | GET | List currently active programs |
 | `/api/gdt/programs/simulate.php` | POST | Generate slots and run RBS |
 | `/api/gdt/programs/activate.php` | POST | Activate proposed program |
 | `/api/gdt/programs/extend.php` | POST | Extend program end time |
 | `/api/gdt/programs/purge.php` | POST | Cancel/purge program |
+| `/api/gdt/programs/cancel.php` | POST | Cancel a program |
 | `/api/gdt/programs/transition.php` | POST | Transition GS to GDP |
+| `/api/gdt/programs/compress.php` | POST | Compress program slots |
+| `/api/gdt/programs/reoptimize.php` | POST | Reoptimize program slots |
+| `/api/gdt/programs/revise.php` | POST | Revise program parameters |
+| `/api/gdt/programs/model.php` | POST | Model program scope |
+| `/api/gdt/programs/publish.php` | POST | Publish program to Discord |
+| `/api/gdt/programs/submit_proposal.php` | POST | Submit multi-facility proposal |
+| `/api/gdt/programs/blanket.php` | POST | Issue blanket EDCT |
+| `/api/gdt/programs/ecr.php` | POST | Early coordination request |
+| `/api/gdt/programs/power_run.php` | POST | Power run simulation |
+| `/api/gdt/programs/fairness.php` | GET | Fairness metrics for a program |
 
 ### Flight and Slot Operations
 
@@ -361,6 +373,12 @@ PostGIS-powered spatial queries for route analysis and boundary detection.
 | `boundaries.php?action=boundaries_at_tier` | GET | Boundaries at specific tier |
 | `boundaries.php?action=proximity_summary` | GET | Count summary per tier |
 | `boundaries.php?action=validate_tiers` | GET | Validate GIS vs ADL tier mappings |
+
+### Track Density
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `track_density.php` | GET | Track density heatmap data |
 
 ### Service/Diagnostics
 
@@ -790,6 +808,21 @@ Applies manual rate override.
 }
 ```
 
+### Additional Demand Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/demand/airport.php` | GET | Demand data for a single airport |
+| `/api/demand/atis.php` | GET | ATIS-derived configuration data |
+| `/api/demand/facility.php` | GET | Facility-level demand data |
+| `/api/demand/facility_list.php` | GET | List of facilities with demand monitoring |
+| `/api/demand/facility_summary.php` | GET | Summary demand by facility |
+| `/api/demand/active_config.php` | GET | Currently active airport configuration |
+| `/api/demand/scheduled_configs.php` | GET | Scheduled airport configurations |
+| `/api/demand/configs.php` | GET | Airport configuration definitions |
+| `/api/demand/config_search.php` | GET | Search airport configurations |
+| `/api/demand/tmi_programs.php` | GET | TMI programs affecting demand |
+
 ---
 
 ## ADL Demand APIs (v17)
@@ -1093,7 +1126,7 @@ Coded Departure Route reference data. CDRs are pre-coordinated reroutes between 
 Pre-coordinated route play catalog management. Playbook plays define route sets for common traffic management scenarios (weather reroutes, volume management, etc.).
 
 **Base Path:** `/api/data/playbook/` (read) and `/api/mgt/playbook/` (write)
-**SWIM API:** `GET /api/swim/v1/playbook/plays` (public), `GET /api/swim/v1/playbook/analysis` (auth required), `GET/POST /api/swim/v1/playbook/throughput` (auth required) -- see [[SWIM Routes API]]
+**SWIM API:** `GET /api/swim/v1/playbook/plays` (public), `GET /api/swim/v1/playbook/analysis` (auth required), `GET/POST /api/swim/v1/playbook/throughput` (auth required), `GET /api/swim/v1/playbook/traversal` (auth required), `GET /api/swim/v1/playbook/facility-counts` (auth required) -- see [[SWIM Routes API]]
 
 ### Read Endpoints
 
@@ -1256,6 +1289,18 @@ Returns published public routes.
 ### POST /api/routes/public_post.php
 
 Publishes a new public route.
+
+**Access:** Authenticated
+
+### PUT /api/routes/public_update.php
+
+Updates an existing public route.
+
+**Access:** Authenticated
+
+### DELETE /api/routes/public_delete.php
+
+Deletes a public route.
 
 **Access:** Authenticated
 
@@ -1585,6 +1630,22 @@ Returns flights under TMI control (with EDCTs).
 | `program_id` | int | Filter by specific program |
 | `airport` | string | Filter by control element |
 
+#### Additional SWIM TMI Endpoints
+
+| Path | Description |
+|------|-------------|
+| `GET /api/swim/v1/tmi/entries` | NTML log entries |
+| `GET /api/swim/v1/tmi/reroutes` | Active reroute definitions |
+| `GET /api/swim/v1/tmi/measures` | Traffic management measures |
+| `GET /api/swim/v1/tmi/amendments` | TMI amendments |
+| `GET /api/swim/v1/tmi/routes` | TMI published routes |
+| `GET /api/swim/v1/tmi/event-log` | TMI event log (operations analytics) |
+| `GET /api/swim/v1/tmi/delay-attribution` | Delay attribution data |
+| `GET /api/swim/v1/tmi/facility-stats` | Facility-level TMI statistics |
+| `GET /api/swim/v1/tmi/flow/*` | ECFMP flow measure integration (providers, events, measures, ingest) |
+| `GET /api/swim/v1/tmi/nat_tracks/status` | NAT track status |
+| `GET /api/swim/v1/tmi/nat_tracks/metrics` | NAT track metrics |
+
 ### Additional SWIM Endpoints (v19)
 
 | Path | Description |
@@ -1593,10 +1654,43 @@ Returns flights under TMI control (with EDCTs).
 | `GET /api/swim/v1/ctp/*` | CTP sessions, slots, capacity |
 | `GET /api/swim/v1/controllers` | ATC controller data with sector assignments |
 | `GET /api/swim/v1/connectors/status` | External connector health |
-| `GET /api/swim/v1/routes/*` | CDR and playbook route data |
-| `POST /api/swim/v1/ingest/*` | Flight, track, metering, CDM ingest |
+| `GET /api/swim/v1/connectors/health` | Connector health check |
+| `GET /api/swim/v1/routes/cdrs` | CDR route data |
+| `GET /api/swim/v1/routes/resolve` | Route string resolution |
+| `GET /api/swim/v1/routes/query` | Route query/search |
+| `GET /api/swim/v1/operations/oplevels` | Operational level data |
+| `GET /api/swim/v1/operations/plans` | Operational plans |
+| `POST /api/swim/v1/ingest/adl` | ADL flight data ingest |
+| `POST /api/swim/v1/ingest/track` | Position track ingest |
+| `POST /api/swim/v1/ingest/metering` | Metering data ingest |
+| `POST /api/swim/v1/ingest/cdm` | CDM milestone ingest |
+| `POST /api/swim/v1/ingest/acars` | ACARS message ingest |
+| `POST /api/swim/v1/ingest/aman` | AMAN sequence ingest |
+| `POST /api/swim/v1/ingest/simtraffic` | SimTraffic data ingest |
+| `POST /api/swim/v1/ingest/ctp` | CTP slot ingest |
+| `POST /api/swim/v1/ingest/ctp_event` | CTP event ingest |
+| `POST /api/swim/v1/ingest/ctp-routes` | CTP route ingest |
+| `POST /api/swim/v1/ingest/vnas/*` | vNAS integration ingest (controllers, handoff, tags, track, restrictions, facilities) |
 
 ### Reference Data (v18)
+
+#### SWIM Reference Endpoints
+
+| Path | Description |
+|------|-------------|
+| `GET /api/swim/v1/reference/taxi-times` | Unimpeded taxi-out reference times (see below) |
+| `GET /api/swim/v1/reference/airports` | Airport reference data |
+| `GET /api/swim/v1/reference/airlines` | Airline reference data |
+| `GET /api/swim/v1/reference/aircraft` | Aircraft type reference data |
+| `GET /api/swim/v1/reference/airspace` | Airspace boundary data |
+| `GET /api/swim/v1/reference/facilities` | Facility reference data |
+| `GET /api/swim/v1/reference/hierarchy` | Facility hierarchy |
+| `GET /api/swim/v1/reference/navigation` | Navigation fix/waypoint data |
+| `GET /api/swim/v1/reference/routes` | Route reference data |
+| `GET /api/swim/v1/reference/airac` | AIRAC cycle information |
+| `GET /api/swim/v1/reference/airport-configs` | Airport configuration data |
+| `GET /api/swim/v1/reference/utilities` | Reference data utilities |
+| `GET /api/swim/v1/reference/bulk` | Bulk reference data export |
 
 #### GET /api/swim/v1/reference/taxi-times.php
 
@@ -1914,7 +2008,11 @@ Returns A-CDM milestone data (TOBT, TSAT, TTOT) for flights.
 | Path | Description |
 |------|-------------|
 | `GET /api/swim/v1/cdm/status` | CDM airport status |
+| `GET /api/swim/v1/cdm/airport-status` | CDM airport-level status detail |
 | `GET /api/swim/v1/cdm/milestones` | Flight milestones |
+| `GET /api/swim/v1/cdm/metrics` | CDM performance metrics |
+| `GET /api/swim/v1/cdm/compliance` | CDM compliance data |
+| `GET /api/swim/v1/cdm/readiness` | CDM readiness assessment |
 | `POST /api/swim/v1/cdm/tobt` | Update TOBT (partner tier) |
 
 ---
@@ -1939,6 +2037,86 @@ Returns CTP slot assignments and capacity data.
 |-----------|------|-------------|
 | `session_id` | int | CTP session ID |
 | `track` | string | NAT track identifier |
+
+### CTP Session Management
+
+**Base Path:** `/api/ctp/sessions/`
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `list.php` | GET | List CTP sessions |
+| `get.php` | GET | Get single session details |
+| `create.php` | POST | Create new CTP session |
+| `update.php` | PUT | Update session parameters |
+| `activate.php` | POST | Activate a session |
+| `complete.php` | POST | Mark session complete |
+
+### CTP Flight Operations
+
+**Base Path:** `/api/ctp/flights/`
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `list.php` | GET | List flights in a CTP session |
+| `get.php` | GET | Get single CTP flight details |
+| `detect.php` | GET | Detect CTP-eligible flights |
+| `compliance.php` | GET | Flight route compliance check |
+| `validate_route.php` | GET | Validate a CTP route |
+| `routes_geojson.php` | GET | CTP routes as GeoJSON |
+| `assign_edct.php` | POST | Assign EDCT to CTP flight |
+| `assign_edct_batch.php` | POST | Batch assign EDCTs |
+| `remove_edct.php` | POST | Remove EDCT from CTP flight |
+| `modify_route.php` | POST | Modify CTP flight route |
+| `exclude.php` | POST | Exclude flight from CTP |
+
+### CTP Route Templates
+
+**Base Path:** `/api/ctp/routes/`
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `templates.php` | GET | CTP route templates |
+| `suggest.php` | GET | Suggest routes for CTP flights |
+
+### CTP Throughput
+
+**Base Path:** `/api/ctp/throughput/`
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `list.php` | GET | List throughput constraints |
+| `preview.php` | GET | Preview throughput impact |
+| `create.php` | POST | Create throughput constraint |
+| `update.php` | PUT | Update throughput constraint |
+| `delete.php` | DELETE | Delete throughput constraint |
+
+### CTP Planning
+
+**Base Path:** `/api/ctp/planning/`
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `scenarios.php` | GET | List planning scenarios |
+| `scenario_save.php` | POST | Save planning scenario |
+| `scenario_clone.php` | POST | Clone a scenario |
+| `scenario_delete.php` | POST | Delete a scenario |
+| `compute.php` | POST | Compute scenario results |
+| `apply_to_session.php` | POST | Apply scenario to active session |
+| `block_save.php` | POST | Save time block definition |
+| `block_delete.php` | POST | Delete time block |
+| `assignment_save.php` | POST | Save track assignment |
+| `assignment_delete.php` | POST | Delete track assignment |
+| `track_constraints.php` | GET | Track constraint data |
+
+### Other CTP Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/ctp/demand.php` | GET | CTP demand data |
+| `/api/ctp/boundaries.php` | GET | CTP boundary definitions |
+| `/api/ctp/stats.php` | GET | CTP statistics |
+| `/api/ctp/audit_log.php` | GET | CTP audit trail |
+| `/api/ctp/changelog.php` | GET | CTP changelog |
 
 ### SWIM CTP Endpoints
 

@@ -1,6 +1,6 @@
 # Database Schema
 
-> **Last updated:** March 17, 2026 (v19)
+> **Last updated:** April 14, 2026 (v20)
 > **System Mode:** HIBERNATED (SWIM exempt since March 22, 2026)
 
 PERTI uses multiple databases across three engines: MySQL for application data, Azure SQL for flight/ADL and TMI data, and PostgreSQL/PostGIS for spatial queries.
@@ -143,8 +143,12 @@ PERTI uses multiple databases across three engines: MySQL for application data, 
 | Table | Purpose | Records |
 |-------|---------|---------|
 | `adl_flights` | Current flight state (legacy) | -- |
-| `adl_flight_core` | Core flight record (normalized) | 1,625,115 |
-| `adl_flight_plan` | Flight plan data (normalized) | 1,620,920 |
+| `adl_flight_core` | Core flight record (normalized): identity, phase, active status, zone/ARTCC/sector | 1,625,115 |
+| `adl_flight_plan` | Flight plan data (normalized): filed route, aircraft type, parse status, geometry | 1,620,920 |
+| `adl_flight_position` | Current position (normalized): lat/lon, altitude, speed, heading, distance to dest | -- |
+| `adl_flight_times` | Time columns (normalized): 50+ time columns — STD/ETD/ATD/ETA/ATA, OOOI, EDCT, bucket times | -- |
+| `adl_flight_tmi` | TMI control (normalized): program_id, slot_id, delay, compliance, reroute status | -- |
+| `adl_flight_aircraft` | Aircraft data (normalized): ICAO/FAA type, weight class, engine, wake category, airline | -- |
 | `adl_flight_waypoints` | Parsed route waypoints | 9,295,153 |
 | `adl_flight_planned_crossings` | Boundary crossing predictions | 20,548,518 |
 | `adl_flight_trajectory` | Position history | 1,048,016 |
@@ -158,7 +162,7 @@ PERTI uses multiple databases across three engines: MySQL for application data, 
 | `ntml` | National Traffic Management Log - unified GS/GDP program registry |
 | `ntml_info` | Program event log / audit trail |
 | `ntml_slots` | Arrival slot allocation (GDP only) |
-| `adl_flight_tmi` | Flight-level TMI assignments (EDCTs, slots, exemptions) |
+| `adl_flight_tmi` | Flight-level TMI assignments (EDCTs, slots, exemptions) — part of 8-table normalized architecture |
 
 #### ntml (Program Registry)
 
@@ -454,6 +458,71 @@ Entity-Attribute-Value (EAV) pattern for breakdowns by weight class, carrier, en
 | `taxi_out_seconds` | INT | Average taxi-out time for this segment |
 | `taxi_in_seconds` | INT | Average taxi-in time for this segment |
 | `sample_count` | INT | Number of observations for this segment |
+
+### Airport Connect-to-Push Reference (v18)
+
+| Table | Purpose |
+|-------|---------|
+| `airport_connect_reference` | Airport connect-to-push time reference data (5,552 airports) |
+| `airport_connect_reference_detail` | Connect reference dimension breakdowns (EAV pattern) |
+
+Methodology: Adapted from FAA ASPM p5-p15 percentile methodology. Measures time from pilot connecting to VATSIM (`first_seen_utc`) to pushback (`out_utc`), 90-day rolling window, minimum 50 samples. Default value is 900 seconds (15 minutes). Excludes GS-held and EDCT-delayed flights. Refreshed daily at 02:15 UTC via `dbo.sp_RefreshAirportConnectReference`.
+
+#### airport_connect_reference
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `airport_icao` | VARCHAR(4) | Primary key - airport ICAO code |
+| `unimpeded_connect_sec` | INT | Unimpeded connect-to-push time (seconds), p5-p15 avg |
+| `sample_size` | INT | Number of valid observations in rolling window |
+| `window_days` | INT | Rolling window size (default 90) |
+| `p05_connect_sec` | INT | 5th percentile |
+| `p10_connect_sec` | INT | 10th percentile |
+| `p15_connect_sec` | INT | 15th percentile |
+| `p25_connect_sec` | INT | 25th percentile |
+| `median_connect_sec` | INT | 50th percentile |
+| `p75_connect_sec` | INT | 75th percentile |
+| `p90_connect_sec` | INT | 90th percentile |
+| `avg_connect_sec` | INT | Overall average |
+| `confidence` | VARCHAR(8) | DEFAULT, LOW (1-49), MEDIUM (50-199), HIGH (200+) |
+| `last_refreshed_utc` | DATETIME2 | Last refresh timestamp |
+
+#### airport_connect_reference_detail
+
+Entity-Attribute-Value (EAV) pattern for breakdowns by weight class, carrier, engine configuration, and destination region.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `airport_icao` | VARCHAR(4) | FK to airport_connect_reference |
+| `dimension` | VARCHAR(16) | WEIGHT_CLASS, CARRIER, ENGINE_CONFIG, or DEST_REGION |
+| `dimension_value` | VARCHAR(16) | Type-specific value (e.g., "H" for heavy, "TWINJET" for engine) |
+| `unimpeded_connect_sec` | INT | p5-p15 avg for this slice |
+| `sample_size` | INT | Number of observations for this slice |
+| `p05_connect_sec` | INT | 5th percentile |
+| `p15_connect_sec` | INT | 15th percentile |
+| `median_connect_sec` | INT | 50th percentile |
+| `avg_connect_sec` | INT | Overall average |
+
+### vNAS Reference Tables (v20)
+
+Tables imported from CRC local ARTCC JSON files by `scripts/vnas_controller_poll.php` and ingest endpoints. Source: `database/migrations/vnas/001-003`.
+
+| Table | Purpose | Records |
+|-------|---------|---------|
+| `vnas_facilities` | Facility hierarchy (ARTCCs, TRACONs, towers) with system capabilities (ERAM, STARS, TDLS, etc.) | 782 |
+| `vnas_positions` | Controller positions with callsign, frequency, ERAM/STARS linkage | 3,990 |
+| `vnas_stars_tcps` | STARS Terminal Control Position configs (sector, subset, parent) | 1,949 |
+| `vnas_stars_areas` | STARS area definitions with visibility settings and airport lists | 647 |
+| `vnas_beacon_banks` | Beacon code bank allocations per facility (ERAM and STARS) | 781 |
+| `vnas_transceivers` | Radio transceiver locations with lat/lon and antenna heights | 1,526 |
+| `vnas_video_map_index` | Video map metadata index (name, STARS ID, tags, brightness) | 15,007 |
+| `vnas_airport_groups` | Airport group definitions per ARTCC | 69 |
+| `vnas_common_urls` | Common reference URLs per ARTCC | 88 |
+| `vnas_sync_metadata` | Per-ARTCC sync state (last import time, row counts, status) | 24 |
+| `vnas_restrictions` | Altitude/speed/heading restrictions with facility ownership | 1,836 |
+| `vnas_auto_atc_rules` | Auto ATC rules (descent, crossing fix, route matching) | 1,188 |
+| `vnas_position_sector_map` | Maps position ULIDs to adl_boundary rows for staffing detection | -- |
+| `vnas_tcp_sector_map` | Maps STARS TCP sector IDs to adl_boundary rows | -- |
 
 ---
 
@@ -872,6 +941,35 @@ FSM-format slot naming: `ccc[c].ddddddL` (e.g., KJFK.091530A)
 | `direction` | NVARCHAR(8) | OUTBOUND or INBOUND |
 | `approval_status` | NVARCHAR(16) | Approval status (for coordination) |
 
+### TMI Operations & Analytics Tables (v20 — Migration 055)
+
+10 tables across 3 layers for unified TMI event logging, delay attribution, and facility performance statistics.
+
+#### Layer 1: TMI Unified Log
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_log_core` | Core spine table — every TMI action gets one row (action_category, action_type, severity, source_system, summary, user info, facility/org) |
+| `tmi_log_scope` | Scope satellite — airspace/facilities/filters the action affects (ctl_element, airports, tiers, altitude, carriers) |
+| `tmi_log_parameters` | Parameters satellite — operational values, times, cause, rates, weather, remarks |
+| `tmi_log_impact` | Impact satellite — operational metrics snapshot (flights, delays, demand/capacity, compliance) |
+| `tmi_log_references` | References satellite — entity FKs (program_id, entry_id, advisory_id, reroute_id, slot_id, flight_uid), lifecycle chain, Discord linkage |
+
+#### Layer 2: Delay Attribution
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_cause_taxonomy` | Cause taxonomy reference (25 seed rows: TMI, WEATHER, VOLUME, EQUIPMENT, RUNWAY, OTHER categories) |
+| `tmi_delay_attribution` | Per-flight delay attribution with cause, phase, facility, program, and confidence |
+
+#### Layer 3: Facility Statistics
+
+| Table | Purpose |
+|-------|---------|
+| `tmi_facility_stats_hourly` | Hourly facility metrics (operations, delays by cause, active programs, AAR/ADR) |
+| `tmi_facility_stats_daily` | Daily facility rollups (on-time percentages, peak demand/delay, programs/restrictions issued) |
+| `tmi_ops_performance` | ASPM-style airport on-time performance (A0/A14, delay buckets, taxi times) |
+
 ---
 
 ## Azure SQL (VATSIM_REF)
@@ -888,11 +986,12 @@ Reference data database for navigation and airspace definitions.
 | `nav_fixes` | Navigation fixes/waypoints (VORs, NDBs, RNAV fixes) | 268,987 |
 | `airways` | Airway definitions (J, Q, V, T routes) | -- |
 | `airway_segments` | Airway segment waypoints with sequence | -- |
-| `nav_procedures` | SIDs and STARs | 10,314 |
+| `nav_procedures` | SIDs and STARs (NASR + international CIFP) | ~77,000 |
 | `coded_departure_routes` | CDRs for traffic management | 41,138 |
 | `playbook_routes` | Playbook route definitions | 55,682 |
 | `area_centers` | ARTCC center reference points | -- |
 | `oceanic_fir_bounds` | Oceanic FIR boundaries | -- |
+| `navdata_changelogs` | AIRAC update changelog entries (per-cycle diffs) | ~179K |
 | `ref_sync_log` | AIRAC update synchronization log | -- |
 
 #### nav_fixes
@@ -975,6 +1074,21 @@ Synced from VATSIM_TMI + VATSIM_ADL every 5 minutes by `swim_tmi_sync_daemon.php
 | `swim_tmi_reroute_compliance_log` | VATSIM_TMI `tmi_reroute_compliance_log` | Reroute compliance history mirror |
 | `swim_tmi_public_routes` | VATSIM_TMI `tmi_public_routes` | Published route visualizations mirror |
 | `swim_tmi_flight_control` | VATSIM_TMI `tmi_flight_control` | Per-flight TMI control mirror |
+
+### TMI Analytics Mirror Tables (v20)
+
+Synced from VATSIM_TMI every 5 minutes by `swim_tmi_sync_daemon.php` (Tier 1 analytics configs).
+
+| Table | Source | Purpose |
+|-------|--------|---------|
+| `swim_tmi_log_core` | VATSIM_TMI `tmi_log_core` | TMI unified event log spine mirror |
+| `swim_tmi_log_scope` | VATSIM_TMI `tmi_log_scope` | TMI event scope satellite mirror |
+| `swim_tmi_log_parameters` | VATSIM_TMI `tmi_log_parameters` | TMI event parameters satellite mirror |
+| `swim_tmi_log_impact` | VATSIM_TMI `tmi_log_impact` | TMI event impact satellite mirror |
+| `swim_tmi_log_references` | VATSIM_TMI `tmi_log_references` | TMI event references satellite mirror |
+| `swim_tmi_delay_attribution` | VATSIM_TMI `tmi_delay_attribution` | Per-flight delay attribution mirror |
+| `swim_tmi_facility_stats_hourly` | VATSIM_TMI `tmi_facility_stats_hourly` | Hourly facility statistics mirror |
+| `swim_tmi_facility_stats_daily` | VATSIM_TMI `tmi_facility_stats_daily` | Daily facility statistics mirror |
 
 ### Flow Mirror Tables (v19)
 
@@ -1067,6 +1181,8 @@ Dedicated PostGIS-enabled database for spatial route analysis and boundary queri
 | `airways` | Airway definitions (J, Q, V, T routes) | -- |
 | `airway_segments` | Airway segment waypoints with sequence | -- |
 | `airports` | Airport data with ICAO/IATA codes | 37,527 |
+| `nav_procedures` | SIDs and STARs (mirrored from VATSIM_REF, includes NASR + CIFP) | ~77,000 |
+| `coded_departure_routes` | CDRs (mirrored from VATSIM_REF) | ~41,000 |
 | `area_centers` | ARTCC/TRACON center reference points | -- |
 | `playbook_routes` | CDR/Playbook route definitions | -- |
 
@@ -1283,6 +1399,16 @@ Apply in numerical order within each category.
 | `database/migrations/swim/025_swim_refdata_tables.sql` | SWIM_API | Reference data mirror tables (CDRs, airports) |
 | `database/migrations/swim/026_swim_data_isolation.sql` | SWIM_API | SWIM data isolation: +34 cols on swim_flights, row_hash, 14 index drops, 25 mirror tables, 14 views, SP update |
 
+### v20 Migrations
+
+| Migration | Database | Purpose |
+|-----------|----------|---------|
+| `database/migrations/tmi/055_tmi_operations_analytics.sql` | VATSIM_TMI | 10 tables: unified TMI log (5 tables), delay attribution (2 tables), facility statistics (3 tables) |
+| `database/migrations/vnas/001_vnas_reference_schema.sql` | VATSIM_ADL | 10 vNAS reference tables (facilities, positions, STARS TCPs/areas, beacon banks, transceivers, video maps, airport groups, URLs, sync metadata) |
+| `database/migrations/vnas/002_vnas_restrictions_schema.sql` | VATSIM_ADL | vNAS restrictions and auto ATC rules tables |
+| `database/migrations/vnas/003_vnas_staffing_mapping.sql` | VATSIM_ADL | Staffing columns on adl_boundary + position/TCP sector mapping tables |
+| `adl/migrations/oooi/011_airport_connect_reference.sql` | VATSIM_ADL | Airport connect-to-push reference tables and stored procedure |
+
 ### Earlier Migration Directories
 
 | Directory | Feature Area |
@@ -1298,6 +1424,7 @@ Apply in numerical order within each category.
 | `database/migrations/sua/` | Special Use Airspace |
 | `database/migrations/advisories/` | DCC/NOD advisories |
 | `database/migrations/vatsim_stats/` | Statistics schema |
+| `database/migrations/vnas/` | vNAS reference data (facilities, positions, restrictions, staffing maps) |
 | `database/migrations/adl/` | ADL event tables |
 | `adl/migrations/core/` | Core 8-table flight schema |
 | `adl/migrations/boundaries/` | Boundary detection |
@@ -1307,6 +1434,7 @@ Apply in numerical order within each category.
 | `adl/migrations/navdata/` | Waypoint/procedure imports |
 | `adl/migrations/changelog/` | Flight change tracking triggers |
 | `adl/migrations/cifp/` | CIFP procedure legs |
+| `adl/migrations/oooi/` | OOOI gate events, airport taxi/connect reference tables |
 
 ---
 

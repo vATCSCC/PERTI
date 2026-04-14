@@ -63,7 +63,7 @@ These in-depth documents cover everything needed to deploy and understand PERTI:
 
 ---
 
-## System Scale (as of March 2026)
+## System Scale (as of April 2026)
 
 | Metric | Count |
 |--------|-------|
@@ -76,18 +76,20 @@ These in-depth documents cover everything needed to deploy and understand PERTI:
 | Airlines tracked | 228 |
 | ARTCC/sector boundaries | 3,033 (ADL) / 1,004 ARTCC + 1,023 TRACON (GIS) |
 | Airways | 1,515 |
-| DPs/STARs | 10,314 |
+| DPs/STARs | ~77,000 (NASR + international CIFP) |
 | Coded Departure Routes | 41,138 |
 | Playbook routes | 55,682 |
 | TMI programs issued | 172 (139 GDP, 29 GS, 4 AFP) |
 | TMI advisories published | 1,020 |
 | Reroutes defined | 268 |
+| vNAS facilities imported | 782 |
+| vNAS positions imported | 3,990 |
 | PERTI plans created | 239 |
 | Registered users | 25 |
 | Translation keys | 7,276 (en-US) |
 | Supported locales | 4 (en-US, fr-CA, en-CA, en-EU) |
 
-*Data reflects cumulative totals as of March 2026. System hibernating (re-entered 2026-03-29).*
+*Data reflects cumulative totals as of April 2026. System hibernating (re-entered 2026-03-30).*
 
 ---
 
@@ -108,20 +110,20 @@ These in-depth documents cover everything needed to deploy and understand PERTI:
 
 ## Current Version
 
-**v19** (March 2026) - Includes:
+**v20** (April 2026) - Includes:
 
-> **System Status: HIBERNATING** (re-entered 2026-03-29). Only always-on daemons running, Azure resources downscaled.
+> **System Status: HIBERNATING** (re-entered 2026-03-30). Only always-on daemons running, Azure resources downscaled.
 
+- **vNAS Reference Sync** - 14 vNAS tables imported from CRC facility JSON files (782 facilities, 3,990 positions, 15,007 video maps)
+- **International CIFP Integration** - 62,000+ DPs/STARs from 9,561 international airports via X-Plane 12 / Navigraph CIFP data
+- **AIRAC 2603 with Supersession Tracking** - `is_superseded`, `superseded_cycle`, `superseded_reason` on 5 tables across REF/ADL/PostGIS
+- **TMI Operations & Analytics Platform** - 10 tables across 3 layers (unified log, delay attribution, facility stats) with SWIM API endpoints
 - **GDP Algorithm Redesign** (Phases 1-4 complete) - CASA-FPFS + RBD hybrid slot assignment, compression, reoptimization, reversal metrics, anti-gaming flags
-- **vATCSCC Playbook** - Pre-coordinated route play catalog with CRUD, route grouping/coloring, consolidation, compaction, auto-filters, FIR pattern expansion, and shareable links
-- **Canadian FIR Sectors** - 377 sector boundaries across 7 Canadian FIRs (CZYZ, CZWG, CZEG, CZUL, CZVR, CZQM, CZQX)
-- **FIR Pattern Expansion** - International ICAO prefix matching, FIR-to-ARTCC code expansion, pseudo-fix audit
-- **Route Analysis Tools** - Route consolidation, compaction, auto-filters for playbook management
-- **ARTCC Code Normalization** - US ICAO codes (KZAB→ZAB, PAZA→ZAN) normalized sitewide
-- **Splits Enhancements** - Scheduled splits layer with low/high/superhigh strata filtering, sector map on plan pages
+- **Playbook Spatial Validation** - PostGIS expand_airway() with 2000km gap check, expand_route() with 7400km distance cap
+- **Airport Reference Systems** - Taxi reference (3,628 airports) and connect-to-push reference (5,552 airports) with FAA p5-p15 methodology
+- **vATCSCC Playbook** - Pre-coordinated route play catalog with spatial validation, compound filters, geometry backfill
+- **Splits Enhancements** - Scheduled splits, strata filtering, international FIR code support (NVARCHAR(4))
 - **Multi-Organization Support** - Org-scoped TMI/JATOC authorization, multi-org Discord posting, CANOC/ECFMP integration
-- **Traffic Management Review (TMR)** - Guided NTMO-style post-event review reports
-- **NOD TMI Enhancements** - Rich TMI sidebar cards, map status layer, facility flow configs, FEA integration
 - **Internationalization (i18n)** - 7,276 translation keys across 4 locales (en-US, fr-CA, en-CA, en-EU), 30 PHP pages, 45 JS modules
 - **PERTI_MYSQL_ONLY Optimization** - ~98 endpoints skip Azure SQL connections (~500-1000ms faster)
 
@@ -137,4 +139,4 @@ See [[Changelog]] for full version history.
 
 ---
 
-*Last updated: 2026-03-11*
+*Last updated: 2026-04-14*

@@ -18,7 +18,7 @@ GDT uses the dedicated `VATSIM_TMI` database (Azure SQL) with unified program ma
 | `tmi_events` | Audit log for all TMI operations |
 | `tmi_popup_queue` | Pop-up flight detection queue |
 
-**API:** `/api/gdt/` endpoints - see [[TMI API]] for details.
+**API:** `/api/gdt/` endpoints — see [[#API Endpoints (`/api/gdt/`)]] below for the full endpoint list.
 
 ---
 
@@ -270,16 +270,35 @@ An automatic daemon reoptimization cycle (2-5 minute intervals) is planned to ru
 | `tmi_flight_control` | VATSIM_TMI | Per-flight EDCT, CTA, reversal counts, anti-gaming flags |
 | `tmi_events` | VATSIM_TMI | Audit log including compression and reoptimization events |
 
-### API Endpoints (GDP Algorithm)
+### API Endpoints (`/api/gdt/`)
+
+All GDT endpoints reside under `/api/gdt/` (not `/api/tmi/`):
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/tmi/gdp_preview.php` | POST | Preview slot allocation before activation |
-| `/api/tmi/gdp_apply.php` | POST | Activate GDP and issue EDCTs |
-| `/api/tmi/gdp_simulate.php` | POST | Simulate GDP impact without activation |
-| `/api/tmi/compress.php` | POST | Trigger CASA compression on active program |
-| `/api/tmi/reoptimize.php` | POST | Trigger full reoptimization on active program |
-| `/api/tmi/gdp_purge.php` | POST | Cancel GDP and release all EDCTs |
+| `/api/gdt/programs/create.php` | POST | Create a new GS/GDP/AFP program |
+| `/api/gdt/programs/simulate.php` | POST | Generate slots and run RBS assignment |
+| `/api/gdt/programs/activate.php` | POST | Activate a proposed/modeled program |
+| `/api/gdt/programs/compress.php` | POST | Trigger CASA compression on active program |
+| `/api/gdt/programs/reoptimize.php` | POST | Trigger full reoptimization on active program |
+| `/api/gdt/programs/purge.php` | POST | Cancel program and release all EDCTs |
+| `/api/gdt/programs/extend.php` | POST | Extend program end time |
+| `/api/gdt/programs/revise.php` | POST | Revise program parameters |
+| `/api/gdt/programs/transition.php` | POST | Transition GS to GDP |
+| `/api/gdt/programs/blanket.php` | POST | Apply uniform delay adjustment |
+| `/api/gdt/programs/ecr.php` | POST | ECR (SWAP/DELAY/ADVANCE) operations |
+| `/api/gdt/programs/power_run.php` | POST | Multi-scenario parameter sweep |
+| `/api/gdt/programs/publish.php` | POST | Publish advisory to NTML/Discord |
+| `/api/gdt/programs/submit_proposal.php` | POST | Submit multi-facility coordination proposal |
+| `/api/gdt/programs/list.php` | GET | List programs with optional filtering |
+| `/api/gdt/programs/get.php` | GET | Get single program with slots and counts |
+| `/api/gdt/programs/active.php` | GET | Get currently active programs |
+| `/api/gdt/programs/model.php` | GET | Get program modeling data |
+| `/api/gdt/programs/fairness.php` | GET | Get fairness/equity metrics |
+| `/api/gdt/programs/flight_list.php` | GET | Get flight list for a program |
+| `/api/gdt/flights/list.php` | GET | List flights assigned to a program |
+| `/api/gdt/slots/list.php` | GET | List slots for a program |
+| `/api/gdt/demand/hourly.php` | GET | Get hourly demand/capacity data |
 
 ---
 
