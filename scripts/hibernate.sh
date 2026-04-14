@@ -17,7 +17,7 @@
 #   - az CLI logged in (az login)
 #   - Bash (Git Bash on Windows, or Linux/macOS)
 #
-# See docs/HIBERNATION_RUNBOOK.md for manual procedure and verification steps.
+# See docs/operations/HIBERNATION_RUNBOOK.md for manual procedure and verification steps.
 # =============================================================================
 
 set -euo pipefail

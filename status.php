@@ -4367,7 +4367,7 @@ $runtimes['total'] = round((microtime(true) - $pageStartTime) * 1000);
                 &mdash; <a href="javascript:location.reload()"><?= __('statusPage.refreshNow') ?></a>
             </p>
             <p class="refresh-note">
-                <a href="docs/STATUS.md" target="_blank"><i class="fas fa-file-alt mr-1"></i><?= __('statusPage.viewFullDocumentation') ?></a>
+                <a href="docs/operations/STATUS.md" target="_blank"><i class="fas fa-file-alt mr-1"></i><?= __('statusPage.viewFullDocumentation') ?></a>
             </p>
         </div>
 
