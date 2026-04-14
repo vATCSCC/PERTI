@@ -2964,6 +2964,29 @@ $(document).ready(function() {
 
             if (origTokensClean.length === 0) {return;}
 
+            // Strip AIRPORT/RUNWAY tokens: extract runway context for procedure filtering,
+            // replace token with just the airport code so it resolves in point lookups.
+            // E.g. KDFW/17C → KDFW (depRunway='17C'), KJFK/31L → KJFK (arrRunway='31L')
+            let depRunway = null, arrRunway = null;
+            for (let ti = 0; ti < origTokensClean.length; ti++) {
+                const tok = origTokensClean[ti];
+                const slashIdx = tok.indexOf('/');
+                if (slashIdx <= 0) {continue;}
+                // Skip coordinate tokens like 55/40 or 5540/04020
+                if (/^\d{2,5}\/\d{2,5}$/.test(tok)) {continue;}
+                const apt = tok.substring(0, slashIdx);
+                const rwy = tok.substring(slashIdx + 1);
+                // Validate: airport=3-4 alpha, runway=1-2 digits + optional L/C/R
+                if (/^[A-Z]{3,4}$/.test(apt) && /^\d{1,2}[LCR]?$/.test(rwy)) {
+                    origTokensClean[ti] = apt;
+                    if (depRunway === null) {
+                        depRunway = rwy;
+                    } else {
+                        arrRunway = rwy;
+                    }
+                }
+            }
+
             let tokens = origTokensClean.slice();
             let currentSolidMask = solidMask.slice();
 
@@ -3005,13 +3028,13 @@ $(document).ready(function() {
 
             let routeProcInfo = null;
             if (typeof preprocessRouteProcedures === 'function') {
-                routeProcInfo = preprocessRouteProcedures(tokens);
+                routeProcInfo = preprocessRouteProcedures(tokens, depRunway, arrRunway);
                 if (routeProcInfo && routeProcInfo.tokens) {tokens = routeProcInfo.tokens;}
             }
             routeStringByRouteId[thisRouteId].procInfo = routeProcInfo || null;
             routeStringByRouteId[thisRouteId].originalTokens = tokens.slice();
             if (typeof expandRouteProcedures === 'function') {
-                const expanded = expandRouteProcedures(tokens, currentSolidMask);
+                const expanded = expandRouteProcedures(tokens, currentSolidMask, null, depRunway, arrRunway);
                 if (expanded && expanded.tokens) {
                     tokens = expanded.tokens;
                     currentSolidMask = expanded.solidMask || currentSolidMask;
@@ -7611,6 +7634,19 @@ $(document).ready(function() {
             const tokens = line.split(/\s+/).filter(Boolean);
             if (!tokens.length) {return;}
 
+            // Strip AIRPORT/RUNWAY suffixes so airport detection works
+            for (let ti = 0; ti < tokens.length; ti++) {
+                const tok = tokens[ti].replace(/[<>]/g, '').toUpperCase();
+                const slashIdx = tok.indexOf('/');
+                if (slashIdx > 0 && !/^\d{2,5}\/\d{2,5}$/.test(tok)) {
+                    const apt = tok.substring(0, slashIdx);
+                    const rwy = tok.substring(slashIdx + 1);
+                    if (/^[A-Z]{3,4}$/.test(apt) && /^\d{1,2}[LCR]?$/.test(rwy)) {
+                        tokens[ti] = apt;
+                    }
+                }
+            }
+
             // Find all facilities in the route (excluding airways which start with J/Q/V/T + digits)
             const facilityIdxs = [];
             const airportIdxs = [];
@@ -9108,8 +9144,19 @@ $(document).ready(function() {
             cleanRoute = natExpanded;
         }
 
-        // Parse tokens
+        // Parse tokens and strip AIRPORT/RUNWAY suffixes
         const tokens = cleanRoute.split(/\s+/).filter(t => t);
+        for (let ti = 0; ti < tokens.length; ti++) {
+            const tok = tokens[ti];
+            const slashIdx = tok.indexOf('/');
+            if (slashIdx > 0 && !/^\d{2,5}\/\d{2,5}$/.test(tok)) {
+                const apt = tok.substring(0, slashIdx);
+                const rwy = tok.substring(slashIdx + 1);
+                if (/^[A-Z]{3,4}$/.test(apt) && /^\d{1,2}[LCR]?$/.test(rwy)) {
+                    tokens[ti] = apt;
+                }
+            }
+        }
 
         // Detect origins and destinations
         const origins = [];
