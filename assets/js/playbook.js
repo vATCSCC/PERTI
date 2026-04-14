@@ -3535,13 +3535,31 @@
         });
     }
 
+    var aclSelectedCids = new Set();
+
     function renderAclList(aclEntries, playId) {
         var $list = $('#pb_acl_list');
+        aclSelectedCids.clear();
         if (!aclEntries.length) {
             $list.html('<div class="small text-muted py-1">' + t('playbook.acl.ownerNote') + '</div>');
             return;
         }
-        var html = '<table class="pb-acl-table"><thead><tr>';
+        // Batch action bar (hidden by default)
+        var html = '<div class="pb-acl-batch-bar" style="display:none;">';
+        html += '<span class="pb-acl-batch-count"></span>';
+        html += '<div class="pb-acl-batch-perms">';
+        html += '<button class="btn btn-xs btn-outline-primary dropdown-toggle" data-toggle="dropdown">' + t('playbook.acl.setPermissions') + '</button>';
+        html += '<div class="dropdown-menu px-2 py-1 pb-acl-batch-dropdown">';
+        html += '<label class="d-block small mb-1"><input type="checkbox" id="pb_batch_can_view" checked> ' + t('playbook.acl.canView') + '</label>';
+        html += '<label class="d-block small mb-1"><input type="checkbox" id="pb_batch_can_manage"> ' + t('playbook.acl.canManage') + '</label>';
+        html += '<label class="d-block small mb-1"><input type="checkbox" id="pb_batch_can_manage_acl"> ' + t('playbook.acl.canManageAcl') + '</label>';
+        html += '<button class="btn btn-xs btn-primary btn-block mt-1" id="pb_batch_apply_perms">' + t('common.apply') + '</button>';
+        html += '</div></div>';
+        html += '<button class="btn btn-xs btn-outline-danger" id="pb_batch_remove">' + t('playbook.acl.removeSelected') + '</button>';
+        html += '</div>';
+
+        html += '<table class="pb-acl-table"><thead><tr>';
+        html += '<th class="pb-acl-check"><input type="checkbox" id="pb_acl_select_all" title="' + t('playbook.acl.selectAll') + '"></th>';
         html += '<th>CID</th>';
         html += '<th>' + t('playbook.acl.userName') + '</th>';
         html += '<th>' + t('playbook.acl.canView') + '</th>';
@@ -3553,6 +3571,7 @@
             var nameStr = entry.name || '';
             var orgStr = (entry.orgs || []).join(', ');
             html += '<tr data-acl-cid="' + entry.cid + '">';
+            html += '<td class="pb-acl-check"><input type="checkbox" class="pb-acl-select" data-cid="' + entry.cid + '"></td>';
             html += '<td>' + escHtml(String(entry.cid)) + '</td>';
             html += '<td>' + escHtml(nameStr) + (orgStr ? ' <span class="text-muted" style="font-size:0.6rem;">(' + escHtml(orgStr) + ')</span>' : '') + '</td>';
             html += '<td><input type="checkbox" class="pb-acl-perm" data-perm="can_view"' + (entry.can_view ? ' checked' : '') + '></td>';
@@ -3563,6 +3582,25 @@
         });
         html += '</tbody></table>';
         $list.html(html);
+    }
+
+    function updateAclBatchBar() {
+        var count = aclSelectedCids.size;
+        var $bar = $('.pb-acl-batch-bar');
+        if (count > 0) {
+            $bar.show();
+            $bar.find('.pb-acl-batch-count').text(t('playbook.acl.nSelected', { count: count }));
+        } else {
+            $bar.hide();
+        }
+    }
+
+    function getBulkPermissions() {
+        return {
+            can_view: $('#pb_bulk_perm_view').is(':checked') ? 1 : 0,
+            can_manage: $('#pb_bulk_perm_manage').is(':checked') ? 1 : 0,
+            can_manage_acl: $('#pb_bulk_perm_acl').is(':checked') ? 1 : 0
+        };
     }
 
     function aclAction(action, data) {
@@ -3583,6 +3621,9 @@
                     loadAclList(playId);
                     var msg = action === 'add' ? t('playbook.acl.userAdded') :
                               action === 'remove' ? t('playbook.acl.userRemoved') :
+                              action === 'bulk_add' ? t('playbook.acl.bulkAdded', { count: (resp.added || []).length }) :
+                              action === 'bulk_update' ? t('playbook.acl.bulkUpdated', { count: resp.updated_count || 0 }) :
+                              action === 'bulk_remove' ? t('playbook.acl.bulkRemoved', { count: resp.removed_count || 0 }) :
                               t('playbook.acl.userUpdated');
                     PERTIDialog.toast(msg, 'success');
                 } else {
@@ -5937,7 +5978,8 @@
                 PERTIDialog.toast(t('playbook.acl.noUsersToAdd'), 'info');
                 return;
             }
-            aclAction('bulk_add', { cids: cids });
+            var bulkPerms = getBulkPermissions();
+            aclAction('bulk_add', $.extend({ cids: cids }, bulkPerms));
         });
 
         $(document).on('click', '#pb_acl_bulk_btn', function() {
@@ -5952,7 +5994,8 @@
                 PERTIDialog.toast(t('playbook.acl.invalidCid'), 'warning');
                 return;
             }
-            aclAction('bulk_add', { cids: cids });
+            var bulkPerms = getBulkPermissions();
+            aclAction('bulk_add', $.extend({ cids: cids }, bulkPerms));
             $('#pb_acl_bulk_input').val('');
             $('#pb_acl_bulk_area').slideUp(150);
         });
@@ -5971,6 +6014,63 @@
             var data = { cid: cid };
             data[perm] = val;
             aclAction('update', data);
+        });
+
+        // Batch select: individual row checkbox
+        $(document).on('change', '.pb-acl-select', function() {
+            var cid = parseInt($(this).data('cid'));
+            if (this.checked) {
+                aclSelectedCids.add(cid);
+                $(this).closest('tr').addClass('selected');
+            } else {
+                aclSelectedCids.delete(cid);
+                $(this).closest('tr').removeClass('selected');
+            }
+            // Sync select-all state
+            var total = $('.pb-acl-select').length;
+            var checked = $('.pb-acl-select:checked').length;
+            $('#pb_acl_select_all').prop('checked', total > 0 && total === checked);
+            updateAclBatchBar();
+        });
+
+        // Batch select: select-all checkbox
+        $(document).on('change', '#pb_acl_select_all', function() {
+            var checked = this.checked;
+            $('.pb-acl-select').each(function() {
+                this.checked = checked;
+                var cid = parseInt($(this).data('cid'));
+                if (checked) {
+                    aclSelectedCids.add(cid);
+                    $(this).closest('tr').addClass('selected');
+                } else {
+                    aclSelectedCids.delete(cid);
+                    $(this).closest('tr').removeClass('selected');
+                }
+            });
+            updateAclBatchBar();
+        });
+
+        // Batch apply permissions
+        $(document).on('click', '#pb_batch_apply_perms', function() {
+            if (!aclSelectedCids.size) return;
+            var data = {
+                cids: Array.from(aclSelectedCids),
+                can_view: $('#pb_batch_can_view').is(':checked') ? 1 : 0,
+                can_manage: $('#pb_batch_can_manage').is(':checked') ? 1 : 0,
+                can_manage_acl: $('#pb_batch_can_manage_acl').is(':checked') ? 1 : 0
+            };
+            aclAction('bulk_update', data);
+        });
+
+        // Batch remove
+        $(document).on('click', '#pb_batch_remove', function() {
+            if (!aclSelectedCids.size) return;
+            PERTIDialog.confirm(
+                t('playbook.acl.confirmBulkRemove', { count: aclSelectedCids.size }),
+                function() {
+                    aclAction('bulk_remove', { cids: Array.from(aclSelectedCids) });
+                }
+            );
         });
     });
 
