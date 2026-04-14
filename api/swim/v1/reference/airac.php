@@ -112,7 +112,7 @@ function handleChangelog($format, $cache_params, $format_options) {
 
     if ($cycle) { $where[] = "airac_cycle = ?"; $params[] = $cycle; }
     if ($type) { $where[] = "change_type = ?"; $params[] = strtolower($type); }
-    if ($airport) { $where[] = "(entity_name LIKE ? OR entity_name = ?)"; $params[] = '%' . strtoupper($airport) . '%'; $params[] = strtoupper($airport); }
+    if ($airport) { $where[] = "(entry_name LIKE ? OR entry_name = ?)"; $params[] = '%' . strtoupper($airport) . '%'; $params[] = strtoupper($airport); }
 
     $where_sql = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
 
@@ -139,7 +139,7 @@ function handleChangelog($format, $cache_params, $format_options) {
 
     // Fetch page
     $offset = ($page - 1) * $per_page;
-    $sql = "SELECT change_type, entity_type, entity_name, field_name, old_value, new_value, airac_cycle, created_utc
+    $sql = "SELECT change_type, table_name AS entity_type, entry_name AS entity_name, delta_detail, old_value, new_value, airac_cycle, created_utc
             FROM dbo.navdata_changelogs $where_sql
             ORDER BY created_utc DESC
             OFFSET ? ROWS FETCH NEXT ? ROWS ONLY";
@@ -184,17 +184,17 @@ function handleSuperseded($format, $cache_params, $format_options) {
     switch (strtolower($type)) {
         case 'fix':
             $count_sql = "SELECT COUNT(*) AS total FROM nav_fixes WHERE is_superseded = true";
-            $sql = "SELECT fix_name, latitude, longitude, fix_type, superseded_cycle, superseded_reason, airac_cycle
+            $sql = "SELECT fix_name, lat, lon, fix_type, superseded_cycle, superseded_reason, effective_date
                     FROM nav_fixes WHERE is_superseded = true ORDER BY fix_name LIMIT :limit OFFSET :offset";
             break;
         case 'procedure':
             $count_sql = "SELECT COUNT(*) AS total FROM nav_procedures WHERE is_superseded = true";
-            $sql = "SELECT computer_code, procedure_name, procedure_type, airport_icao, superseded_cycle, source, airac_cycle
+            $sql = "SELECT computer_code, procedure_name, procedure_type, airport_icao, superseded_cycle, source, effective_date
                     FROM nav_procedures WHERE is_superseded = true ORDER BY airport_icao, procedure_name LIMIT :limit OFFSET :offset";
             break;
         case 'airway':
             $count_sql = "SELECT COUNT(*) AS total FROM airways WHERE is_superseded = true";
-            $sql = "SELECT airway_name, superseded_cycle, airac_cycle
+            $sql = "SELECT airway_name, superseded_cycle, effective_date
                     FROM airways WHERE is_superseded = true ORDER BY airway_name LIMIT :limit OFFSET :offset";
             break;
         default:
