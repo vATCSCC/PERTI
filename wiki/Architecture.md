@@ -1,6 +1,6 @@
 # Architecture
 
-> **Version:** v19 | **Last Updated:** March 14, 2026
+> **Version:** v20 | **Last Updated:** April 14, 2026
 
 PERTI is a multi-tier web application that processes real-time VATSIM flight data and provides traffic flow management tools. The system uses 7 databases across 3 database engines (MySQL, Azure SQL, PostgreSQL/PostGIS) and runs on Azure App Service with PHP 8.2.
 
@@ -11,12 +11,12 @@ PERTI is a multi-tier web application that processes real-time VATSIM flight dat
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        EXTERNAL DATA SOURCES                         │
-├─────────────┬─────────────┬─────────────┬─────────────┬─────────────┤
-│ VATSIM API  │ Aviation WX │ NOAA NOMADS │ FAA NASR    │ VATUSA API  │
-│ (Live Data) │ (SIGMET)    │ (Wind)      │ (NavData)   │ (Events)    │
-└──────┬──────┴──────┬──────┴──────┬──────┴──────┬──────┴──────┬──────┘
-       │             │             │             │             │
-       ▼             ▼             ▼             ▼             ▼
+├───────────┬───────────┬───────────┬───────────┬───────────┬───────────┤
+│ VATSIM API│ vNAS Data │Aviation WX│ NOAA      │ FAA NASR  │ VATUSA API│
+│ (Flights) │ (ATC/ATIS)│ (SIGMET)  │ (Wind)    │ (NavData) │ (Events)  │
+└─────┬─────┴─────┬─────┴─────┬─────┴─────┬─────┴─────┬─────┴─────┬─────┘
+       │             │             │             │             │             │
+       ▼             ▼             ▼             ▼             ▼             ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                          IMPORT LAYER                                │
 │  atis_daemon.py │ import_wx.php │ import_wind.php │ nasr_updater.py │
@@ -25,15 +25,17 @@ PERTI is a multi-tier web application that processes real-time VATSIM flight dat
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      AZURE SQL (VATSIM_ADL)                          │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │
-│  │ adl_flights │ │ adl_trajectories │ │ adl_zones │ │ adl_weather │    │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘    │
+│  Normalized 8-table architecture (keyed on flight_uid):              │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌────────────┐  │
+│  │ flight_core  │ │ flight_plan  │ │ flight_times │ │ flight_tmi │  │
+│  │ flight_pos   │ │ flight_acft  │ │ flight_traj  │ │ flight_wpt │  │
+│  └──────────────┘ └──────────────┘ └──────────────┘ └────────────┘  │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                   PROCESSING LAYER (Stored Procedures)               │
-│  sp_ParseRoute │ sp_CalculateETA │ sp_ProcessZone │ sp_ProcessBoundary │
+│              PROCESSING LAYER (Stored Procedures + PostGIS)           │
+│  sp_ParseRoute │ sp_CalculateETA │ PostGIS route/boundary/crossing   │
 └──────────────────────────────────┬──────────────────────────────────┘
                                    │
                                    ▼
@@ -54,6 +56,10 @@ PERTI is a multi-tier web application that processes real-time VATSIM flight dat
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        PRESENTATION LAYER                            │
 │  GDT │ Route Plotter │ Playbook │ JATOC │ NOD │ Plan │ Splits │ Demand │
+├─────────────────────────────────────────────────────────────────────┤
+│                     SWIM PUBLIC API (FIXM-aligned)                   │
+│  REST: flights, positions, metering, TMI, CDM, playbook, reference  │
+│  WebSocket: real-time events (port 8090)                             │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -61,18 +67,48 @@ PERTI is a multi-tier web application that processes real-time VATSIM flight dat
 
 ## Component Details
 
-### Import Layer
+### Daemon Layer (27 daemons: 14 always-on + 13 conditional/skipped)
 
-Daemons that fetch and ingest external data:
+All daemons are started via `scripts/startup.sh` at App Service boot. In hibernation mode, only the 14 always-on daemons run.
 
-| Daemon | Language | Interval | Purpose |
-|--------|----------|----------|---------|
-| `vatsim_adl_daemon.php` | PHP | 15s | Live flight data from VATSIM |
-| `atis_daemon.py` | Python | 15s | ATIS text with runway/weather parsing |
-| `parse_queue_daemon.php` | PHP | 5s | Route expansion queue processing |
-| `import_weather_alerts.php` | PHP | 5min | SIGMET/AIRMET updates |
-| `swim_tmi_sync_daemon.php` | PHP | 5min | TMI/CDM/flow data sync to SWIM_API |
-| `refdata_sync_daemon.php` | PHP | Daily | Reference data sync (airports, CDRs, taxi times) |
+**Always-on daemons** (14 — run even in hibernation):
+
+| Daemon | Interval | Purpose |
+|--------|----------|---------|
+| `vatsim_adl_daemon.php` | 15s | Flight data ingestion + ATIS + deferred ETA processing |
+| `archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge |
+| `monitoring_daemon.php` | 60s | System metrics collection |
+| `adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage (conditional: `ADL_ARCHIVE_STORAGE_CONN`) |
+| `process_discord_queue.php` | Continuous | Async TMI Discord posting (batch=50) |
+| `ecfmp_poll_daemon.php` | 5min | ECFMP flow measure polling |
+| `viff_cdm_poll_daemon.php` | 30s | EU CDM milestone data (conditional: `VIFF_CDM_ENABLED`) |
+| `export_playbook.php` | Daily | Daily playbook backup |
+| `refdata_sync_daemon.php` | Daily 06:00Z | CDR + playbook reference reimport |
+| `swim_ws_server.php` | Persistent | Real-time WebSocket events on port 8090 |
+| `swim_sync_daemon.php` | 2min | Sync ADL to SWIM_API |
+| `simtraffic_swim_poll.php` | 10min | SimTraffic time data reconciliation polling |
+| `swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL |
+| `swim_tmi_sync_daemon.php` | 5min | TMI/CDM/reference data sync to SWIM mirrors |
+
+**Conditional daemons** (13 — skipped in hibernation):
+
+| Daemon | Interval | Purpose |
+|--------|----------|---------|
+| `parse_queue_gis_daemon.php` | 10s batch | Route parsing with PostGIS (GIS mode) |
+| `parse_queue_daemon.php` | 5s batch | Route parsing without PostGIS (legacy fallback when `USE_GIS_DAEMONS=0`) |
+| `boundary_gis_daemon.php` | 15s | Spatial boundary detection via PostGIS (GIS mode) |
+| `boundary_daemon.php` | 30s | Boundary detection without PostGIS (legacy fallback when `USE_GIS_DAEMONS=0`) |
+| `crossing_gis_daemon.php` | Tiered | Boundary crossing ETA prediction (GIS mode only) |
+| `waypoint_eta_daemon.php` | Tiered | Waypoint ETA calculation |
+| `scheduler_daemon.php` | 60s | Splits/routes auto-activation |
+| `event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync |
+| `cdm_daemon.php` | 60s | A-CDM milestone computation |
+| `vacdm_poll_daemon.php` | 2min | vACDM instance polling |
+| `delay_attribution_daemon.php` | 60s | Per-flight delay computation from EDCT/OOOI baselines |
+| `facility_stats_daemon.php` | 1h | Hourly/daily facility stats from flight data + delay attributions |
+| `webhook_delivery_daemon.php` | Continuous | Outbound webhook event delivery |
+
+**Pending** (counted in skipped, commented out in startup.sh): `vnas_controller_poll.php` (60s) — polls vNAS controller data feed. Awaiting migration 024 deployment.
 
 ### Database Architecture (7 Databases, 3 Engines)
 
@@ -107,19 +143,27 @@ $conn = get_conn_gis();   // VATSIM_GIS
 
 ### Azure SQL (ADL Database)
 
-Stores real-time and historical flight data:
+Stores real-time and historical flight data using an 8-table normalized architecture (keyed on `flight_uid bigint`):
 
 | Table | Purpose |
 |-------|---------|
-| `adl_flights` | Current flight state |
-| `adl_flights_history` | Historical snapshots |
-| `adl_trajectories` | Flight trajectory points |
+| `adl_flight_core` | Flight identity, phase, active status, current position zone/ARTCC/sector |
+| `adl_flight_plan` | Filed route, aircraft type, parse status, route geometry, waypoint count |
+| `adl_flight_position` | Lat/lon, altitude, speed, heading, distance to destination |
+| `adl_flight_times` | 50+ time columns: STD/ETD/ATD/ETA/ATA, OOOI, EDCT, bucket times |
+| `adl_flight_tmi` | TMI control: program_id, slot_id, delay, compliance, reroute status |
+| `adl_flight_aircraft` | ICAO/FAA type, weight class, engine, wake category, airline |
+| `adl_flight_trajectory` | Position history: lat/lon/alt/speed/heading per timestamp |
+| `adl_flight_waypoints` | Parsed route waypoints: fix_name, lat/lon, ETAs, distances |
+
+Supporting tables:
+
+| Table | Purpose |
+|-------|---------|
+| `adl_flight_planned_crossings` | Boundary crossing predictions |
 | `adl_parse_queue` | Routes pending expansion |
-| `adl_parsed_routes` | Expanded route waypoints |
-| `adl_zones` | Airport zone boundaries |
-| `adl_boundaries` | ARTCC/sector boundaries |
-| `adl_weather_alerts` | Active SIGMETs/AIRMETs |
-| `adl_atis` | ATIS data with weather |
+| `adl_boundary` | ARTCC/sector boundary polygons (3,033) |
+| `adl_flights` | Legacy monolithic table (150+ cols, still used by some pages) |
 
 ### Processing Layer
 
@@ -161,11 +205,15 @@ RESTful PHP endpoints organized by function:
 |----------------|---------|
 | `/api/adl/` | Flight data queries |
 | `/api/tmi/` | TMI operations (GS, GDP, reroutes) |
+| `/api/swim/v1/` | SWIM public API: flights, positions, metering, TMI, CDM, playbook, WebSocket |
+| `/api/gis/` | GIS spatial queries: boundaries, intersections, route expansion |
+| `/api/gdt/` | GDT program management, slot operations, advisories |
 | `/api/jatoc/` | Incident CRUD |
 | `/api/nod/` | Dashboard data |
 | `/api/demand/` | Demand analysis |
 | `/api/routes/` | Public route sharing |
 | `/api/splits/` | Sector configuration |
+| `/api/ctp/` | CTP integration: boundaries, demand, sessions |
 | `/api/data/playbook/` | Playbook play/route data |
 | `/api/mgt/playbook/` | Playbook CRUD management |
 | `/api/data/` | Reference data (weather, SUA, TFR) |
@@ -255,11 +303,14 @@ PERTI uses **MapLibre GL JS** for primary mapping:
 | Service | Purpose | Update Frequency |
 |---------|---------|------------------|
 | VATSIM Data API | Live flight positions | 15 seconds |
+| vNAS Data Feed | ATC controller positions, ATIS | 60 seconds (pending) |
 | VATSIM Connect | OAuth authentication | On-demand |
 | Iowa Environmental Mesonet | Weather radar tiles | Real-time |
 | FAA NASR | Navigation data | 28-day cycle |
 | FAA AWC | SIGMETs, AIRMETs | 5 minutes |
 | VATUSA API | Events, membership | Daily |
+| ECFMP API | EUROCONTROL-style flow measures | 5 minutes |
+| SimTraffic API | Simulated traffic time data | 10 minutes |
 | Discord Webhooks | TMI notifications | On change |
 
 ---
@@ -544,7 +595,7 @@ The largest cost driver is the VATSIM_ADL Hyperscale Serverless database, which 
 
 ## Hibernation Mode
 
-> **Status:** ACTIVE since March 22, 2026 (SWIM exempt)
+> **Status:** ACTIVE since March 30, 2026 (SWIM exempt)
 
 During hibernation, the system operates in reduced capacity. SWIM pages and API endpoints remain operational during hibernation. All SWIM sync daemons continue running.
 
@@ -555,6 +606,12 @@ During hibernation, the system operates in reduced capacity. SWIM pages and API 
 | Boundary Detection | Active | Suspended |
 | Crossing Calculation | Active | Suspended |
 | Waypoint ETA | Active | Suspended |
+| Scheduler | Active (60s) | Suspended |
+| Event Sync | Active (6h) | Suspended |
+| CDM / vACDM | Active | Suspended |
+| Delay Attribution | Active (60s) | Suspended |
+| Facility Stats | Active (1h) | Suspended |
+| Webhook Delivery | Active | Suspended |
 | SWIM Sync | Active (2min) | Active (SWIM exempt) |
 | TMI Sync | Active (5min) | Active (SWIM exempt) |
 | Web Pages | Full access | Redirect to /hibernation |
@@ -568,7 +625,7 @@ During hibernation, the system operates in reduced capacity. SWIM pages and API 
 
 **Backfill status:** Phase 3 of 6 in progress (crossing calculations)
 
-See `docs/HIBERNATION_RUNBOOK.md` for entry/exit procedures.
+See `docs/operations/HIBERNATION_RUNBOOK.md` for entry/exit procedures.
 
 ---
 

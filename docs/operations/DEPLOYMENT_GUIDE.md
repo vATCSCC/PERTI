@@ -2774,7 +2774,7 @@ When enabled:
 - PHP-FPM workers reduced (40 → 20)
 - Nav items show muted styling with snowflake icon
 
-**Exit procedure**: See `docs/HIBERNATION_RUNBOOK.md` for step-by-step reactivation.
+**Exit procedure**: See `docs/operations/HIBERNATION_RUNBOOK.md` for step-by-step reactivation.
 
 ### 16.5 Scaling Up
 

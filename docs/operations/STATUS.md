@@ -6,7 +6,7 @@
 
 ---
 
-> **HIBERNATION MODE ACTIVE**: ADL ingest + all SWIM daemons run (SWIM exempt). Non-SWIM daemons suspended. Web pages redirect to `/hibernation` (except review.php, SWIM pages). Azure resources downscaled (PostGIS kept at B2s). See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
+> **HIBERNATION MODE ACTIVE**: ADL ingest + all SWIM daemons run (SWIM exempt). Non-SWIM daemons suspended. Web pages redirect to `/hibernation` (except review.php, SWIM pages). Azure resources downscaled (PostGIS kept at B2s). See `docs/operations/HIBERNATION_RUNBOOK.md` for exit procedures.
 
 ## Quick Health Overview
 

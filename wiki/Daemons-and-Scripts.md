@@ -1,8 +1,8 @@
 # Daemons and Scripts
 
-> **SYSTEM HIBERNATING** (re-entered 2026-03-29). Only always-on daemons running. See `docs/HIBERNATION_RUNBOOK.md` for hibernation procedures.
+> **SYSTEM HIBERNATING** (re-entered 2026-03-30). Only always-on daemons running. See `docs/operations/HIBERNATION_RUNBOOK.md` for hibernation procedures.
 
-Background processes that keep PERTI data current. 24 daemons are started at App Service boot via `scripts/startup.sh`. Some run always (even in hibernation), others are conditional on hibernation mode or GIS mode (`USE_GIS_DAEMONS` env var).
+Background processes that keep PERTI data current. 27 daemons are started at App Service boot via `scripts/startup.sh`. Some run always (even in hibernation), others are conditional on hibernation mode or GIS mode (`USE_GIS_DAEMONS` env var).
 
 ---
 
@@ -15,7 +15,7 @@ Background processes that keep PERTI data current. 24 daemons are started at App
 | SWIM Sync | `scripts/swim_sync_daemon.php` | 2min | Sync ADL flights to SWIM_API | Always |
 | SWIM TMI Sync | `scripts/swim_tmi_sync_daemon.php` | 5min | Sync TMI/CDM/flow/ref data to SWIM_API | Always |
 | Refdata Sync | `scripts/refdata_sync_daemon.php` | Daily 06:00Z | Sync CDRs, playbook, airports, taxi ref to SWIM_API | Always |
-| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 2min | SimTraffic time data polling | Always |
+| SimTraffic Poll | `scripts/simtraffic_swim_poll.php` | 10min | SimTraffic reconciliation polling (webhooks primary) | Always |
 | Reverse Sync | `scripts/swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL | Always |
 | Archival | `scripts/archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge | Always |
 | Monitoring | `scripts/monitoring_daemon.php` | 60s | System metrics collection | Always |
@@ -32,6 +32,10 @@ Background processes that keep PERTI data current. 24 daemons are started at App
 | Event Sync | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync | Skipped |
 | CDM | `scripts/cdm_daemon.php` | 60s | A-CDM milestone computation | Skipped |
 | vACDM Poll | `scripts/vacdm_poll_daemon.php` | 2min | vACDM instance polling | Skipped |
+| Delay Attribution | `scripts/tmi/delay_attribution_daemon.php` | 60s | Per-flight delay from EDCT/OOOI baselines | Skipped |
+| Facility Stats | `scripts/tmi/facility_stats_daemon.php` | 1h | Hourly/daily facility stats from flight + delay data | Skipped |
+| Webhook Delivery | `scripts/webhook_delivery_daemon.php` | Continuous | Outbound event webhook delivery queue | Skipped |
+| vNAS Controller Poll | `scripts/vnas_controller_poll.php` | 60s | Controller feed polling + sector enrichment (pending migration 024) | Skipped |
 | Parse Queue (Legacy) | `adl/php/parse_queue_daemon.php` | 5s batch | Route parsing without PostGIS (fallback) | Skipped |
 | Boundary (Legacy) | `adl/php/boundary_daemon.php` | 30s | Boundary detection without PostGIS (fallback) | Skipped |
 
@@ -190,12 +194,12 @@ Syncs reference data (CDRs, playbook routes, airports, taxi reference) from VATS
 
 ### simtraffic_swim_poll.php
 
-Polls SimTraffic time data and syncs it into the SWIM_API database.
+Reconciliation polling for SimTraffic time data into the SWIM_API database. Demoted from 2min to 10min since webhooks are now the primary ingest path.
 
 | Setting | Value |
 |---------|-------|
 | Location | `scripts/simtraffic_swim_poll.php` |
-| Interval | 2 minutes |
+| Interval | 10 minutes (reconciliation; webhooks are primary) |
 | Language | PHP |
 
 ---
@@ -303,6 +307,55 @@ python scripts/vatsim_atis/atis_daemon.py
 python scripts/vatsim_atis/atis_daemon.py --once
 python scripts/vatsim_atis/atis_daemon.py --airports KJFK,KLAX
 ```
+
+---
+
+### delay_attribution_daemon.php
+
+Computes per-flight delay from EDCT/OOOI baselines and writes attribution records to VATSIM_TMI. Processes active TMI-controlled flights on a 60-second cycle.
+
+| Setting | Value |
+|---------|-------|
+| Location | `scripts/tmi/delay_attribution_daemon.php` |
+| Interval | 60 seconds |
+| Language | PHP |
+
+---
+
+### facility_stats_daemon.php
+
+Computes hourly and daily facility statistics from flight data combined with delay attributions. Runs on an hourly cycle with a 2-hour lookback window.
+
+| Setting | Value |
+|---------|-------|
+| Location | `scripts/tmi/facility_stats_daemon.php` |
+| Interval | 1 hour |
+| Language | PHP |
+
+---
+
+### webhook_delivery_daemon.php
+
+Processes the outbound webhook delivery queue, dispatching event notifications to registered external endpoints.
+
+| Setting | Value |
+|---------|-------|
+| Location | `scripts/webhook_delivery_daemon.php` |
+| Mode | Continuous |
+| Language | PHP |
+
+---
+
+### vnas_controller_poll.php (Pending)
+
+Polls the vNAS live data feed (`controllers.json`) every 60 seconds and upserts into `swim_controllers` with ERAM/STARS sector enrichment. Currently commented out in `startup.sh` pending migration 024 deployment.
+
+| Setting | Value |
+|---------|-------|
+| Location | `scripts/vnas_controller_poll.php` |
+| Interval | 60 seconds |
+| Language | PHP |
+| Status | **Pending** (awaiting migration 024) |
 
 ---
 

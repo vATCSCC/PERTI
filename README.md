@@ -356,9 +356,9 @@ Example config template: `load/config.example.php`
 
 For detailed technical documentation, see:
 - `wiki/` - GitHub wiki (46 pages: architecture, algorithms, APIs, troubleshooting)
-- `docs/STATUS.md` - System status and feature tracking
-- `docs/QUICK_REFERENCE.md` - Quick reference card
-- `docs/ADL_REFRESH_MIGRATION_GUIDE.md` - ADL refresh patterns
+- `docs/operations/STATUS.md` - System status and feature tracking
+- `docs/reference/QUICK_REFERENCE.md` - Quick reference card
+- `adl/ADL_REFRESH_MIGRATION_GUIDE.md` - ADL refresh patterns
 - `docs/swim/` - SWIM API documentation
 - `scripts/README.md` - Script documentation
 - Database migrations in `database/migrations/`

@@ -2,7 +2,7 @@
 
 > **Status: Phases 1-2 COMPLETE, Phase 3 IN PROGRESS (37%)**
 > Core i18n module, locale loader, dialog wrapper, and config files are all deployed.
-> See `docs/I18N_TRACKING.md` for current migration progress.
+> See `docs/operations/I18N_TRACKING.md` for current migration progress.
 
 ## Overview
 

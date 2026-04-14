@@ -33,11 +33,12 @@ This performs all three steps automatically. See [[#Full Workflow]] for details.
 ### Data Flow
 
 ```
-FAA NASR Subscription    FAA Playbook
-     (nfdc.faa.gov)     (fly.faa.gov)
-           |                  |
-           v                  v
+FAA NASR Subscription    FAA Playbook        X-Plane 12 CIFP
+     (nfdc.faa.gov)     (fly.faa.gov)        (*.dat files)
+           |                  |                    |
+           v                  v                    v
     nasr_navdata_updater.py   update_playbook_routes.py
+     (incl. CIFP parsing)     |
            |                  |
            v                  v
     assets/data/*.csv    assets/data/playbook_routes.csv
@@ -45,7 +46,7 @@ FAA NASR Subscription    FAA Playbook
            +--------+---------+
                     |
                     v
-            airac_update.py
+            airac_update.py (Step 3)
                     |
                     v
             VATSIM_REF (Azure SQL)
@@ -54,7 +55,13 @@ FAA NASR Subscription    FAA Playbook
             VATSIM_ADL (Azure SQL)
                     |
                     v
-            sp_ParseRoute (uses cached data)
+            sync_ref_to_postgis.py (Step 4)
+                    |
+                    v
+            VATSIM_GIS (PostgreSQL/PostGIS)
+                    |
+                    v
+            sp_ParseRoute / expand_route() (uses cached data)
 ```
 
 ### Database Architecture
@@ -157,20 +164,23 @@ The `airac_full_update.py` script orchestrates all three steps.
 
 **Usage:**
 ```bash
-# Full update (all steps)
+# Full update (all 5 steps)
 python airac_full_update.py
 
 # Preview what would happen (no changes)
 python airac_full_update.py --dry-run
 
 # Run individual steps
-python airac_full_update.py --step 1   # NASR only
-python airac_full_update.py --step 2   # Playbook only
-python airac_full_update.py --step 3   # Database only
+python airac_full_update.py --step 1   # NASR data download (incl. CIFP parsing)
+python airac_full_update.py --step 2   # Playbook scrape
+python airac_full_update.py --step 3   # Database import (VATSIM_REF -> VATSIM_ADL)
+python airac_full_update.py --step 4   # PostGIS sync (VATSIM_REF -> VATSIM_GIS)
+python airac_full_update.py --step 5   # Boundary update (CDM/TRACON GeoJSON)
 
 # Skip optional steps
 python airac_full_update.py --skip-playbook   # Faster if playbook unchanged
 python airac_full_update.py --skip-database   # Update CSVs only
+python airac_full_update.py --skip-boundaries # Skip boundary update
 
 # Force NASR re-download
 python airac_full_update.py --force
@@ -265,7 +275,7 @@ CDR expansions for common city pairs.
 | `is_active` | BIT | Active flag |
 
 #### nav_procedures
-DP and STAR procedure definitions.
+DP and STAR procedure definitions (US NASR + international CIFP sources).
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -273,10 +283,15 @@ DP and STAR procedure definitions.
 | `procedure_type` | NVARCHAR(8) | DP, STAR, APPROACH |
 | `airport_icao` | CHAR(4) | Airport ICAO code |
 | `procedure_name` | NVARCHAR(32) | Procedure name |
-| `computer_code` | NVARCHAR(16) | Computer code (MERIT3) |
+| `computer_code` | NVARCHAR(16) | Computer code (e.g., `MERIT3.MERIT`, `RW22L.CAMRN4`) |
 | `transition_name` | NVARCHAR(16) | Transition identifier |
+| `transition_type` | NVARCHAR(8) | `fix`, `runway`, or NULL |
 | `full_route` | NVARCHAR(MAX) | Fix sequence |
 | `runways` | NVARCHAR(64) | Applicable runways |
+| `source` | NVARCHAR(32) | Data source (NASR, cifp_base, synthetic_base) |
+| `is_superseded` | BIT | Whether superseded by a later AIRAC cycle |
+| `superseded_cycle` | NVARCHAR(8) | AIRAC cycle that superseded this record |
+| `superseded_reason` | NVARCHAR(64) | Reason for supersession |
 
 #### playbook_routes
 FAA Playbook route expansions.
@@ -304,6 +319,80 @@ Sync audit trail.
 | `rows_synced` | INT | Row count |
 | `sync_direction` | NVARCHAR(16) | FROM_SOURCE, TO_ADL |
 | `sync_status` | NVARCHAR(16) | SUCCESS, FAILED, PARTIAL |
+
+---
+
+## International CIFP Integration
+
+Step 1 (`nasr_navdata_updater.py`) includes parsing of international instrument flight procedures from X-Plane 12 / Navigraph CIFP `*.dat` files (ARINC 424 format).
+
+### Coverage
+
+- **9,561** international airports with **32,565** DP rows and **29,497** STAR rows
+- US airports are excluded via K/PA/PH/PG/PW/PM prefix filter plus non-4-char codes and digit-starting FAA LIDs
+- Procedure name regex: `^[A-Z]{2,7}\d{0,3}[A-Z]{0,2}$` (covers 99.9% of international procedure names)
+
+### Parser
+
+`XP12Parser.parse_cifp_procedures()` and `cifp_to_nasr_rows()` in `nasr_navdata_updater.py` convert ARINC 424 records to the same CSV format used by NASR procedures, enabling unified import.
+
+### Transition Classification
+
+The `transition_type` column on `nav_procedures` classifies each row as `fix`, `runway`, or `NULL`:
+
+| Type | DP Computer Code | STAR Computer Code |
+|------|------------------|--------------------|
+| Fix transition | `PROC.FIX` | `FIX.PROC` |
+| Runway transition | `PROC.RWxx` | `RWxx.PROC` |
+| Base (no transition) | `PROC` | `PROC` |
+
+Runway labels use the format "RWY 09L" (not "RW09L TRANSITION"). The helper `_is_runway_transition()` in the parser identifies runway-type transitions.
+
+---
+
+## Supersession Tracking
+
+AIRAC updates track superseded data across cycles using three columns added to 5 tables (in VATSIM_REF, VATSIM_ADL, and VATSIM_GIS):
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `is_superseded` | BIT | Whether this record was replaced in a later AIRAC cycle |
+| `superseded_cycle` | NVARCHAR(8) | The AIRAC cycle that superseded this record |
+| `superseded_reason` | NVARCHAR(64) | Reason for supersession (e.g., renamed, removed, modified) |
+
+### Changelog Generation
+
+The `airac_update.py` script generates a changelog (`dbo.navdata_changelogs` in VATSIM_REF) by comparing old and new data. For AIRAC 2603, this produced 179K changelog entries.
+
+### Supersession Preservation
+
+After `airac_update.py` performs TRUNCATE+INSERT from CSVs, a post-import step re-inserts old `nav_procedures` and `nav_fixes` as superseded records. This prevents data loss when CSVs lack `_old_` entries.
+
+---
+
+## Step 4: PostGIS Sync
+
+After importing to VATSIM_REF and syncing to VATSIM_ADL, Step 4 syncs reference data to the PostGIS spatial database.
+
+**Script:** `scripts/postgis/sync_ref_to_postgis.py`
+
+**Tables synced to VATSIM_GIS (PostgreSQL/PostGIS):**
+
+| Table | Notes |
+|-------|-------|
+| `nav_fixes` | Full sync including supersession columns |
+| `nav_procedures` | UPSERT preserves CIFP-sourced (`cifp_base`, `synthetic_base`) records; syncs `transition_type` |
+| `airways` | Full sync |
+| `coded_departure_routes` | Full sync |
+| `playbook_routes` | UPSERT preserves future route geometry |
+| `area_centers` | Full sync |
+
+**Manual execution:**
+```bash
+python scripts/postgis/sync_ref_to_postgis.py
+```
+
+The PostGIS sync is also run automatically as Step 4 of `airac_full_update.py`.
 
 ---
 
@@ -451,11 +540,12 @@ AIRAC cycles are 28 days. The cycle identifier format is YYMM (year + cycle numb
 After running the AIRAC update:
 
 1. **Verify import counts** - Run verification queries above
-2. **Review CSV changes** - Check `git diff assets/data/`
-3. **Commit changes** - `git add -A && git commit -m "Update AIRAC navdata YYMM"`
-4. **Push to repository** - `git push`
-5. **Deploy to production** - Follow standard deployment process
-6. **Monitor route parsing** - Check `adl_parse_queue` for errors
+2. **Verify PostGIS sync** - Check nav_fixes, nav_procedures, airways counts in VATSIM_GIS
+3. **Review CSV changes** - Check `git diff assets/data/`
+4. **Commit changes** - `git add -A && git commit -m "Update AIRAC navdata YYMM"`
+5. **Push to repository** - `git push`
+6. **Deploy to production** - Follow standard deployment process
+7. **Monitor route parsing** - Check `adl_parse_queue` for errors
 
 ---
 

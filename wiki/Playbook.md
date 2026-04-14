@@ -316,6 +316,53 @@ PostGIS `resolve_waypoint()` supports aviation coordinate formats as a fallback 
 
 ---
 
+## PostGIS Spatial Validation
+
+Route expansion through PostGIS includes validation to reject bad airway data and oversized waypoint jumps:
+
+### `expand_airway()` Validation
+
+| Check | Threshold | Purpose |
+|-------|-----------|---------|
+| **Intra-segment distance** | 2000 km (~1080 nm) | Rejects airway segments where the from-fix and to-fix are impossibly far apart (wrong hemisphere data) |
+| **Inter-segment gap** | 500 km | Rejects adjacent segments that do not connect (to-point of segment N far from from-point of segment N+1) |
+| **Context proximity** | 2500 km (~1350 nm) | When a previous waypoint is known, rejects matches where the fix is in the wrong hemisphere |
+
+### `expand_route()` Validation
+
+| Check | Threshold | Purpose |
+|-------|-----------|---------|
+| **Max waypoint distance** | 7400 km (~4000 nm) | Caps the maximum distance between any two consecutive resolved waypoints |
+
+These validations reject approximately 4,330 bad airway segments (wrong hemisphere fixes such as A315 matching DARKE in Nepal, A574 matching ABA in Australia, UB881 matching BTO in Indonesia).
+
+---
+
+## International CIFP Procedure Support
+
+Route expansion resolves international departure procedures (DPs) and standard terminal arrival routes (STARs) sourced from X-Plane 12 / Navigraph CIFP data files (ARINC 424 format).
+
+### Coverage
+
+- **32,565** international DP rows and **29,497** international STAR rows across **9,561** international airports
+- US airports (K/PA/PH/PG/PW/PM prefixes) are excluded — those use FAA NASR data
+
+### Procedure Expansion in Routes
+
+When `expand_route()` encounters a DP or STAR token, it resolves the procedure to its constituent waypoints using the `nav_procedures` table. PostGIS includes both NASR-sourced (US) and CIFP-sourced (international) procedures. The `is_superseded` filter ensures only current-cycle procedures are used.
+
+### Transition-Specific Computer Codes
+
+Procedures use transition-aware computer codes with a `transition_type` column (`fix`, `runway`, or `NULL`):
+
+| Type | DP Format | STAR Format | Example |
+|------|-----------|-------------|---------|
+| Fix transition | `PROC.FIX` | `FIX.PROC` | `MERIT3.MERIT` / `MERIT.CAMRN4` |
+| Runway transition | `PROC.RWxx` | `RWxx.PROC` | `MERIT3.RW22L` / `RW04R.CAMRN4` |
+| Base (no transition) | `PROC` | `PROC` | `MERIT3` / `CAMRN4` |
+
+---
+
 ## Collapsible Edit Sections & Advisory Parser (PRs #151-152)
 
 ### Collapsible Edit Modal

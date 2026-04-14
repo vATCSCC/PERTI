@@ -124,10 +124,24 @@ Key columns on `splits_configs`:
 - `start_time_utc`, `end_time_utc` (DATETIME2 — for scheduled splits)
 - `created_at`, `updated_at`
 
+Key columns on `splits_presets`:
+- `id` (INT PK), `artcc` (NVARCHAR(4)), `preset_name`, `description`
+
 Key columns on `splits_positions`:
 - `id` (INT PK), `config_id` (FK), `position_name`, `sector_ids` (NVARCHAR)
 - `strata_filter` (NVARCHAR — `low`, `high`, `superhigh`, `all`)
 - `personnel_name`, `personnel_ois`
+
+### Column Widening for International FIR Support (Migration 009)
+
+Migration `database/migrations/schema/009_splits_column_widening.sql` widened several columns to support 4-character international FIR codes (e.g., CZYZ, CZUL, EGTT) which previously caused HTTP 500 errors on save:
+
+| Table | Column | Before | After | Reason |
+|-------|--------|--------|-------|--------|
+| `splits_presets` | `artcc` | `CHAR(3)` | `NVARCHAR(4)` | 4-char international FIR codes |
+| `splits_preset_positions` | `color` | `CHAR(7)` | `NVARCHAR(20)` | Extended color value support |
+| `splits_positions` | `frequency` | `VARCHAR(10)` | `NVARCHAR(20)` | Wider frequency strings |
+| `splits_positions` | `controller_oi` | `VARCHAR(2)` | `VARCHAR(4)` | Longer operating initials |
 
 ---
 

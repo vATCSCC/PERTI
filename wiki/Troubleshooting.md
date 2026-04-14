@@ -311,7 +311,7 @@ Full daemon list and their intervals are documented in [[Daemons and Scripts]].
 - Check `HIBERNATION_MODE` in `load/config.php` -- if set to `true`, the system is hibernated
 - Check the `HIBERNATION_MODE` Azure App Setting -- must be set to `0` (not `"false"`) to disable
 - **Important:** The string `"false"` is truthy in PHP. Use `0` or delete the App Setting entirely to exit hibernation
-- Follow the full exit procedure in `docs/HIBERNATION_RUNBOOK.md` to properly restore all services
+- Follow the full exit procedure in `docs/operations/HIBERNATION_RUNBOOK.md` to properly restore all services
 - Note that `review.php` is exempted from the redirect and remains accessible during hibernation
 
 ---

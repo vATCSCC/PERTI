@@ -415,6 +415,42 @@ Comprehensive operational pause system for off-event periods:
 - Capture `response_code` and `response_time_ms` in SWIM audit log (#243)
 - Parsedown installation for proper SWIM documentation markdown rendering (#261)
 
+### vNAS Reference Sync (April 2026)
+
+Bidirectional reference data sync with the vNAS (Virtual National Airspace System) ecosystem:
+
+- **vNAS Reference Schema** (Migration `vnas/001`): Facilities, positions, and equipment reference tables
+- **vNAS Restrictions Schema** (Migration `vnas/002`): Restriction and flow constraint definitions
+- **vNAS Staffing Mapping** (Migration `vnas/003`): Staffing configuration mapping between PERTI and vNAS
+- **SWIM Integration** (Migration `swim/021`): vNAS integration tables in the SWIM API database
+- **Ingest Endpoints**: `api/swim/v1/ingest/vnas/facilities.php` and related endpoints for vNAS data ingestion
+- **Deduplication and Schema Fixes**: Staffing detection logic for automated position tracking
+
+### Airport Taxi & Connect-to-Push Reference Systems (February-March 2026)
+
+Statistical reference tables for airport ground movement times:
+
+- **Taxi Reference** (Migration `oooi/010`): `airport_taxi_reference` table (3,628 airports) with FAA p5-p15 percentiles, 90-day rolling averages, default 600s. Updated daily via stored procedure.
+- **Connect-to-Push Reference** (Migration `oooi/011`): `airport_connect_reference` table (5,552 airports) with default 900s. Updated daily at 02:15Z.
+- Ground stop delay formula uses unimpeded taxi time: `max(0, (OFF - OUT) - unimpeded_taxi(airport))`
+- SWIM mirror: `swim_airport_taxi_reference` synced to SWIM_API database
+
+### Database Bloat Purge (March 2026)
+
+Emergency cleanup of 3 tables that lacked retention logic:
+
+| Table | Before | Purged | Root Cause |
+|-------|--------|--------|------------|
+| `adl_staging_pilots` | 262M rows / 217 GB | ~260 GB freed | No cleanup of old `batch_id` batches |
+| `adl_staging_prefiles` | 31M rows / 20 GB | Included in purge | Same batch accumulation issue |
+| `wind_grid` | 307M rows / 24 GB | 3-day retention applied | 4.6M rows/day with no retention |
+
+Purge used the table swap approach (SELECT INTO new -> sp_rename old -> sp_rename new -> DROP old) for instant cleanup.
+
+### Splits Column Widening for International FIRs (April 2026)
+
+Migration `schema/009_splits_column_widening.sql` widened `splits_presets.artcc` from `CHAR(3)` to `NVARCHAR(4)` to support 4-character international FIR codes (CZYZ, CZUL, etc.), fixing HTTP 500 errors on international FIR preset saves. Also widened `color`, `frequency`, and `controller_oi` columns for consistency.
+
 ### Documentation
 
 - **Wiki Audit**: 18 files updated across 4 rounds — API response standardization, jQuery→fetch migration plan, CSS audit, SDK reconciliation, styling guide

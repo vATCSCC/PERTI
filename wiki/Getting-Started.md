@@ -1,6 +1,6 @@
 # Getting Started
 
-> **Hibernation Mode Active (since March 22, 2026):** PERTI is currently in hibernation mode. Most web pages redirect to `/hibernation` and Azure resources are downscaled to reduce costs. The SWIM API and its sync daemons remain operational (SWIM exempt). Some features described in this guide may be unavailable until hibernation is exited. See `docs/HIBERNATION_RUNBOOK.md` for exit procedures.
+> **Hibernation Mode Active (since March 22, 2026):** PERTI is currently in hibernation mode. Most web pages redirect to `/hibernation` and Azure resources are downscaled to reduce costs. The SWIM API and its sync daemons remain operational (SWIM exempt). Some features described in this guide may be unavailable until hibernation is exited. See `docs/operations/HIBERNATION_RUNBOOK.md` for exit procedures.
 
 *Last updated: March 12, 2026*
 

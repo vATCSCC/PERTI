@@ -1,6 +1,6 @@
 # Deployment
 
-> **Looking for the full deployment guide?** See [docs/DEPLOYMENT_GUIDE.md](../blob/main/docs/DEPLOYMENT_GUIDE.md) for comprehensive end-to-end deployment instructions including Azure provisioning, all 7 databases, stored procedures, reference data import, i18n, multi-org setup, code standards, and operational procedures.
+> **Looking for the full deployment guide?** See [docs/operations/DEPLOYMENT_GUIDE.md](../blob/main/docs/operations/DEPLOYMENT_GUIDE.md) for comprehensive end-to-end deployment instructions including Azure provisioning, all 7 databases, stored procedures, reference data import, i18n, multi-org setup, code standards, and operational procedures.
 
 *Last updated: March 12, 2026*
 
@@ -415,7 +415,7 @@ Hibernation is controlled by:
 
 ### Enter/Exit Procedures
 
-Full step-by-step procedures for entering and exiting hibernation are documented in `docs/HIBERNATION_RUNBOOK.md`. The exit procedure includes resource upscaling, daemon restart, and an optional backfill pipeline (`scripts/backfill/hibernation_recovery.php`) to recover data missed during the hibernation period.
+Full step-by-step procedures for entering and exiting hibernation are documented in `docs/operations/HIBERNATION_RUNBOOK.md`. The exit procedure includes resource upscaling, daemon restart, and an optional backfill pipeline (`scripts/backfill/hibernation_recovery.php`) to recover data missed during the hibernation period.
 
 Monthly costs during hibernation drop from approximately $3,500 to $150-170.
 
