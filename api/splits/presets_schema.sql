@@ -11,7 +11,7 @@ BEGIN
     CREATE TABLE dbo.splits_presets (
         id INT IDENTITY(1,1) PRIMARY KEY,
         preset_name NVARCHAR(100) NOT NULL,
-        artcc CHAR(3) NOT NULL,
+        artcc NVARCHAR(4) NOT NULL,
         description NVARCHAR(500) NULL,
         created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         updated_at DATETIME2 NOT NULL DEFAULT GETUTCDATE()
@@ -35,7 +35,7 @@ BEGIN
         preset_id INT NOT NULL,
         position_name NVARCHAR(50) NOT NULL,
         sectors NVARCHAR(MAX) NOT NULL,  -- JSON array of sector IDs
-        color CHAR(7) NOT NULL DEFAULT '#4dabf7',
+        color NVARCHAR(20) NOT NULL DEFAULT '#4dabf7',
         frequency NVARCHAR(10) NULL,
         sort_order INT NOT NULL DEFAULT 0,
         filters NVARCHAR(MAX) NULL,  -- JSON object for filters
