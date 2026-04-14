@@ -16,7 +16,7 @@ require_once __DIR__ . '/connect_adl.php';
 
 if (!$conn_adl) {
     http_response_code(500);
-    echo json_encode(['error' => 'DB connection failed', 'details' => $conn_adl_error]);
+    echo json_encode(['error' => 'DB connection failed', 'details' => adl_sql_error_message()]);
     exit;
 }
 

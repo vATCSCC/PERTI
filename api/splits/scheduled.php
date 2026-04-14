@@ -22,7 +22,7 @@ require_once __DIR__ . '/connect_adl.php';
 
 if (!$conn_adl) {
     http_response_code(500);
-    echo json_encode(['error' => 'DB connection failed', 'details' => $conn_adl_error]);
+    echo json_encode(['error' => 'DB connection failed', 'details' => adl_sql_error_message()]);
     exit;
 }
 
@@ -140,26 +140,24 @@ if ($method === 'PUT') {
         $params[] = $input['status'];
     }
     if (array_key_exists('start_time_utc', $input)) {
-        $updates[] = 'start_time_utc = ?';
         $start = $input['start_time_utc'];
         if (!empty($start)) {
             $start = str_replace('T', ' ', $start);
             if (strlen($start) === 16) $start .= ':00';
-        } else {
-            $start = null;
+            $updates[] = 'start_time_utc = ?';
+            $params[] = $start;
         }
-        $params[] = $start;
+        // Skip if empty/null — column is NOT NULL, keep existing value
     }
     if (array_key_exists('end_time_utc', $input)) {
-        $updates[] = 'end_time_utc = ?';
         $end = $input['end_time_utc'];
         if (!empty($end)) {
             $end = str_replace('T', ' ', $end);
             if (strlen($end) === 16) $end .= ':00';
-        } else {
-            $end = null;
+            $updates[] = 'end_time_utc = ?';
+            $params[] = $end;
         }
-        $params[] = $end;
+        // Skip if empty/null — column is NOT NULL, keep existing value
     }
 
     // Always update updated_at

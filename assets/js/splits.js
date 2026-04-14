@@ -5042,6 +5042,9 @@ const SplitsController = {
                 this.disableSplitMapSelection();
             }
 
+            // Restore full sector layers (remove ARTCC filter)
+            this._clearSectorLayerFilters();
+
             if (this.currentStep === 3) {
                 this.populateReviewStep();
             }
@@ -5532,7 +5535,9 @@ const SplitsController = {
     },
 
     enableSectorLayersForSidePanel() {
-        // Show sector layers with low-opacity fill when side panel is active
+        const artcc = (this.currentConfig.artcc || '').toLowerCase();
+
+        // Show sector layers filtered to the selected ARTCC only
         ['high', 'low', 'superhigh'].forEach(layer => {
             const checkbox = document.getElementById(`layer-${layer}`);
             if (checkbox && !checkbox.checked) {
@@ -5551,6 +5556,86 @@ const SplitsController = {
             if (lineBtn && !lineBtn.classList.contains('active')) {
                 lineBtn.classList.add('active');
                 this.toggleLayerLine(layer, true);
+            }
+
+            // Apply ARTCC filter to fill and line layers (source features have 'artcc' property)
+            if (artcc && this.map) {
+                const artccFilter = ['==', ['downcase', ['get', 'artcc']], artcc];
+                if (this.map.getLayer(`${layer}-fill`)) this.map.setFilter(`${layer}-fill`, artccFilter);
+                if (this.map.getLayer(`${layer}-lines`)) this.map.setFilter(`${layer}-lines`, artccFilter);
+            }
+
+            // Rebuild label source with only this ARTCC's features
+            if (artcc && this.map && this.geoJsonCache[layer] && this.map.getSource(`${layer}-labels-source`)) {
+                const filtered = {
+                    type: 'FeatureCollection',
+                    features: (this.geoJsonCache[layer].features || []).filter(
+                        f => (f.properties?.artcc || '').toLowerCase() === artcc
+                    ),
+                };
+                const labelFeatures = this.createLabelFeatures(filtered);
+                this.map.getSource(`${layer}-labels-source`).setData({
+                    type: 'FeatureCollection',
+                    features: labelFeatures,
+                });
+            }
+        });
+
+        // Zoom to the ARTCC boundary if available
+        this._zoomToArtcc(artcc);
+    },
+
+    /**
+     * Zoom map to fit the selected ARTCC boundary
+     */
+    _zoomToArtcc(artccLower) {
+        if (!this.map || !artccLower) return;
+
+        // Try to find the ARTCC boundary from the ARTCC GeoJSON source
+        const artccData = this.geoJsonCache.artcc;
+        if (!artccData?.features) return;
+
+        const feature = artccData.features.find(
+            f => (f.properties?.id || f.properties?.ID || '').toLowerCase() === artccLower
+        );
+        if (!feature?.geometry?.coordinates) return;
+
+        // Calculate bounding box from the ARTCC polygon
+        let minLng = 180, maxLng = -180, minLat = 90, maxLat = -90;
+        const coords = feature.geometry.type === 'MultiPolygon'
+            ? feature.geometry.coordinates.flat(1)
+            : feature.geometry.coordinates;
+        (coords[0] || []).forEach(([lng, lat]) => {
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+        });
+
+        if (minLng < maxLng && minLat < maxLat) {
+            this.map.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+                padding: { top: 40, bottom: 40, left: 440, right: 40 },
+                maxZoom: 9,
+            });
+        }
+    },
+
+    /**
+     * Remove ARTCC filters from sector layers (restore full global view)
+     */
+    _clearSectorLayerFilters() {
+        if (!this.map) return;
+        ['high', 'low', 'superhigh'].forEach(layer => {
+            if (this.map.getLayer(`${layer}-fill`)) this.map.setFilter(`${layer}-fill`, null);
+            if (this.map.getLayer(`${layer}-lines`)) this.map.setFilter(`${layer}-lines`, null);
+
+            // Restore full label data
+            if (this.geoJsonCache[layer] && this.map.getSource(`${layer}-labels-source`)) {
+                const labelFeatures = this.createLabelFeatures(this.geoJsonCache[layer]);
+                this.map.getSource(`${layer}-labels-source`).setData({
+                    type: 'FeatureCollection',
+                    features: labelFeatures,
+                });
             }
         });
     },
