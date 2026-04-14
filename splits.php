@@ -348,6 +348,26 @@ body.side-panel-active .modal-backdrop {
     }
 }
 
+/* Force single-column layout inside the narrow side panel */
+#config-modal.side-panel-mode .config-step .row > [class*="col-md-"] {
+    flex: 0 0 100%;
+    max-width: 100%;
+}
+
+/* Reduce heights to fit both sections vertically in the panel */
+#config-modal.side-panel-mode #config-splits-list {
+    max-height: 200px !important;
+}
+
+#config-modal.side-panel-mode .sector-grid {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+#config-modal.side-panel-mode .modal-body {
+    overflow-y: auto;
+}
+
 .form-row {
     display: flex;
     gap: 10px;

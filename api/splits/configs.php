@@ -16,7 +16,7 @@ require_once __DIR__ . '/connect_adl.php';
 
 if (!$conn_adl) {
     http_response_code(500);
-    echo json_encode(['error' => 'DB connection failed', 'details' => $conn_adl_error]);
+    echo json_encode(['error' => 'DB connection failed', 'details' => adl_sql_error_message()]);
     exit;
 }
 
@@ -182,6 +182,7 @@ if ($method === 'POST') {
     $created_by = $input['created_by'] ?? 'system';
     
     // Handle datetime - convert from datetime-local format if needed
+    // Note: start_time_utc and end_time_utc are NOT NULL on production, default to current time
     $start_time = null;
     $end_time = null;
     if (!empty($input['start_time_utc'])) {
@@ -192,13 +193,14 @@ if ($method === 'POST') {
         $end_time = str_replace('T', ' ', $input['end_time_utc']);
         if (strlen($end_time) === 16) $end_time .= ':00';
     }
-    
+
     $positions = $input['positions'] ?? [];
-    
+
     // Insert config and get ID in one query using OUTPUT clause
-    $sql = "INSERT INTO splits_configs (artcc, config_name, start_time_utc, end_time_utc, status, created_by, [source], created_at, updated_at)
+    // Use ISNULL to handle NOT NULL constraint on start/end times
+    $sql = "INSERT INTO splits_configs (artcc, config_name, start_time_utc, end_time_utc, status, created_by, created_at, updated_at)
             OUTPUT INSERTED.id
-            VALUES (?, ?, ?, ?, ?, ?, 'perti', GETUTCDATE(), GETUTCDATE())";
+            VALUES (?, ?, ISNULL(?, GETUTCDATE()), ISNULL(?, DATEADD(HOUR, 4, GETUTCDATE())), ?, ?, GETUTCDATE(), GETUTCDATE())";
 
     $stmt = sqlsrv_query($conn_adl, $sql, [$artcc, $config_name, $start_time, $end_time, $status, $created_by]);
     
@@ -301,26 +303,24 @@ if ($method === 'PUT') {
         $params[] = $input['status'];
     }
     if (array_key_exists('start_time_utc', $input)) {
-        $updates[] = 'start_time_utc = ?';
         $start = $input['start_time_utc'];
         if (!empty($start)) {
             $start = str_replace('T', ' ', $start);
             if (strlen($start) === 16) $start .= ':00';
-        } else {
-            $start = null;
+            $updates[] = 'start_time_utc = ?';
+            $params[] = $start;
         }
-        $params[] = $start;
+        // Skip if empty/null — column is NOT NULL, keep existing value
     }
     if (array_key_exists('end_time_utc', $input)) {
-        $updates[] = 'end_time_utc = ?';
         $end = $input['end_time_utc'];
         if (!empty($end)) {
             $end = str_replace('T', ' ', $end);
             if (strlen($end) === 16) $end .= ':00';
-        } else {
-            $end = null;
+            $updates[] = 'end_time_utc = ?';
+            $params[] = $end;
         }
-        $params[] = $end;
+        // Skip if empty/null — column is NOT NULL, keep existing value
     }
 
     // Always update updated_at
