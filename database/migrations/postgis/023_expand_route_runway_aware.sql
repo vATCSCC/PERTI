@@ -146,9 +146,17 @@ BEGIN
             v_processed := array_append(v_processed, v_part);
         ELSIF position('/' IN v_part) > 0 THEN
             v_slash_parts := string_to_array(v_part, '/');
+            -- Keep the airport part (first element), skip runway designators
             FOR v_j IN 1..array_length(v_slash_parts, 1) LOOP
                 IF v_slash_parts[v_j] IS NOT NULL AND v_slash_parts[v_j] != '' THEN
-                    v_processed := array_append(v_processed, v_slash_parts[v_j]);
+                    -- Skip bare runway designators (e.g., 09R, 31L, 04, 10)
+                    -- or pipe-delimited lists (31L|31R) that follow an airport
+                    IF v_j > 1 AND v_slash_parts[v_j] ~ '^\d{2}[LRCB]?(\|\d{2}[LRCB]?)*$' THEN
+                        -- This is a runway designator, skip it
+                        NULL;
+                    ELSE
+                        v_processed := array_append(v_processed, v_slash_parts[v_j]);
+                    END IF;
                 END IF;
             END LOOP;
         ELSE
@@ -220,10 +228,22 @@ BEGIN
               )
             ORDER BY
               CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
-              -- Fix-match first: for dot-notation (ENE.PARCH4), the left side is the
-              -- transition fix — a direct identifier with higher semantic priority
-              -- than runway affinity.
+              -- Transition name match: NASR procedures share the same computer_code
+              -- across all transitions (e.g., DEEZZ6.DEEZZ for both CANDR and TOWIN
+              -- transitions). The transition fix is stored in transition_name, not
+              -- computer_code. When the user writes DEEZZ6.CANDR, prefer the row
+              -- whose transition_name matches CANDR (v_dot_right for DP) or the
+              -- left side (v_dot_left for STAR).
+              CASE WHEN np.transition_name IS NOT NULL
+                   AND (np.transition_name LIKE UPPER(v_dot_right) || '%'
+                        OR np.transition_name LIKE UPPER(v_dot_left) || '%')
+                   THEN 0 ELSE 1 END,
+              -- Route boundary match: for STAR dot-notation (BOWLL.SSKII4), the left
+              -- side is the transition fix — prefer routes starting with it.
               CASE WHEN np.full_route LIKE UPPER(v_dot_left) || ' %' THEN 0 ELSE 1 END,
+              -- For DP dot-notation (DEEZZ6.CANDR), the right side is the transition
+              -- fix — prefer routes ending with it (the terminal fix of that transition).
+              CASE WHEN np.full_route LIKE '% ' || UPPER(v_dot_right) THEN 0 ELSE 1 END,
               -- Runway preference as tiebreaker: check both dep and arr runways.
               -- Match airport+runway pair (not just runway substring) to avoid
               -- false positives when different airports share a runway number.
@@ -385,12 +405,20 @@ BEGIN
                 -- This prevents selecting a combined full_route that contains all
                 -- transitions (e.g., DEDKI5 dumping 24 waypoints from 3 transitions
                 -- when only DEDKI5.RAKAM is needed).
+                -- Also handles NASR convention where computer_code doesn't encode the
+                -- transition fix (e.g., DEEZZ6.DEEZZ for all transitions) — falls back
+                -- to matching transition_name instead.
                 IF v_next_fix IS NOT NULL THEN
                     SELECT np.full_route INTO v_proc_route
                     FROM nav_procedures np
                     WHERE (np.computer_code = UPPER(v_part) || '.' || v_next_fix
                            OR (v_trunc_name IS NOT NULL
-                               AND np.computer_code = v_trunc_name || '.' || v_next_fix))
+                               AND np.computer_code = v_trunc_name || '.' || v_next_fix)
+                           OR (np.computer_code LIKE UPPER(v_part) || '.%'
+                               AND np.transition_name LIKE v_next_fix || '%')
+                           OR (v_trunc_name IS NOT NULL
+                               AND np.computer_code LIKE v_trunc_name || '.%'
+                               AND np.transition_name LIKE v_next_fix || '%'))
                       AND np.procedure_type IN ('DP', 'SID')
                       AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base', 'CIFP')
                       AND np.is_active = true
@@ -399,6 +427,11 @@ BEGIN
                       AND np.full_route != ''
                     ORDER BY
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
+                      -- Transition name match for NASR (shared computer_code)
+                      CASE WHEN v_next_fix IS NOT NULL
+                           AND np.transition_name IS NOT NULL
+                           AND np.transition_name LIKE v_next_fix || '%'
+                           THEN 0 ELSE 1 END,
                       -- DP: prefer departure airport+runway match
                       CASE WHEN np.runway_group IS NOT NULL
                            AND v_dep_airport IS NOT NULL AND v_dep_runways IS NOT NULL
@@ -427,6 +460,11 @@ BEGIN
                       -- runway transitions (PROC.RWxx) are airport-config-dependent
                       -- and we don't know the active runway during route expansion.
                       CASE WHEN np.computer_code ~ '\.(RW\d|RW$)' THEN 1 ELSE 0 END,
+                      -- Transition name match for NASR (shared computer_code)
+                      CASE WHEN v_next_fix IS NOT NULL
+                           AND np.transition_name IS NOT NULL
+                           AND np.transition_name LIKE v_next_fix || '%'
+                           THEN 0 ELSE 1 END,
                       -- DP: prefer departure airport+runway match
                       CASE WHEN np.runway_group IS NOT NULL
                            AND v_dep_airport IS NOT NULL AND v_dep_runways IS NOT NULL
@@ -442,12 +480,20 @@ BEGIN
                 END IF;
 
                 -- Try STAR lookup: exact transition match first (PREV_FIX.PROC)
+                -- Also handles NASR convention where computer_code doesn't encode the
+                -- transition fix (e.g., SSKII4.SSKII for all transitions) — falls back
+                -- to matching transition_name instead.
                 IF v_proc_route IS NULL AND v_prev_fix IS NOT NULL THEN
                     SELECT np.full_route INTO v_proc_route
                     FROM nav_procedures np
                     WHERE (np.computer_code = UPPER(v_prev_fix) || '.' || UPPER(v_part)
                            OR (v_trunc_name IS NOT NULL
-                               AND np.computer_code = UPPER(v_prev_fix) || '.' || v_trunc_name))
+                               AND np.computer_code = UPPER(v_prev_fix) || '.' || v_trunc_name)
+                           OR (np.computer_code LIKE '%.' || UPPER(v_part)
+                               AND np.transition_name LIKE UPPER(v_prev_fix) || '%')
+                           OR (v_trunc_name IS NOT NULL
+                               AND np.computer_code LIKE '%.' || v_trunc_name
+                               AND np.transition_name LIKE UPPER(v_prev_fix) || '%'))
                       AND np.procedure_type = 'STAR'
                       AND np.source IN ('NASR', 'nasr', 'cifp_base', 'synthetic_base', 'CIFP')
                       AND np.is_active = true
@@ -456,6 +502,11 @@ BEGIN
                       AND np.full_route != ''
                     ORDER BY
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
+                      -- Transition name match for NASR (shared computer_code)
+                      CASE WHEN v_prev_fix IS NOT NULL
+                           AND np.transition_name IS NOT NULL
+                           AND np.transition_name LIKE UPPER(v_prev_fix) || '%'
+                           THEN 0 ELSE 1 END,
                       -- STAR: prefer arrival airport+runway match
                       CASE WHEN np.runway_group IS NOT NULL
                            AND v_arr_airport IS NOT NULL AND v_arr_runways IS NOT NULL
@@ -482,6 +533,11 @@ BEGIN
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
                       -- Prefer fix transitions over runway-specific transitions
                       CASE WHEN np.computer_code ~ '^RW\d' THEN 1 ELSE 0 END,
+                      -- Transition name match for NASR (shared computer_code)
+                      CASE WHEN v_prev_fix IS NOT NULL
+                           AND np.transition_name IS NOT NULL
+                           AND np.transition_name LIKE UPPER(v_prev_fix) || '%'
+                           THEN 0 ELSE 1 END,
                       -- STAR: prefer arrival airport+runway match
                       CASE WHEN np.runway_group IS NOT NULL
                            AND v_arr_airport IS NOT NULL AND v_arr_runways IS NOT NULL
@@ -509,6 +565,11 @@ BEGIN
                       AND np.full_route != ''
                     ORDER BY
                       CASE WHEN np.source IN ('NASR', 'nasr') THEN 0 ELSE 1 END,
+                      -- Transition name match for NASR: prefer matching next/prev fix
+                      CASE WHEN np.transition_name IS NOT NULL
+                           AND ((v_next_fix IS NOT NULL AND np.transition_name LIKE v_next_fix || '%')
+                                OR (v_prev_fix IS NOT NULL AND np.transition_name LIKE UPPER(v_prev_fix) || '%'))
+                           THEN 0 ELSE 1 END,
                       -- Use whichever runway context matches (dep for DP, arr for STAR)
                       -- Match airport+runway pair to avoid cross-airport false positives.
                       CASE WHEN np.runway_group IS NOT NULL
