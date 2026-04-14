@@ -15,7 +15,10 @@
 -- This is a SOFT preference in ORDER BY — if runway_group is NULL or doesn't match,
 -- existing behavior is unchanged (no breaking changes).
 --
--- Date: 2026-04-05
+-- Fix (2026-04-14): F9 bug — only set v_arr_* when a distinct airport token is found,
+-- preventing single-airport routes from setting dep=arr and polluting STAR lookups.
+--
+-- Date: 2026-04-05 (fixed 2026-04-14)
 -- Depends on: migration 022 (body_name, runway_group columns)
 
 CREATE OR REPLACE FUNCTION expand_route(p_route_string TEXT)
@@ -113,14 +116,18 @@ BEGIN
                         END IF;
                     END LOOP;
 
-                    -- Track departure (first) and arrival (last) airports
+                    -- Track departure (first) and arrival (last distinct) airports
                     IF v_dep_airport IS NULL THEN
                         v_dep_airport := UPPER(v_rwy_apt);
                         v_dep_runways := UPPER(v_rwy_part);  -- keep pipe-delimited form
+                    ELSIF UPPER(v_rwy_apt) != v_dep_airport THEN
+                        -- Only set arrival when a DIFFERENT airport is found;
+                        -- otherwise a single-airport route (e.g., KJFK/31L DEEZZ6.CANDR J60 KBOS)
+                        -- would incorrectly set v_arr_* = v_dep_*, causing STAR lookups
+                        -- to check departure runway against arrival procedures.
+                        v_arr_airport := UPPER(v_rwy_apt);
+                        v_arr_runways := UPPER(v_rwy_part);
                     END IF;
-                    -- Always update arrival (so last one wins)
-                    v_arr_airport := UPPER(v_rwy_apt);
-                    v_arr_runways := UPPER(v_rwy_part);
                 END IF;
             END IF;
         END IF;

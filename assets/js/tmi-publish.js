@@ -9159,24 +9159,6 @@
             const isProcedure = (token) => {
                 if (!token) {return false;}
 
-                // Check against loaded procs array if available (procs.js)
-                if (typeof procs !== 'undefined' && Array.isArray(procs)) {
-                    const found = procs.some(p => p[0] === token);
-                    if (found) {return true;}
-                }
-
-                // Check against dpAllRootNames and starAllRootNames (from procs_enhanced.js)
-                // Extract root name (letters only) from token
-                const rootName = token.replace(/\d+$/, '');
-                if (rootName) {
-                    if (typeof dpAllRootNames !== 'undefined' && dpAllRootNames instanceof Set) {
-                        if (dpAllRootNames.has(rootName)) {return true;}
-                    }
-                    if (typeof starAllRootNames !== 'undefined' && starAllRootNames instanceof Set) {
-                        if (starAllRootNames.has(rootName)) {return true;}
-                    }
-                }
-
                 // Pattern match for procedures:
                 // 1. Standard: 2+ letters followed by 1-2 digits (JFK5, WYNDE3)
                 // 2. Alphanumeric: digit(s) + letters + digit (1U71, 77S2) - small airport DPs
@@ -9728,21 +9710,6 @@
 
             const isProcedure = (token) => {
                 if (!token) {return false;}
-                // Check against loaded procs array
-                if (typeof procs !== 'undefined' && Array.isArray(procs)) {
-                    const found = procs.some(p => p[0] === token);
-                    if (found) {return true;}
-                }
-                // Check against dpAllRootNames and starAllRootNames
-                const rootName = token.replace(/\d+$/, '');
-                if (rootName) {
-                    if (typeof dpAllRootNames !== 'undefined' && dpAllRootNames instanceof Set) {
-                        if (dpAllRootNames.has(rootName)) {return true;}
-                    }
-                    if (typeof starAllRootNames !== 'undefined' && starAllRootNames instanceof Set) {
-                        if (starAllRootNames.has(rootName)) {return true;}
-                    }
-                }
                 // Pattern: 2+ letters followed by 1-2 digits (JFK5, WYNDE3)
                 if (/^[A-Z]{2,6}\d{1,2}$/.test(token) && token.length >= 3 && token.length <= 8) {
                     if (/^[A-Z]{1,2}\d+$/.test(token)) {return false;}

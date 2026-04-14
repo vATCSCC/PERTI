@@ -371,14 +371,32 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
         cursor_gis.execute(col_ddl)
     conn_gis.commit()
 
+    # Check if body_name/runway_group columns exist (migration 013 may not be deployed)
     cursor_ref.execute(
-        "SELECT procedure_id, procedure_type, airport_icao, procedure_name, "
-        "computer_code, transition_name, transition_type, full_route, runways, "
-        "body_name, runway_group, is_active, "
-        "source, effective_date, "
-        "is_superseded, superseded_cycle, superseded_reason "
-        "FROM dbo.nav_procedures"
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+        "WHERE TABLE_NAME = 'nav_procedures' AND COLUMN_NAME IN ('body_name', 'runway_group')"
     )
+    has_new_cols = len(cursor_ref.fetchall()) >= 2
+
+    if has_new_cols:
+        cursor_ref.execute(
+            "SELECT procedure_id, procedure_type, airport_icao, procedure_name, "
+            "computer_code, transition_name, transition_type, full_route, runways, "
+            "body_name, runway_group, is_active, "
+            "source, effective_date, "
+            "is_superseded, superseded_cycle, superseded_reason "
+            "FROM dbo.nav_procedures"
+        )
+    else:
+        print("    NOTE: body_name/runway_group not yet in VATSIM_REF (pre-migration-013)")
+        cursor_ref.execute(
+            "SELECT procedure_id, procedure_type, airport_icao, procedure_name, "
+            "computer_code, transition_name, transition_type, full_route, runways, "
+            "NULL AS body_name, NULL AS runway_group, is_active, "
+            "source, effective_date, "
+            "is_superseded, superseded_cycle, superseded_reason "
+            "FROM dbo.nav_procedures"
+        )
     rows = cursor_ref.fetchall()
     print(f"    Read {len(rows):,} procedures from VATSIM_REF")
 
@@ -386,15 +404,28 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
         # Check existing counts
         cursor_gis.execute("SELECT COUNT(*) FROM nav_procedures")
         total = cursor_gis.fetchone()[0]
-        cursor_gis.execute("SELECT COUNT(*) FROM nav_procedures WHERE source IN ('NASR', 'nasr')")
-        nasr = cursor_gis.fetchone()[0]
-        print(f"    [DRY RUN] PostGIS has {total:,} total ({nasr:,} NASR, {total - nasr:,} CIFP)")
-        print(f"    [DRY RUN] Would delete {nasr:,} NASR and insert {len(rows):,}")
+        cursor_gis.execute(
+            "SELECT COUNT(*) FROM nav_procedures "
+            "WHERE source NOT IN ('cifp_base', 'synthetic_base') OR source IS NULL"
+        )
+        would_delete = cursor_gis.fetchone()[0]
+        cursor_gis.execute(
+            "SELECT COUNT(*) FROM nav_procedures WHERE source IN ('cifp_base', 'synthetic_base')"
+        )
+        preserved = cursor_gis.fetchone()[0]
+        print(f"    [DRY RUN] PostGIS has {total:,} total ({preserved:,} cifp_base/synthetic_base preserved)")
+        print(f"    [DRY RUN] Would delete {would_delete:,} and insert {len(rows):,}")
         return len(rows)
 
     # Count before
     cursor_gis.execute("SELECT COUNT(*) FROM nav_procedures")
     before_total = cursor_gis.fetchone()[0]
+
+    # Count preserved rows before delete (safety check)
+    cursor_gis.execute(
+        "SELECT COUNT(*) FROM nav_procedures WHERE source IN ('cifp_base', 'synthetic_base')"
+    )
+    preserved_before = cursor_gis.fetchone()[0]
 
     # Delete all records except cifp_base and synthetic_base (generated separately).
     # The old 'CIFP' source records were corrupted (concatenated all transitions);
@@ -405,7 +436,17 @@ def sync_nav_procedures(cursor_ref, cursor_gis, conn_gis, dry_run=False):
     )
     deleted = cursor_gis.rowcount
     conn_gis.commit()
-    print(f"    Deleted {deleted:,} records (preserved cifp_base + synthetic_base)")
+
+    # Verify preserved rows untouched
+    cursor_gis.execute(
+        "SELECT COUNT(*) FROM nav_procedures WHERE source IN ('cifp_base', 'synthetic_base')"
+    )
+    preserved_after = cursor_gis.fetchone()[0]
+    if preserved_after < preserved_before:
+        raise RuntimeError(
+            f"SAFETY: cifp_base/synthetic_base count dropped {preserved_before:,} -> {preserved_after:,}"
+        )
+    print(f"    Deleted {deleted:,} records (preserved {preserved_after:,} cifp_base + synthetic_base)")
 
     # Insert REF records (omit procedure_id — let PostGIS auto-assign to avoid
     # PK conflicts with existing CIFP records that use procedure_id 1..97K)
