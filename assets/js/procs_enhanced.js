@@ -138,6 +138,89 @@
         return false;
     }
 
+    // Merge two route segments, deduplicating the overlap at the junction.
+    // E.g. ['MIXUT','LETOR'] + ['LETOR','SEVBI','DERLO'] → ['MIXUT','LETOR','SEVBI','DERLO']
+    function mergeRouteSegments(first, second) {
+        if (!first || !first.length) {return second ? second.slice() : [];}
+        if (!second || !second.length) {return first.slice();}
+        let overlapLen = 0;
+        for (let len = 1; len <= Math.min(first.length, second.length); len++) {
+            let match = true;
+            for (let i = 0; i < len; i++) {
+                if (first[first.length - len + i] !== second[i]) { match = false; break; }
+            }
+            if (match) {overlapLen = len;}
+        }
+        return first.concat(second.slice(overlapLen));
+    }
+
+    // Build ARINC 424 runway code candidates for a user runway designator.
+    // '15L' → ['RW15L', 'RW15B', 'RW15'], '33' → ['RW33', 'RW33B']
+    function buildRunwayCandidates(rwy) {
+        if (!rwy) {return [];}
+        const upper = rwy.toUpperCase();
+        const heading = upper.replace(/[LCR]$/, '');
+        const padded = heading.length === 1 ? '0' + heading : heading;
+        const suffix = upper.slice(heading.length); // L, C, R, or empty
+        const candidates = [];
+        if (suffix) {
+            candidates.push('RW' + padded + suffix);  // exact: RW15L
+            candidates.push('RW' + padded + 'B');      // both:  RW15B
+        }
+        candidates.push('RW' + padded);                // bare:  RW15
+        if (!suffix) {
+            candidates.push('RW' + padded + 'B');      // both:  RW15B
+        }
+        return candidates;
+    }
+
+    // Look up a runway transition for a DP and return its route points.
+    // dpRoot: DP name (e.g. 'MIXUT7'), rwy: user runway (e.g. '15L')
+    // DP runway transitions are coded as DPNAME.RWxx (e.g. MIXUT7.RW15B)
+    function findDpRunwayTransition(dpRoot, rwy, originAirport) {
+        if (!dpRoot || !rwy) {return null;}
+        const candidates = buildRunwayCandidates(rwy);
+        for (const rwCode of candidates) {
+            const transCode = dpRoot + '.' + rwCode;
+            const records = window.dpFullRoutesByTransition[transCode];
+            if (!records || !records.length) {continue;}
+            let filtered = records;
+            if (originAirport) {
+                const originUpper = normalizeAirport(originAirport.toUpperCase());
+                const f = records.filter(r => r.origins && r.origins.indexOf(originUpper) !== -1);
+                if (f.length > 0) {filtered = f;}
+            }
+            filtered.sort((a, b) => (b.effDate || 0) - (a.effDate || 0));
+            if (filtered[0] && filtered[0].routePoints) {
+                return filtered[0].routePoints.slice();
+            }
+        }
+        return null;
+    }
+
+    // Look up a runway transition for a STAR and return its route points.
+    // STAR runway transitions are coded as RWxx.STARNAME (e.g. RW15L.BOXUM7)
+    function findStarRunwayTransition(starRoot, rwy, destAirport) {
+        if (!starRoot || !rwy) {return null;}
+        const candidates = buildRunwayCandidates(rwy);
+        for (const rwCode of candidates) {
+            const transCode = rwCode + '.' + starRoot;
+            const records = window.starFullRoutesByTransition[transCode];
+            if (!records || !records.length) {continue;}
+            let filtered = records;
+            if (destAirport) {
+                const destUpper = normalizeAirport(destAirport.toUpperCase());
+                const f = records.filter(r => r.destinations && r.destinations.indexOf(destUpper) !== -1);
+                if (f.length > 0) {filtered = f;}
+            }
+            filtered.sort((a, b) => (b.effDate || 0) - (a.effDate || 0));
+            if (filtered[0] && filtered[0].routePoints) {
+                return filtered[0].routePoints.slice();
+            }
+        }
+        return null;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // DP LOADING - loads dp_full_routes.csv
     // ═══════════════════════════════════════════════════════════════════════════
@@ -927,19 +1010,35 @@
         }
 
         // Filter by departure runway if specified (e.g. depRunway='17C')
+        let usedOrigGroupFilter = false;
         if (depRunway && originAirport) {
             const originUpper = normalizeAirport(originAirport.toUpperCase());
             const rwyFiltered = filtered.filter(r => origGroupMatchesRunway(r.origGroup, originUpper, depRunway));
             if (rwyFiltered.length > 0) {
                 filtered = rwyFiltered;
+                usedOrigGroupFilter = true;
             }
         }
 
         // Sort by effDate descending and take most recent
         filtered.sort((a, b) => (b.effDate || 0) - (a.effDate || 0));
         const best = filtered[0];
+        let route = best.routePoints ? best.routePoints.slice() : null;
 
-        return best.routePoints ? best.routePoints.slice() : null;
+        // CIFP runway merge: if depRunway specified but origGroup had no runway info,
+        // look for a separate runway transition (e.g. MIXUT7.RW15B) and prepend it.
+        if (route && depRunway && !usedOrigGroupFilter) {
+            const parts = upper.split('.');
+            if (parts.length === 2) {
+                const dpRoot = parts[0]; // e.g. MIXUT7
+                const rwyRoute = findDpRunwayTransition(dpRoot, depRunway, originAirport);
+                if (rwyRoute) {
+                    route = mergeRouteSegments(rwyRoute, route);
+                }
+            }
+        }
+
+        return route;
     };
 
     /**
@@ -975,19 +1074,35 @@
         }
 
         // Filter by arrival runway if specified
+        let usedDestGroupFilter = false;
         if (arrRunway && destAirport) {
             const destUpper = normalizeAirport(destAirport.toUpperCase());
             const rwyFiltered = filtered.filter(r => origGroupMatchesRunway(r.destGroup, destUpper, arrRunway));
             if (rwyFiltered.length > 0) {
                 filtered = rwyFiltered;
+                usedDestGroupFilter = true;
             }
         }
 
         // Sort by effDate descending and take most recent
         filtered.sort((a, b) => (b.effDate || 0) - (a.effDate || 0));
         const best = filtered[0];
+        let route = best.routePoints ? best.routePoints.slice() : null;
 
-        return best.routePoints ? best.routePoints.slice() : null;
+        // CIFP runway merge: if arrRunway specified but destGroup had no runway info,
+        // look for a separate runway transition (e.g. RW15L.BOXUM7) and append it.
+        if (route && arrRunway && !usedDestGroupFilter) {
+            const parts = upper.split('.');
+            if (parts.length === 2) {
+                const starRoot = parts[1]; // e.g. BOXUM7
+                const rwyRoute = findStarRunwayTransition(starRoot, arrRunway, destAirport);
+                if (rwyRoute) {
+                    route = mergeRouteSegments(route, rwyRoute);
+                }
+            }
+        }
+
+        return route;
     };
 
     /**
