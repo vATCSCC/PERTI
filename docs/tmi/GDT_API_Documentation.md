@@ -325,7 +325,6 @@ All errors return JSON with this structure:
 
 ## Related Documentation
 
-- [GDT Unified Design Document](GDT_Unified_Design_Document_v1.md)
-- [GDT Phase 1 Transition](GDT_Phase1_Transition.md)
-- [GDT Incremental Migration](GDT_Incremental_Migration.md)
-- [TMI Documentation Index](TMI_Documentation_Index.md)
+- [GDT Unified Design Document](../../GDT_Unified_Design_Document_v1.1.md)
+- [GDT Phase 1 Transition](../../GDT_Phase1_Transition.md)
+- [GDT Incremental Migration](../../GDT_Incremental_Migration.md)

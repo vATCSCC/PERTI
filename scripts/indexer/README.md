@@ -96,10 +96,10 @@ For each database, extracts:
 
 ### For Coding Agents (Claude, etc.)
 
-Point the agent to read `/data/indexes/agent_context.md` for a quick overview, or the full JSON files for detailed searches.
+Point the agent to read `CLAUDE.md` for a comprehensive codebase overview, or the full JSON index files for detailed searches.
 
 Example prompt:
-> "Read /data/indexes/agent_context.md to understand the codebase structure, then help me add a new TMI endpoint."
+> "Read CLAUDE.md to understand the codebase structure, then help me add a new TMI endpoint."
 
 ### For IDE Integration
 

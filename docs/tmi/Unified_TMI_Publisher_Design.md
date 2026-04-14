@@ -750,7 +750,6 @@ PERTI/
 
 ## 14. Related Documents
 
-- `TMI_Documentation_Index.md` - Master TMI documentation index
-- `GDT_Unified_Design_Document_v1.md` - GS/GDP system design
+- `GDT_Unified_Design_Document_v1.1.md` - GS/GDP system design (root)
 - `NTML_Quick_Entry_Transition.md` - NTML parser documentation
 - `001_tmi_core_schema_azure_sql.sql` - Database schema
