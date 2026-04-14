@@ -39,6 +39,10 @@
 | **ECFMP** | EUROCONTROL-style Flow Measures (VATSIM Europe integration) |
 | **NAT** | North Atlantic Tracks (oceanic routing) |
 | **TMR** | Traffic Management Review (post-event analysis) |
+| **vNAS** | Virtual National Airspace System — VATSIM's centralized ATC facility/position configuration |
+| **CRC** | Combined Radar Controller — vNAS ATC client application |
+| **TCP** | Terminal Control Position — STARS radar position entry in vNAS |
+| **ULID** | Universally Unique Lexicographically Sortable Identifier — used for vNAS position IDs |
 
 ## Quick Start / Commands
 
@@ -170,6 +174,7 @@ This skips `$conn_adl`, `$conn_swim`, `$conn_tmi`, `$conn_ref`, and `$conn_gis` 
 - Stats: `flight_stats_daily/hourly/weekly/monthly/yearly/airport/artcc/carrier/citypair`
 - Events: `division_events`, `perti_events`, `event_position_log`
 - Discord: `discord_channels/messages/reactions`, `dcc_advisories`
+- vNAS: `vnas_facilities`, `vnas_positions`, `vnas_stars_tcps`, `vnas_stars_areas`, `vnas_beacon_banks`, `vnas_transceivers`, `vnas_video_map_index`, `vnas_airport_groups`, `vnas_common_urls`, `vnas_sync_metadata`, `vnas_restrictions`, `vnas_auto_atc_rules`, `vnas_position_sector_map`, `vnas_tcp_sector_map`
 - Other: `splits_*`, `sua_*`, `jatoc_*`, `scheduler_state`, `demand_monitors`
 
 #### VATSIM_TMI (Azure SQL) — Traffic Management (172 programs, 1,020 advisories, 268 reroutes)
@@ -203,7 +208,7 @@ This skips `$conn_adl`, `$conn_swim`, `$conn_tmi`, `$conn_ref`, and `$conn_gis` 
 
 ### Migration Files
 
-Migrations under `database/migrations/` by area: `tmi/`, `swim/`, `schema/`, `postgis/`, `gdp/`, `initiatives/`, `jatoc/`, `reroute/`, `sua/`, `advisories/`, `vatsim_stats/`, `adl/`.
+Migrations under `database/migrations/` by area: `tmi/`, `swim/`, `schema/`, `postgis/`, `vnas/`, `gdp/`, `initiatives/`, `jatoc/`, `reroute/`, `sua/`, `advisories/`, `vatsim_stats/`, `adl/`, `playbook/`, `org/`.
 ADL-specific in `adl/migrations/`: `core/`, `boundaries/`, `crossings/`, `demand/`, `eta/`, `navdata/`, `changelog/`, `cifp/`.
 
 ## Project Structure
@@ -264,6 +269,7 @@ ADL-specific in `adl/migrations/`: `core/`, `boundaries/`, `crossings/`, `demand
 | `/api/ctp/` | CTP integration: audit_log, boundaries, changelog, demand, sessions |
 | `/api/demand/` | Demand management: monitors, thresholds, analysis |
 | `/api/gis/` | GIS spatial queries: boundaries, intersections, route expansion |
+| `/api/swim/v1/ingest/vnas/` | vNAS integration: `facilities`, `restrictions`, `controllers`, `handoff`, `tags`, `track` |
 | `/api/routes/` | Route management: analysis, history, geometry |
 | `/api/discord/` | Discord integration: webhooks, message management |
 | `/api/events/` | Event management: sync, scheduling |
@@ -275,7 +281,7 @@ ADL-specific in `adl/migrations/`: `core/`, `boundaries/`, `crossings/`, `demand
 
 **CSS** (`assets/css/`): `theme.css`, `perti_theme.css`, `perti-colors.css`, `mobile.css`, `weather_radar.css`, `weather_impact.css`, `weather_hazards.css`, `initiative_timeline.css`, `tmi-publish.css`, `tmi-compliance.css`, `info-bar.css`, `playbook.css`, `ctp.css`, `navdata.css`, `route-analysis.css`, `routes.css`
 
-**JavaScript** (`assets/js/`) — 71+ modules, 45 using i18n:
+**JavaScript** (`assets/js/`) — 79 modules (62 root + 12 lib/ + 5 config/), 45 using i18n:
 
 - Core: `lib/datetime.js`, `lib/logger.js`, `lib/colors.js`, `lib/dialog.js`, `lib/i18n.js`, `lib/aircraft.js`, `lib/artcc-hierarchy.js`, `lib/artcc-labels.js`, `lib/deeplink.js`, `lib/norad-codes.js`, `lib/perti.js`, `lib/route-advisory-parser.js`
 - Config: `config/constants.js`, `config/rate-colors.js`, `config/phase-colors.js`, `config/facility-roles.js`, `config/filter-colors.js`
@@ -346,6 +352,10 @@ All daemons are started at App Service boot via `scripts/startup.sh`. Some run a
 | Event Sync | `scripts/event_sync_daemon.php` | 6h | VATUSA/VATCAN/VATSIM event sync |
 | CDM | `scripts/cdm_daemon.php` | 60s | A-CDM milestone computation |
 | vACDM Poll | `scripts/vacdm_poll_daemon.php` | 2min | vACDM instance polling |
+| Delay Attribution | `scripts/tmi/delay_attribution_daemon.php` | 60s | Per-flight delay computation from EDCT/OOOI baselines |
+| Facility Stats | `scripts/tmi/facility_stats_daemon.php` | 3600s | Hourly/daily facility statistics from flight data |
+| Webhook Delivery | `scripts/webhook_delivery_daemon.php` | Continuous | Outbound event webhook delivery queue |
+| vNAS Controller Poll | `scripts/vnas_controller_poll.php` | 60s | **Pending** — commented out in startup.sh (awaits migration 024) |
 
 **Legacy fallback daemons** (when `USE_GIS_DAEMONS=0`):
 
@@ -411,6 +421,9 @@ Several daemons use tiered intervals based on flight priority:
 - **GDT API auth pattern**: `common.php` includes `sessions/handler.php` at module level (before config/connect) so session is available for `gdt_require_auth()`. Follow this pattern for similar auth-gated endpoints.
 - **Azure SQL uses `sqlsrv`**, not PDO — don't mix up `sqlsrv_query()` / `sqlsrv_fetch_array()` with PDO methods.
 - **Legacy vs normalized flight tables**: `adl_flights` (monolithic) still used by some pages. New code should use the 8-table normalized architecture (`adl_flight_core`, `adl_flight_plan`, etc.).
+- **vNAS ULID matching**: Live controller feed uses ULIDs that match `vnas_positions.position_ulid` exactly — no transformation needed.
+- **splits_presets.artcc width**: Was `CHAR(3)`, too narrow for 4-char international FIR codes (e.g., `CZYZ`) — widened to `NVARCHAR(4)` in migration `schema/009_splits_column_widening.sql`.
+- **Schema migration 009 collision**: Two files share number 009 in `schema/` — `009_splits_column_widening.sql` and `009_scheduler_state.sql`. Both deployed; no conflict since they target different tables.
 
 ## Internationalization (i18n)
 
@@ -462,6 +475,8 @@ Several utilities use Python 3.x:
 - `scripts/statsim/` - Statistical simulation and VATUSA event import
 - `scripts/vatsim_atis/` - VATSIM ATIS fetcher daemon
 - `scripts/bada/` - BADA aircraft performance data parsers
+- `scripts/vnas_sync/crc_parser.py` - Parse vNAS CRC facility configuration JSON
+- `scripts/vnas_sync/vnas_crc_watcher.py` - Watch for vNAS CRC data updates
 - `scripts/openap/` - OpenAP performance data import
 
 ## Hibernation Mode
