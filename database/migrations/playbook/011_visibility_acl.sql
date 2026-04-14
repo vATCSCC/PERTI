@@ -36,7 +36,7 @@ MODIFY COLUMN action ENUM(
 --    can_view:        User can see the play in list/detail views
 --    can_manage:      User can edit play metadata and routes
 --    can_manage_acl:  User can add/remove other users from the ACL
---                     (default TRUE per requirements)
+--                     (default FALSE — only owners get manage-access by default)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS playbook_play_acl (
     acl_id          INT           AUTO_INCREMENT PRIMARY KEY,
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS playbook_play_acl (
     cid             INT           NOT NULL,
     can_view        TINYINT       NOT NULL DEFAULT 1,
     can_manage      TINYINT       NOT NULL DEFAULT 0,
-    can_manage_acl  TINYINT       NOT NULL DEFAULT 1,
+    can_manage_acl  TINYINT       NOT NULL DEFAULT 0,
     added_by        VARCHAR(20)   NULL,
     created_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

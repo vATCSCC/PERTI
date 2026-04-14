@@ -1785,6 +1785,27 @@
 .pb-acl-org-loading { padding: 8px; font-size: 0.72rem; color: #999; text-align: center; }
 .pb-acl-org-actions { margin-top: 4px; display: flex; gap: 4px; }
 
+/* ── ACL batch selection & action bar ───────────────────────────── */
+.pb-acl-batch-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    margin-bottom: 4px;
+    background: rgba(35, 155, 205, 0.08);
+    border: 1px solid rgba(35, 155, 205, 0.2);
+    border-radius: 4px;
+    font-size: 0.72rem;
+}
+.pb-acl-batch-count { font-weight: 600; white-space: nowrap; }
+.pb-acl-batch-perms { position: relative; }
+.pb-acl-batch-dropdown { min-width: 160px; font-size: 0.72rem; }
+.pb-acl-table th.pb-acl-check,
+.pb-acl-table td.pb-acl-check { width: 28px; text-align: center; padding: 2px 4px; }
+.pb-acl-table tr.selected { background: rgba(35, 155, 205, 0.06); }
+.pb-acl-bulk-perms { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
+.pb-acl-bulk-perms label { margin-bottom: 0; cursor: pointer; }
+
 /* ── Config dropdown items ──────────────────────────────────────── */
 .pb-config-opt {
     display: flex;

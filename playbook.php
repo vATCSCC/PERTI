@@ -497,6 +497,12 @@ include("load/nav.php");
                                     <div id="pb_acl_bulk_area" style="display:none;" class="mb-2">
                                         <input type="text" id="pb_acl_bulk_input" class="form-control form-control-sm"
                                                placeholder="<?= __('playbook.acl.bulkAddPlaceholder') ?>">
+                                        <div class="pb-acl-bulk-perms mt-1">
+                                            <small class="text-muted mr-2"><?= __('playbook.acl.bulkPermsLabel') ?></small>
+                                            <label class="small mr-2"><input type="checkbox" id="pb_bulk_perm_view" checked> <?= __('playbook.acl.canView') ?></label>
+                                            <label class="small mr-2"><input type="checkbox" id="pb_bulk_perm_manage"> <?= __('playbook.acl.canManage') ?></label>
+                                            <label class="small"><input type="checkbox" id="pb_bulk_perm_acl"> <?= __('playbook.acl.canManageAcl') ?></label>
+                                        </div>
                                         <button class="btn btn-sm btn-primary mt-1" id="pb_acl_bulk_apply">
                                             <i class="fas fa-check mr-1"></i><?= __('common.apply') ?>
                                         </button>

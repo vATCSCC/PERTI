@@ -4,11 +4,13 @@
  * POST — Manage access control list entries for private plays.
  *
  * Actions (JSON body):
- *   list      — Return all ACL entries for a play
- *   add       — Add a CID to the ACL
- *   update    — Update permissions for an existing ACL entry
- *   remove    — Remove a CID from the ACL
- *   bulk_add  — Add multiple CIDs at once
+ *   list        — Return all ACL entries for a play
+ *   add         — Add a CID to the ACL
+ *   update      — Update permissions for an existing ACL entry
+ *   remove      — Remove a CID from the ACL
+ *   bulk_add    — Add multiple CIDs at once
+ *   bulk_update — Update permissions for multiple CIDs at once
+ *   bulk_remove — Remove multiple CIDs at once
  */
 
 include_once(dirname(__DIR__, 3) . '/sessions/handler.php');
@@ -138,7 +140,7 @@ if ($action === 'add') {
 
     $can_view       = (int)($body['can_view'] ?? 1);
     $can_manage     = (int)($body['can_manage'] ?? 0);
-    $can_manage_acl = (int)($body['can_manage_acl'] ?? 1);
+    $can_manage_acl = (int)($body['can_manage_acl'] ?? 0);
 
     $ins_stmt = $conn_sqli->prepare("INSERT INTO playbook_play_acl (play_id, cid, can_view, can_manage, can_manage_acl, added_by) VALUES (?, ?, ?, ?, ?, ?)");
     $ins_stmt->bind_param('iiiiis', $play_id, $target_cid, $can_view, $can_manage, $can_manage_acl, $changed_by);
@@ -283,7 +285,7 @@ if ($action === 'bulk_add') {
 
     $can_view       = (int)($body['can_view'] ?? 1);
     $can_manage     = (int)($body['can_manage'] ?? 0);
-    $can_manage_acl = (int)($body['can_manage_acl'] ?? 1);
+    $can_manage_acl = (int)($body['can_manage_acl'] ?? 0);
     $owner_cid      = (string)($play['created_by'] ?? '');
 
     $ins_stmt = $conn_sqli->prepare("INSERT IGNORE INTO playbook_play_acl (play_id, cid, can_view, can_manage, can_manage_acl, added_by) VALUES (?, ?, ?, ?, ?, ?)");
@@ -331,6 +333,143 @@ if ($action === 'bulk_add') {
     exit;
 }
 
+// --- BULK_UPDATE ---
+if ($action === 'bulk_update') {
+    $cids = $body['cids'] ?? [];
+    if (!is_array($cids) || empty($cids)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'cids array is required and must not be empty']);
+        exit;
+    }
+
+    $owner_cid = (string)($play['created_by'] ?? '');
+
+    // Build SET clause from provided permissions
+    $sets = [];
+    $params = [];
+    $types = '';
+    foreach (['can_view', 'can_manage', 'can_manage_acl'] as $perm) {
+        if (isset($body[$perm])) {
+            $sets[] = "$perm = ?";
+            $params[] = (int)$body[$perm];
+            $types .= 'i';
+        }
+    }
+
+    if (empty($sets)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'At least one permission field (can_view, can_manage, can_manage_acl) is required']);
+        exit;
+    }
+
+    // Filter out owner and invalid CIDs
+    $valid_cids = [];
+    foreach ($cids as $c) {
+        $c = (int)$c;
+        if ($c <= 0) continue;
+        if ((string)$c === $owner_cid) continue;
+        $valid_cids[] = $c;
+    }
+
+    if (empty($valid_cids)) {
+        echo json_encode(['success' => true, 'play_id' => (int)$play_id, 'updated_count' => 0, 'action' => 'bulk_update']);
+        exit;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($valid_cids), '?'));
+    $sql = "UPDATE playbook_play_acl SET " . implode(', ', $sets) . " WHERE play_id = ? AND cid IN ($placeholders)";
+
+    // Build full parameter list: SET values + play_id + CIDs
+    $params[] = $play_id;
+    $types .= 'i';
+    foreach ($valid_cids as $c) {
+        $params[] = $c;
+        $types .= 'i';
+    }
+
+    $upd_stmt = $conn_sqli->prepare($sql);
+    $upd_stmt->bind_param($types, ...$params);
+    $upd_stmt->execute();
+    $updated_count = $upd_stmt->affected_rows;
+    $upd_stmt->close();
+
+    // Log to changelog
+    $perm_detail = [];
+    foreach (['can_view', 'can_manage', 'can_manage_acl'] as $perm) {
+        if (isset($body[$perm])) $perm_detail[$perm] = (int)$body[$perm];
+    }
+    $detail = json_encode(['cids' => $valid_cids, 'permissions' => $perm_detail]);
+    $cl_stmt = $conn_sqli->prepare("INSERT INTO playbook_changelog (play_id, action, field_name, new_value, changed_by) VALUES (?, 'acl_updated', 'acl_bulk', ?, ?)");
+    $cl_stmt->bind_param('iss', $play_id, $detail, $changed_by);
+    $cl_stmt->execute();
+    $cl_stmt->close();
+
+    echo json_encode([
+        'success' => true,
+        'play_id' => (int)$play_id,
+        'updated_count' => $updated_count,
+        'action' => 'bulk_update'
+    ]);
+    exit;
+}
+
+// --- BULK_REMOVE ---
+if ($action === 'bulk_remove') {
+    $cids = $body['cids'] ?? [];
+    if (!is_array($cids) || empty($cids)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'cids array is required and must not be empty']);
+        exit;
+    }
+
+    $owner_cid = (string)($play['created_by'] ?? '');
+
+    // Filter out owner and invalid CIDs
+    $valid_cids = [];
+    foreach ($cids as $c) {
+        $c = (int)$c;
+        if ($c <= 0) continue;
+        if ((string)$c === $owner_cid) continue;
+        $valid_cids[] = $c;
+    }
+
+    if (empty($valid_cids)) {
+        echo json_encode(['success' => true, 'play_id' => (int)$play_id, 'removed_count' => 0, 'action' => 'bulk_remove']);
+        exit;
+    }
+
+    $placeholders = implode(',', array_fill(0, count($valid_cids), '?'));
+    $sql = "DELETE FROM playbook_play_acl WHERE play_id = ? AND cid IN ($placeholders)";
+
+    $types = 'i';
+    $params = [$play_id];
+    foreach ($valid_cids as $c) {
+        $params[] = $c;
+        $types .= 'i';
+    }
+
+    $del_stmt = $conn_sqli->prepare($sql);
+    $del_stmt->bind_param($types, ...$params);
+    $del_stmt->execute();
+    $removed_count = $del_stmt->affected_rows;
+    $del_stmt->close();
+
+    // Log to changelog
+    $detail = json_encode(['cids' => $valid_cids, 'removed_count' => $removed_count]);
+    $cl_stmt = $conn_sqli->prepare("INSERT INTO playbook_changelog (play_id, action, field_name, old_value, changed_by) VALUES (?, 'acl_removed', 'acl_bulk', ?, ?)");
+    $cl_stmt->bind_param('iss', $play_id, $detail, $changed_by);
+    $cl_stmt->execute();
+    $cl_stmt->close();
+
+    echo json_encode([
+        'success' => true,
+        'play_id' => (int)$play_id,
+        'removed_count' => $removed_count,
+        'action' => 'bulk_remove'
+    ]);
+    exit;
+}
+
 // Unknown action
 http_response_code(400);
-echo json_encode(['error' => 'Invalid action. Use: list, add, update, remove, bulk_add']);
+echo json_encode(['error' => 'Invalid action. Use: list, add, update, remove, bulk_add, bulk_update, bulk_remove']);
