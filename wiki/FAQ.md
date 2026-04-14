@@ -240,7 +240,7 @@ See [[Splits]] for full documentation.
 
 ### What is hibernation mode?
 
-Hibernation mode is a cost-saving operational state that suspends most processing daemons, redirects web pages to `/hibernation`, and downscales Azure resources. Only the core ADL ingest daemon continues running during hibernation, maintaining basic flight data ingestion. Monthly infrastructure costs drop from approximately $3,500 to $150-170. Enter and exit procedures are documented in `docs/HIBERNATION_RUNBOOK.md`.
+Hibernation mode is a cost-saving operational state that suspends most processing daemons, redirects web pages to `/hibernation`, and downscales Azure resources. Only the core ADL ingest daemon continues running during hibernation, maintaining basic flight data ingestion. Monthly infrastructure costs drop from approximately $3,500 to $150-170. Enter and exit procedures are documented in `docs/operations/HIBERNATION_RUNBOOK.md`.
 
 ### How much data does PERTI process?
 

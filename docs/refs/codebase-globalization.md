@@ -342,5 +342,5 @@ Comprehensive four-agent audit performed 2026-02-08. All issues found were fixed
 | Namespace Design | `docs/plans/2026-02-02-perti-namespace-design.md` |
 | NORAD Codes Design | `docs/plans/2026-02-02-norad-codes-design.md` |
 | **Dependency Tree** | `docs/refs/globalization-dependency-tree.md` |
-| Migration Tracker | `PERTI_MIGRATION_TRACKER.md` (root) |
-| I18N Tracking | `docs/I18N_TRACKING.md` |
+| Migration Tracker | `docs/standards/PERTI_MIGRATION_TRACKER.md` |
+| I18N Tracking | `docs/operations/I18N_TRACKING.md` |

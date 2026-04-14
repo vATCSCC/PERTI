@@ -12,8 +12,8 @@ These in-depth documents cover everything needed to deploy and understand PERTI:
 
 | Guide | Description |
 |-------|-------------|
-| [Deployment Guide](../blob/main/docs/DEPLOYMENT_GUIDE.md) | Full deployment walkthrough: Azure provisioning, 7-database schema deployment, stored procedures, reference data import, daemon setup, i18n, multi-org configuration, code standards, and operational procedures |
-| [Computational Reference](../blob/main/docs/COMPUTATIONAL_REFERENCE.md) | Complete algorithm documentation: ADL ingest cycle, ETA calculation, route parsing, boundary detection, GDP/GS slot assignment, TMI compliance, trajectory tiering, and performance tuning |
+| [Deployment Guide](../blob/main/docs/operations/DEPLOYMENT_GUIDE.md) | Full deployment walkthrough: Azure provisioning, 7-database schema deployment, stored procedures, reference data import, daemon setup, i18n, multi-org configuration, code standards, and operational procedures |
+| [Computational Reference](../blob/main/docs/reference/COMPUTATIONAL_REFERENCE.md) | Complete algorithm documentation: ADL ingest cycle, ETA calculation, route parsing, boundary detection, GDP/GS slot assignment, TMI compliance, trajectory tiering, and performance tuning |
 
 ---
 

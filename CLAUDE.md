@@ -472,4 +472,4 @@ When `HIBERNATION_MODE` is enabled (`load/config.php` default `true` + Azure App
 
 **Key files**: `load/config.php`, `load/hibernation.php`, `hibernation.php`, `scripts/startup.sh`
 **Gotcha**: Azure App Setting `HIBERNATION_MODE=false` (string) is truthy in PHP — use `0` or delete the setting.
-**Procedures**: See `docs/HIBERNATION_RUNBOOK.md`.
+**Procedures**: See `docs/operations/HIBERNATION_RUNBOOK.md`.

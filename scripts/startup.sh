@@ -20,7 +20,7 @@ echo "========================================"
 # When enabled, only core daemons start (ADL ingest, archival, monitoring).
 # All downstream processors (GIS, SWIM, scheduler, Discord, event sync) are
 # skipped. Set via Azure App Setting: HIBERNATION_MODE=true
-# See docs/HIBERNATION_RUNBOOK.md for full details.
+# See docs/operations/HIBERNATION_RUNBOOK.md for full details.
 # =============================================================================
 HIBERNATION_MODE=${HIBERNATION_MODE:-0}
 if [ "$HIBERNATION_MODE" = "1" ] || [ "$HIBERNATION_MODE" = "true" ]; then

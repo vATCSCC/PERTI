@@ -568,7 +568,7 @@ During hibernation, the system operates in reduced capacity. SWIM pages and API 
 
 **Backfill status:** Phase 3 of 6 in progress (crossing calculations)
 
-See `docs/HIBERNATION_RUNBOOK.md` for entry/exit procedures.
+See `docs/operations/HIBERNATION_RUNBOOK.md` for entry/exit procedures.
 
 ---
 

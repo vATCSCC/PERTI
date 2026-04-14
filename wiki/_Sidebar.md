@@ -6,8 +6,8 @@
 ---
 
 **Comprehensive Guides**
-- [Deployment Guide](../blob/main/docs/DEPLOYMENT_GUIDE.md)
-- [Computational Reference](../blob/main/docs/COMPUTATIONAL_REFERENCE.md)
+- [Deployment Guide](../blob/main/docs/operations/DEPLOYMENT_GUIDE.md)
+- [Computational Reference](../blob/main/docs/reference/COMPUTATIONAL_REFERENCE.md)
 
 ---
 
@@ -90,7 +90,7 @@
 
 **Analysis**
 - [[Analysis]] (index)
-- [ETA Accuracy (Jan-Mar 2026)](../blob/main/docs/ETA_ACCURACY_ANALYSIS_JAN_MAR_2026.md)
+- [ETA Accuracy (Jan-Mar 2026)](../blob/main/docs/audits/ETA_ACCURACY_ANALYSIS_JAN_MAR_2026.md)
 
 ---
 

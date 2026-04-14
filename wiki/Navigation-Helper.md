@@ -302,7 +302,7 @@ See [[Daemons and Scripts]] for full documentation.
 | `docs/tmi/` | TMI system (18 files) - Architecture, API, Database |
 | `docs/swim/` | SWIM system (20 files) - API, SDK, Field mapping |
 | `docs/` | Design documents, migration guides, status reports |
-| `docs/QUICK_REFERENCE.md` | Comprehensive code index |
+| `docs/reference/QUICK_REFERENCE.md` | Comprehensive code index |
 
 ---
 
