@@ -417,9 +417,9 @@ class CTPPlaybookSync
                         . ($ocaContinuation !== '' ? ' ' . $ocaContinuation : '')
                         . ($euContinuation !== ''  ? ' ' . $euContinuation  : '');
 
-                    // Extract real origin (from NA) and real dest (from EU)
-                    $origin = strtoupper($naParts[0]);
-                    $dest   = strtoupper(end($euParts));
+                    // Origin/dest from route fields (routestrings already have airports stripped)
+                    $origin = strtoupper($rNa['origin'] ?? '');
+                    $dest   = strtoupper($rEu['dest'] ?? '');
 
                     $eid = $rNa['identifier'] . '_' . $rOca['identifier'] . '_' . $rEu['identifier'];
 

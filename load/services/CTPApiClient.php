@@ -187,6 +187,21 @@ class CTPApiClient
                 $route['dest']   = 'UNKN';
             }
 
+            // Strip origin/dest airport codes from routestring to avoid duplication
+            // (airports already stored in origin/dest columns)
+            $rsParts = preg_split('/\s+/', trim($route['routestring']));
+            if (!empty($rsParts)) {
+                if ($grpUpper === 'AMAS' && $route['origin'] !== 'UNKN'
+                    && strtoupper($rsParts[0]) === strtoupper($route['origin'])) {
+                    array_shift($rsParts);
+                }
+                if ($grpUpper === 'EMEA' && $route['dest'] !== 'UNKN'
+                    && strtoupper(end($rsParts)) === strtoupper($route['dest'])) {
+                    array_pop($rsParts);
+                }
+                $route['routestring'] = implode(' ', $rsParts);
+            }
+
             // Extract throughput from maximumAircraftPerHour
             $maxRate = (int)($seg['maximumAircraftPerHour'] ?? 0);
             if ($maxRate > 0 && $maxRate < 65535) {
