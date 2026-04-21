@@ -24,14 +24,13 @@ class CTPApiClient
     /**
      * Fetch all routes from CTP API.
      *
-     * GET /api/Routes — returns RouteSegment[] with Locations[].
-     * ASP.NET Core serializes properties as camelCase.
+     * GET /api/route-segments — returns RouteSegment[] with nested Locations[].waypoint.
      *
      * @return array Raw CTP API response (array of RouteSegment objects)
      * @throws CTPApiException on HTTP error, timeout, or invalid JSON
      */
     public function fetchRoutes(): array {
-        $url = $this->baseUrl . '/api/Routes';
+        $url = $this->baseUrl . '/api/route-segments';
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -95,7 +94,7 @@ class CTPApiClient
      */
     public function isAvailable(): bool {
         try {
-            $ch = curl_init($this->baseUrl . '/api/Routes');
+            $ch = curl_init($this->baseUrl . '/api/route-segments');
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT        => 10,
@@ -118,21 +117,30 @@ class CTPApiClient
     /**
      * Transform CTP API RouteSegment objects to PERTI internal route format.
      *
-     * CTP API (camelCase):              PERTI internal:
-     * - identifier                   -> identifier
-     * - routeString                  -> routestring
-     * - routeSegmentGroup            -> group
-     * - routeSegmentTags (array)     -> tags (space-separated)
-     * - locations[0].identifier      -> origin
-     * - locations[-1].identifier     -> dest
-     * - maximumAircraftPerHour       -> throughput.peak_rate_hr (if > 0)
+     * CTP API (camelCase):                          PERTI internal:
+     * - identifier                               -> identifier
+     * - routeString                              -> routestring
+     * - routeSegmentGroup                        -> group
+     * - routeSegmentTags (array, may be null)    -> tags (space-separated)
+     * - locations[0].waypoint.identifier         -> origin
+     * - locations[-1].waypoint.identifier        -> dest
+     * - maximumAircraftPerHour                   -> throughput.peak_rate_hr (if > 0)
+     * - enabled                                  -> enabled (bool)
+     * - color                                    -> color
+     * - facilities                               -> facilities
      *
      * @param array $ctpRoutes Raw CTP API response
+     * @param bool  $enabledOnly Only include routes where enabled=true (default true)
      * @return array Routes in PERTI internal format
      */
-    public static function transformRoutes(array $ctpRoutes): array {
+    public static function transformRoutes(array $ctpRoutes, bool $enabledOnly = true): array {
         $result = [];
         foreach ($ctpRoutes as $seg) {
+            // Skip disabled routes unless explicitly requested
+            if ($enabledOnly && !($seg['enabled'] ?? true)) {
+                continue;
+            }
+
             $route = [
                 'identifier'  => $seg['identifier'] ?? '',
                 'group'       => $seg['routeSegmentGroup'] ?? '',
@@ -140,15 +148,21 @@ class CTPApiClient
                 'tags'        => is_array($seg['routeSegmentTags'] ?? null)
                                  ? implode(' ', $seg['routeSegmentTags'])
                                  : '',
-                'facilities'  => '',
+                'facilities'  => $seg['facilities'] ?? '',
+                'color'       => $seg['color'] ?? '',
+                'enabled'     => (bool)($seg['enabled'] ?? true),
             ];
 
-            // Extract origin/dest from Locations array
+            // Extract origin/dest from nested Locations[].waypoint.identifier
             $locs = $seg['locations'] ?? [];
             if (!empty($locs)) {
-                $route['origin'] = $locs[0]['identifier'] ?? '';
-                $lastLoc = end($locs);
-                $route['dest'] = $lastLoc['identifier'] ?? '';
+                // Sort by sortOrder to ensure correct origin/dest
+                usort($locs, fn($a, $b) => ($a['sortOrder'] ?? 0) <=> ($b['sortOrder'] ?? 0));
+                $first = $locs[0];
+                $last  = end($locs);
+                // New API nests identifier under waypoint
+                $route['origin'] = $first['waypoint']['identifier'] ?? ($first['identifier'] ?? '');
+                $route['dest']   = $last['waypoint']['identifier']  ?? ($last['identifier'] ?? '');
             } else {
                 $route['origin'] = '';
                 $route['dest']   = '';
@@ -156,7 +170,7 @@ class CTPApiClient
 
             // Extract throughput from maximumAircraftPerHour
             $maxRate = (int)($seg['maximumAircraftPerHour'] ?? 0);
-            if ($maxRate > 0) {
+            if ($maxRate > 0 && $maxRate < 65535) {
                 $route['throughput'] = ['peak_rate_hr' => $maxRate];
             }
 
@@ -179,16 +193,23 @@ class CTPApiClient
         foreach ($ctpRoutes as $r) {
             $tags = $r['routeSegmentTags'] ?? [];
             if (is_array($tags)) sort($tags);
+
+            // Extract waypoint identifiers from nested structure
+            $locs = $r['locations'] ?? [];
+            usort($locs, fn($a, $b) => ($a['sortOrder'] ?? 0) <=> ($b['sortOrder'] ?? 0));
+            $locIds = array_map(
+                fn($l) => $l['waypoint']['identifier'] ?? ($l['identifier'] ?? ''),
+                $locs
+            );
+
             $normalized[] = [
                 'id' => $r['identifier'] ?? '',
                 'rs' => strtoupper(trim($r['routeString'] ?? '')),
                 'gr' => strtoupper($r['routeSegmentGroup'] ?? ''),
                 'tg' => is_array($tags) ? implode(',', $tags) : '',
                 'mr' => (int)($r['maximumAircraftPerHour'] ?? 0),
-                'lc' => array_map(
-                    fn($l) => $l['identifier'] ?? '',
-                    $r['locations'] ?? []
-                ),
+                'en' => (bool)($r['enabled'] ?? true),
+                'lc' => $locIds,
             ];
         }
         usort($normalized, fn($a, $b) => strcmp($a['id'], $b['id']));
