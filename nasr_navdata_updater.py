@@ -2542,6 +2542,28 @@ class ChangeLogger:
                     f.write("\n")
 
         logger.info(f"Wrote changelog markdown: {md_path}")
+
+        # Update changelog_index.json (drives the navdata page cycle selector)
+        index_path = self.log_dir / "changelog_index.json"
+        try:
+            if index_path.exists():
+                with open(index_path, 'r', encoding='utf-8') as f:
+                    index_data = json.load(f)
+            else:
+                index_data = {"cycles": []}
+
+            new_entry = {"from": from_cycle, "to": to_cycle}
+            # Avoid duplicates
+            if new_entry not in index_data["cycles"]:
+                index_data["cycles"].insert(0, new_entry)
+                with open(index_path, 'w', encoding='utf-8') as f:
+                    json.dump(index_data, f, indent=2)
+                logger.info(f"Updated changelog index: added {from_cycle}->{to_cycle}")
+            else:
+                logger.info(f"Changelog index already contains {from_cycle}->{to_cycle}")
+        except Exception as e:
+            logger.warning(f"Failed to update changelog_index.json: {e}")
+
         return str(md_path), str(json_path)
 
 
