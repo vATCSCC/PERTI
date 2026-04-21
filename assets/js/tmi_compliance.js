@@ -3316,7 +3316,7 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
         // B### - Control area routes
         // W### - Low level routes
         // R### - RNAV routes (regional)
-        return /^(J|V|Q|T|Y|A|UL|UA|UB|UM|UN|L|M|N|AR|G|B|W|R)\d+$/.test(upper);
+        return /^(J|V|Q|T|Y|A|UL|UA|UB|UM|UN|L|M|N|AR|G|B|W|R)\d+[A-Z]?$/.test(upper);
     },
 
     /**

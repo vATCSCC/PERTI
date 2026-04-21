@@ -865,8 +865,8 @@ function getRouteForPair($origin, $dest) {
             // Skip empty, DCT, dots
             if (empty($element) || $element === 'DCT' || $element === '..') continue;
             
-            // Skip airways (J60, V123, Q75, T200, etc.) - they're just route designators
-            if (preg_match('/^[JVQT]\d+$/', $element)) continue;
+            // Skip airways (J60, V123, N693A, UB881, etc.) - they're just route designators
+            if (preg_match('/^[A-Z]{1,2}\d{1,4}[A-Z]?$/', $element)) continue;
             
             // Skip SIDs/STARs (end in digit, length > 4)
             // e.g., SEAVU4, RPTOR2, HILEY3

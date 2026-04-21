@@ -108,8 +108,8 @@ function parseWaypointSequence(string $route): array {
     foreach ($tokens as $tok) {
         $tok = trim($tok);
         if ($tok === '' || $tok === 'DCT' || $tok === 'DIRECT') continue;
-        // Skip airway designators (letter + digits pattern like J584, UB881)
-        if (preg_match('/^[A-Z]{1,2}\d{1,4}$/', $tok)) continue;
+        // Skip airway designators (letter + digits + optional suffix like J584, UB881, N693A)
+        if (preg_match('/^[A-Z]{1,2}\d{1,4}[A-Z]?$/', $tok)) continue;
         $wpts[] = $tok;
     }
     return $wpts;

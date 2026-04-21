@@ -9150,8 +9150,8 @@
                     const found = awys.some(a => a[0] === token);
                     if (found) {return true;}
                 }
-                // Pattern match: 1-2 letters followed by digits (J60, V16, Q99, T200, AR10)
-                return /^[A-Z]{1,2}\d+$/.test(token);
+                // Pattern match: 1-2 letters + digits + optional letter suffix (J60, N693A, BR10L)
+                return /^[A-Z]{1,2}\d+[A-Z]?$/.test(token);
             };
 
             // Procedures (SID/STAR): Various patterns including international
@@ -9164,8 +9164,8 @@
                 // 2. Alphanumeric: digit(s) + letters + digit (1U71, 77S2) - small airport DPs
                 // Must avoid matching airways like J6, V16
                 if (/^[A-Z]{2,6}\d{1,2}$/.test(token) && token.length >= 3 && token.length <= 8) {
-                    // Exclude if it matches airway pattern (1-2 letters + digits)
-                    if (/^[A-Z]{1,2}\d+$/.test(token)) {return false;}
+                    // Exclude if it matches airway pattern (1-2 letters + digits + optional suffix)
+                    if (/^[A-Z]{1,2}\d+[A-Z]?$/.test(token)) {return false;}
                     return true;
                 }
                 // Alphanumeric small airport DP codes (1U71, 77S2, 0S91, etc.)
@@ -9705,14 +9705,14 @@
                     const found = awys.some(a => a[0] === token);
                     if (found) {return true;}
                 }
-                return /^[A-Z]{1,2}\d+$/.test(token);
+                return /^[A-Z]{1,2}\d+[A-Z]?$/.test(token);
             };
 
             const isProcedure = (token) => {
                 if (!token) {return false;}
                 // Pattern: 2+ letters followed by 1-2 digits (JFK5, WYNDE3)
                 if (/^[A-Z]{2,6}\d{1,2}$/.test(token) && token.length >= 3 && token.length <= 8) {
-                    if (/^[A-Z]{1,2}\d+$/.test(token)) {return false;}
+                    if (/^[A-Z]{1,2}\d+[A-Z]?$/.test(token)) {return false;}
                     return true;
                 }
                 // Alphanumeric small airport DP codes (1U71, 77S2, 0S91, etc.)

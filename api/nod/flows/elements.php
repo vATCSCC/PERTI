@@ -110,7 +110,7 @@ function expandRouteAirways($conn, $tokens) {
     // Identify potential airway tokens (middle tokens matching airway patterns)
     $potentialAirways = [];
     for ($i = 1; $i < count($tokens) - 1; $i++) {
-        if (preg_match('/^[A-Z]{1,2}[0-9]{1,4}$/', $tokens[$i])) {
+        if (preg_match('/^[A-Z]{1,2}[0-9]{1,4}[A-Z]?$/', $tokens[$i])) {
             $potentialAirways[] = $tokens[$i];
         }
     }

@@ -1724,7 +1724,7 @@
         SID_INTL_PATTERN: /^[A-Z]{3,}\d[A-Z]$/,          // ICAO: UTIRA1A, SALIS2B
         STAR_PATTERN: /^[A-Z]{3,}\d[A-Z]?$/,             // FAA: CAMRN4
         STAR_INTL_PATTERN: /^[A-Z]{3,}\d[A-Z]$/,         // ICAO: STAR5B
-        AIRWAY_PATTERN: /^[JVQTYLMABGRHWNUP]\d+$/i,      // J48, V1, H1, W5, etc.
+        AIRWAY_PATTERN: /^[JVQTYLMABGRHWNUP]\d+[A-Z]?$/i,  // J48, V1, N693A, BR10L, etc.
         FIX_PATTERN: /^[A-Z]{2,5}$/,                     // MERIT
         LATLON_PATTERN: /^\d{2,4}[NS]\d{3,5}[EW]$/,      // 4030N07421W
         LATLON_DECIMAL: /^[NS]?\d{1,3}\.\d+\/?[EW]?\d{1,3}\.\d+$/i, // N40.50/W074.35
@@ -1767,12 +1767,12 @@
         FIR_ICAO: '^[A-Z]{4}$',                                  // CZEG, EGTT
 
         // Airway/Route patterns (incl. international prefixes H, W, N, U, P)
-        AIRWAY: '^[JVQTYLMABGRHWNUP]\\d+$',                     // J48, V1, Q100, T280, H1, W5
-        AIRWAY_HIGH: '^J\\d+$',                                  // J48 (Jet routes)
-        AIRWAY_LOW: '^V\\d+$',                                   // V1 (Victor routes)
-        AIRWAY_RNAV_HIGH: '^Q\\d+$',                             // Q100 (RNAV high)
-        AIRWAY_RNAV_LOW: '^T\\d+$',                              // T280 (RNAV low)
-        AIRWAY_OCEANIC: '^[ABLMGRHWNUP]\\d+$',                   // L888, M711, A1, H1
+        AIRWAY: '^[JVQTYLMABGRHWNUP]\\d+[A-Z]?$',               // J48, V1, N693A, BR10L
+        AIRWAY_HIGH: '^J\\d+[A-Z]?$',                            // J48, J804R (Jet routes)
+        AIRWAY_LOW: '^V\\d+[A-Z]?$',                             // V1 (Victor routes)
+        AIRWAY_RNAV_HIGH: '^Q\\d+[A-Z]?$',                       // Q100 (RNAV high)
+        AIRWAY_RNAV_LOW: '^T\\d+[A-Z]?$',                        // T280 (RNAV low)
+        AIRWAY_OCEANIC: '^[ABLMGRHWNUP]\\d+[A-Z]?$',             // L888, M711, N693A
 
         // Procedure patterns
         SID: '^[A-Z]{3,}\\d[A-Z]?$',                             // SKORR5, ANJLL4
@@ -1811,11 +1811,11 @@
         TRACON: /^[A-Z][0-9]{2}$|^(NCT|PCT|SCT|A11|A80|A90|C90|D01|D10|D21|F11|I90|L30|M03|M98|N90|P31|P50|P80|R90|S46|S56|T75|U90|Y90)$/i,
         AIRPORT_ICAO: /^[A-Z]{4}$/,
         AIRPORT_FAA: /^[A-Z0-9]{3}$/,
-        AIRWAY: /^[JVQTYLMABGRHWNUP]\d+$/i,
-        AIRWAY_HIGH: /^J\d+$/i,
-        AIRWAY_LOW: /^V\d+$/i,
-        AIRWAY_RNAV: /^[QT]\d+$/i,
-        AIRWAY_OCEANIC: /^[ABLMGRHWNUP]\d+$/i,
+        AIRWAY: /^[JVQTYLMABGRHWNUP]\d+[A-Z]?$/i,
+        AIRWAY_HIGH: /^J\d+[A-Z]?$/i,
+        AIRWAY_LOW: /^V\d+[A-Z]?$/i,
+        AIRWAY_RNAV: /^[QT]\d+[A-Z]?$/i,
+        AIRWAY_OCEANIC: /^[ABLMGRHWNUP]\d+[A-Z]?$/i,
         SID_STAR: /^[A-Z]{3,}\d[A-Z]?$/,
         FIX_5CHAR: /^[A-Z]{5}$/,
         FIX_LATLON: /^\d{2,4}[NS]\d{3,5}[EW]$/,
@@ -1838,7 +1838,7 @@
     // Route segment parsing patterns
     const ROUTE_PATTERNS = Object.freeze({
         // Segment format: "FIX AIRWAY FIX" (e.g., "LANNA J48 MOL")
-        AIRWAY_SEGMENT: /^([A-Z]{2,5})\s+([JVQTYLMABGRHWNUP]\d+)\s+([A-Z]{2,5})$/i,
+        AIRWAY_SEGMENT: /^([A-Z]{2,5})\s+([JVQTYLMABGRHWNUP]\d+[A-Z]?)\s+([A-Z]{2,5})$/i,
 
         // Via pattern: "arrivals/departures via X" (e.g., "KBOS arrivals via MERIT")
         VIA_PATTERN: /^(\w+)\s+(arr(?:ivals?)?|dep(?:artures?)?)\s+via\s+(\w+)$/i,

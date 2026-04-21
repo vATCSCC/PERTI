@@ -235,7 +235,7 @@ function couldBeProcedureBaseName($value) {
         return false;
     }
     // Check if it's NOT an airway pattern
-    if (preg_match('/^[JVQTYLMABGR][0-9]+$/', $upper)) {
+    if (preg_match('/^[JVQTYLMABGR][0-9]+[A-Z]?$/', $upper)) {
         return false;
     }
     // Check if it's all letters

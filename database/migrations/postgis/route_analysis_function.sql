@@ -261,8 +261,8 @@ BEGIN
 
         -- Skip airways, SIDs, STARs, DCT, and empty tokens
         IF v_fix = '' OR v_fix = 'DCT' OR v_fix = 'DIRECT'
-           OR v_fix ~ '^[JQV]\d+$'        -- J/Q/V airways
-           OR v_fix ~ '^[A-Z]{2}\d+$'     -- 2-letter airways
+           OR v_fix ~ '^[JQVT]\d+[A-Z]?$'    -- J/Q/V/T airways
+           OR v_fix ~ '^[A-Z]{2}\d+[A-Z]?$' -- 2-letter airways
            OR LENGTH(v_fix) < 2
         THEN
             CONTINUE;

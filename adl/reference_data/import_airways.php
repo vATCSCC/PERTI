@@ -161,17 +161,17 @@ while (($line = fgets($handle)) !== false) {
     
     // Determine airway type from name
     $airwayType = 'OTHER';
-    if (preg_match('/^J\d+$/', $airwayName)) {
+    if (preg_match('/^J\d+[A-Z]?$/', $airwayName)) {
         $airwayType = 'JET';
-    } elseif (preg_match('/^V\d+$/', $airwayName)) {
+    } elseif (preg_match('/^V\d+[A-Z]?$/', $airwayName)) {
         $airwayType = 'VICTOR';
-    } elseif (preg_match('/^Q\d+$/', $airwayName)) {
+    } elseif (preg_match('/^Q\d+[A-Z]?$/', $airwayName)) {
         $airwayType = 'RNAV_HIGH';
-    } elseif (preg_match('/^T\d+$/', $airwayName)) {
+    } elseif (preg_match('/^T\d+[A-Z]?$/', $airwayName)) {
         $airwayType = 'RNAV_LOW';
-    } elseif (preg_match('/^A\d+$/', $airwayName)) {
+    } elseif (preg_match('/^A\d+[A-Z]?$/', $airwayName)) {
         $airwayType = 'OCEANIC';
-    } elseif (preg_match('/^[LMN]\d+$/', $airwayName)) {
+    } elseif (preg_match('/^[LMN]\d+[A-Z]?$/', $airwayName)) {
         $airwayType = 'EUROPEAN';
     }
     

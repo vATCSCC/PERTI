@@ -1128,8 +1128,8 @@ window.PublicRoutes = (function() {
             tokens.forEach(function(token) {
                 if (!token) {return;}
 
-                // Skip airways (J/Q/T/V followed by digits)
-                if (/^[JQTV]\d+$/i.test(token)) {return;}
+                // Skip airways (1-2 letters + digits + optional letter suffix)
+                if (/^[A-Z]{1,2}\d{1,4}[A-Z]?$/i.test(token)) {return;}
 
                 // Skip pure numbers (altitudes, speeds)
                 if (/^\d+$/.test(token)) {return;}

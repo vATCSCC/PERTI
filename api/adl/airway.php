@@ -46,29 +46,29 @@ function detectAirwayType(string $name): string {
     $name = strtoupper($name);
 
     // US Airways
-    if (preg_match('/^J\d+$/', $name)) return 'JET';
-    if (preg_match('/^V\d+$/', $name)) return 'VICTOR';
-    if (preg_match('/^Q\d+$/', $name)) return 'RNAV_HIGH';
-    if (preg_match('/^T\d+$/', $name)) return 'RNAV_LOW';
+    if (preg_match('/^J\d+[A-Z]?$/', $name)) return 'JET';
+    if (preg_match('/^V\d+[A-Z]?$/', $name)) return 'VICTOR';
+    if (preg_match('/^Q\d+[A-Z]?$/', $name)) return 'RNAV_HIGH';
+    if (preg_match('/^T\d+[A-Z]?$/', $name)) return 'RNAV_LOW';
 
     // RNAV airways (Y, G)
-    if (preg_match('/^Y\d+$/', $name)) return 'RNAV';
-    if (preg_match('/^G\d+$/', $name)) return 'RNAV_LOW';
+    if (preg_match('/^Y\d+[A-Z]?$/', $name)) return 'RNAV';
+    if (preg_match('/^G\d+[A-Z]?$/', $name)) return 'RNAV_LOW';
 
     // Oceanic
-    if (preg_match('/^A\d+$/', $name)) return 'OCEANIC';
+    if (preg_match('/^A\d+[A-Z]?$/', $name)) return 'OCEANIC';
 
     // European/International
-    if (preg_match('/^UL\d+$/', $name)) return 'UPPER_EUROPEAN';
-    if (preg_match('/^U[A-Z]\d+$/', $name)) return 'UPPER_AIRWAY';
-    if (preg_match('/^[LMN]\d+$/', $name)) return 'EUROPEAN';
-    if (preg_match('/^B\d+$/', $name)) return 'CONTROL_AREA';
+    if (preg_match('/^UL\d+[A-Z]?$/', $name)) return 'UPPER_EUROPEAN';
+    if (preg_match('/^U[A-Z]\d+[A-Z]?$/', $name)) return 'UPPER_AIRWAY';
+    if (preg_match('/^[LMN]\d+[A-Z]?$/', $name)) return 'EUROPEAN';
+    if (preg_match('/^B\d+[A-Z]?$/', $name)) return 'CONTROL_AREA';
 
     // Area Navigation Routes
-    if (preg_match('/^AR\d+$/', $name)) return 'AREA_NAV';
+    if (preg_match('/^AR\d+[A-Z]?$/', $name)) return 'AREA_NAV';
 
     // Catch-all for alphanumeric patterns
-    if (preg_match('/^[A-Z]{1,2}\d+$/', $name)) return 'AIRWAY';
+    if (preg_match('/^[A-Z]{1,2}\d+[A-Z]?$/', $name)) return 'AIRWAY';
 
     return 'OTHER';
 }
@@ -94,7 +94,7 @@ function isAirwayIdentifier(string $name): bool {
     // W### - Low level routes (some countries)
     // R### - RNAV routes (some regions)
 
-    return (bool)preg_match('/^(J|V|Q|T|Y|A|UL|UA|UB|UM|UN|L|M|N|AR|G|B|W|R)\d+$/', $name);
+    return (bool)preg_match('/^(J|V|Q|T|Y|A|UL|UA|UB|UM|UN|L|M|N|AR|G|B|W|R)\d+[A-Z]?$/', $name);
 }
 
 // Get connection
@@ -286,7 +286,7 @@ sqlsrv_close($conn);
 
 // Add helper function export for client-side use
 $result['_helpers'] = [
-    'isAirway' => 'function(name) { return /^(J|V|Q|T|Y|A|UL|UA|UB|UM|UN|L|M|N|AR|G|B|W|R)\d+$/.test(name.toUpperCase()); }'
+    'isAirway' => 'function(name) { return /^(J|V|Q|T|Y|A|UL|UA|UB|UM|UN|L|M|N|AR|G|B|W|R)\d+[A-Z]?$/.test(name.toUpperCase()); }'
 ];
 
 echo json_encode($result, JSON_PRETTY_PRINT);

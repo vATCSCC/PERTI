@@ -150,11 +150,11 @@ while (($line = fgets($input)) !== false) {
     if (empty($name) || empty($seq)) continue;
     
     $type = 'OTHER';
-    if (preg_match('/^J\d+$/', $name)) $type = 'JET';
-    elseif (preg_match('/^V\d+$/', $name)) $type = 'VICTOR';
-    elseif (preg_match('/^Q\d+$/', $name)) $type = 'RNAV_HIGH';
-    elseif (preg_match('/^T\d+$/', $name)) $type = 'RNAV_LOW';
-    elseif (preg_match('/^A\d+$/', $name)) $type = 'OCEANIC';
+    if (preg_match('/^J\d+[A-Z]?$/', $name)) $type = 'JET';
+    elseif (preg_match('/^V\d+[A-Z]?$/', $name)) $type = 'VICTOR';
+    elseif (preg_match('/^Q\d+[A-Z]?$/', $name)) $type = 'RNAV_HIGH';
+    elseif (preg_match('/^T\d+[A-Z]?$/', $name)) $type = 'RNAV_LOW';
+    elseif (preg_match('/^A\d+[A-Z]?$/', $name)) $type = 'OCEANIC';
     
     $fixes = preg_split('/\s+/', $seq);
     $fixCount = count($fixes);

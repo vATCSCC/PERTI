@@ -6882,13 +6882,14 @@ $(document).ready(function() {
     }
 
     // Check if token is an airway (ICAO standard)
-    // Single prefix: A, B, G, H, J, L, M, N, P, Q, R, T, U, V, W, Y + digits
-    // Double prefix: UA, UB, UG, UL, UM, UR, UT, etc. (upper airspace) + digits
+    // Single prefix: A, B, G, H, J, L, M, N, P, Q, R, T, U, V, W, Y + digits + optional suffix
+    // Double prefix: UA, UB, UG, UL, UM, UR, UT, etc. (upper airspace) + digits + optional suffix
+    // Letter suffixes: N693A, J804R, BR10L, A576S (XP12/Navigraph + some NASR)
     // Caribbean/local: RTE + digits (RTE4, RTE7, RTE12)
     function advIsAirway(code) {
         if (!code) {return false;}
         const t = String(code).toUpperCase().trim().replace(/[<>]/g, '');
-        if (/^[A-Z]{1,2}\d{1,4}$/.test(t)) {return true;}
+        if (/^[A-Z]{1,2}\d{1,4}[A-Z]?$/.test(t)) {return true;}
         if (/^RTE\d+$/.test(t)) {return true;}
         return false;
     }
@@ -9099,7 +9100,7 @@ $(document).ready(function() {
 
         const bodyTokens = (body || '').split(/\s+/).filter(t => t);
         bodyTokens.forEach(t => {
-            if (/^[JQTV]\d+$/.test(t) || /^U[A-Z]\d+$/.test(t) || /^NAT[A-Z]$/.test(t)) keyElements.push(t);
+            if (/^[JQTV]\d+[A-Z]?$/.test(t) || /^U[A-Z]\d+[A-Z]?$/.test(t) || /^NAT[A-Z]$/.test(t)) keyElements.push(t);
         });
 
         if (star) keyElements.push(star);
@@ -9351,7 +9352,7 @@ $(document).ready(function() {
                 const pointName = tokens[i].toUpperCase();
 
                 // Skip pure airways that weren't expanded (shouldn't happen but safety check)
-                if (/^[JQTV]\d+$/i.test(pointName)) {continue;}
+                if (/^[A-Z]{1,2}\d{1,4}[A-Z]?$/i.test(pointName) && awyIndexMap[pointName]) {continue;}
 
                 // Skip speed/altitude restrictions
                 if (/^[NMFSA]\d{3,4}$/.test(pointName)) {continue;}
@@ -9369,8 +9370,8 @@ $(document).ready(function() {
                 let nextPointData = null;
                 for (let j = i + 1; j < tokens.length && j < i + 3; j++) {
                     let nextName = tokens[j].toUpperCase();
-                    if (/^[JQTV]\d+$/i.test(nextName)) {continue;}
-                    if (/^[A-Z]{1,2}\d{1,4}$/.test(nextName) && awyIndexMap[nextName]) {continue;}
+                    if (/^[JQTV]\d+[A-Z]?$/i.test(nextName)) {continue;}
+                    if (/^[A-Z]{1,2}\d{1,4}[A-Z]?$/.test(nextName) && awyIndexMap[nextName]) {continue;}
                     if (/^[NMFSA]\d{3,4}$/.test(nextName)) {continue;}
                     if (nextName.includes('.')) {nextName = nextName.split('.')[0];}
 
@@ -10509,7 +10510,7 @@ Arrival: ${routeMeta.arrivalProc || 'N/A'} / ${routeMeta.arrivalTransition || 'N
                 const resolvedPoints = [];
                 tokens.forEach(function(token, idx) {
                     // Skip airways (shouldn't be any after ConvertRoute, but just in case)
-                    if (/^[JQTV]\d+$/i.test(token)) {return;}
+                    if (/^[A-Z]{1,2}\d{1,4}[A-Z]?$/i.test(token) && awyIndexMap[token.toUpperCase()]) {return;}
 
                     // Skip pure numbers (altitudes, speeds)
                     if (/^\d+$/.test(token)) {return;}

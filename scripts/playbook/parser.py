@@ -475,7 +475,7 @@ class PlaybookParser:
                     # (preceded by an airway designator: 1-2 letters + digits,
                     # e.g., V100, J32, Q438, T295, A123, UL601, G219)
                     import re
-                    is_airway_exit = bool(re.match(r'^[A-Z]{1,2}\d+$', second_last))
+                    is_airway_exit = bool(re.match(r'^[A-Z]{1,2}\d+[A-Z]?$', second_last))
                     if is_airway_exit:
                         # Airway exit fix — keep FAA code, append ICAO dest
                         parts.append(resolved_dest)

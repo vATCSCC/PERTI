@@ -352,8 +352,8 @@ function perti_detect_element_type($element) {
         return 'FCA';
     }
 
-    // Airway (J*, V*, Q*, T* followed by digits)
-    if (preg_match('/^[JVQT]\d+$/', $element)) {
+    // Airway (1-2 letter prefix + digits + optional letter suffix)
+    if (preg_match('/^[A-Z]{1,2}\d{1,4}[A-Z]?$/', $element)) {
         return 'AIRWAY';
     }
 

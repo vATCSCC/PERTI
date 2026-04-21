@@ -167,8 +167,8 @@ class ProcedureDetector:
         if len(token) == 4 and token[0] in 'KCMPT' and token.isalpha():
             return False
 
-        # Skip airways (J, Q, V, T followed by digits)
-        if len(token) >= 2 and token[0] in 'JQVT' and token[1:].isdigit():
+        # Skip airways (J, Q, V, T followed by digits and optional letter suffix e.g. N693A)
+        if len(token) >= 2 and token[0] in 'JQVT' and re.match(r'^\d+[A-Z]?$', token[1:]):
             return False
 
         # Skip if this is already a procedure

@@ -860,11 +860,11 @@ def calculate_shortfall_pct(actual: float, required: float) -> float:
 
 # --- Route token classification (mirrors PostGIS expand_route() lines 616-622) ---
 
-# Fast-path airway: known single-letter prefixes (PostGIS 004:616, JS perti.js:1770)
-AIRWAY_FAST_RE = re.compile(r'^[JVQTYLMABGRHWNUP]\d+$', re.IGNORECASE)
-# Broad airway: 1-2 letter prefix + digits (PostGIS 004:621)
+# Fast-path airway: known single-letter prefixes + optional suffix (PostGIS 024, JS perti.js:1727)
+AIRWAY_FAST_RE = re.compile(r'^[JVQTYLMABGRHWNUP]\d+[A-Z]?$', re.IGNORECASE)
+# Broad airway: 1-2 letter prefix + digits + optional suffix (PostGIS 024)
 # Requires DB verification to avoid false positives (e.g., AR22 could be airway or fix)
-AIRWAY_BROAD_RE = re.compile(r'^[A-Z]{1,2}\d{1,3}$', re.IGNORECASE)
+AIRWAY_BROAD_RE = re.compile(r'^[A-Z]{1,2}\d{1,4}[A-Z]?$', re.IGNORECASE)
 # SID/STAR: 3+ letters followed by digit and optional letter (JS perti.js:1778)
 PROCEDURE_RE = re.compile(r'^[A-Z]{3,}\d[A-Z]?$', re.IGNORECASE)
 # Named fix: 2-5 uppercase letters only

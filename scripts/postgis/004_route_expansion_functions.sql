@@ -764,12 +764,12 @@ BEGIN
 
         -- Check if this is an airway
         -- Fast-path: J/Q/V/T routes are unambiguous airway designators
-        v_is_fast_path_airway := v_part ~ '^[JQVT]\d+$';
+        v_is_fast_path_airway := v_part ~ '^[JQVT]\d+[A-Z]?$';
         v_is_airway := v_is_fast_path_airway;
 
         -- For broader pattern (A1, B5, PR1, etc.), verify against airways table
         -- to avoid misclassifying real waypoint names that match the pattern
-        IF NOT v_is_airway AND v_part ~ '^[A-Z]{1,2}\d{1,3}$' THEN
+        IF NOT v_is_airway AND v_part ~ '^[A-Z]{1,2}\d{1,4}[A-Z]?$' THEN
             SELECT EXISTS(SELECT 1 FROM airways WHERE airway_name = v_part) INTO v_is_airway;
         END IF;
 
@@ -871,7 +871,7 @@ BEGIN
                 v_lookahead_token := v_parts[v_lookahead_idx];
                 IF v_lookahead_token IS NULL OR v_lookahead_token = '' THEN CONTINUE; END IF;
                 -- Skip obvious airway tokens
-                IF v_lookahead_token ~ '^[JQVT]\d+$' THEN CONTINUE; END IF;
+                IF v_lookahead_token ~ '^[JQVT]\d+[A-Z]?$' THEN CONTINUE; END IF;
                 -- Skip FBD tokens
                 IF v_lookahead_token ~ '^[A-Z]{2,5}\d{6}$' THEN CONTINUE; END IF;
                 -- Strip procedure notation

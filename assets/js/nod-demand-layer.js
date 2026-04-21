@@ -1493,7 +1493,7 @@ const NODDemandLayer = (function() {
 
     // Airway patterns (J/V/Q/T/Y/L/M/A/B/G/R followed by numbers)
     // J = Jet routes, V = Victor routes, Q/T = RNAV, Y = RNAV, L/M/A/B/G/R = International
-    const AIRWAY_PATTERN = /^[JVQTYLMABGR]\d+$/i;
+    const AIRWAY_PATTERN = /^[JVQTYLMABGR]\d+[A-Z]?$/i;
 
     /**
      * Parse natural language monitor input string
@@ -1600,7 +1600,7 @@ const NODDemandLayer = (function() {
 
         // Pattern 2: "[fix] [airway] [fix]" - airway segment
         // Examples: "LANNA J48 MOL", "MERIT V1 SBJ", "REMIS Y280 LEV"
-        const segmentMatch = input.match(/^(\w+)\s+([JVQTYLMABGR]\d+)\s+(\w+)$/i);
+        const segmentMatch = input.match(/^(\w+)\s+([JVQTYLMABGR]\d+[A-Z]?)\s+(\w+)$/i);
         if (segmentMatch) {
             return {
                 type: 'airway_segment',

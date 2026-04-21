@@ -2895,7 +2895,7 @@
      */
     function isAirwayIdent(tok) {
         if (!tok) return false;
-        return /^[A-Z]{1,2}\d{1,4}$/i.test(tok);
+        return /^[A-Z]{1,2}\d{1,4}[A-Z]?$/i.test(tok);
     }
 
     /**
