@@ -4,8 +4,8 @@
 
 Hibernation mode is an open-ended operational pause that reduces PERTI to core data collection plus VATSWIM. Most downstream flight processing and several UI pages are suspended, but **SWIM API, SWIM pages, and SWIM daemons remain fully operational**. Azure resources are downscaled to match the reduced workload.
 
-**Status**: Active (entered 2026-03-30)
-**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption; Exited March 20, 2026; Re-entered March 22, 2026 with PostGIS at B2s + review/TMR/TMI Compliance exemption; Exited March 29, 2026; Re-entered March 29, 2026; Exited March 30, 2026; Re-entered March 30, 2026
+**Status**: Inactive (exited 2026-04-19)
+**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption; Exited March 20, 2026; Re-entered March 22, 2026 with PostGIS at B2s + review/TMR/TMI Compliance exemption; Exited March 29, 2026; Re-entered March 29, 2026; Exited March 30, 2026; Re-entered March 30, 2026; Exited April 19, 2026
 
 ---
 
@@ -86,7 +86,7 @@ This controls:
 
 ### Azure App Setting
 
-**Setting**: `HIBERNATION_MODE=true`
+**Setting**: `HIBERNATION_MODE=1` (use `1` to enable, `0` to disable; do NOT use `true`/`false` strings)
 
 This controls:
 - Daemon startup behavior in `scripts/startup.sh`
@@ -185,7 +185,9 @@ define("HIBERNATION_MODE", env('HIBERNATION_MODE', false));
 ### 3. Remove Azure App Setting
 
 In Azure Portal: App Service → Configuration → Application settings
-Remove or set `HIBERNATION_MODE` to `false`.
+Remove or set `HIBERNATION_MODE` to `0`.
+
+> **Warning**: Do NOT set to `false` — the string `"false"` is truthy in PHP (any non-empty string except `"0"` is truthy). Use `0` or remove the setting entirely.
 
 ### 4. Restart App Service
 

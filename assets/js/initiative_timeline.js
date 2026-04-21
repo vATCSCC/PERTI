@@ -1614,45 +1614,113 @@ class InitiativeTimeline {
 
     async saveConsolidatedItems(data) {
         const ids = this._consolidatedIds;
-        const facilities = this._consolidatedFacilities;
+        const oldFacilities = this._consolidatedFacilities;
         if (!ids || !ids.length) return;
 
+        // Parse the new facility list from user input (split on / , -)
+        const newFacilities = data.facility
+            .split(/[\/,\-]+/)
+            .map(f => f.trim())
+            .filter(f => f.length >= 2);
+
+        // Check if user actually changed the facility list
+        const oldSet = new Set(oldFacilities.map(f => f.toUpperCase()));
+        const newSet = new Set(newFacilities.map(f => f.toUpperCase()));
+        const facilitiesChanged = oldSet.size !== newSet.size ||
+            [...oldSet].some(f => !newSet.has(f));
+
         let successCount = 0;
+        let totalOps = 0;
         let lastError = null;
 
-        for (let i = 0; i < ids.length; i++) {
-            const itemData = { ...data, id: ids[i] };
-            // Restore each item's original facility
-            if (facilities[i]) {
-                itemData.facility = facilities[i];
-            }
-            try {
-                const resp = await fetch(this.apiEndpoint, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(itemData),
-                });
-                const result = await resp.json();
-                if (result.success) {
-                    successCount++;
-                } else {
-                    lastError = result.error;
+        if (!facilitiesChanged) {
+            // Facilities unchanged — update each record with its original facility (existing behavior)
+            totalOps = ids.length;
+            for (let i = 0; i < ids.length; i++) {
+                const itemData = { ...data, id: ids[i] };
+                if (oldFacilities[i]) {
+                    itemData.facility = oldFacilities[i];
                 }
-            } catch (e) {
-                lastError = e.message;
+                try {
+                    const resp = await fetch(this.apiEndpoint, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(itemData),
+                    });
+                    const result = await resp.json();
+                    if (result.success) successCount++;
+                    else lastError = result.error;
+                } catch (e) { lastError = e.message; }
+            }
+        } else {
+            // Facilities changed — reconcile: delete removed, update kept, create new
+            // Build map: uppercase facility → record ID
+            const oldMap = {};
+            for (let i = 0; i < oldFacilities.length; i++) {
+                oldMap[oldFacilities[i].toUpperCase()] = ids[i];
+            }
+
+            const toDelete = oldFacilities.filter(f => !newSet.has(f.toUpperCase()));
+            const toKeep = newFacilities.filter(f => oldSet.has(f.toUpperCase()));
+            const toCreate = newFacilities.filter(f => !oldSet.has(f.toUpperCase()));
+            totalOps = toDelete.length + toKeep.length + toCreate.length;
+
+            // Delete removed facilities
+            for (const fac of toDelete) {
+                const rid = oldMap[fac.toUpperCase()];
+                if (!rid) continue;
+                try {
+                    const resp = await fetch(`${this.apiEndpoint}?id=${rid}`, { method: 'DELETE' });
+                    const result = await resp.json();
+                    if (result.success) successCount++;
+                    else lastError = result.error;
+                } catch (e) { lastError = e.message; }
+            }
+
+            // Update kept facilities
+            for (const fac of toKeep) {
+                const rid = oldMap[fac.toUpperCase()];
+                if (!rid) continue;
+                const itemData = { ...data, id: rid, facility: fac };
+                try {
+                    const resp = await fetch(this.apiEndpoint, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(itemData),
+                    });
+                    const result = await resp.json();
+                    if (result.success) successCount++;
+                    else lastError = result.error;
+                } catch (e) { lastError = e.message; }
+            }
+
+            // Create new facilities (POST with single facility each)
+            for (const fac of toCreate) {
+                const itemData = { ...data, facility: fac };
+                delete itemData.id;
+                try {
+                    const resp = await fetch(this.apiEndpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(itemData),
+                    });
+                    const result = await resp.json();
+                    if (result.success) successCount++;
+                    else lastError = result.error;
+                } catch (e) { lastError = e.message; }
             }
         }
 
         this._consolidatedIds = null;
         this._consolidatedFacilities = null;
 
-        if (successCount === ids.length) {
+        if (successCount === totalOps) {
             $(`#${this.modalId}`).modal('hide');
             this.alert('success', PERTII18n.t('initiative.elementUpdated') + ` (${successCount})`);
             this.loadData();
         } else if (successCount > 0) {
             $(`#${this.modalId}`).modal('hide');
-            this.alert('warning', PERTII18n.t('initiative.partialUpdate', { success: successCount, total: ids.length }) + (lastError ? ': ' + lastError : ''));
+            this.alert('warning', PERTII18n.t('initiative.partialUpdate', { success: successCount, total: totalOps }) + (lastError ? ': ' + lastError : ''));
             this.loadData();
         } else {
             this.alert('error', lastError || PERTII18n.t('initiative.error.saveFailed'));
