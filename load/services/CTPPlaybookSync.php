@@ -70,7 +70,7 @@ class CTPPlaybookSync
             $group_to_play[strtoupper($grp)] = strtolower($play_key);
         }
 
-        // Filter routes per play — each route goes to exactly one play
+        // Filter routes per play — each segment route goes to its group play
         $routes_per_play = [];
         foreach ($play_scopes as $key => $def) {
             $routes_per_play[$key] = [];
@@ -84,6 +84,14 @@ class CTPPlaybookSync
                 $warnings[] = "Route '{$r['identifier']}' has unmapped group '{$g}' — skipped";
             }
         }
+
+        // Stitch full routes: NA + OCA + EU segments joined at oceanic pivot points
+        // NA ends at oceanic entry, OCA bridges entry→exit, EU starts at oceanic exit
+        $routes_per_play['full'] = self::stitchFullRoutes(
+            $routes_per_play['na'] ?? [],
+            $routes_per_play['oca'] ?? [],
+            $routes_per_play['eu'] ?? []
+        );
 
         // ══════════════════════════════════════════════════════════════
         // Phase 1: Diff (all plays — pure MySQL, no PostGIS)
@@ -343,6 +351,94 @@ class CTPPlaybookSync
         $o  = strtoupper(trim($r['origin'] ?? ''));
         $d  = strtoupper(trim($r['dest'] ?? ''));
         return "{$rs}|{$o}|{$d}";
+    }
+
+    /**
+     * Stitch full end-to-end routes from NA + OCA + EU segments.
+     *
+     * NA segment: airport → oceanic entry point (last fix in routestring)
+     * OCA segment: oceanic entry → oceanic exit (first/last fix)
+     * EU segment: oceanic exit → destination airport (first fix → airport)
+     *
+     * Joins at shared pivot points, deduplicating the pivot fix.
+     *
+     * @param array $na  NA/AMAS segment routes (internal format)
+     * @param array $oca OCA segment routes (internal format)
+     * @param array $eu  EU/EMEA segment routes (internal format)
+     * @return array Full routes in internal format with group='FULL'
+     */
+    public static function stitchFullRoutes(array $na, array $oca, array $eu): array {
+        // NA: extract last token of routestring as oceanic entry point
+        // OCA: first token = entry, last token = exit
+        // EU: first token = exit point
+
+        // Index OCA by entry point (first token of routestring)
+        $ocaByEntry = [];
+        foreach ($oca as $r) {
+            $parts = preg_split('/\s+/', trim($r['routestring']));
+            if (empty($parts)) continue;
+            $entry = strtoupper($parts[0]);
+            $ocaByEntry[$entry][] = $r;
+        }
+
+        // Index EU by exit point (first token of routestring)
+        $euByExit = [];
+        foreach ($eu as $r) {
+            $parts = preg_split('/\s+/', trim($r['routestring']));
+            if (empty($parts)) continue;
+            $exit = strtoupper($parts[0]);
+            $euByExit[$exit][] = $r;
+        }
+
+        $full = [];
+        foreach ($na as $rNa) {
+            $naParts = preg_split('/\s+/', trim($rNa['routestring']));
+            if (empty($naParts)) continue;
+            $ocaEntry = strtoupper(end($naParts));
+
+            // Find OCA segments starting at this entry point
+            if (!isset($ocaByEntry[$ocaEntry])) continue;
+
+            foreach ($ocaByEntry[$ocaEntry] as $rOca) {
+                $ocaParts = preg_split('/\s+/', trim($rOca['routestring']));
+                $ocaExit = strtoupper(end($ocaParts));
+
+                // Find EU segments starting at this exit point
+                if (!isset($euByExit[$ocaExit])) continue;
+
+                foreach ($euByExit[$ocaExit] as $rEu) {
+                    $euParts = preg_split('/\s+/', trim($rEu['routestring']));
+
+                    // Stitch: NA full + OCA (skip entry pivot) + EU (skip exit pivot)
+                    $ocaContinuation = implode(' ', array_slice($ocaParts, 1));
+                    $euContinuation  = implode(' ', array_slice($euParts, 1));
+
+                    $fullRs = trim($rNa['routestring'])
+                        . ($ocaContinuation !== '' ? ' ' . $ocaContinuation : '')
+                        . ($euContinuation !== ''  ? ' ' . $euContinuation  : '');
+
+                    // Extract real origin (from NA) and real dest (from EU)
+                    $origin = strtoupper($naParts[0]);
+                    $dest   = strtoupper(end($euParts));
+
+                    $eid = $rNa['identifier'] . '_' . $rOca['identifier'] . '_' . $rEu['identifier'];
+
+                    $full[] = [
+                        'identifier'  => $eid,
+                        'group'       => 'FULL',
+                        'routestring' => $fullRs,
+                        'tags'        => trim($rNa['identifier'] . ' ' . $rOca['identifier'] . ' ' . $rEu['identifier']),
+                        'facilities'  => '',
+                        'color'       => '',
+                        'enabled'     => true,
+                        'origin'      => $origin,
+                        'dest'        => $dest,
+                    ];
+                }
+            }
+        }
+
+        return $full;
     }
 
     /**

@@ -154,18 +154,37 @@ class CTPApiClient
             ];
 
             // Extract origin/dest from nested Locations[].waypoint.identifier
+            // Segment groups are partial routes — mask non-terminal endpoints as UNKN:
+            //   AMAS (NA):  origin = airport, dest = UNKN  (ends at oceanic entry)
+            //   OCA:        origin = UNKN,    dest = UNKN  (oceanic-only segment)
+            //   EMEA (EU):  origin = UNKN,    dest = airport (starts at oceanic exit)
+            //   FULL:       origin = airport, dest = airport (stitched end-to-end)
+            $grpUpper = strtoupper($route['group']);
             $locs = $seg['locations'] ?? [];
             if (!empty($locs)) {
                 // Sort by sortOrder to ensure correct origin/dest
                 usort($locs, fn($a, $b) => ($a['sortOrder'] ?? 0) <=> ($b['sortOrder'] ?? 0));
                 $first = $locs[0];
                 $last  = end($locs);
-                // New API nests identifier under waypoint
-                $route['origin'] = $first['waypoint']['identifier'] ?? ($first['identifier'] ?? '');
-                $route['dest']   = $last['waypoint']['identifier']  ?? ($last['identifier'] ?? '');
+                $firstId = $first['waypoint']['identifier'] ?? ($first['identifier'] ?? '');
+                $lastId  = $last['waypoint']['identifier']  ?? ($last['identifier'] ?? '');
+
+                if ($grpUpper === 'OCA') {
+                    $route['origin'] = 'UNKN';
+                    $route['dest']   = 'UNKN';
+                } elseif ($grpUpper === 'AMAS') {
+                    $route['origin'] = $firstId;
+                    $route['dest']   = 'UNKN';
+                } elseif ($grpUpper === 'EMEA') {
+                    $route['origin'] = 'UNKN';
+                    $route['dest']   = $lastId;
+                } else {
+                    $route['origin'] = $firstId;
+                    $route['dest']   = $lastId;
+                }
             } else {
-                $route['origin'] = '';
-                $route['dest']   = '';
+                $route['origin'] = 'UNKN';
+                $route['dest']   = 'UNKN';
             }
 
             // Extract throughput from maximumAircraftPerHour
