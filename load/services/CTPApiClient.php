@@ -214,6 +214,122 @@ class CTPApiClient
     }
 
     /**
+     * Fetch the latest slot revision from the CTP API.
+     *
+     * GET /api/events/{eventId}/slot-revisions/latest
+     *
+     * @param int $eventId CTP event ID (default 1)
+     * @return array Slot revision object with 'slots' array
+     * @throws CTPApiException on HTTP error, timeout, or invalid JSON
+     */
+    public function fetchSlotRevision(int $eventId = 1): array {
+        $url = $this->baseUrl . "/api/events/{$eventId}/slot-revisions/latest";
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 60,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_HTTPHEADER     => [
+                'X-API-Key: ' . $this->apiKey,
+                'Accept: application/json',
+            ],
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 3,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            throw new CTPApiException("CTP slot revision fetch failed: {$curlErr}");
+        }
+        if ($httpCode < 200 || $httpCode >= 300) {
+            throw new CTPApiException("CTP slot revision returned HTTP {$httpCode}: " . substr($response, 0, 500));
+        }
+
+        $data = json_decode($response, true);
+        if (!is_array($data)) {
+            throw new CTPApiException("CTP slot revision returned invalid JSON");
+        }
+
+        return $data;
+    }
+
+    /**
+     * Extract unique slot-assigned route combinations from a slot revision.
+     *
+     * Each slot has 3 route segments (AMAS + OCA + EMEA). This extracts
+     * the unique combinations and stitches them into full route strings
+     * with airports stripped (stored in origin/dest columns instead).
+     *
+     * @param array $slotRevision Raw slot revision from fetchSlotRevision()
+     * @return array Routes in PERTI internal format with group='SLOTTED'
+     */
+    public static function extractSlotRoutes(array $slotRevision): array {
+        $slots = $slotRevision['slots'] ?? [];
+        $combos = [];
+
+        foreach ($slots as $slot) {
+            $segs = $slot['routeSegments'] ?? [];
+            $byGroup = [];
+            foreach ($segs as $seg) {
+                $byGroup[$seg['routeSegmentGroup'] ?? ''] = $seg;
+            }
+
+            $na  = $byGroup['AMAS'] ?? null;
+            $oca = $byGroup['OCA']  ?? null;
+            $eu  = $byGroup['EMEA'] ?? null;
+            if (!$na || !$oca || !$eu) continue;
+
+            $naId  = $na['identifier']  ?? '';
+            $ocaId = $oca['identifier'] ?? '';
+            $euId  = $eu['identifier']  ?? '';
+            $comboKey = "{$naId}|{$ocaId}|{$euId}";
+
+            if (isset($combos[$comboKey])) {
+                $combos[$comboKey]['slot_count']++;
+                continue;
+            }
+
+            // Parse route strings
+            $naParts  = preg_split('/\s+/', trim($na['routeString']  ?? ''));
+            $ocaParts = preg_split('/\s+/', trim($oca['routeString'] ?? ''));
+            $euParts  = preg_split('/\s+/', trim($eu['routeString']  ?? ''));
+
+            $origin = strtoupper($naParts[0] ?? '');
+            $dest   = strtoupper(end($euParts) ?: '');
+
+            // Build full route: NA body (skip origin) + OCA body (skip entry) + EU body (skip exit + dest)
+            $naBody  = implode(' ', array_slice($naParts, 1));
+            $ocaBody = implode(' ', array_slice($ocaParts, 1));
+            $euBody  = implode(' ', array_slice($euParts, 1, max(0, count($euParts) - 2)));
+
+            $fullRs = $naBody;
+            if ($ocaBody !== '') $fullRs .= ' ' . $ocaBody;
+            if ($euBody  !== '') $fullRs .= ' ' . $euBody;
+
+            $eid = "{$naId}_{$ocaId}_{$euId}";
+            $combos[$comboKey] = [
+                'identifier'  => $eid,
+                'group'       => 'SLOTTED',
+                'routestring' => trim($fullRs),
+                'tags'        => "{$naId} {$ocaId} {$euId}",
+                'facilities'  => '',
+                'color'       => '',
+                'enabled'     => true,
+                'origin'      => $origin,
+                'dest'        => $dest,
+                'slot_count'  => 1,
+            ];
+        }
+
+        return array_values($combos);
+    }
+
+    /**
      * Compute a deterministic content hash of the CTP route set.
      *
      * Used for change detection: if the hash matches the last sync,

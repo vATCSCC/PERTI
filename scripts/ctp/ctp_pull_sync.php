@@ -156,10 +156,20 @@ try {
     // 4. Transform routes
     $routes = CTPApiClient::transformRoutes($ctpRoutes);
 
-    // 5. Increment synthetic revision
+    // 5. Fetch slot revision for slot-assigned route extraction
+    $slotRoutes = [];
+    try {
+        $slotRevision = $client->fetchSlotRevision($session_id);
+        $slotRoutes = CTPApiClient::extractSlotRoutes($slotRevision);
+    } catch (\Throwable $e) {
+        // Slot data is optional — continue with combinatorial only
+        $slotRoutes = [];
+    }
+
+    // 6. Increment synthetic revision
     $newRev = ((int)($state['synthetic_rev'] ?? 0)) + 1;
 
-    // 6. Run sync
+    // 7. Run sync
     $result = CTPPlaybookSync::run(
         $conn_sqli,
         $routes,
@@ -168,10 +178,11 @@ try {
         $newRev,
         CTP_GROUP_MAPPING,
         null,   // changed_by_cid: system
-        true    // skip_revision_check: pull uses content hash for idempotency
+        true,   // skip_revision_check: pull uses content hash for idempotency
+        $slotRoutes
     );
 
-    // 7. Update state
+    // 8. Update state
     $routeCount = count($ctpRoutes);
     $upd3 = $conn_sqli->prepare("UPDATE ctp_pull_sync_state SET
         status = 'idle', content_hash = ?, synthetic_rev = ?,

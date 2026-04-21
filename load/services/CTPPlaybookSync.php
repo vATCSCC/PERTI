@@ -28,7 +28,8 @@ class CTPPlaybookSync
      * @param array   $group_mapping      Maps CTP group → play key: ['OCA'=>'oca','AMAS'=>'na','EMEA'=>'eu','FULL'=>'full']
      * @param ?string $changed_by_cid     VATSIM CID of the person who made the change (null = system)
      * @param bool    $skip_revision_check When true (pull mode), bypass per-play external_revision idempotency
-     * @return array  ['revision' => N, 'plays' => ['full' => [...], 'na' => [...], ...]]
+     * @param array   $slot_routes        Slot-assigned routes from CTPApiClient::extractSlotRoutes() (optional)
+     * @return array  ['revision' => N, 'plays' => ['slotted' => [...], 'full' => [...], 'na' => [...], ...]]
      */
     public static function run(
         \mysqli $conn,
@@ -38,7 +39,8 @@ class CTPPlaybookSync
         int     $revision,
         array   $group_mapping,
         ?string $changed_by_cid = null,
-        bool    $skip_revision_check = false
+        bool    $skip_revision_check = false,
+        array   $slot_routes = []
     ): array {
         // ── Resolve author ──────────────────────────────────────────
         $changed_by_name = 'CTP Route Planner';
@@ -57,11 +59,14 @@ class CTPPlaybookSync
         }
 
         // ── Play scope definitions ──────────────────────────────────
+        // 'slotted' = CTPE26 (routes actually assigned to slots)
+        // 'full'    = CTPE26_FULL (all combinatorial pivot-point matches)
         $play_scopes = [
-            'full' => ['name' => $event_code,               'scope' => null,      'desc' => "{$event_code} - Full Routes"],
-            'na'   => ['name' => "{$event_code}_NA",        'scope' => 'NA',      'desc' => "{$event_code} - North America"],
-            'eu'   => ['name' => "{$event_code}_EU",        'scope' => 'EU',      'desc' => "{$event_code} - Europe"],
-            'oca'  => ['name' => "{$event_code}_OCA",       'scope' => 'OCEANIC', 'desc' => "{$event_code} - Oceanic"],
+            'slotted' => ['name' => $event_code,               'scope' => null,      'desc' => "{$event_code} - Slot-Assigned Routes"],
+            'full'    => ['name' => "{$event_code}_FULL",      'scope' => null,      'desc' => "{$event_code} - All Combinatorial Routes"],
+            'na'      => ['name' => "{$event_code}_NA",        'scope' => 'NA',      'desc' => "{$event_code} - North America"],
+            'eu'      => ['name' => "{$event_code}_EU",        'scope' => 'EU',      'desc' => "{$event_code} - Europe"],
+            'oca'     => ['name' => "{$event_code}_OCA",       'scope' => 'OCEANIC', 'desc' => "{$event_code} - Oceanic"],
         ];
 
         // Build group→play-key reverse map
@@ -85,13 +90,15 @@ class CTPPlaybookSync
             }
         }
 
-        // Stitch full routes: NA + OCA + EU segments joined at oceanic pivot points
-        // NA ends at oceanic entry, OCA bridges entry→exit, EU starts at oceanic exit
+        // Stitch all combinatorial full routes → CTPE26_FULL
         $routes_per_play['full'] = self::stitchFullRoutes(
             $routes_per_play['na'] ?? [],
             $routes_per_play['oca'] ?? [],
             $routes_per_play['eu'] ?? []
         );
+
+        // Slot-assigned routes → CTPE26 (subset of combos actually assigned to slots)
+        $routes_per_play['slotted'] = $slot_routes;
 
         // ══════════════════════════════════════════════════════════════
         // Phase 1: Diff (all plays — pure MySQL, no PostGIS)
@@ -101,6 +108,16 @@ class CTPPlaybookSync
 
         foreach ($play_scopes as $key => $def) {
             $play = self::findOrCreatePlay($conn, $def, $session_id, $changed_by_str, $changed_by_name);
+
+            // Cleanup: remove routes without CTP external_source (legacy manual imports)
+            $cleanup = $conn->prepare("DELETE FROM playbook_routes WHERE play_id = ? AND (external_source IS NULL OR external_source = '')");
+            $cleanup->bind_param('i', $play['play_id']);
+            $cleanup->execute();
+            $cleaned = $cleanup->affected_rows;
+            $cleanup->close();
+            if ($cleaned > 0) {
+                $warnings[] = "Cleaned {$cleaned} orphaned routes from play '{$def['name']}'";
+            }
 
             // Idempotency: skip if revision already processed (push mode only)
             if (!$skip_revision_check
