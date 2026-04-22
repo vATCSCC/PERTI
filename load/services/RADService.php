@@ -351,7 +351,12 @@ class RADService
         // Clear adl_flight_tmi reference
         $this->clearAdlFlightTmi($amendment['gufi']);
 
-        // Delete (CASCADE deletes log entries)
+        // Delete TOS records first (FK has NO_ACTION, not CASCADE)
+        $tos_sql = "DELETE FROM dbo.rad_tos WHERE amendment_id = ?";
+        $tos_stmt = sqlsrv_query($this->conn_tmi, $tos_sql, [$id]);
+        if ($tos_stmt) sqlsrv_free_stmt($tos_stmt);
+
+        // Delete amendment (CASCADE deletes log entries)
         $sql = "DELETE FROM dbo.rad_amendments WHERE id = ?";
         $stmt = sqlsrv_query($this->conn_tmi, $sql, [$id]);
         if ($stmt === false) return ['error' => 'Delete failed'];
