@@ -914,6 +914,11 @@ class RADService
 
     /**
      * Get route options for a flight (TMI reroutes, CDR matches).
+     *
+     * Matches active/monitoring reroutes (status 2 or 3) against the flight's
+     * origin and destination using the JSON scope fields on tmi_reroutes
+     * (origin_airports, origin_centers, dest_airports, dest_centers) and the
+     * per-route origin/destination on tmi_reroute_routes.
      */
     public function getRouteOptions(string $gufi): array
     {
@@ -922,23 +927,100 @@ class RADService
 
         $options = ['tmi_routes' => [], 'tos_options' => []];
 
-        // TMI reroute routes matching this flight's city pair
-        $sql = "SELECT r.reroute_id, r.reroute_name, r.advisory_number,
-                       rr.route_string, rr.route_id
+        $dept = $flight['fp_dept_icao'] ?? '';
+        $dest = $flight['fp_dest_icao'] ?? '';
+        $dept_artcc = $flight['fp_dept_artcc'] ?? '';
+        $dest_artcc = $flight['fp_dest_artcc'] ?? '';
+
+        // Get all active/monitoring reroutes with their routes
+        $sql = "SELECT r.reroute_id, r.name, r.adv_number,
+                       r.origin_airports, r.origin_centers,
+                       r.dest_airports, r.dest_centers,
+                       rr.route_string, rr.route_id,
+                       rr.origin AS route_origin, rr.destination AS route_dest
                 FROM dbo.tmi_reroutes r
                 JOIN dbo.tmi_reroute_routes rr ON r.reroute_id = rr.reroute_id
-                WHERE r.status = 'ACTIVE'
-                  AND (r.ctl_element = ? OR r.ctl_element = ?)";
-        $stmt = sqlsrv_query($this->conn_tmi, $sql,
-            [$flight['fp_dept_icao'], $flight['fp_dest_icao']]);
+                WHERE r.status IN (2, 3)
+                  AND (r.end_utc IS NULL OR r.end_utc > SYSUTCDATETIME())
+                  AND (r.start_utc IS NULL OR r.start_utc <= SYSUTCDATETIME())";
+        $stmt = sqlsrv_query($this->conn_tmi, $sql);
         if ($stmt) {
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-                $options['tmi_routes'][] = $row;
+                // Check if this reroute's scope matches the flight
+                if (!$this->rerouteMatchesFlight($row, $dept, $dest, $dept_artcc, $dest_artcc)) {
+                    continue;
+                }
+                $options['tmi_routes'][] = [
+                    'reroute_id'   => $row['reroute_id'],
+                    'reroute_name' => $row['name'],
+                    'adv_number'   => $row['adv_number'],
+                    'route_string' => $row['route_string'],
+                    'route_id'     => $row['route_id'],
+                ];
             }
             sqlsrv_free_stmt($stmt);
         }
 
         return $options;
+    }
+
+    /**
+     * Check whether a reroute row (with scope fields) matches a flight's origin/dest.
+     */
+    private function rerouteMatchesFlight(array $row, string $dept, string $dest, string $dept_artcc, string $dest_artcc): bool
+    {
+        // 1. Check route-level origin/destination match (from tmi_reroute_routes)
+        $routeOrigin = strtoupper(trim($row['route_origin'] ?? ''));
+        $routeDest   = strtoupper(trim($row['route_dest'] ?? ''));
+
+        if ($routeOrigin !== '' && $routeDest !== '') {
+            // Route-level has explicit origin/dest — check if flight matches
+            $origTokens = preg_split('/[\s,\/]+/', $routeOrigin, -1, PREG_SPLIT_NO_EMPTY);
+            $destTokens = preg_split('/[\s,\/]+/', $routeDest, -1, PREG_SPLIT_NO_EMPTY);
+            $origMatch = in_array($dept, $origTokens, true);
+            $destMatch = in_array($dest, $destTokens, true);
+            return $origMatch && $destMatch;
+        }
+
+        // 2. Fall back to reroute-level scope fields (JSON arrays)
+        $origMatch = $this->scopeMatchesValue($row['origin_airports'], $dept)
+                  || $this->scopeMatchesValue($row['origin_centers'], $dept_artcc);
+        $destMatch = $this->scopeMatchesValue($row['dest_airports'], $dest)
+                  || $this->scopeMatchesValue($row['dest_centers'], $dest_artcc);
+
+        // If no scope defined at all, it's a wildcard (matches everything)
+        $hasOrigScope = !empty($row['origin_airports']) || !empty($row['origin_centers']);
+        $hasDestScope = !empty($row['dest_airports']) || !empty($row['dest_centers']);
+
+        if (!$hasOrigScope) $origMatch = true;
+        if (!$hasDestScope) $destMatch = true;
+
+        return $origMatch && $destMatch;
+    }
+
+    /**
+     * Check if a value appears in a JSON-encoded scope field.
+     * Handles: JSON arrays '["KMIA","KBOS"]', comma/space-separated strings, single values.
+     */
+    private function scopeMatchesValue(?string $scopeField, string $value): bool
+    {
+        if ($scopeField === null || $scopeField === '' || $scopeField === '[]') {
+            return false;
+        }
+
+        $value = strtoupper(trim($value));
+        if ($value === '') return false;
+
+        // Try JSON decode first
+        $decoded = json_decode($scopeField, true);
+        if (is_array($decoded)) {
+            $decoded = array_map('strtoupper', array_map('trim', $decoded));
+            return in_array($value, $decoded, true);
+        }
+
+        // Fall back to splitting on common delimiters
+        $tokens = preg_split('/[\s,\/]+/', strtoupper($scopeField), -1, PREG_SPLIT_NO_EMPTY);
+        return in_array($value, $tokens, true);
     }
 
     /**

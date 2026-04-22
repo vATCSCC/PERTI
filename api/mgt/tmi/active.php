@@ -1055,11 +1055,11 @@ function buildProgramSummary($row) {
  * Uses aliases to normalize column names for formatReroute()
  */
 function getActiveReroutes($conn, $limit) {
-    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
 
+    // Note: tmi_reroutes has no org_code column — skip org filter
     $sql = "SELECT TOP {$limit}
                 reroute_id AS id,
                 name,
@@ -1084,14 +1084,13 @@ function getActiveReroutes($conn, $limit) {
                 activated_at AS activated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (2, 3)  -- active, monitoring
-              AND {$org_scope}
               AND (end_utc IS NULL OR end_utc > GETUTCDATE())
               AND (start_utc IS NULL OR start_utc <= GETUTCDATE())
             ORDER BY start_utc DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
+        $stmt->execute();
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1107,11 +1106,11 @@ function getActiveReroutes($conn, $limit) {
  * Get scheduled (future) reroutes
  */
 function getScheduledReroutes($conn, $limit) {
-    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
 
+    // Note: tmi_reroutes has no org_code column — skip org filter
     $sql = "SELECT TOP {$limit}
                 reroute_id AS id,
                 name,
@@ -1135,13 +1134,12 @@ function getScheduledReroutes($conn, $limit) {
                 updated_at AS updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (0, 1)  -- draft, proposed
-              AND {$org_scope}
               AND start_utc > GETUTCDATE()
             ORDER BY start_utc ASC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
+        $stmt->execute();
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1157,11 +1155,11 @@ function getScheduledReroutes($conn, $limit) {
  * Get recently cancelled/expired reroutes
  */
 function getCancelledReroutes($conn, $hours, $limit) {
-    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
 
+    // Note: tmi_reroutes has no org_code column — skip org filter
     $sql = "SELECT TOP {$limit}
                 reroute_id AS id,
                 name,
@@ -1185,13 +1183,12 @@ function getCancelledReroutes($conn, $hours, $limit) {
                 updated_at AS updated_utc
             FROM dbo.tmi_reroutes
             WHERE status IN (4, 5)  -- expired, cancelled
-              AND {$org_scope}
               AND updated_at > DATEADD(HOUR, -{$hours}, GETUTCDATE())
             ORDER BY updated_at DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
+        $stmt->execute();
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1387,11 +1384,11 @@ function collectScopeTokens($value, &$tokens) {
  * Get currently active public routes
  */
 function getActivePublicRoutes($conn, $limit) {
-    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
 
+    // Note: tmi_public_routes has no org_code column — skip org filter
     $sql = "SELECT TOP {$limit}
                 route_id,
                 route_guid,
@@ -1412,14 +1409,13 @@ function getActivePublicRoutes($conn, $limit) {
                 updated_at
             FROM dbo.tmi_public_routes
             WHERE status = 1
-              AND {$org_scope}
               AND (valid_end_utc IS NULL OR valid_end_utc > SYSUTCDATETIME())
               AND (valid_start_utc IS NULL OR valid_start_utc <= SYSUTCDATETIME())
             ORDER BY valid_start_utc DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
+        $stmt->execute();
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1435,11 +1431,11 @@ function getActivePublicRoutes($conn, $limit) {
  * Get scheduled (future) public routes
  */
 function getScheduledPublicRoutes($conn, $limit) {
-    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
 
+    // Note: tmi_public_routes has no org_code column — skip org filter
     $sql = "SELECT TOP {$limit}
                 route_id,
                 route_guid,
@@ -1460,13 +1456,12 @@ function getScheduledPublicRoutes($conn, $limit) {
                 updated_at
             FROM dbo.tmi_public_routes
             WHERE status = 1
-              AND {$org_scope}
               AND valid_start_utc > SYSUTCDATETIME()
             ORDER BY valid_start_utc ASC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
+        $stmt->execute();
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1482,11 +1477,11 @@ function getScheduledPublicRoutes($conn, $limit) {
  * Get recently cancelled/expired public routes
  */
 function getCancelledPublicRoutes($conn, $hours, $limit) {
-    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
 
+    // Note: tmi_public_routes has no org_code column — skip org filter
     $sql = "SELECT TOP {$limit}
                 route_id,
                 route_guid,
@@ -1507,13 +1502,12 @@ function getCancelledPublicRoutes($conn, $hours, $limit) {
                 updated_at
             FROM dbo.tmi_public_routes
             WHERE (status = 0 OR valid_end_utc < SYSUTCDATETIME())
-              AND {$org_scope}
               AND updated_at > DATEADD(HOUR, -{$hours}, SYSUTCDATETIME())
             ORDER BY updated_at DESC";
 
     try {
         $stmt = $conn->prepare($sql);
-        $stmt->execute([':org_code' => $org_code ?? 'vatcscc']);
+        $stmt->execute();
 
         $entries = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -1758,13 +1752,11 @@ function getHistoricalPrograms($conn, $dateStart, $dateEnd, $limit) {
  * Get reroutes that were active on a specific date
  */
 function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
-    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_reroutes')) {
         return [];
     }
 
-    // Note: TMI database uses created_at/updated_at/activated_at (not _utc suffix)
-    // Use aliases to normalize for formatReroute()
+    // Note: tmi_reroutes has no org_code column — skip org filter
     $sql = "SELECT TOP {$limit}
                 reroute_id AS id, name, adv_number, status,
                 protected_segment, protected_fixes, avoid_fixes,
@@ -1774,8 +1766,7 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
                 start_utc, end_utc,
                 created_at AS created_utc, updated_at AS updated_utc, activated_at AS activated_utc, created_by
             FROM dbo.tmi_reroutes
-            WHERE {$org_scope}
-              AND (start_utc <= :dateEnd OR start_utc IS NULL)
+            WHERE (start_utc <= :dateEnd OR start_utc IS NULL)
               AND (end_utc >= :dateStart OR end_utc IS NULL)
               AND created_at <= :dateEnd2
             ORDER BY start_utc DESC";
@@ -1783,7 +1774,6 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
     try {
         $stmt = $conn->prepare($sql);
         $stmt->execute([
-            ':org_code' => $org_code ?? 'vatcscc',
             ':dateStart' => $dateStart,
             ':dateEnd' => $dateEnd,
             ':dateEnd2' => $dateEnd
@@ -1803,11 +1793,11 @@ function getHistoricalReroutes($conn, $dateStart, $dateEnd, $limit) {
  * Get public routes that were active on a specific date
  */
 function getHistoricalPublicRoutes($conn, $dateStart, $dateEnd, $limit) {
-    global $org_code, $org_scope;
     if (!tableExists($conn, 'tmi_public_routes')) {
         return [];
     }
 
+    // Note: tmi_public_routes has no org_code column — skip org filter
     $sql = "SELECT TOP {$limit}
                 route_id, route_guid, status, name, adv_number,
                 route_string, advisory_text, color, line_weight, line_style,
@@ -1815,8 +1805,7 @@ function getHistoricalPublicRoutes($conn, $dateStart, $dateEnd, $limit) {
                 constrained_area, reason, origin_filter, dest_filter, facilities,
                 created_by, created_at, updated_at
             FROM dbo.tmi_public_routes
-            WHERE {$org_scope}
-              AND (valid_start_utc <= :dateEnd OR valid_start_utc IS NULL)
+            WHERE (valid_start_utc <= :dateEnd OR valid_start_utc IS NULL)
               AND (valid_end_utc >= :dateStart OR valid_end_utc IS NULL)
               AND created_at <= :dateEnd2
             ORDER BY valid_start_utc DESC";
@@ -1824,7 +1813,6 @@ function getHistoricalPublicRoutes($conn, $dateStart, $dateEnd, $limit) {
     try {
         $stmt = $conn->prepare($sql);
         $stmt->execute([
-            ':org_code' => $org_code ?? 'vatcscc',
             ':dateStart' => $dateStart,
             ':dateEnd' => $dateEnd,
             ':dateEnd2' => $dateEnd
