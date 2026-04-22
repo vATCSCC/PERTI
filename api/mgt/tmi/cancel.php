@@ -259,13 +259,11 @@ try {
                     SET status = 3,
                         updated_at = SYSUTCDATETIME()
                     WHERE route_id = :id
-                      AND {$org_scope}
                       AND status NOT IN (2, 3)";
 
             $stmt = $tmiConn->prepare($sql);
             $stmt->execute([
-                ':id' => $entityId,
-                ':org_code' => $org_code
+                ':id' => $entityId
             ]);
 
             $rowsAffected = $stmt->rowCount();
@@ -311,13 +309,11 @@ try {
                     SET status = 5,
                         updated_at = SYSUTCDATETIME()
                     WHERE reroute_id = :id
-                      AND {$org_scope}
                       AND status NOT IN (4, 5)";
 
             $stmt = $rerouteConn->prepare($sql);
             $stmt->execute([
-                ':id' => $entityId,
-                ':org_code' => $org_code
+                ':id' => $entityId
             ]);
 
             $rowsAffected = $stmt->rowCount();
