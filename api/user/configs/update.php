@@ -11,8 +11,6 @@ include("../../../load/config.php");
 define('PERTI_MYSQL_ONLY', true);
 include("../../../load/connect.php");
 
-perti_require_auth(false);
-
 $domain = strip_tags(SITE_DOMAIN);
 
 $id = post_input('id');

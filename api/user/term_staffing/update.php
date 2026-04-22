@@ -10,8 +10,6 @@ if (session_status() == PHP_SESSION_NONE) {
 include("../../../load/config.php");
 include("../../../load/connect.php");
 
-perti_require_auth(false);
-
 $id = post_input('id');
 
 $staffing_status = post_input('staffing_status');
