@@ -10,8 +10,6 @@ if (session_status() == PHP_SESSION_NONE) {
 include("../../../load/config.php");
 include("../../../load/connect.php");
 
-perti_require_auth(false);
-
 $id = post_input('id');
 $personnel_ois = post_input('personnel_ois');
 $personnel_name = strip_tags(html_entity_decode(str_replace("`", "&#039;", $_POST['personnel_name'] ?? '')));
