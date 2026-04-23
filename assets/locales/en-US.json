@@ -3753,6 +3753,7 @@
       "facilityOutage": "Facility Outage",
       "feaMatch": "FEA Match (Demand Monitor)",
       "flightFilters": "Flight Filters",
+      "flightSearch": "Search",
       "flightStatus": "Flight Status",
       "gates": "Gates",
       "general": "General",
@@ -3885,8 +3886,17 @@
       "type": "Type",
       "unassigned": "Unassigned",
       "unknownRoute": "Unknown Route",
+      "analyzeRoute": "Analyze",
       "viewInJatoc": "View in JATOC →",
       "weightClass": "Weight Class"
+    },
+    "search": {
+      "placeholder": "Callsign, origin, or destination...",
+      "noResults": "No matching flights",
+      "zoomToFlight": "Zoom to flight position",
+      "zoomToRoute": "Zoom to full route",
+      "analyzeRoute": "Analyze route (facilities traversed)",
+      "analyzeFailed": "Failed to analyze route"
     },
     "time": {
       "ufn": "UFN"
