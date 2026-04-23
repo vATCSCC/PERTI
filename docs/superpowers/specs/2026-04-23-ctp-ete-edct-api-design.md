@@ -1,18 +1,30 @@
-# CTP ETE Query & Generic EDCT Ingest API
+# CTP ETE/CTOT Bidirectional API
 
 **Date**: 2026-04-23
 **Status**: Design
-**Scope**: Two new SWIM API endpoints for bidirectional CTP integration
+**Scope**: Two SWIM API endpoints for bidirectional CTP integration with immediate recalculation
 
 ---
 
 ## Overview
 
-Two new endpoints enable CTP (Collaborative Traffic Planning) to:
-1. **Query computed ETEs** for specific flights by callsign list
-2. **Push EDCTs/CTDs** (with optional assigned routes) back into PERTI's canonical TMI pipeline
+Two endpoints implement a bidirectional CTP flow:
 
-Both endpoints live under the existing SWIM API layer (`api/swim/v1/`) and use SWIM API key authentication.
+1. **Step 1 — ETE Query**: CTP sends callsigns + TOBT (Target Off-Block Time). PERTI computes ETE and ETA using the canonical `sp_CalculateETA` engine (phase-based distance/speed with aircraft performance data), anchored to the provided TOBT. Returns computed times.
+
+2. **Step 2 — CTOT Assignment**: CTP sends CTOT (Controlled Take-Off Time) + assigned route + assigned track. PERTI derives EOBT/EDCT from CTOT, stores in the TMI pipeline, and immediately recalculates all downstream fields (ETA, waypoint ETAs, boundary crossings).
+
+```
+CTP ──── callsigns + TOBT ────→ PERTI (compute ETE/ETA via sp_CalculateETA)
+CTP ←── ETE + ETA + ETOT ────── PERTI
+
+    ... CTP uses ETEs internally to assign slots ...
+
+CTP ──── CTOT + route + track ──→ PERTI (store + immediate recalc cascade)
+CTP ←── recalculated times ────── PERTI
+```
+
+Both endpoints use SWIM API key authentication under `api/swim/v1/`.
 
 ---
 
@@ -20,23 +32,59 @@ Both endpoints live under the existing SWIM API layer (`api/swim/v1/`) and use S
 
 ### `POST /api/swim/v1/ete.php`
 
-Returns computed Estimated Time Enroute for requested flights.
+CTP provides TOBT per flight. PERTI computes ETE/ETA using the same ETA engine as all other PERTI consumers.
 
 **Auth**: SWIM API key (read-only). Pattern: `swim_init_auth(true, false)`.
-
-**Why POST**: Callsign lists can exceed URL length limits for GET.
 
 ### Request
 
 ```json
 {
-  "callsigns": ["BAW123", "UAL456", "DAL789"]
+  "flights": [
+    { "callsign": "BAW123", "tobt": "2026-04-23T11:30:00Z" },
+    { "callsign": "UAL456", "tobt": "2026-04-23T12:00:00Z" },
+    { "callsign": "DAL789" }
+  ]
 }
 ```
 
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
-| `callsigns` | string[] | Yes | 1-500 items, each 2-12 chars alphanumeric |
+| `flights` | object[] | Yes | 1-50 items |
+| `flights[].callsign` | string | Yes | 2-12 chars alphanumeric |
+| `flights[].tobt` | string | No | ISO 8601 datetime. If omitted, uses existing EOBT from flight record |
+
+### ETE Computation
+
+Uses the canonical `sp_CalculateETA` (V3.5) — the same phase-based distance/speed model used by all PERTI ETA calculations:
+
+```
+1. Resolve departure time:
+   TOBT = CTP-provided tobt   (or existing etd_utc if omitted)
+
+2. Add taxi time:
+   taxi_ref = airport_taxi_reference.unimpeded_taxi_sec (departure airport)
+   ETOT = TOBT + taxi_ref      (Estimated Take-Off Time)
+
+3. Compute flight time (sp_CalculateETA methods):
+   Aircraft performance = fn_GetAircraftPerformance(aircraft_type)
+     → BADA > OpenAP > category defaults > 280/450/280 kts
+   Route distance = route_total_nm > gcd_nm
+   Wind = segment wind (climb/cruise/descent) from adl_flight_times
+
+   climb_time  = toc_dist / (climb_speed + wind_climb) × 60
+   cruise_time = cruise_dist / (cruise_speed + wind_cruise) × 60
+   descent_time = tod_dist / (descent_speed + wind_descent) × 60
+   ETE = climb_time + cruise_time + descent_time
+
+4. Derive arrival:
+   ETA = ETOT + ETE
+
+5. Store TOBT:
+   Update swim_flights.tobt for the matched flight (if CTP-provided)
+```
+
+**Consistency guarantee**: ETE uses the exact same aircraft performance lookup, distance sources, wind adjustments, and phase modeling as `sp_CalculateETABatch`. The only difference is anchoring to CTP's TOBT instead of `@now`.
 
 ### Response
 
@@ -52,17 +100,19 @@ Returns computed Estimated Time Enroute for requested flights.
         "departure_airport": "KJFK",
         "arrival_airport": "EGLL",
         "aircraft_type": "B77W",
+        "tobt": "2026-04-23T11:30:00Z",
+        "etot": "2026-04-23T11:42:00Z",
         "estimated_elapsed_time": 412,
-        "estimated_time_of_arrival": "2026-04-23T18:30:00Z",
-        "estimated_off_block_time": "2026-04-23T11:38:00Z",
-        "flight_phase": "ENROUTE",
-        "latitude": 51.234,
-        "longitude": -30.567,
-        "altitude_ft": 37000,
-        "ground_speed_kts": 485,
+        "estimated_time_of_arrival": "2026-04-23T18:34:00Z",
+        "taxi_time_minutes": 12,
+        "eta_method": "V35_SEG_WIND",
+        "eta_confidence": 0.70,
+        "route_distance_nm": 3459,
+        "aircraft_cruise_speed_kts": 490,
+        "flight_phase": "PREFILED",
         "filed_route": "HAPIE DCT CYMON ...",
-        "distance_to_destination_nm": 1842,
-        "distance_flown_nm": 1490
+        "latitude": null,
+        "longitude": null
       }
     ],
     "unmatched": ["FAKE99"]
@@ -76,68 +126,44 @@ Returns computed Estimated Time Enroute for requested flights.
 }
 ```
 
-### ETE Computation
-
-Computed from SWIM flight data (not the pilot-filed `fp_enroute_minutes`):
-
-```sql
-SELECT
-    callsign, flight_uid, gufi,
-    fp_dept_icao, fp_dest_icao, aircraft_type,
-    DATEDIFF(MINUTE, estimated_off_block_time, estimated_time_of_arrival)
-        AS computed_ete_minutes,
-    estimated_time_of_arrival, estimated_off_block_time,
-    phase, lat, lon, altitude_ft, groundspeed_kts,
-    fp_route, dist_to_dest_nm, dist_flown_nm
-FROM dbo.swim_flights
-WHERE callsign IN (?, ?, ...)
-  AND is_active = 1
-```
-
-- Uses FIXM-aligned column names (migration 019) matching existing `flights.php` query pattern
-- `estimated_off_block_time` is PERTI-computed from OOOI data, not pilot-filed
-- `estimated_time_of_arrival` is computed by the ETA engine (multi-method)
-- Returns `null` for `estimated_elapsed_time` if either time column is NULL
-- Response field names follow FIXM conventions matching `formatFlightRecordFIXM()` output
-
-### SQL Column-to-Response Mapping
-
-| swim_flights column | Response field | Notes |
-|---------------------|---------------|-------|
-| `callsign` | `callsign` | Direct |
-| `flight_uid` | `flight_uid` | Direct |
-| `gufi` | `gufi` | Direct |
-| `fp_dept_icao` | `departure_airport` | FIXM alias |
-| `fp_dest_icao` | `arrival_airport` | FIXM alias |
-| `aircraft_type` | `aircraft_type` | Direct |
-| `DATEDIFF(MINUTE, estimated_off_block_time, estimated_time_of_arrival)` | `estimated_elapsed_time` | Computed, minutes |
-| `estimated_time_of_arrival` | `estimated_time_of_arrival` | ISO 8601 |
-| `estimated_off_block_time` | `estimated_off_block_time` | ISO 8601 |
-| `phase` | `flight_phase` | FIXM alias |
-| `lat` | `latitude` | FIXM alias |
-| `lon` | `longitude` | FIXM alias |
-| `altitude_ft` | `altitude_ft` | Direct |
-| `groundspeed_kts` | `ground_speed_kts` | FIXM alias |
-| `fp_route` | `filed_route` | FIXM alias |
-| `dist_to_dest_nm` | `distance_to_destination_nm` | FIXM alias |
-| `dist_flown_nm` | `distance_flown_nm` | FIXM alias |
+| Response Field | Source | Notes |
+|---------------|--------|-------|
+| `callsign` | swim_flights.callsign | Direct |
+| `flight_uid` | swim_flights.flight_uid | Direct |
+| `gufi` | swim_flights.gufi | Direct |
+| `departure_airport` | swim_flights.fp_dept_icao | FIXM alias |
+| `arrival_airport` | swim_flights.fp_dest_icao | FIXM alias |
+| `aircraft_type` | swim_flights.aircraft_type | Direct |
+| `tobt` | CTP-provided or existing etd_utc | ISO 8601 |
+| `etot` | TOBT + taxi_ref | Computed, ISO 8601 |
+| `estimated_elapsed_time` | sp_CalculateETA output | Minutes (climb+cruise+descent) |
+| `estimated_time_of_arrival` | ETOT + ETE | ISO 8601 |
+| `taxi_time_minutes` | airport_taxi_reference | Minutes |
+| `eta_method` | sp_CalculateETA | V35_SEG_WIND / V35_ROUTE / V35 / etc. |
+| `eta_confidence` | sp_CalculateETA | 0.65-0.97 |
+| `route_distance_nm` | route_total_nm or gcd_nm | Nautical miles |
+| `aircraft_cruise_speed_kts` | fn_GetAircraftPerformance | Knots |
+| `flight_phase` | swim_flights.phase | Current phase |
+| `filed_route` | swim_flights.fp_route | Full route string |
+| `latitude` / `longitude` | swim_flights.lat/lon | Null if prefiled |
 
 ### Error Responses
 
 | Code | Condition |
 |------|-----------|
 | 401 | Missing/invalid API key |
-| 400 | Missing `callsigns`, not an array, empty, exceeds 500 |
+| 400 | Missing `flights`, not an array, empty, exceeds 50 |
+| 400 | Individual record: missing callsign, invalid tobt datetime |
 | 405 | Method not POST |
 | 500 | Database error |
 
 ---
 
-## Endpoint 2: EDCT Ingest
+## Endpoint 2: CTOT Assignment
 
-### `POST /api/swim/v1/ingest/edct.php`
+### `POST /api/swim/v1/ingest/ctot.php`
 
-Ingests EDCTs/CTDs from external systems into PERTI's canonical TMI pipeline.
+CTP assigns Controlled Take-Off Times and routes. PERTI derives EOBT/EDCT, stores in the TMI pipeline, and immediately recalculates all downstream fields.
 
 **Auth**: SWIM API key with write permission + `ctp` authority group.
 Pattern: `swim_init_auth(true, true)` then `$auth->canWriteField('ctp')`.
@@ -146,16 +172,16 @@ Pattern: `swim_init_auth(true, true)` then `$auth->canWriteField('ctp')`.
 
 ```json
 {
-  "edcts": [
+  "assignments": [
     {
       "callsign": "BAW123",
-      "edct_utc": "2026-04-23T12:45:00Z",
+      "ctot": "2026-04-23T12:45:00Z",
       "delay_minutes": 67,
       "delay_reason": "VOLUME",
-      "cta_utc": "2026-04-23T19:52:00Z",
       "program_name": "CTP_EAST26_GDP",
       "source_system": "CTP",
       "assigned_route": "HAPIE DCT CYMON NAT-A LIMRI ...",
+      "assigned_track": "A",
       "route_segments": {
         "na": "HAPIE DCT CYMON",
         "oceanic": "CYMON NAT-A LIMRI",
@@ -168,20 +194,95 @@ Pattern: `swim_init_auth(true, true)` then `$auth->canWriteField('ctp')`.
 
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
-| `edcts` | object[] | Yes | 1-500 items |
-| `edcts[].callsign` | string | Yes | 2-12 chars |
-| `edcts[].edct_utc` | string | Yes | ISO 8601 datetime |
-| `edcts[].delay_minutes` | int | No | >= 0 |
-| `edcts[].delay_reason` | string | No | e.g., VOLUME, WEATHER, EQUIPMENT, RUNWAY, OTHER |
-| `edcts[].cta_utc` | string | No | ISO 8601 datetime |
-| `edcts[].program_name` | string | No | Control program identifier |
-| `edcts[].program_id` | int | No | FK to tmi_programs if applicable |
-| `edcts[].source_system` | string | No | Originating system (default: API key source_id) |
-| `edcts[].assigned_route` | string | No | TMU-assigned route (full route string) |
-| `edcts[].route_segments` | object | No | Decomposed route segments |
-| `edcts[].route_segments.na` | string | No | NA segment (dep to oceanic entry) |
-| `edcts[].route_segments.oceanic` | string | No | Oceanic segment |
-| `edcts[].route_segments.eu` | string | No | EU segment (oceanic exit to arr) |
+| `assignments` | object[] | Yes | 1-50 items |
+| `[].callsign` | string | Yes | 2-12 chars |
+| `[].ctot` | string | Yes | ISO 8601 datetime — Controlled Take-Off Time (wheels-up) |
+| `[].delay_minutes` | int | No | >= 0 |
+| `[].delay_reason` | string | No | VOLUME, WEATHER, EQUIPMENT, RUNWAY, OTHER |
+| `[].cta_utc` | string | No | ISO 8601 datetime — Controlled Time of Arrival |
+| `[].program_name` | string | No | Control program identifier |
+| `[].program_id` | int | No | FK to tmi_programs if applicable |
+| `[].source_system` | string | No | Originating system (default: API key source_id) |
+| `[].assigned_route` | string | No | TMU-assigned route (full route string) |
+| `[].assigned_track` | string | No | Assigned NAT/oceanic track. Pattern: `^[A-Z]{1,2}\d?$` (e.g., A, B, SM1) |
+| `[].route_segments` | object | No | Decomposed route segments |
+| `[].route_segments.na` | string | No | NA segment (dep to oceanic entry) |
+| `[].route_segments.oceanic` | string | No | Oceanic segment |
+| `[].route_segments.eu` | string | No | EU segment (oceanic exit to arr) |
+
+### CTOT → Derived Times
+
+```
+CTOT  (from CTP)              — Controlled Take-Off Time (wheels-up)
+EOBT  = CTOT - taxi_ref       — Estimated Off-Block Time (pushback)
+EDCT  = EOBT                  — Expected Departure Clearance Time (gate)
+ETE   = sp_CalculateETA(CTOT) — Enroute time from CTOT (climb+cruise+descent)
+ETA   = CTOT + ETE            — Estimated Time of Arrival
+delay = CTOT - original_etot  — Delay in minutes vs original schedule
+```
+
+`taxi_ref` comes from `airport_taxi_reference` for the departure airport (default 600s / 10 min if no reference).
+
+### Immediate Recalculation Cascade
+
+For each flight, the API synchronously executes:
+
+```
+API Request
+  │
+  ├─1→ tmi_flight_control (VATSIM_TMI) — canonical TMI record
+  │      INSERT or UPDATE with ctl_type='CTP'
+  │      Columns: flight_uid, callsign, ctd_utc=CTOT, octd_utc (preserved),
+  │               orig_etd_utc, program_delay_min, ctl_type, ctl_elem,
+  │               dep_airport, arr_airport, control_assigned_utc
+  │
+  ├─2→ adl_flight_times (VATSIM_ADL) — update departure times
+  │      SET etd_utc = derived EOBT, std_utc = derived EOBT
+  │
+  ├─3→ sp_CalculateETA (VATSIM_ADL) — recalculate ETA from CTOT
+  │      Recomputes: eta_utc, eta_runway_utc, eta_method, eta_confidence,
+  │                  eta_dist_source, tod_dist_nm, tod_eta_utc
+  │      Uses CTOT as departure anchor (not @now)
+  │
+  ├─4→ Waypoint ETA recalc (VATSIM_ADL) — recalculate all waypoint crossing times
+  │      Updates adl_flight_waypoints.eta_utc for all waypoints
+  │      Based on CTOT + cumulative route distance / effective speed
+  │
+  ├─5→ Boundary crossing recalc (VATSIM_GIS via GISService)
+  │      Recalculates adl_flight_planned_crossings
+  │      PostGIS route-boundary intersection with new departure time
+  │
+  ├─6→ swim_flights (SWIM_API) — push all recalculated times
+  │      UPDATE: controlled_time_of_departure=CTOT,
+  │              estimated_off_block_time=EOBT, edct_utc=EOBT,
+  │              estimated_time_of_arrival=new ETA,
+  │              controlled_time_of_arrival=CTA (if provided),
+  │              original_edct (set once), delay_minutes, ctl_type
+  │
+  ├─7→ rad_amendments (VATSIM_TMI) — if assigned_route provided
+  │      INSERT: callsign, origin, destination, original_route, assigned_route,
+  │              status='ISSUED', tmi_id_label, source
+  │
+  ├─8→ adl_flight_tmi (VATSIM_ADL) — route + TMI sync
+  │      UPDATE: rad_amendment_id, rad_assigned_route (if route provided)
+  │      UPDATE: ctd_utc, program_delay_min, ctl_type (TMI fields from step 1)
+  │
+  └─9→ ctp_flight_control (VATSIM_TMI) — if route_segments/track provided
+         UPDATE: seg_na_route, seg_oceanic_route, seg_eu_route,
+                 seg_*_status='VALIDATED', edct_utc, tmi_control_id,
+                 resolved_nat_track (if assigned_track provided)
+```
+
+Steps 1-9 happen synchronously per flight. Batch size capped at 50.
+
+### Concurrency
+
+CTP is expected to send many small batches in quick succession (10+ per minute during slot assignment). Considerations:
+
+- **No global lock** — each request operates on independent flight_uids; concurrent requests touching different flights are safe
+- **Same-flight collision** — if two concurrent requests assign CTOT for the same callsign, last-write-wins on `tmi_flight_control` (same as existing CTP ingest behavior)
+- **Database load** — 50 flights × 9 steps × 10 req/min = ~4,500 SQL operations/min across 4 databases. This is within normal daemon load (~3,000 ops/min for ADL refresh alone)
+- **PostGIS bottleneck** — boundary crossing recalc (step 5) is the slowest step (~100-200ms/flight on B2s tier). For 50 flights, expect ~5-10s per request for this step. Concurrent requests are safe since each flight's crossings are independent rows
 
 ### Response
 
@@ -195,8 +296,16 @@ Pattern: `swim_init_auth(true, true)` then `$auth->canWriteField('ctp')`.
         "status": "created",
         "flight_uid": 12345678,
         "control_id": 456,
-        "edct_utc": "2026-04-23T12:45:00Z",
-        "route_amendment_id": 789
+        "ctot": "2026-04-23T12:45:00Z",
+        "eobt": "2026-04-23T12:33:00Z",
+        "edct_utc": "2026-04-23T12:33:00Z",
+        "estimated_time_of_arrival": "2026-04-23T19:37:00Z",
+        "estimated_elapsed_time": 412,
+        "eta_method": "V35_SEG_WIND",
+        "delay_minutes": 67,
+        "route_amendment_id": 789,
+        "assigned_track": "A",
+        "recalc_status": "complete"
       }
     ],
     "unmatched": ["FAKE99"]
@@ -212,71 +321,30 @@ Pattern: `swim_init_auth(true, true)` then `$auth->canWriteField('ctp')`.
 }
 ```
 
-Result `status` values: `created`, `updated`, `skipped` (idempotent same-EDCT), `error`.
-
-### Canonical Write Path
-
-The EDCT ingest follows the same architectural pattern as `ingest/ctp.php`:
-
-```
-API Request
-  │
-  ├─1→ tmi_flight_control (VATSIM_TMI) — canonical source-of-truth
-  │      INSERT or UPDATE with ctl_type='CTP'
-  │      Columns: flight_uid, callsign, ctd_utc, octd_utc, orig_etd_utc,
-  │               program_delay_min, ctl_type, ctl_elem, dep_airport, arr_airport,
-  │               control_assigned_utc
-  │
-  ├─2→ swim_flights (SWIM_API) — immediate SWIM visibility
-  │      UPDATE: controlled_time_of_departure, controlled_time_of_arrival,
-  │              original_edct, edct_utc, delay_minutes, ctl_type
-  │      (Server-side direct SQL, bypasses field authority checks)
-  │
-  ├─3→ rad_amendments (VATSIM_TMI) — if assigned_route provided
-  │      INSERT: callsign, origin, destination, original_route, assigned_route,
-  │              status='ISSUED', tmi_id_label, source
-  │
-  ├─4→ adl_flight_tmi.rad_assigned_route (VATSIM_ADL) — if assigned_route provided
-  │      UPDATE: rad_amendment_id, rad_assigned_route
-  │
-  └─5→ ctp_flight_control (VATSIM_TMI) — if route_segments provided
-         UPDATE: seg_na_route, seg_oceanic_route, seg_eu_route,
-                 seg_*_status='VALIDATED', edct_utc, tmi_control_id
-```
-
-Steps 1-4 happen synchronously in the API request. Step 5 only if `route_segments` is provided and a `ctp_flight_control` record exists.
-
-The TMI-to-ADL sync daemon (`executeDeferredTMISync()` in `vatsim_adl_daemon.php`, 60s cycle) handles propagation from `tmi_flight_control` to `adl_flight_tmi` for all other TMI columns (ctd_utc, program_delay_min, gs_held, etc.).
-
-### Flight Matching
-
-Follows the `ingest/ctp.php` pattern with three tiers:
-
-1. **Callsign + airports** in `ctp_flight_control` (if CTP session context)
-2. **Callsign only** in `swim_flights` (active flights)
-3. **Unmatched** — returned in `unmatched` array, not an error
-
-For generic (non-CTP) consumers, match against `swim_flights` by callsign where `is_active = 1`.
+Result `status` values: `created`, `updated`, `skipped` (idempotent same-CTOT), `error`.
 
 ### Idempotency
 
-- Same callsign + same `edct_utc` as existing `tmi_flight_control.ctd_utc` → `skipped`
-- Same callsign + different `edct_utc` → `updated` (tmi_flight_control.ctd_utc updated, octd_utc preserved)
-- New callsign (no existing control) → `created`
+- Same callsign + same CTOT as existing `tmi_flight_control.ctd_utc` → `skipped` (no recalc)
+- Same callsign + different CTOT → `updated` (octd_utc preserved, full recalc)
+- New callsign (no existing control) → `created` (full recalc)
 
 ### Route Handling
 
 When `assigned_route` is provided:
 
 1. **Stored separately from filed route** — never touches `adl_flight_plan.fp_route` or `swim_flights.fp_route`
-2. **Written to `rad_amendments`** — status='ISSUED', tracks the TMU/ATC-requested route
-3. **Written to `adl_flight_tmi.rad_assigned_route`** — makes it visible to ADL consumers
-4. **Compliance is manual/future** — no automated compliance daemon exists today. When the pilot accepts and re-files, the VATSIM datafeed route will update naturally through the normal ADL ingest pipeline.
+2. **Written to `rad_amendments`** — status='ISSUED', tracks the TMU/ATC-assigned route
+3. **Written to `adl_flight_tmi.rad_assigned_route`** — visible to ADL consumers
+4. **Compliance is manual/future** — no automated compliance daemon exists. When the pilot accepts and re-files via VATSIM, the updated route flows through the normal ADL ingest pipeline.
+
+When `assigned_track` is provided:
+- Stored in `ctp_flight_control.resolved_nat_track`
+- Pattern validated: `^[A-Z]{1,2}\d?$` (A, B, SM1, etc.)
 
 When `route_segments` is provided (CTP-specific):
 - Stored in `ctp_flight_control` segment columns (seg_na_route, seg_oceanic_route, seg_eu_route)
 - Status set to 'VALIDATED'
-- Existing `ctp_flight_control` record must exist (matched via callsign + session)
 
 ### Error Responses
 
@@ -284,8 +352,8 @@ When `route_segments` is provided (CTP-specific):
 |------|-----------|
 | 401 | Missing/invalid API key |
 | 403 | API key lacks write permission or `ctp` authority |
-| 400 | Missing `edcts`, not an array, empty, exceeds 500 |
-| 400 | Individual record: missing callsign or edct_utc, invalid datetime |
+| 400 | Missing `assignments`, not an array, empty, exceeds 50 |
+| 400 | Individual record: missing callsign or ctot, invalid datetime, invalid track format |
 | 405 | Method not POST |
 | 500 | Database error |
 
@@ -300,43 +368,112 @@ No new authority groups needed. Uses existing `ctp` authority:
 'ctp' => ['CTP_API', true],   // CTP_API primary, override allowed
 ```
 
-The EDCT ingest checks `canWriteField('ctp')` at the API level, then uses **server-side direct SQL** to write TMI/SWIM data. This is the same pattern as `ingest/ctp.php` — the CTP authority check gates access, but the actual TMI writes bypass field-level authority since the server code is the trusted actor.
+The CTOT ingest checks `canWriteField('ctp')` at the API level, then uses **server-side direct SQL** for TMI/ADL/SWIM writes. This is the same pattern as `ingest/ctp.php` — the CTP authority check gates access, but the actual writes bypass field-level authority since the server code is the trusted actor.
 
-**Why not use `tmi` authority**: `$SWIM_DATA_AUTHORITY['tmi'] = ['VATCSCC', false]` — immutable, VATCSCC-only. External systems cannot write TMI fields via the authority system. The server-side bridge pattern is the correct architectural approach.
+**Why not use `tmi` authority**: `$SWIM_DATA_AUTHORITY['tmi'] = ['VATCSCC', false]` — immutable, VATCSCC-only. The server-side bridge pattern is the correct approach.
 
 ---
 
 ## FIXM 4.3.0 Alignment
 
-All response field names follow established FIXM conventions already used by `flights.php`:
-
 | FIXM Concept | API Field Name | swim_flights Column |
 |-------------|----------------|---------------------|
-| Estimated Elapsed Time | `estimated_elapsed_time` | Computed: `DATEDIFF(MINUTE, estimated_off_block_time, estimated_time_of_arrival)` |
+| Target Off-Block Time | `tobt` | `tobt` |
+| Estimated Off-Block Time | `eobt` / `estimated_off_block_time` | `estimated_off_block_time` |
+| Estimated Take-Off Time | `etot` | Computed (TOBT + taxi) |
+| Controlled Take-Off Time | `ctot` | `controlled_time_of_departure` |
+| Estimated Elapsed Time | `estimated_elapsed_time` | Computed via sp_CalculateETA |
 | Estimated Time of Arrival | `estimated_time_of_arrival` | `estimated_time_of_arrival` |
-| Estimated Off-Block Time | `estimated_off_block_time` | `estimated_off_block_time` |
-| Controlled Time of Departure | `controlled_time_of_departure` | `controlled_time_of_departure` |
-| Controlled Time of Arrival | `controlled_time_of_arrival` | `controlled_time_of_arrival` |
+| Controlled Time of Arrival | `cta_utc` | `controlled_time_of_arrival` |
 | EDCT | `edct_utc` | `edct_utc` |
 | Original EDCT | `original_edct` | `original_edct` |
 
 ---
 
+## ETE Computation Details
+
+### Method: `sp_CalculateETA` V3.5 (Segment Wind Integration)
+
+The ETE endpoint calls the same computation engine as all PERTI ETA calculations. This ensures consistency across the system.
+
+### Aircraft Performance Priority
+
+| Rank | Source | Table |
+|------|--------|-------|
+| 1 | BADA (EUROCONTROL) | `aircraft_performance_ptf` / `_apf` |
+| 2 | OpenAP (TU Delft) | `aircraft_performance_profiles` (source='OPENAP') |
+| 3 | Manual seed | `aircraft_performance_profiles` (source='SEED') |
+| 4 | Category defaults | Weight class + engine type (e.g., `_DEF_JH`) |
+| 5 | Hardcoded | 280 KIAS climb / 450 KTAS cruise / 280 KIAS descent |
+
+### Distance Priority
+
+| Rank | Source | Column |
+|------|--------|--------|
+| 1 | Parsed route distance | `adl_flight_plan.route_total_nm` |
+| 2 | Great Circle Distance | `adl_flight_plan.gcd_nm` |
+
+### Phase Model
+
+```
+TOC distance = (filed_alt - dep_elev) / 1000 × 2.0 nm
+TOD distance = (filed_alt - dest_elev) / 1000 × 3.0 nm
+
+climb_time   = toc_dist / (climb_speed + wind_climb) × 60 min
+cruise_time  = (route_dist - toc_dist - tod_dist) / (cruise_speed + wind_cruise) × 60 min
+descent_time = tod_dist / (descent_speed + wind_descent) × 60 min
+
+ETE = climb_time + cruise_time + descent_time
+```
+
+Wind adjustments applied when |wind| > 5 kts (noise filter).
+
+### Confidence Scoring
+
+| Scenario | Confidence |
+|----------|-----------|
+| Prefiled flight (TOBT-anchored) | 0.65-0.70 |
+| Gate/taxiing with performance data | 0.70-0.75 |
+| Enroute with segment wind | 0.88-0.92 |
+| Descent < 50nm | 0.95-0.97 |
+
+---
+
 ## Database Dependencies
 
-### Existing Tables Used (no schema changes)
+### Existing Tables Used (no schema changes needed)
 
 | Table | Database | Purpose |
 |-------|----------|---------|
-| `swim_flights` | SWIM_API | ETE query source, immediate EDCT push target |
-| `tmi_flight_control` | VATSIM_TMI | Canonical EDCT/CTD storage |
+| `swim_flights` | SWIM_API | ETE query source, CTOT push target, TOBT storage |
+| `adl_flight_times` | VATSIM_ADL | ETA recalculation, departure time updates |
+| `adl_flight_plan` | VATSIM_ADL | Route distance, GCD for ETE computation |
+| `adl_flight_waypoints` | VATSIM_ADL | Waypoint ETA recalculation |
+| `adl_flight_planned_crossings` | VATSIM_ADL | Boundary crossing recalculation |
+| `airport_taxi_reference` | VATSIM_ADL | Taxi time for CTOT→EOBT derivation |
+| `aircraft_performance_profiles` | VATSIM_ADL | Cruise/climb/descent speeds |
+| `tmi_flight_control` | VATSIM_TMI | Canonical CTOT/CTD storage |
 | `rad_amendments` | VATSIM_TMI | Route amendment storage |
-| `adl_flight_tmi` | VATSIM_ADL | ADL-side TMI data (rad_assigned_route, rad_amendment_id) |
-| `ctp_flight_control` | VATSIM_TMI | CTP-specific route segment storage |
+| `adl_flight_tmi` | VATSIM_ADL | ADL-side TMI + RAD data |
+| `ctp_flight_control` | VATSIM_TMI | CTP route segments + track |
+
+### Stored Procedures Called
+
+| Procedure | Database | Called By |
+|-----------|----------|-----------|
+| `sp_CalculateETA` | VATSIM_ADL | Both endpoints (ETE query + CTOT recalc) |
+| `fn_GetAircraftPerformance` | VATSIM_ADL | Via sp_CalculateETA |
+| `sp_CalculateWaypointETABatch_Tiered` | VATSIM_ADL | CTOT recalc (step 4) |
+
+### PostGIS Functions Called
+
+| Function | Database | Called By |
+|----------|----------|-----------|
+| `calculateCrossingEtas()` | VATSIM_GIS | CTOT recalc (step 5, via GISService) |
 
 ### CHECK Constraint Note
 
-`tmi_flight_control.ctl_type` has a CHECK constraint (migration 003) that originally did not include 'CTP'. The existing `ingest/ctp.php` endpoint uses `ctl_type = 'CTP'`, meaning the constraint has been modified on the live database. If not already done, the constraint must be updated to include 'CTP':
+`tmi_flight_control.ctl_type` CHECK constraint (migration 003) must include 'CTP'. The existing `ingest/ctp.php` uses `ctl_type = 'CTP'`, so this has been modified on the live database. Verify or apply:
 
 ```sql
 ALTER TABLE dbo.tmi_flight_control DROP CONSTRAINT CK_tmi_flight_control_type;
@@ -351,9 +488,9 @@ ALTER TABLE dbo.tmi_flight_control ADD CONSTRAINT CK_tmi_flight_control_type
 
 ```
 api/swim/v1/
-├── ete.php                    # NEW - ETE query endpoint
+├── ete.php                    # NEW - ETE query with TOBT
 ├── ingest/
-│   ├── edct.php               # NEW - Generic EDCT ingest
+│   ├── ctot.php               # NEW - CTOT assignment + recalc
 │   ├── ctp.php                # Existing CTP slot ingest (reference)
 │   ├── adl.php                # Existing ADL ingest (reference)
 │   └── ...
@@ -362,34 +499,51 @@ api/swim/v1/
 └── ...
 ```
 
-Both new files follow the established SWIM endpoint patterns:
-- `require_once __DIR__ . '/auth.php'` (for `ete.php`) or `require_once __DIR__ . '/../auth.php'` (for `ingest/edct.php`) — auth.php bootstraps config, connect, and provides SwimAuth/SwimResponse
-- Use `swim_get_json_body()` for POST body parsing
-- Use `SwimResponse::success()` / `SwimResponse::error()` for responses
-- Use `sqlsrv_query()` for Azure SQL (not PDO)
-- Access databases via `global $conn_swim` (SWIM_API) and `get_conn_tmi()` / `get_conn_adl()` for cross-DB writes
+Both new files follow established SWIM endpoint patterns:
+- `require_once __DIR__ . '/auth.php'` (for `ete.php`) or `require_once __DIR__ . '/../auth.php'` (for `ingest/ctot.php`)
+- `swim_get_json_body()` for POST body parsing
+- `SwimResponse::success()` / `SwimResponse::error()` for responses
+- `sqlsrv_query()` for Azure SQL (not PDO)
+- `global $conn_swim` (SWIM_API), `get_conn_tmi()`, `get_conn_adl()`, `get_conn_gis()` for cross-DB operations
 
 ---
 
 ## Non-Goals
 
-- **No auto-delivery**: EDCTs are stored but not automatically pushed to pilots. Operator manually triggers delivery via existing EDCTDelivery channels.
-- **No automated route compliance**: The `rad_amendments` status remains 'ISSUED' until manually resolved or a future compliance daemon is built. When the pilot re-files via VATSIM, the updated route flows naturally through the ADL ingest.
+- **No auto-delivery**: CTOTs/EDCTs are stored but not automatically pushed to pilots. Operator manually triggers via EDCTDelivery channels.
+- **No automated route compliance**: `rad_amendments` status remains 'ISSUED' until manually resolved. Pilot re-file updates route naturally via ADL ingest.
 - **No new database tables**: All storage uses existing tables and columns.
 - **No new authority groups**: Uses existing `ctp` authority from `swim_config.php`.
 - **No WebSocket push**: May be added later; initial version is REST-only.
+- **No trajectory simulation**: ETE uses the existing phase-based distance/speed model, not physics-based trajectory prediction. This is consistent with all other PERTI ETA consumers.
 
 ---
 
 ## Testing Strategy
 
-1. **ETE endpoint**: POST with known active callsigns, verify computed ETE matches `DATEDIFF(MINUTE, estimated_off_block_time, estimated_time_of_arrival)`. Verify unmatched callsigns appear in `unmatched` array.
+1. **ETE endpoint**: POST with known active callsigns + TOBT, verify:
+   - Computed ETE matches `sp_CalculateETA` output for same flight
+   - ETOT = TOBT + taxi_ref for the departure airport
+   - ETA = ETOT + ETE
+   - TOBT is stored on swim_flights record
+   - Unmatched callsigns in `unmatched` array
+   - Omitted TOBT falls back to existing etd_utc
 
-2. **EDCT ingest**: POST with test callsign, verify:
-   - `tmi_flight_control` record created with correct `ctd_utc`, `ctl_type='CTP'`
-   - `swim_flights` updated with `controlled_time_of_departure`, `edct_utc`
-   - If `assigned_route` provided: `rad_amendments` record created, `adl_flight_tmi.rad_assigned_route` updated
-   - If same EDCT re-submitted: response status is `skipped`
-   - If different EDCT submitted: response status is `updated`, `octd_utc` preserved
+2. **CTOT assignment**: POST with test callsign + CTOT, verify:
+   - `tmi_flight_control` record created with `ctd_utc` = CTOT, `ctl_type='CTP'`
+   - Derived EOBT = CTOT - taxi_ref stored in `adl_flight_times.etd_utc`
+   - `sp_CalculateETA` recalculated ETA from CTOT
+   - Waypoint ETAs updated in `adl_flight_waypoints`
+   - Boundary crossings updated in `adl_flight_planned_crossings`
+   - `swim_flights` updated with all recalculated times
+   - Response includes recalculated `estimated_time_of_arrival` and `estimated_elapsed_time`
 
-3. **Auth**: Verify read-only keys can access ETE but not EDCT ingest. Verify keys without `ctp` authority get 403 on EDCT ingest.
+3. **Route assignment**: CTOT + assigned_route, verify:
+   - `rad_amendments` record created, status='ISSUED'
+   - `adl_flight_tmi.rad_assigned_route` updated
+   - `adl_flight_plan.fp_route` NOT touched
+   - `assigned_track` stored in `ctp_flight_control.resolved_nat_track`
+
+4. **Idempotency**: Same CTOT re-submitted → `skipped`, no recalc. Different CTOT → `updated`, full recalc.
+
+5. **Auth**: Read-only keys can access ETE but not CTOT. Keys without `ctp` authority get 403 on CTOT.
