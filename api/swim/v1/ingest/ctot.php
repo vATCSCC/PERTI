@@ -164,10 +164,12 @@ foreach ($assignments as $item) {
              $existing_control['control_id']]
         );
 
-        // Quality improvement: log SQL failure
         if (!$stmt) {
             error_log("CTOT: Step 1 UPDATE failed for callsign $callsign (control_id={$existing_control['control_id']}): " . print_r(sqlsrv_errors(), true));
+            $errors[] = ['callsign' => $callsign, 'flight_uid' => $flight_uid, 'error' => 'TMI control update failed'];
+            continue;
         }
+        if ($stmt) sqlsrv_free_stmt($stmt);
 
         $control_id = (int)$existing_control['control_id'];
         $status = 'updated';
@@ -190,13 +192,14 @@ foreach ($assignments as $item) {
              $flight['estimated_off_block_time'] ?? $flight['etd_utc']]
         );
 
-        // Quality improvement: log SQL failure
         if (!$stmt) {
             error_log("CTOT: Step 1 INSERT failed for callsign $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
+            $errors[] = ['callsign' => $callsign, 'flight_uid' => $flight_uid, 'error' => 'TMI control insert failed'];
+            continue;
         }
 
-        $row = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC) : null;
-        if ($stmt) sqlsrv_free_stmt($stmt);
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
         $control_id = $row ? (int)$row['control_id'] : null;
         $status = 'created';
         $counts['created']++;
@@ -213,8 +216,9 @@ foreach ($assignments as $item) {
         [$eobt_str, $eobt_str, $ctot_str, $flight_uid]
     );
 
-    // Quality improvement: log SQL failure
-    if (!$stmt) {
+    if ($stmt) {
+        sqlsrv_free_stmt($stmt);
+    } else {
         error_log("CTOT: Step 2 UPDATE failed for callsign $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
     }
 
@@ -248,10 +252,11 @@ foreach ($assignments as $item) {
     }
 
     // Store computed_ete_minutes
-    sqlsrv_query($conn_adl,
+    $stmt = sqlsrv_query($conn_adl,
         "UPDATE dbo.adl_flight_times SET computed_ete_minutes = ? WHERE flight_uid = ?",
         [$ete_minutes, $flight_uid]
     );
+    if ($stmt) sqlsrv_free_stmt($stmt);
 
     // ========================================================================
     // Step 4: Waypoint ETA recalc (inline SQL)
@@ -274,8 +279,9 @@ foreach ($assignments as $item) {
         [(float)$effective_speed, $ctot_str, $flight_uid]
     );
 
-    // Quality improvement: log SQL failure
-    if (!$stmt) {
+    if ($stmt) {
+        sqlsrv_free_stmt($stmt);
+    } else {
         error_log("CTOT: Step 4 UPDATE failed for callsign $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
     }
 
@@ -304,8 +310,9 @@ foreach ($assignments as $item) {
                     [$flight_uid]
                 );
 
-                // Quality improvement: log SQL failure
-                if (!$stmt) {
+                if ($stmt) {
+                    sqlsrv_free_stmt($stmt);
+                } else {
                     error_log("CTOT: Step 5 DELETE failed for callsign $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
                 }
 
@@ -324,8 +331,9 @@ foreach ($assignments as $item) {
                          $cx['eta_utc'], $cx['crossing_type']]
                     );
 
-                    // Quality improvement: log SQL failure
-                    if (!$stmt) {
+                    if ($stmt) {
+                        sqlsrv_free_stmt($stmt);
+                    } else {
                         error_log("CTOT: Step 5 INSERT failed for callsign $callsign (flight_uid=$flight_uid, boundary={$cx['boundary_code']}): " . print_r(sqlsrv_errors(), true));
                     }
                 }
@@ -361,8 +369,9 @@ foreach ($assignments as $item) {
          $flight_uid]
     );
 
-    // Quality improvement: log SQL failure
-    if (!$stmt) {
+    if ($stmt) {
+        sqlsrv_free_stmt($stmt);
+    } else {
         error_log("CTOT: Step 6 UPDATE failed for callsign $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
     }
 
@@ -395,7 +404,7 @@ foreach ($assignments as $item) {
     // ========================================================================
     // Step 8: adl_flight_tmi sync (VATSIM_ADL)
     // ========================================================================
-    $tmi_update_fields = "ctd_utc = ?, edct_utc = ?, delay_minutes = ?, ctl_type = 'CTP'";
+    $tmi_update_fields = "ctd_utc = ?, edct_utc = ?, program_delay_min = ?, ctl_type = 'CTP'";
     $tmi_params = [$eobt_str, $eobt_str, $delay_minutes];
 
     if ($route_amendment_id) {
@@ -410,8 +419,9 @@ foreach ($assignments as $item) {
         $tmi_params
     );
 
-    // Quality improvement: log SQL failure
-    if (!$stmt) {
+    if ($stmt) {
+        sqlsrv_free_stmt($stmt);
+    } else {
         error_log("CTOT: Step 8 UPDATE failed for callsign $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
     }
 
@@ -451,8 +461,9 @@ foreach ($assignments as $item) {
                 $ctp_params
             );
 
-            // Quality improvement: log SQL failure
-            if (!$stmt) {
+            if ($stmt) {
+                sqlsrv_free_stmt($stmt);
+            } else {
                 error_log("CTOT: Step 9 UPDATE failed for callsign $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
             }
         }
