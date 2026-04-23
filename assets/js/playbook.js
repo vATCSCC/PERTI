@@ -70,6 +70,10 @@
     // Route analysis state
     var activeAnalysisRouteId = null;
 
+    // Route table sort state
+    var routeSortColumn = null;   // column key or null
+    var routeSortAsc = true;      // true = ascending
+
     // Throughput toggle state
     var throughputEnabled = false;
     var throughputData = null;
@@ -1257,7 +1261,7 @@
             html += '<div class="d-flex justify-content-between align-items-center mb-1">';
             html += '<span class="pb-select-all" id="pb_select_all">' + t('playbook.selectAll') + '</span>';
             html += '<div class="d-flex align-items-center">';
-            html += '<span style="font-size:0.68rem;color:#999;">' + routes.length + ' ' + t('playbook.routes').toLowerCase() + '</span>';
+            html += '<span style="font-size:0.68rem;color:#999;" id="pb_route_count_display">' + routes.length + ' ' + t('playbook.routes').toLowerCase() + '</span>';
             html += '<div class="pb-view-toggle" id="pb_view_toggle">';
             html += '<button data-view="standard" class="' + (routeViewMode === 'standard' ? 'active' : '') + '" title="' + t('playbook.standardView') + '"><i class="fas fa-list"></i></button>';
             html += '<button data-view="consolidated" class="' + (routeViewMode === 'consolidated' ? 'active' : '') + '" title="' + t('playbook.consolidateRoutes') + '"><i class="fas fa-compress-arrows-alt"></i></button>';
@@ -1309,10 +1313,44 @@
     }
 
     // ── Standard route table (original view) ──
+
+    function sortIndicator(col) {
+        if (routeSortColumn !== col) return ' <i class="fas fa-sort" style="font-size:0.5rem;opacity:0.3;"></i>';
+        return routeSortAsc
+            ? ' <i class="fas fa-sort-up" style="font-size:0.5rem;opacity:0.8;"></i>'
+            : ' <i class="fas fa-sort-down" style="font-size:0.5rem;opacity:0.8;"></i>';
+    }
+
+    function getRouteSortValue(r, col) {
+        switch (col) {
+            case 'origin':       return (r.origin_airports || r.origin || '').toUpperCase();
+            case 'orig_tracon':  return (r.origin_tracons || '').toUpperCase();
+            case 'orig_artcc':   return (r.origin_artccs || '').toUpperCase();
+            case 'route':        return (r.route_string || '').toUpperCase();
+            case 'dest':         return (r.dest_airports || r.dest || '').toUpperCase();
+            case 'dest_tracon':  return (r.dest_tracons || '').toUpperCase();
+            case 'dest_artcc':   return (r.dest_artccs || '').toUpperCase();
+            case 'traversed':    return (r.traversed_artccs || '').toUpperCase();
+            case 'remarks':      return (r.remarks || '').toUpperCase();
+            default: return '';
+        }
+    }
+
     function renderStandardTableHtml(routes, hasSearch, hasGroups) {
         var html = '';
         var sortedRoutes = routes.slice();
-        if (hasGroups) {
+
+        // Apply column sort (takes priority over group sort)
+        if (routeSortColumn) {
+            var dir = routeSortAsc ? 1 : -1;
+            sortedRoutes.sort(function(a, b) {
+                var va = getRouteSortValue(a, routeSortColumn);
+                var vb = getRouteSortValue(b, routeSortColumn);
+                if (va < vb) return -1 * dir;
+                if (va > vb) return 1 * dir;
+                return 0;
+            });
+        } else if (hasGroups) {
             sortedRoutes.sort(function(a, b) {
                 var ga = getRouteGroupIndex(a.route_id);
                 var gb = getRouteGroupIndex(b.route_id);
@@ -1327,14 +1365,14 @@
         html += '<table class="pb-route-table"><thead><tr>';
         html += '<th class="pb-route-check" style="width:24px"><input type="checkbox" id="pb_check_all"></th>';
         if (hasGroups) html += '<th style="width:8px;padding:0;"></th>';
-        html += '<th style="width:8%">' + t('playbook.table.origin') + '</th>';
-        html += '<th style="width:3.5%">' + t('playbook.table.tracon') + '</th>';
-        html += '<th style="width:4.5%">' + t('playbook.table.artcc') + '</th>';
-        html += '<th>' + t('playbook.routeString') + '</th>';
-        html += '<th style="width:8%">' + t('playbook.table.dest') + '</th>';
-        html += '<th style="width:3.5%">' + t('playbook.table.tracon') + '</th>';
-        html += '<th style="width:4.5%">' + t('playbook.table.artcc') + '</th>';
-        html += '<th style="width:7%">' + t('playbook.table.traversed') + '</th>';
+        html += '<th style="width:8%;" class="pb-sort-header" data-sort-col="origin">' + t('playbook.table.origin') + sortIndicator('origin') + '</th>';
+        html += '<th style="width:3.5%;" class="pb-sort-header" data-sort-col="orig_tracon">' + t('playbook.table.tracon') + sortIndicator('orig_tracon') + '</th>';
+        html += '<th style="width:4.5%;" class="pb-sort-header" data-sort-col="orig_artcc">' + t('playbook.table.artcc') + sortIndicator('orig_artcc') + '</th>';
+        html += '<th class="pb-sort-header" data-sort-col="route">' + t('playbook.routeString') + sortIndicator('route') + '</th>';
+        html += '<th style="width:8%;" class="pb-sort-header" data-sort-col="dest">' + t('playbook.table.dest') + sortIndicator('dest') + '</th>';
+        html += '<th style="width:3.5%;" class="pb-sort-header" data-sort-col="dest_tracon">' + t('playbook.table.tracon') + sortIndicator('dest_tracon') + '</th>';
+        html += '<th style="width:4.5%;" class="pb-sort-header" data-sort-col="dest_artcc">' + t('playbook.table.artcc') + sortIndicator('dest_artcc') + '</th>';
+        html += '<th style="width:7%;" class="pb-sort-header" data-sort-col="traversed">' + t('playbook.table.traversed') + sortIndicator('traversed') + '</th>';
         html += '<th style="width:3%">' + t('playbook.table.remarks') + '</th>';
         html += '</tr></thead><tbody>';
 
@@ -1662,6 +1700,8 @@
         selectedRouteIds.clear();
         routeGroups = [];
         routeViewMode = 'standard';
+        routeSortColumn = null;
+        routeSortAsc = true;
         activeAnalysisRouteId = null;
         if (typeof RouteAnalysisPanel !== 'undefined') RouteAnalysisPanel.clear();
         throughputEnabled = false;
@@ -1700,6 +1740,13 @@
      * Apply filtered selection using AND across dimensions, OR within each.
      * Called whenever any checkbox dropdown changes.
      */
+    function hasActiveSelectFilters() {
+        return getCheckedValues('pb_select_origin').length > 0 ||
+               getCheckedValues('pb_select_dest').length > 0 ||
+               getCheckedValues('pb_select_region').length > 0 ||
+               ($('#pb_select_route_text').val() || '').trim().length > 0;
+    }
+
     function applyFilteredSelection() {
         if (!activePlayData || !activePlayData.routes) return;
         var routes = activePlayData.routes;
@@ -1709,10 +1756,11 @@
         var regionVals = getCheckedValues('pb_select_region');
         var textVal = ($('#pb_select_route_text').val() || '').trim().toUpperCase();
 
-        // No filters active → clear selection (all routes visible)
+        // No filters active → clear selection, show all rows
         if (!origVals.length && !destVals.length && !regionVals.length && !textVal) {
             selectedRouteIds.clear();
             updateCheckboxes();
+            showAllRouteRows();
             plotOnMap();
             return;
         }
@@ -1728,7 +1776,59 @@
         });
 
         updateCheckboxes();
+        hideNonMatchingRouteRows();
         plotOnMap();
+    }
+
+    /**
+     * Hide route table rows that don't match the current filter selection.
+     */
+    function hideNonMatchingRouteRows() {
+        // Standard view: rows have data-route-id
+        $('.pb-route-table tbody tr[data-route-id]').each(function() {
+            var rid = parseInt($(this).attr('data-route-id'));
+            $(this).css('display', selectedRouteIds.has(rid) ? 'table-row' : 'none');
+        });
+        // Consolidated view: rows have data-route-ids (comma-separated)
+        $('.pb-route-table tbody tr[data-route-ids]').each(function() {
+            var ids = $(this).attr('data-route-ids').split(',').map(Number);
+            var anyMatch = ids.some(function(rid) { return selectedRouteIds.has(rid); });
+            $(this).css('display', anyMatch ? 'table-row' : 'none');
+        });
+        // Compact view: same data-route-id and data-route-ids on compact tables
+        $('.pb-compact-table tbody tr[data-route-id]').each(function() {
+            var rid = parseInt($(this).attr('data-route-id'));
+            $(this).css('display', selectedRouteIds.has(rid) ? 'table-row' : 'none');
+        });
+        $('.pb-compact-table tbody tr[data-route-ids]').each(function() {
+            var ids = $(this).attr('data-route-ids').split(',').map(Number);
+            var anyMatch = ids.some(function(rid) { return selectedRouteIds.has(rid); });
+            $(this).css('display', anyMatch ? 'table-row' : 'none');
+        });
+        // Update visible count
+        updateFilteredRouteCount();
+    }
+
+    /**
+     * Show all route table rows (when filters are cleared).
+     */
+    function showAllRouteRows() {
+        $('.pb-route-table tbody tr, .pb-compact-table tbody tr').css('display', '');
+        updateFilteredRouteCount();
+    }
+
+    /**
+     * Update the route count display to reflect filtered vs total.
+     */
+    function updateFilteredRouteCount() {
+        var routes = (activePlayData && activePlayData.routes) || [];
+        var $countEl = $('#pb_route_count_display');
+        if (!$countEl.length) return;
+        if (hasActiveSelectFilters() && selectedRouteIds.size < routes.length) {
+            $countEl.text(selectedRouteIds.size + ' / ' + routes.length + ' ' + t('playbook.routes').toLowerCase());
+        } else {
+            $countEl.text(routes.length + ' ' + t('playbook.routes').toLowerCase());
+        }
     }
 
     function updateCheckboxes() {
@@ -5214,6 +5314,7 @@
             $('#pb_select_route_text').val('');
             selectedRouteIds.clear();
             updateCheckboxes();
+            showAllRouteRows();
             plotOnMap();
         });
 
@@ -5643,6 +5744,24 @@
             }
         });
 
+        // ── Column sort headers ──
+        $(document).on('click', '.pb-sort-header', function() {
+            var col = $(this).data('sort-col');
+            if (routeSortColumn === col) {
+                routeSortAsc = !routeSortAsc;
+            } else {
+                routeSortColumn = col;
+                routeSortAsc = true;
+            }
+            if (activePlayData) {
+                renderRouteTable(activePlayData, activePlayData.routes || []);
+                // Re-apply filter visibility if filters active
+                if (hasActiveSelectFilters()) {
+                    hideNonMatchingRouteRows();
+                }
+            }
+        });
+
         // ── Playbook export buttons ──
         $(document).on('click', '#pb_export_geojson', exportPlaybookGeoJSON);
         $(document).on('click', '#pb_export_kml', exportPlaybookKML);
@@ -5677,9 +5796,21 @@
             $(this).toggleClass('active');
             var show = $(this).hasClass('active');
             $('#pb_map_section').toggleClass('pb-collapsed', !show);
-            // Resize map when re-shown so tiles render correctly
-            if (show && window.graphic_map) {
-                setTimeout(function() { window.graphic_map.resize(); }, 350);
+            // Disable draggable and clear drag positions in collapsed mode
+            var $overlays = $('#pb_catalog_overlay, #pb_info_overlay, #pb_builder_overlay');
+            if (!show) {
+                $overlays.css({ top: '', left: '', right: '' });
+                if ($.fn.draggable) {
+                    $overlays.filter('.ui-draggable').draggable('disable');
+                }
+            } else {
+                if ($.fn.draggable) {
+                    $overlays.filter('.ui-draggable').draggable('enable');
+                }
+                // Resize map when re-shown so tiles render correctly
+                if (window.graphic_map) {
+                    setTimeout(function() { window.graphic_map.resize(); }, 350);
+                }
             }
         });
         $(document).on('click', '#pb_toggle_routes', function() {
@@ -5880,7 +6011,12 @@
             var mode = $(this).data('view');
             if (mode === routeViewMode) return;
             routeViewMode = mode;
-            if (activePlayData) renderRouteTable(activePlayData, activePlayData.routes || []);
+            if (activePlayData) {
+                renderRouteTable(activePlayData, activePlayData.routes || []);
+                if (hasActiveSelectFilters()) {
+                    hideNonMatchingRouteRows();
+                }
+            }
         });
 
         // Consolidated view: group checkbox selects/deselects all constituent routes
