@@ -82,8 +82,12 @@ Uses the canonical `sp_CalculateETA` (V3.5) — the same phase-based distance/sp
 4. Derive arrival:
    ETA = ETOT + ETE
 
-5. Store TOBT:
-   Update swim_flights.target_off_block_time for the matched flight (if CTP-provided)
+5. Store computed values:
+   swim_flights.target_off_block_time    = TOBT (if CTP-provided)
+   swim_flights.estimated_takeoff_time   = ETOT (TOBT + taxi)
+   swim_flights.computed_ete_minutes     = ETE  (computed enroute time)
+   adl_flight_times.estimated_takeoff_time = ETOT
+   adl_flight_times.computed_ete_minutes   = ETE
 ```
 
 **Consistency guarantee**: ETE uses the exact same aircraft performance lookup, distance sources, wind adjustments, and phase modeling as `sp_CalculateETABatch`. The only difference is anchoring to CTP's TOBT (via `@departure_override`) instead of `@now`.
@@ -250,13 +254,16 @@ API Request
   │            CTOT is only stored in swim_flights.target_takeoff_time.
   │
   ├─2→ adl_flight_times (VATSIM_ADL) — update departure times
-  │      SET etd_utc = derived EOBT, std_utc = derived EOBT
+  │      SET etd_utc = derived EOBT, std_utc = derived EOBT,
+  │          estimated_takeoff_time = CTOT
   │
   ├─3→ sp_CalculateETA (VATSIM_ADL) — recalculate ETA from CTOT
   │      EXEC sp_CalculateETA @flight_uid, @departure_override = CTOT
   │      Recomputes: eta_utc, eta_runway_utc, eta_method, eta_confidence,
   │                  eta_dist_source, tod_dist_nm, tod_eta_utc
   │      Uses CTOT as departure anchor via @departure_override (not @now)
+  │      Then: computed_ete_minutes = DATEDIFF(MINUTE, CTOT, recalculated eta_utc)
+  │            → stored in adl_flight_times.computed_ete_minutes
   │
   ├─4→ Waypoint ETA recalc (VATSIM_ADL) — inline SQL, NOT the batch SP
   │      sp_CalculateWaypointETABatch_Tiered cannot target a single flight
@@ -279,8 +286,10 @@ API Request
   │        target_takeoff_time = CTOT (wheels-up, FIXM: TTOT),
   │        controlled_time_of_departure = derived EOBT (gate, FIXM: CTD),
   │        estimated_off_block_time = derived EOBT,
+  │        estimated_takeoff_time = CTOT (ETOT = CTOT when controlled),
   │        edct_utc = derived EOBT,
   │        estimated_time_of_arrival = new ETA,
+  │        computed_ete_minutes = recalculated EET from step 3,
   │        controlled_time_of_arrival = CTA (if provided),
   │        original_edct (set once), delay_minutes, ctl_type
   │
@@ -408,10 +417,10 @@ The CTOT ingest checks `canWriteField('ctp')` at the API level, then uses **serv
 |-------------|----------------|---------------------|-------|
 | Target Off-Block Time (TOBT) | `tobt` | `target_off_block_time` | From migration 014 |
 | Estimated Off-Block Time (EOBT) | `eobt` / `estimated_off_block_time` | `estimated_off_block_time` | = CTOT - taxi_ref |
-| Estimated Take-Off Time (ETOT) | `etot` | Computed (TOBT + taxi) | Not stored |
+| Estimated Take-Off Time (ETOT) | `etot` | `estimated_takeoff_time` | **New column**. EOBT + taxi_ref |
 | Controlled Take-Off Time (CTOT) | `ctot` | `target_takeoff_time` | Wheels-up. From migration 014 |
 | Controlled Time of Departure (CTD) | `controlled_time_of_departure` | `controlled_time_of_departure` | = EOBT (gate departure) |
-| Estimated Elapsed Time | `estimated_elapsed_time` | Computed via sp_CalculateETA | Not stored |
+| Estimated Elapsed Time (EET) | `estimated_elapsed_time` | `computed_ete_minutes` | **New column**. sp_CalculateETA result. Distinct from filed `ete_minutes` |
 | Estimated Time of Arrival (ETA) | `estimated_time_of_arrival` | `estimated_time_of_arrival` | |
 | Controlled Time of Arrival (CTA) | `cta_utc` | `controlled_time_of_arrival` | |
 | EDCT | `edct_utc` | `edct_utc` | = EOBT (gate departure) |
@@ -549,12 +558,22 @@ These modifications are needed before the API endpoints can be implemented:
    - All internal `@now` references must use `ISNULL(@departure_override, SYSUTCDATETIME())`
    - Default NULL preserves backward compatibility (all existing callers unaffected)
 
-2. **`ctp_flight_control` — add `assigned_nat_track` column**
+2. **`swim_flights` — add `estimated_takeoff_time` and `computed_ete_minutes` columns**
+   - `ALTER TABLE dbo.swim_flights ADD estimated_takeoff_time DATETIME2(0) NULL` — ETOT (EOBT + taxi)
+   - `ALTER TABLE dbo.swim_flights ADD computed_ete_minutes SMALLINT NULL` — computed EET from sp_CalculateETA
+   - Note: existing `ete_minutes` column is the **pilot-filed** ETE and must NOT be overwritten
+
+3. **`adl_flight_times` — add `estimated_takeoff_time` and `computed_ete_minutes` columns**
+   - `ALTER TABLE dbo.adl_flight_times ADD estimated_takeoff_time DATETIME2(0) NULL` — ETOT
+   - `ALTER TABLE dbo.adl_flight_times ADD computed_ete_minutes SMALLINT NULL` — computed EET
+   - Note: existing `ete_minutes` column in adl_flight_times is the **pilot-filed** value
+
+4. **`ctp_flight_control` — add `assigned_nat_track` column**
    - Migration 045 created this table but has no NAT track column
    - Add: `ALTER TABLE ctp_flight_control ADD assigned_nat_track VARCHAR(4) NULL`
    - Pattern: `^[A-Z]{1,2}\d?$` (e.g., A, B, SM1)
 
-3. **`tmi_flight_control.ctl_type` CHECK constraint — verify 'CTP' is included**
+5. **`tmi_flight_control.ctl_type` CHECK constraint — verify 'CTP' is included**
    - Migration 003 CHECK does not include 'CTP', but `ingest/ctp.php` uses it
    - Verify live DB has the updated constraint; if not, apply the ALTER from the CHECK Constraint Note section below
 
@@ -564,7 +583,7 @@ These modifications are needed before the API endpoints can be implemented:
 
 - **No auto-delivery**: CTOTs/EDCTs are stored but not automatically pushed to pilots. Operator manually triggers via EDCTDelivery channels.
 - **No automated route compliance**: `rad_amendments` status remains 'ISSUED' until manually resolved. Pilot re-file updates route naturally via ADL ingest.
-- **No new database tables**: Uses existing tables. Two minor schema changes needed (see Prerequisites above).
+- **No new database tables**: Uses existing tables. Schema changes for new columns needed (see Prerequisites above).
 - **No new authority groups**: Uses existing `ctp` authority from `swim_config.php`.
 - **No WebSocket push**: May be added later; initial version is REST-only.
 - **No trajectory simulation**: ETE uses the existing phase-based distance/speed model, not physics-based trajectory prediction. This is consistent with all other PERTI ETA consumers.
