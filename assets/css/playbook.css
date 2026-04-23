@@ -720,10 +720,57 @@
     text-align: center;
 }
 
-/* Airport cells: space-separated codes wrap naturally */
-.pb-route-table td.pb-rt-airports {
-    font-size: 0.7rem;
-    line-height: 1.35;
+/* Stacked origin/dest cells: airport + tracon + center */
+.pb-route-table td.pb-rt-stacked {
+    padding: 2px 6px;
+    line-height: 1.2;
+}
+.pb-route-table .pb-rt-apt {
+    font-size: 0.73rem;
+    font-weight: 600;
+}
+.pb-route-table .pb-rt-fac {
+    font-size: 0.62rem;
+    color: #888;
+    line-height: 1.3;
+}
+
+/* Selected row highlight */
+.pb-route-table tr.pb-row-selected td,
+.pb-compact-table tr.pb-row-selected td {
+    background: rgba(35, 155, 205, 0.08);
+}
+
+/* Inline action bar row */
+.pb-route-table tr.pb-action-row td,
+.pb-compact-table tr.pb-action-row td {
+    background: #f0f6fa;
+    border-bottom: 1px solid #d0dfe8;
+    padding: 3px 6px;
+}
+.pb-row-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.pb-action-btn {
+    font-size: 0.68rem;
+    font-family: 'Inconsolata', monospace;
+    padding: 2px 8px;
+    border: 1px solid #c0d0dd;
+    border-radius: 3px;
+    background: #fff;
+    color: #444;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pb-action-btn:hover {
+    background: #239BCD;
+    color: #fff;
+    border-color: #239BCD;
+}
+.pb-action-btn i {
+    margin-right: 2px;
 }
 
 /* ── Action Buttons ──────────────────────────────────────────────── */
