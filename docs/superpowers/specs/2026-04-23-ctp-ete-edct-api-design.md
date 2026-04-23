@@ -56,7 +56,9 @@ CTP provides TOBT per flight. PERTI computes ETE/ETA using the same ETA engine a
 
 ### ETE Computation
 
-Uses the canonical `sp_CalculateETA` (V3.5) — the same phase-based distance/speed model used by all PERTI ETA calculations:
+Uses the canonical `sp_CalculateETA` (V3.5) — the same phase-based distance/speed model used by all PERTI ETA calculations.
+
+> **Prerequisite**: `sp_CalculateETA` currently only accepts `@flight_uid` and hardcodes `@now = SYSUTCDATETIME()`. It does NOT read `etd_utc` as a departure basis for prefiles. A new optional parameter `@departure_override DATETIME2(0) = NULL` must be added so we can anchor the computation to the CTP-provided TOBT instead of wall-clock time. When `@departure_override` is provided, all internal references to `@now` (departure anchor, TMI delay offset, ETA derivation) use the override instead.
 
 ```
 1. Resolve departure time:
@@ -66,7 +68,7 @@ Uses the canonical `sp_CalculateETA` (V3.5) — the same phase-based distance/sp
    taxi_ref = airport_taxi_reference.unimpeded_taxi_sec (departure airport)
    ETOT = TOBT + taxi_ref      (Estimated Take-Off Time)
 
-3. Compute flight time (sp_CalculateETA methods):
+3. Compute flight time (sp_CalculateETA with @departure_override = ETOT):
    Aircraft performance = fn_GetAircraftPerformance(aircraft_type)
      → BADA > OpenAP > category defaults > 280/450/280 kts
    Route distance = route_total_nm > gcd_nm
@@ -81,10 +83,10 @@ Uses the canonical `sp_CalculateETA` (V3.5) — the same phase-based distance/sp
    ETA = ETOT + ETE
 
 5. Store TOBT:
-   Update swim_flights.tobt for the matched flight (if CTP-provided)
+   Update swim_flights.target_off_block_time for the matched flight (if CTP-provided)
 ```
 
-**Consistency guarantee**: ETE uses the exact same aircraft performance lookup, distance sources, wind adjustments, and phase modeling as `sp_CalculateETABatch`. The only difference is anchoring to CTP's TOBT instead of `@now`.
+**Consistency guarantee**: ETE uses the exact same aircraft performance lookup, distance sources, wind adjustments, and phase modeling as `sp_CalculateETABatch`. The only difference is anchoring to CTP's TOBT (via `@departure_override`) instead of `@now`.
 
 ### Response
 
@@ -134,7 +136,7 @@ Uses the canonical `sp_CalculateETA` (V3.5) — the same phase-based distance/sp
 | `departure_airport` | swim_flights.fp_dept_icao | FIXM alias |
 | `arrival_airport` | swim_flights.fp_dest_icao | FIXM alias |
 | `aircraft_type` | swim_flights.aircraft_type | Direct |
-| `tobt` | CTP-provided or existing etd_utc | ISO 8601 |
+| `tobt` | CTP-provided or existing etd_utc | ISO 8601. Stored as `swim_flights.target_off_block_time` |
 | `etot` | TOBT + taxi_ref | Computed, ISO 8601 |
 | `estimated_elapsed_time` | sp_CalculateETA output | Minutes (climb+cruise+descent) |
 | `estimated_time_of_arrival` | ETOT + ETE | ISO 8601 |
@@ -214,9 +216,16 @@ Pattern: `swim_init_auth(true, true)` then `$auth->canWriteField('ctp')`.
 
 ```
 CTOT  (from CTP)              — Controlled Take-Off Time (wheels-up)
+                                 Stored: swim_flights.target_takeoff_time
 EOBT  = CTOT - taxi_ref       — Estimated Off-Block Time (pushback)
-EDCT  = EOBT                  — Expected Departure Clearance Time (gate)
-ETE   = sp_CalculateETA(CTOT) — Enroute time from CTOT (climb+cruise+descent)
+                                 Stored: swim_flights.estimated_off_block_time,
+                                         swim_flights.controlled_time_of_departure,
+                                         swim_flights.edct_utc,
+                                         tmi_flight_control.ctd_utc,
+                                         adl_flight_times.etd_utc
+EDCT  = EOBT                  — Expected Departure Clearance Time (= gate departure)
+ETE   = sp_CalculateETA(@flight_uid, @departure_override=CTOT)
+                               — Enroute time from CTOT (climb+cruise+descent)
 ETA   = CTOT + ETE            — Estimated Time of Arrival
 delay = CTOT - original_etot  — Delay in minutes vs original schedule
 ```
@@ -232,32 +241,48 @@ API Request
   │
   ├─1→ tmi_flight_control (VATSIM_TMI) — canonical TMI record
   │      INSERT or UPDATE with ctl_type='CTP'
-  │      Columns: flight_uid, callsign, ctd_utc=CTOT, octd_utc (preserved),
-  │               orig_etd_utc, program_delay_min, ctl_type, ctl_elem,
+  │      Columns: flight_uid, callsign,
+  │               ctd_utc = derived EOBT (gate departure, NOT CTOT),
+  │               octd_utc (preserved), orig_etd_utc,
+  │               program_delay_min, ctl_type, ctl_elem,
   │               dep_airport, arr_airport, control_assigned_utc
+  │      NOTE: tmi_flight_control has no CTOT column. ctd_utc = gate departure.
+  │            CTOT is only stored in swim_flights.target_takeoff_time.
   │
   ├─2→ adl_flight_times (VATSIM_ADL) — update departure times
   │      SET etd_utc = derived EOBT, std_utc = derived EOBT
   │
   ├─3→ sp_CalculateETA (VATSIM_ADL) — recalculate ETA from CTOT
+  │      EXEC sp_CalculateETA @flight_uid, @departure_override = CTOT
   │      Recomputes: eta_utc, eta_runway_utc, eta_method, eta_confidence,
   │                  eta_dist_source, tod_dist_nm, tod_eta_utc
-  │      Uses CTOT as departure anchor (not @now)
+  │      Uses CTOT as departure anchor via @departure_override (not @now)
   │
-  ├─4→ Waypoint ETA recalc (VATSIM_ADL) — recalculate all waypoint crossing times
-  │      Updates adl_flight_waypoints.eta_utc for all waypoints
-  │      Based on CTOT + cumulative route distance / effective speed
+  ├─4→ Waypoint ETA recalc (VATSIM_ADL) — inline SQL, NOT the batch SP
+  │      sp_CalculateWaypointETABatch_Tiered cannot target a single flight
+  │      (it only accepts @tier + @max_flights parameters).
+  │      Instead, use inline SQL:
+  │        UPDATE adl_flight_waypoints
+  │        SET eta_utc = DATEADD(SECOND,
+  │              distance_from_dep_nm / @effective_speed_kts * 3600,
+  │              @ctot)
+  │        WHERE flight_uid = @flight_uid
+  │      @effective_speed_kts from fn_GetAircraftPerformance + wind adjustment
   │
   ├─5→ Boundary crossing recalc (VATSIM_GIS via GISService)
   │      Recalculates adl_flight_planned_crossings
-  │      PostGIS route-boundary intersection with new departure time
+  │      GISService::calculateCrossingEtas() accepts optional $currentTime
+  │      parameter — pass CTOT as the departure anchor
   │
   ├─6→ swim_flights (SWIM_API) — push all recalculated times
-  │      UPDATE: controlled_time_of_departure=CTOT,
-  │              estimated_off_block_time=EOBT, edct_utc=EOBT,
-  │              estimated_time_of_arrival=new ETA,
-  │              controlled_time_of_arrival=CTA (if provided),
-  │              original_edct (set once), delay_minutes, ctl_type
+  │      UPDATE:
+  │        target_takeoff_time = CTOT (wheels-up, FIXM: TTOT),
+  │        controlled_time_of_departure = derived EOBT (gate, FIXM: CTD),
+  │        estimated_off_block_time = derived EOBT,
+  │        edct_utc = derived EOBT,
+  │        estimated_time_of_arrival = new ETA,
+  │        controlled_time_of_arrival = CTA (if provided),
+  │        original_edct (set once), delay_minutes, ctl_type
   │
   ├─7→ rad_amendments (VATSIM_TMI) — if assigned_route provided
   │      INSERT: callsign, origin, destination, original_route, assigned_route,
@@ -265,12 +290,15 @@ API Request
   │
   ├─8→ adl_flight_tmi (VATSIM_ADL) — route + TMI sync
   │      UPDATE: rad_amendment_id, rad_assigned_route (if route provided)
-  │      UPDATE: ctd_utc, program_delay_min, ctl_type (TMI fields from step 1)
+  │      UPDATE: ctd_utc = derived EOBT, program_delay_min, ctl_type
   │
   └─9→ ctp_flight_control (VATSIM_TMI) — if route_segments/track provided
          UPDATE: seg_na_route, seg_oceanic_route, seg_eu_route,
-                 seg_*_status='VALIDATED', edct_utc, tmi_control_id,
-                 resolved_nat_track (if assigned_track provided)
+                 seg_*_status='VALIDATED', edct_utc = derived EOBT,
+                 tmi_control_id,
+                 assigned_nat_track (if assigned_track provided)
+         NOTE: assigned_nat_track column must be added via migration
+               (does not exist in current schema from migration 045)
 ```
 
 Steps 1-9 happen synchronously per flight. Batch size capped at 50.
@@ -325,7 +353,7 @@ Result `status` values: `created`, `updated`, `skipped` (idempotent same-CTOT), 
 
 ### Idempotency
 
-- Same callsign + same CTOT as existing `tmi_flight_control.ctd_utc` → `skipped` (no recalc)
+- Same callsign + same derived EOBT as existing `tmi_flight_control.ctd_utc` → `skipped` (no recalc)
 - Same callsign + different CTOT → `updated` (octd_utc preserved, full recalc)
 - New callsign (no existing control) → `created` (full recalc)
 
@@ -339,7 +367,7 @@ When `assigned_route` is provided:
 4. **Compliance is manual/future** — no automated compliance daemon exists. When the pilot accepts and re-files via VATSIM, the updated route flows through the normal ADL ingest pipeline.
 
 When `assigned_track` is provided:
-- Stored in `ctp_flight_control.resolved_nat_track`
+- Stored in `ctp_flight_control.assigned_nat_track` (**new column — requires migration**)
 - Pattern validated: `^[A-Z]{1,2}\d?$` (A, B, SM1, etc.)
 
 When `route_segments` is provided (CTP-specific):
@@ -376,17 +404,18 @@ The CTOT ingest checks `canWriteField('ctp')` at the API level, then uses **serv
 
 ## FIXM 4.3.0 Alignment
 
-| FIXM Concept | API Field Name | swim_flights Column |
-|-------------|----------------|---------------------|
-| Target Off-Block Time | `tobt` | `tobt` |
-| Estimated Off-Block Time | `eobt` / `estimated_off_block_time` | `estimated_off_block_time` |
-| Estimated Take-Off Time | `etot` | Computed (TOBT + taxi) |
-| Controlled Take-Off Time | `ctot` | `controlled_time_of_departure` |
-| Estimated Elapsed Time | `estimated_elapsed_time` | Computed via sp_CalculateETA |
-| Estimated Time of Arrival | `estimated_time_of_arrival` | `estimated_time_of_arrival` |
-| Controlled Time of Arrival | `cta_utc` | `controlled_time_of_arrival` |
-| EDCT | `edct_utc` | `edct_utc` |
-| Original EDCT | `original_edct` | `original_edct` |
+| FIXM Concept | API Field Name | swim_flights Column | Notes |
+|-------------|----------------|---------------------|-------|
+| Target Off-Block Time (TOBT) | `tobt` | `target_off_block_time` | From migration 014 |
+| Estimated Off-Block Time (EOBT) | `eobt` / `estimated_off_block_time` | `estimated_off_block_time` | = CTOT - taxi_ref |
+| Estimated Take-Off Time (ETOT) | `etot` | Computed (TOBT + taxi) | Not stored |
+| Controlled Take-Off Time (CTOT) | `ctot` | `target_takeoff_time` | Wheels-up. From migration 014 |
+| Controlled Time of Departure (CTD) | `controlled_time_of_departure` | `controlled_time_of_departure` | = EOBT (gate departure) |
+| Estimated Elapsed Time | `estimated_elapsed_time` | Computed via sp_CalculateETA | Not stored |
+| Estimated Time of Arrival (ETA) | `estimated_time_of_arrival` | `estimated_time_of_arrival` | |
+| Controlled Time of Arrival (CTA) | `cta_utc` | `controlled_time_of_arrival` | |
+| EDCT | `edct_utc` | `edct_utc` | = EOBT (gate departure) |
+| Original EDCT | `original_edct` | `original_edct` | Set once |
 
 ---
 
@@ -461,9 +490,11 @@ Wind adjustments applied when |wind| > 5 kts (noise filter).
 
 | Procedure | Database | Called By |
 |-----------|----------|-----------|
-| `sp_CalculateETA` | VATSIM_ADL | Both endpoints (ETE query + CTOT recalc) |
-| `fn_GetAircraftPerformance` | VATSIM_ADL | Via sp_CalculateETA |
-| `sp_CalculateWaypointETABatch_Tiered` | VATSIM_ADL | CTOT recalc (step 4) |
+| `sp_CalculateETA` | VATSIM_ADL | Both endpoints (ETE query + CTOT recalc). Requires new `@departure_override` parameter. |
+| `fn_GetAircraftPerformance` | VATSIM_ADL | Via sp_CalculateETA + waypoint ETA inline SQL |
+| `sp_CalculatePlannedCrossings` | VATSIM_ADL | CTOT recalc (step 5, single-flight boundary crossing recalc) |
+
+> **Note**: `sp_CalculateWaypointETABatch_Tiered` **cannot** target a single flight (accepts only `@tier` + `@max_flights`, no `@flight_uid`). Waypoint ETA recalc (step 4) uses **inline SQL** instead.
 
 ### PostGIS Functions Called
 
@@ -508,11 +539,32 @@ Both new files follow established SWIM endpoint patterns:
 
 ---
 
+## Prerequisites (Schema Changes Required)
+
+These modifications are needed before the API endpoints can be implemented:
+
+1. **`sp_CalculateETA` — add `@departure_override` parameter**
+   - Current signature: `sp_CalculateETA @flight_uid BIGINT`
+   - Required: `sp_CalculateETA @flight_uid BIGINT, @departure_override DATETIME2(0) = NULL`
+   - All internal `@now` references must use `ISNULL(@departure_override, SYSUTCDATETIME())`
+   - Default NULL preserves backward compatibility (all existing callers unaffected)
+
+2. **`ctp_flight_control` — add `assigned_nat_track` column**
+   - Migration 045 created this table but has no NAT track column
+   - Add: `ALTER TABLE ctp_flight_control ADD assigned_nat_track VARCHAR(4) NULL`
+   - Pattern: `^[A-Z]{1,2}\d?$` (e.g., A, B, SM1)
+
+3. **`tmi_flight_control.ctl_type` CHECK constraint — verify 'CTP' is included**
+   - Migration 003 CHECK does not include 'CTP', but `ingest/ctp.php` uses it
+   - Verify live DB has the updated constraint; if not, apply the ALTER from the CHECK Constraint Note section below
+
+---
+
 ## Non-Goals
 
 - **No auto-delivery**: CTOTs/EDCTs are stored but not automatically pushed to pilots. Operator manually triggers via EDCTDelivery channels.
 - **No automated route compliance**: `rad_amendments` status remains 'ISSUED' until manually resolved. Pilot re-file updates route naturally via ADL ingest.
-- **No new database tables**: All storage uses existing tables and columns.
+- **No new database tables**: Uses existing tables. Two minor schema changes needed (see Prerequisites above).
 - **No new authority groups**: Uses existing `ctp` authority from `swim_config.php`.
 - **No WebSocket push**: May be added later; initial version is REST-only.
 - **No trajectory simulation**: ETE uses the existing phase-based distance/speed model, not physics-based trajectory prediction. This is consistent with all other PERTI ETA consumers.
@@ -530,10 +582,11 @@ Both new files follow established SWIM endpoint patterns:
    - Omitted TOBT falls back to existing etd_utc
 
 2. **CTOT assignment**: POST with test callsign + CTOT, verify:
-   - `tmi_flight_control` record created with `ctd_utc` = CTOT, `ctl_type='CTP'`
+   - `tmi_flight_control` record created with `ctd_utc` = derived EOBT (NOT CTOT), `ctl_type='CTP'`
+   - `swim_flights.target_takeoff_time` = CTOT (wheels-up)
    - Derived EOBT = CTOT - taxi_ref stored in `adl_flight_times.etd_utc`
-   - `sp_CalculateETA` recalculated ETA from CTOT
-   - Waypoint ETAs updated in `adl_flight_waypoints`
+   - `sp_CalculateETA` recalculated ETA from CTOT via `@departure_override`
+   - Waypoint ETAs updated in `adl_flight_waypoints` (inline SQL)
    - Boundary crossings updated in `adl_flight_planned_crossings`
    - `swim_flights` updated with all recalculated times
    - Response includes recalculated `estimated_time_of_arrival` and `estimated_elapsed_time`
@@ -542,7 +595,7 @@ Both new files follow established SWIM endpoint patterns:
    - `rad_amendments` record created, status='ISSUED'
    - `adl_flight_tmi.rad_assigned_route` updated
    - `adl_flight_plan.fp_route` NOT touched
-   - `assigned_track` stored in `ctp_flight_control.resolved_nat_track`
+   - `assigned_track` stored in `ctp_flight_control.assigned_nat_track`
 
 4. **Idempotency**: Same CTOT re-submitted → `skipped`, no recalc. Different CTOT → `updated`, full recalc.
 
