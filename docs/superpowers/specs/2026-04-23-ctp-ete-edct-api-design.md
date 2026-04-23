@@ -24,7 +24,7 @@ CTP ──── CTOT + route + track ──→ PERTI (store + immediate recalc 
 CTP ←── recalculated times ────── PERTI
 ```
 
-Both endpoints use SWIM API key authentication under `api/swim/v1/`.
+The ETE endpoint is publicly accessible (no API key required) — flight times are public information. The CTOT endpoint requires SWIM API key authentication with CTP write authority.
 
 ---
 
@@ -34,7 +34,7 @@ Both endpoints use SWIM API key authentication under `api/swim/v1/`.
 
 CTP provides TOBT per flight. PERTI computes ETE/ETA using the same ETA engine as all other PERTI consumers.
 
-**Auth**: SWIM API key (read-only). Pattern: `swim_init_auth(true, false)`.
+**Auth**: Public (no API key required). Pattern: `swim_init_auth(false, false)`. Flight times are public information accessible to all users regardless of organization.
 
 ### Request
 
@@ -157,7 +157,6 @@ Uses the canonical `sp_CalculateETA` (V3.5) — the same phase-based distance/sp
 
 | Code | Condition |
 |------|-----------|
-| 401 | Missing/invalid API key |
 | 400 | Missing `flights`, not an array, empty, exceeds 50 |
 | 400 | Individual record: missing callsign, invalid tobt datetime |
 | 405 | Method not POST |
@@ -608,7 +607,7 @@ These modifications are needed before the API endpoints can be implemented:
 ## Non-Goals
 
 - **No auto-delivery**: CTOTs/EDCTs are stored but not automatically pushed to pilots. Operator manually triggers via EDCTDelivery channels.
-- **No automated route compliance**: `rad_amendments` status remains 'ISSUED' until manually resolved. Pilot re-file updates route naturally via ADL ingest.
+- **No automated route compliance**: `rad_amendments` status remains 'DRAFT' until manually resolved. Pilot re-file updates route naturally via ADL ingest.
 - **No new database tables**: Uses existing tables. Schema changes for new columns needed (see Prerequisites above).
 - **No new authority groups**: Uses existing `ctp` authority from `swim_config.php`.
 - **No WebSocket push**: May be added later; initial version is REST-only.
@@ -644,4 +643,4 @@ These modifications are needed before the API endpoints can be implemented:
 
 4. **Idempotency**: Same CTOT re-submitted → `skipped`, no recalc. Different CTOT → `updated`, full recalc.
 
-5. **Auth**: Read-only keys can access ETE but not CTOT. Keys without `ctp` authority get 403 on CTOT.
+5. **Auth**: ETE endpoint works without API key (public). CTOT requires API key with write + `ctp` authority. Keys without `ctp` authority get 403 on CTOT.
