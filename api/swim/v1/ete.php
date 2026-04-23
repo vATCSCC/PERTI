@@ -48,6 +48,7 @@ if (!$conn_adl) {
 }
 
 $results = [];
+$errors = [];
 $unmatched = [];
 
 foreach ($flights_input as $item) {
@@ -62,7 +63,7 @@ foreach ($flights_input as $item) {
     if (!empty($item['tobt'])) {
         $tobt_str = ete_parse_utc_datetime($item['tobt']);
         if ($tobt_str === null) {
-            $results[] = [
+            $errors[] = [
                 'callsign' => $callsign,
                 'error' => 'Invalid tobt datetime format. Use ISO 8601 (e.g., 2026-04-23T12:00:00Z).'
             ];
@@ -97,7 +98,7 @@ foreach ($flights_input as $item) {
     }
 
     if (!$departure_basis) {
-        $results[] = [
+        $errors[] = [
             'callsign' => $callsign,
             'flight_uid' => $flight_uid,
             'error' => 'No TOBT provided and no existing ETD available for this flight.'
@@ -111,6 +112,14 @@ foreach ($flights_input as $item) {
 
     // ETOT = TOBT + taxi (estimated wheels-up time)
     $tobt_ts = strtotime($departure_basis . ' UTC');
+    if ($tobt_ts === false) {
+        $errors[] = [
+            'callsign' => $callsign,
+            'flight_uid' => $flight_uid,
+            'error' => 'Failed to parse departure basis datetime.'
+        ];
+        continue;
+    }
     $etot_ts = $tobt_ts + $taxi_seconds;
     $etot_str = gmdate('Y-m-d H:i:s', $etot_ts);
     $tobt_iso = gmdate('Y-m-d\TH:i:s\Z', $tobt_ts);
@@ -121,7 +130,11 @@ foreach ($flights_input as $item) {
         "EXEC dbo.sp_CalculateETA @flight_uid = ?, @departure_override = ?",
         [$flight_uid, $etot_str]
     );
-    if ($sp) sqlsrv_free_stmt($sp);
+    if ($sp) {
+        sqlsrv_free_stmt($sp);
+    } else {
+        error_log('ETE: sp_CalculateETA failed for flight_uid=' . $flight_uid . ': ' . print_r(sqlsrv_errors(), true));
+    }
 
     // Read computed results from adl_flight_times
     $times = ete_read_flight_times($conn_adl, $flight_uid);
@@ -136,7 +149,7 @@ foreach ($flights_input as $item) {
         } else {
             $eta_ts = strtotime($eta_utc_raw . ' UTC');
         }
-        $ete_minutes = (int)round(($eta_ts - $etot_ts) / 60);
+        $ete_minutes = max(0, (int)round(($eta_ts - $etot_ts) / 60));
         $eta_iso = gmdate('Y-m-d\TH:i:s\Z', $eta_ts);
     }
 
@@ -172,10 +185,12 @@ foreach ($flights_input as $item) {
 
 SwimResponse::success([
     'flights' => $results,
+    'errors' => $errors,
     'unmatched' => $unmatched,
 ], [
     'total_requested' => count($flights_input),
     'total_matched' => count($results),
+    'total_errors' => count($errors),
     'total_unmatched' => count($unmatched),
 ]);
 
@@ -210,7 +225,10 @@ function ete_find_flight($conn_swim, string $callsign): ?array {
          ORDER BY flight_uid DESC",
         [$callsign]
     );
-    if (!$stmt) return null;
+    if (!$stmt) {
+        error_log('ETE: swim_flights lookup failed for callsign=' . $callsign . ': ' . print_r(sqlsrv_errors(), true));
+        return null;
+    }
     $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
     sqlsrv_free_stmt($stmt);
     return $row ?: null;
@@ -280,7 +298,11 @@ function ete_store_results($conn_swim, $conn_adl, int $flight_uid, ?string $tobt
          WHERE flight_uid = ?",
         [$tobt, $etot, $ete_minutes, $flight_uid]
     );
-    if ($stmt) sqlsrv_free_stmt($stmt);
+    if ($stmt) {
+        sqlsrv_free_stmt($stmt);
+    } else {
+        error_log('ETE: swim_flights UPDATE failed for flight_uid=' . $flight_uid . ': ' . print_r(sqlsrv_errors(), true));
+    }
 
     // Update adl_flight_times
     $stmt = sqlsrv_query($conn_adl,
@@ -290,5 +312,9 @@ function ete_store_results($conn_swim, $conn_adl, int $flight_uid, ?string $tobt
          WHERE flight_uid = ?",
         [$etot, $ete_minutes, $flight_uid]
     );
-    if ($stmt) sqlsrv_free_stmt($stmt);
+    if ($stmt) {
+        sqlsrv_free_stmt($stmt);
+    } else {
+        error_log('ETE: adl_flight_times UPDATE failed for flight_uid=' . $flight_uid . ': ' . print_r(sqlsrv_errors(), true));
+    }
 }
