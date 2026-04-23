@@ -26,7 +26,9 @@ include("load/i18n.php");
     
     <!-- MapLibre GL CSS (additional for NOD) -->
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
-    
+    <!-- Route Analysis Panel CSS -->
+    <link rel="stylesheet" href="assets/css/route-analysis.css<?= _v('assets/css/route-analysis.css') ?>">
+
     <style>
         /* =========================================
          * NOD Page Layout
@@ -1273,6 +1275,108 @@ include("load/i18n.php");
                 right: 380px;
             }
         }
+
+        /* =========================================
+         * Flight Search Results
+         * ========================================= */
+        .nod-search-result {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            margin-bottom: 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            font-family: 'Consolas', monospace;
+            color: #ccc;
+            background: rgba(255,255,255,0.03);
+            transition: background 0.15s;
+        }
+        .nod-search-result:hover {
+            background: rgba(74, 158, 255, 0.15);
+            color: #fff;
+        }
+        .nod-search-result .sr-callsign {
+            font-weight: 600;
+            color: #4a9eff;
+            width: 80px;
+            flex-shrink: 0;
+        }
+        .nod-search-result .sr-route {
+            flex: 1;
+            color: #aaa;
+            margin: 0 8px;
+        }
+        .nod-search-result .sr-type {
+            color: #777;
+            font-size: 10px;
+            flex-shrink: 0;
+        }
+        .nod-search-result .sr-actions {
+            display: flex;
+            gap: 4px;
+            margin-left: 6px;
+            flex-shrink: 0;
+        }
+        .nod-search-result .sr-actions button {
+            background: transparent;
+            border: 1px solid #555;
+            color: #aaa;
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-size: 9px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .nod-search-result .sr-actions button:hover {
+            background: #4a9eff;
+            border-color: #4a9eff;
+            color: #fff;
+        }
+        .nod-search-no-results {
+            padding: 8px;
+            text-align: center;
+            color: #666;
+            font-size: 11px;
+        }
+        #nod-flight-search {
+            background: #2a2a4a;
+            border: 1px solid #444;
+            color: #fff;
+            font-size: 12px;
+        }
+        #nod-flight-search:focus {
+            border-color: #4a9eff;
+            box-shadow: 0 0 0 2px rgba(74,158,255,0.2);
+        }
+        #nod-flight-search::placeholder {
+            color: #666;
+        }
+
+        /* =========================================
+         * Route Analysis Panel — NOD overrides
+         * ========================================= */
+        #route-analysis-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 15;
+            max-height: 45vh;
+            overflow-y: auto;
+            background: rgba(26, 26, 46, 0.95);
+            border-top: 1px solid #444;
+            backdrop-filter: blur(8px);
+        }
+        #route-analysis-panel .ra-header {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        /* Hide picker in NOD — flights provide the route */
+        #route-analysis-panel .ra-route-picker {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -1730,7 +1834,145 @@ include("load/i18n.php");
                     </div><!-- /nod-toolbar-dropdown-content -->
                 </div><!-- /nod-toolbar-dropdown -->
             </div><!-- /nod-toolbar-section demandControls -->
+
+            <!-- Flight Search Section -->
+            <div class="nod-toolbar-section" id="flightSearchControls">
+                <button class="nod-toolbar-btn" onclick="NOD.toggleToolbarSection('flightSearchControls')">
+                    <i class="fas fa-search"></i>
+                    <span><?= __('nod.page.flightSearch') ?></span>
+                    <i class="fas fa-caret-down"></i>
+                </button>
+                <div class="nod-toolbar-dropdown">
+                    <div class="nod-toolbar-dropdown-content" style="min-width: 320px;">
+                        <div class="form-group mb-0 px-2">
+                            <input type="text" class="form-control form-control-sm" id="nod-flight-search"
+                                   placeholder="<?= __('nod.search.placeholder') ?>"
+                                   oninput="NOD.onFlightSearch(this.value)" autocomplete="off">
+                        </div>
+                        <div id="nod-search-results" class="px-2 mt-1" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div><!-- /flightSearchControls -->
         </div><!-- /nod-map-toolbar -->
+
+        <!-- Route Analysis Panel (shared module) -->
+        <div id="route-analysis-panel" class="mt-2" style="display:none;">
+            <div class="ra-header" id="ra-toggle">
+                <span class="ra-title"><i class="fas fa-chart-line mr-2"></i><?= __('routeAnalysis.title') ?></span>
+                <span id="ra-route-label" class="ra-route-label"></span>
+                <div class="ra-controls">
+                    <div class="ra-speed-group">
+                        <label for="ra-cruise-speed"><?= __('routeAnalysis.col.speed') ?></label>
+                        <input type="number" class="ra-speed-input" id="ra-cruise-speed" value="460" min="100" max="600" step="10">
+                        <span class="ra-speed-sep">|</span>
+                        <label for="ra-wind"><?= __('routeAnalysis.col.wind') ?></label>
+                        <input type="number" class="ra-speed-input" id="ra-wind" value="0" min="-200" max="200" step="5">
+                        <span class="ra-speed-sep">|</span>
+                        <label for="ra-dep-time"><?= __('routeAnalysis.depTime') ?></label>
+                        <input type="text" class="ra-speed-input ra-dep-time-input" id="ra-dep-time"
+                               placeholder="Now" maxlength="5"
+                               title="<?= __('routeAnalysis.depTimeTitle') ?>">
+                        <button class="ra-recalc-btn" id="ra-recalc-btn" title="<?= __('routeAnalysis.recalculate') ?>">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button class="ra-recalc-btn" id="ra-time-fmt-btn" title="Toggle time format">
+                            <i class="fas fa-clock"></i> <span id="ra-time-fmt-label">hh:mm:ss</span>
+                        </button>
+                    </div>
+                    <div class="ra-export-dropdown">
+                        <button class="ra-export-btn" id="ra-export-btn">
+                            <i class="fas fa-download mr-1"></i><?= __('routeAnalysis.export.title') ?>
+                        </button>
+                        <div class="ra-export-menu" id="ra-export-menu">
+                            <a href="#" id="ra-exp-clipboard"><i class="fas fa-clipboard"></i> <?= __('routeAnalysis.export.clipboard') ?></a>
+                            <a href="#" id="ra-exp-txt"><i class="fas fa-file-alt"></i> <?= __('routeAnalysis.export.txt') ?></a>
+                            <a href="#" id="ra-exp-csv"><i class="fas fa-file-csv"></i> <?= __('routeAnalysis.export.csv') ?></a>
+                            <a href="#" id="ra-exp-xlsx"><i class="fas fa-file-excel"></i> <?= __('routeAnalysis.export.xlsx') ?></a>
+                        </div>
+                    </div>
+                    <button class="ra-close-btn" id="ra-close-btn" title="<?= __('routeAnalysis.close') ?>">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <i class="fas fa-chevron-up ra-chevron"></i>
+            </div>
+            <div id="ra-body">
+                <div id="ra-play-facility-counts"></div>
+                <div class="ra-summary" id="ra-summary"></div>
+                <div class="ra-table-section ra-table-full">
+                    <div class="ra-table-title"><?= __('routeAnalysis.facilityTraversal') ?></div>
+                    <div class="ra-facility-filters" id="ra-facility-filters"></div>
+                    <div class="ra-table-wrap">
+                        <table class="ra-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th><?= __('routeAnalysis.col.facility') ?></th>
+                                    <th><?= __('routeAnalysis.col.type') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.entryUtc') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.exitUtc') ?></th>
+                                    <th class="text-right"><?= __('routeAnalysis.col.segment') ?></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ra-facility-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="ra-tables">
+                    <div class="ra-table-section">
+                        <div class="ra-table-title"><?= __('routeAnalysis.fixAnalysis') ?></div>
+                        <div class="ra-table-wrap">
+                            <table class="ra-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th><?= __('routeAnalysis.col.fix') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.cumDist') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.cumTime') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.etaUtc') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.segDist') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.segTime') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.remDist') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.remTime') ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ra-fix-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="ra-table-section">
+                        <div class="ra-table-title">Segment Analysis</div>
+                        <div class="ra-table-wrap">
+                            <table class="ra-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>From</th>
+                                        <th>To</th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.distNm') ?></th>
+                                        <th class="text-right"><?= __('routeAnalysis.col.time') ?></th>
+                                        <th class="text-right">Entry Dist</th>
+                                        <th class="text-right">Entry (Z)</th>
+                                        <th class="text-right">Exit Dist</th>
+                                        <th class="text-right">Exit (Z)</th>
+                                        <th class="text-right">GS (kts)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ra-segment-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- Hidden picker inputs (required by route-analysis-panel.js resolveDOM) -->
+                <input type="hidden" id="ra-picker-origin">
+                <input type="hidden" id="ra-picker-dest">
+                <input type="hidden" id="ra-picker-route">
+                <button id="ra-picker-go" style="display:none;"></button>
+                <div id="ra-picker-matches" style="display:none;"></div>
+            </div>
+        </div><!-- /route-analysis-panel -->
 
         <!-- UTC Clock -->
         <div class="nod-clock" id="nodClock">
@@ -2186,6 +2428,8 @@ include("load/i18n.php");
 
 <!-- MapLibre GL -->
 <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<!-- Turf.js (for route analysis great circle rendering) -->
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
 <!-- NOD Configuration -->
 <script>
@@ -2230,6 +2474,9 @@ window.addEventListener('resize', updateNavbarHeight);
 
 <!-- NOD Demand Layer -->
 <script src="assets/js/nod-demand-layer.js<?= _v('assets/js/nod-demand-layer.js') ?>"></script>
+
+<!-- Route Analysis Panel (shared module) -->
+<script src="assets/js/route-analysis-panel.js<?= _v('assets/js/route-analysis-panel.js') ?>"></script>
 
 </body>
 </html>

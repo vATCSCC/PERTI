@@ -1199,6 +1199,59 @@
             },
         }, 'traffic-circles-fallback');
 
+        // Route analysis overlay source (for route-analysis-panel.js)
+        state.map.addSource('route-analysis', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+        });
+        state.map.addLayer({
+            id: 'route-analysis-line',
+            type: 'line',
+            source: 'route-analysis',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: {
+                'line-color': '#00ffff',
+                'line-width': 3,
+                'line-opacity': 0.8,
+            },
+        });
+
+        // Route analysis highlight source (for click-to-zoom entry/exit markers)
+        state.map.addSource('route-analysis-highlight', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+        });
+        state.map.addLayer({
+            id: 'route-analysis-highlight-circle',
+            type: 'circle',
+            source: 'route-analysis-highlight',
+            paint: {
+                'circle-radius': 8,
+                'circle-color': '#ff5722',
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ffffff',
+            },
+        });
+        state.map.addLayer({
+            id: 'route-analysis-highlight-label',
+            type: 'symbol',
+            source: 'route-analysis-highlight',
+            layout: {
+                'text-field': ['get', 'label'],
+                'text-size': 11,
+                'text-anchor': 'bottom',
+                'text-offset': [0, -1.2],
+            },
+            paint: {
+                'text-color': '#ff5722',
+                'text-halo-color': '#000000',
+                'text-halo-width': 1,
+            },
+        });
+
+        // Expose map for route-analysis-panel.js (expects MapLibreRoute.getMap())
+        window.MapLibreRoute = { getMap: () => state.map };
+
         // State for drawn flight routes
         state.drawnFlightRoutes = new Map();  // flightKey -> routeData
 
@@ -1956,6 +2009,7 @@
                     },
                     properties: {
                         callsign: flight.callsign,
+                        flight_key: flight.flight_key || flight.callsign,
                         color: getFlightColor(flight),
                         altitude: flight.altitude_ft || flight.altitude,
                         speed: flight.groundspeed_kts || flight.groundspeed,
@@ -1970,6 +2024,8 @@
                         arr_artcc: flight.fp_dest_artcc || flight.arr_artcc,
                         current_artcc: flight.current_artcc,
                         route: flight.fp_route || flight.route,
+                        lat: parseFloat(flight.lat),
+                        lng: parseFloat(flight.lon),
                         gs_affected: flight.gs_affected || flight.gs_flag,
                         gdp_affected: flight.gdp_affected || flight.gdp_flag,
                         edct_issued: flight.edct_issued,
@@ -5769,6 +5825,11 @@
                             style="font-size:10px; padding:2px 8px;">
                         ${isFlightRouteDisplayed(props) ? PERTII18n.t('nod.popup.hideRoute') : PERTII18n.t('nod.popup.showRoute')}
                     </button>
+                    ${props.route ? `<button class="btn btn-sm btn-outline-warning analyze-route-btn"
+                            data-flight-key="${escapeHtml(props.flight_key || props.callsign)}"
+                            style="font-size:10px; padding:2px 8px; margin-left:4px;">
+                        <i class="fas fa-chart-line"></i> ${PERTII18n.t('nod.popup.analyzeRoute')}
+                    </button>` : ''}
                 </div>
             </div>
         `;
@@ -5918,6 +5979,11 @@
                             style="font-size:10px;padding:2px 10px;margin-right:4px;">
                         ${isFlightRouteDisplayed(props) ? PERTII18n.t('nod.popup.hideRoute') : PERTII18n.t('nod.popup.showRoute')}
                     </button>
+                    ${props.route ? `<button class="btn btn-sm btn-outline-warning analyze-route-btn"
+                            data-flight-key="${escapeHtml(props.flight_key || props.callsign)}"
+                            style="font-size:10px;padding:2px 10px;margin-left:4px;">
+                        <i class="fas fa-chart-line"></i> ${PERTII18n.t('nod.popup.analyzeRoute')}
+                    </button>` : ''}
                 </div>
             </div>
         `;
@@ -5958,6 +6024,27 @@
                     // Update button text
                     e.target.disabled = false;
                     e.target.textContent = isNowDisplayed ? PERTII18n.t('nod.popup.hideRoute') : PERTII18n.t('nod.popup.showRoute');
+                }
+            }
+        }
+
+        // Handle analyze route button clicks
+        if (e.target.closest('.analyze-route-btn')) {
+            const btn = e.target.closest('.analyze-route-btn');
+            const flightKey = btn.dataset.flightKey;
+            if (flightKey && state.lastPopupFlight) {
+                const flights = state.traffic && state.traffic.data ? state.traffic.data : [];
+                const flight = flights.find(f =>
+                    (f.flight_key || f.callsign) === flightKey,
+                ) || state.lastPopupFlight;
+
+                if (flight) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                    analyzeFlightRoute(flight).finally(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = `<i class="fas fa-chart-line"></i> ${PERTII18n.t('nod.popup.analyzeRoute')}`;
+                    });
                 }
             }
         }
@@ -7989,6 +8076,177 @@
     }
 
     // =========================================
+    // Flight Search
+    // =========================================
+
+    let searchDebounceTimer = null;
+
+    function onFlightSearch(query) {
+        clearTimeout(searchDebounceTimer);
+        const resultsEl = document.getElementById('nod-search-results');
+        if (!resultsEl) return;
+
+        query = (query || '').trim().toUpperCase();
+        if (query.length < 2) {
+            resultsEl.innerHTML = '';
+            return;
+        }
+
+        searchDebounceTimer = setTimeout(() => {
+            const flights = state.traffic?.data || [];
+            const matches = flights.filter(f => {
+                const cs = (f.callsign || '').toUpperCase();
+                const orig = (f.fp_dept_icao || '').toUpperCase();
+                const dest = (f.fp_dest_icao || '').toUpperCase();
+                const acType = (f.aircraft_type || f.ac_type || '').toUpperCase();
+                return cs.includes(query) || orig.includes(query) || dest.includes(query) || acType.includes(query);
+            }).slice(0, 25);
+
+            if (matches.length === 0) {
+                resultsEl.innerHTML = `<div class="nod-search-no-results">${PERTII18n.t('nod.search.noResults')}</div>`;
+                return;
+            }
+
+            resultsEl.innerHTML = matches.map(f => {
+                const cs = escapeHtml(f.callsign || '???');
+                const orig = escapeHtml(f.fp_dept_icao || '???');
+                const dest = escapeHtml(f.fp_dest_icao || '???');
+                const acType = escapeHtml(f.aircraft_type || f.ac_type || '');
+                const fKey = escapeHtml(f.flight_key || f.callsign);
+                return `<div class="nod-search-result" data-flight-key="${fKey}">
+                    <span class="sr-callsign">${cs}</span>
+                    <span class="sr-route">${orig} → ${dest}</span>
+                    <span class="sr-type">${acType}</span>
+                    <span class="sr-actions">
+                        <button class="sr-zoom-btn" title="${PERTII18n.t('nod.search.zoomToFlight')}" data-action="zoom">
+                            <i class="fas fa-crosshairs"></i>
+                        </button>
+                        <button class="sr-route-btn" title="${PERTII18n.t('nod.search.zoomToRoute')}" data-action="route">
+                            <i class="fas fa-route"></i>
+                        </button>
+                        <button class="sr-analyze-btn" title="${PERTII18n.t('nod.search.analyzeRoute')}" data-action="analyze">
+                            <i class="fas fa-chart-line"></i>
+                        </button>
+                    </span>
+                </div>`;
+            }).join('');
+        }, 150);
+    }
+
+    // Event delegation for search result clicks
+    document.addEventListener('click', (e) => {
+        const result = e.target.closest('.nod-search-result');
+        if (!result) return;
+
+        const flightKey = result.dataset.flightKey;
+        const flights = state.traffic?.data || [];
+        const flight = flights.find(f => (f.flight_key || f.callsign) === flightKey);
+        if (!flight) return;
+
+        const actionBtn = e.target.closest('[data-action]');
+        const action = actionBtn ? actionBtn.dataset.action : 'zoom';
+
+        if (action === 'zoom') {
+            zoomToFlight(flight);
+        } else if (action === 'route') {
+            zoomToRoute(flight);
+        } else if (action === 'analyze') {
+            analyzeFlightRoute(flight);
+        }
+    });
+
+    function zoomToFlight(flight) {
+        const lat = parseFloat(flight.lat);
+        const lon = parseFloat(flight.lng || flight.lon);
+        if (isNaN(lat) || isNaN(lon) || !state.map) return;
+
+        state.map.flyTo({
+            center: [lon, lat],
+            zoom: 8,
+            duration: 1500,
+        });
+    }
+
+    async function zoomToRoute(flight) {
+        // Show the route first (or use existing)
+        if (!isFlightRouteDisplayed(flight)) {
+            await toggleFlightRoute(flight);
+        }
+
+        // Get the route data to compute bounds
+        const flightKey = flight.flight_key || flight.callsign;
+        const routeData = state.drawnFlightRoutes.get(flightKey);
+        if (!routeData || !state.map) return;
+
+        const allCoords = [
+            ...(routeData.behindCoords || []),
+            ...(routeData.aheadCoords || []),
+        ];
+
+        if (allCoords.length < 2) return;
+
+        const bounds = new maplibregl.LngLatBounds();
+        allCoords.forEach(c => bounds.extend(c));
+
+        state.map.fitBounds(bounds, {
+            padding: { top: 80, bottom: 80, left: 80, right: 440 },
+            maxZoom: 10,
+            duration: 1500,
+        });
+    }
+
+    // =========================================
+    // Route Analysis Integration
+    // =========================================
+
+    async function analyzeFlightRoute(flight) {
+        const origin = flight.fp_dept_icao || flight.origin;
+        const dest = flight.fp_dest_icao || flight.dest;
+        const route = flight.fp_route || flight.route || '';
+
+        if (!origin || !dest || !route) {
+            console.warn('[NOD] Cannot analyze: missing origin, dest, or route');
+            return;
+        }
+
+        if (typeof RouteAnalysisPanel === 'undefined') {
+            console.warn('[NOD] RouteAnalysisPanel not loaded');
+            return;
+        }
+
+        // Show loading state
+        RouteAnalysisPanel.showLoading(route, origin, dest);
+
+        // Set cruise speed from flight data if available
+        const speedInput = document.getElementById('ra-cruise-speed');
+        const gs = flight.groundspeed_kts || flight.speed;
+        if (speedInput && gs && parseInt(gs) > 100) {
+            speedInput.value = Math.round(parseInt(gs));
+        }
+
+        try {
+            const response = await fetch(`api/data/playbook/analysis.php?origin=${encodeURIComponent(origin)}&dest=${encodeURIComponent(dest)}&route_string=${encodeURIComponent(route)}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+            if (data.error) {
+                RouteAnalysisPanel.showError(data.error);
+                return;
+            }
+
+            RouteAnalysisPanel.show(data, route, origin, dest, null);
+
+            // Also show the flight's route on the map
+            if (!isFlightRouteDisplayed(flight)) {
+                await toggleFlightRoute(flight);
+            }
+        } catch (err) {
+            console.error('[NOD] Route analysis failed:', err);
+            RouteAnalysisPanel.showError(PERTII18n.t('nod.search.analyzeFailed') + ': ' + err.message);
+        }
+    }
+
+    // =========================================
     // Public API
     // =========================================
 
@@ -8020,6 +8278,11 @@
         applyFilters: collectFiltersFromUI,
         resetFilters,
         refresh: loadAllData,
+        // Flight search functions
+        onFlightSearch,
+        zoomToFlight,
+        zoomToRoute,
+        analyzeFlightRoute,
         // Flight route functions
         toggleFlightRoute,
         clearFlightRoutes,
