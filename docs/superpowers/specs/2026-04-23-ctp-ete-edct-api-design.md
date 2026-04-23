@@ -295,11 +295,13 @@ API Request
   │
   ├─7→ rad_amendments (VATSIM_TMI) — if assigned_route provided
   │      INSERT: callsign, origin, destination, original_route, assigned_route,
-  │              status='ISSUED', tmi_id_label, source
+  │              status='DRAFT', tmi_id_label, source
+  │      NOTE: CHECK constraint allows DRAFT/SENT/DLVD/ACPT/RJCT/EXPR only
   │
   ├─8→ adl_flight_tmi (VATSIM_ADL) — route + TMI sync
   │      UPDATE: rad_amendment_id, rad_assigned_route (if route provided)
-  │      UPDATE: ctd_utc = derived EOBT, program_delay_min, ctl_type
+  │      UPDATE: ctd_utc = derived EOBT, edct_utc = derived EOBT,
+  │              delay_minutes, ctl_type
   │
   └─9→ ctp_flight_control (VATSIM_TMI) — if route_segments/track provided
          UPDATE: seg_na_route, seg_oceanic_route, seg_eu_route,
@@ -320,6 +322,30 @@ CTP is expected to send many small batches in quick succession (10+ per minute d
 - **Same-flight collision** — if two concurrent requests assign CTOT for the same callsign, last-write-wins on `tmi_flight_control` (same as existing CTP ingest behavior)
 - **Database load** — 50 flights × 9 steps × 10 req/min = ~4,500 SQL operations/min across 4 databases. This is within normal daemon load (~3,000 ops/min for ADL refresh alone)
 - **PostGIS bottleneck** — boundary crossing recalc (step 5) is the slowest step (~100-200ms/flight on B2s tier). For 50 flights, expect ~5-10s per request for this step. Concurrent requests are safe since each flight's crossings are independent rows
+- **Background flight processing** — these API operations run alongside 3,000+ flights being continuously processed by background daemons (ADL ingest every 15s, ETA batch every 15s, swim_sync every 2min, boundary detection every 15s, waypoint ETA batch tiered). CTP API adds ~4,500 SQL ops/min on top of existing ~12,000-24,000 ops/min. Row-level locking ensures no conflicts since each flight_uid is independent.
+
+### Background Daemon Interaction
+
+**Why daemon overwrite is not a problem:**
+
+The API writes CTOT-derived values immediately (steps 1-9). Background daemons will subsequently reprocess these flights:
+
+1. **`sp_CalculateETABatch`** (every 15s): Will recompute `eta_utc` for CTOT-controlled flights. The SP already has EDCT-aware logic (lines 374-378 + 509/515) that adds `tmi_delay = DATEDIFF(MINUTE, @now, edct_utc)` to flight time. Since we stored `EOBT` in `adl_flight_tmi.edct_utc`, the batch result converges: `@now + flight_time + (EDCT - @now) = EDCT + flight_time ≈ CTOT + ETE`. The batch SP's 15% prefiled buffer causes a small variance from the API's precise calculation, but values converge within confidence margin.
+
+2. **`swim_sync_daemon`** (every 2min): Syncs ADL → SWIM_API for canonical columns (`eta_utc`, `controlled_time_of_departure`, `edct_utc`). After the batch SP re-processes the flight, swim_sync pushes the batch SP's values to SWIM, overwriting the API's direct writes. This is acceptable because the batch result is approximately correct (EDCT-aware) and is the canonical ETA source for all consumers.
+
+3. **`sp_CalculateWaypointETABatch_Tiered`**: Will re-process waypoint ETAs on its normal tiered schedule. Since the flight now has a future EDCT, the waypoint ETAs will be recalculated accounting for that delay.
+
+**What is NOT overwritten by daemons:**
+- `swim_flights.target_takeoff_time` (CTOT) — not synced by swim_sync
+- `swim_flights.target_off_block_time` (TOBT) — not synced by swim_sync
+- `swim_flights.estimated_takeoff_time` (ETOT) — new column, not in daemon sync queries
+- `swim_flights.computed_ete_minutes` (EET) — new column, not in daemon sync queries
+- `tmi_flight_control.*` — TMI records are authoritative, daemons read but don't overwrite
+- `rad_amendments.*` — no daemon touches route amendments
+- `ctp_flight_control.*` — no daemon touches CTP-specific data
+
+**Net effect**: CTP gets precise computed values in the API response immediately. Canonical ETAs settle to daemon-consistent values within 15-120s. CTP-specific columns (CTOT, TOBT, ETOT, EET) persist as CTP wrote them.
 
 ### Response
 
@@ -371,7 +397,7 @@ Result `status` values: `created`, `updated`, `skipped` (idempotent same-CTOT), 
 When `assigned_route` is provided:
 
 1. **Stored separately from filed route** — never touches `adl_flight_plan.fp_route` or `swim_flights.fp_route`
-2. **Written to `rad_amendments`** — status='ISSUED', tracks the TMU/ATC-assigned route
+2. **Written to `rad_amendments`** — status='DRAFT', tracks the TMU/ATC-assigned route
 3. **Written to `adl_flight_tmi.rad_assigned_route`** — visible to ADL consumers
 4. **Compliance is manual/future** — no automated compliance daemon exists. When the pilot accepts and re-files via VATSIM, the updated route flows through the normal ADL ingest pipeline.
 
@@ -611,7 +637,7 @@ These modifications are needed before the API endpoints can be implemented:
    - Response includes recalculated `estimated_time_of_arrival` and `estimated_elapsed_time`
 
 3. **Route assignment**: CTOT + assigned_route, verify:
-   - `rad_amendments` record created, status='ISSUED'
+   - `rad_amendments` record created, status='DRAFT'
    - `adl_flight_tmi.rad_assigned_route` updated
    - `adl_flight_plan.fp_route` NOT touched
    - `assigned_track` stored in `ctp_flight_control.assigned_nat_track`
