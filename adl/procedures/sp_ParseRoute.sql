@@ -1,6 +1,13 @@
 -- ============================================================================
--- sp_ParseRoute.sql (v4.3 - Enhanced Fix/Runway Extraction)
+-- sp_ParseRoute.sql (v4.4 - Transition Type Preference + Common Body Fallback)
 -- Full GIS Route Parsing for ADL Normalized Schema
+--
+-- v4.4 Changes (2026-04-23):
+--   - NEW: Prefer fix transitions over runway transitions in all 6 procedure
+--     lookup strategies (transition_type ORDER BY, mirrors PostGIS migration 025)
+--   - NEW: Common body fallback via fn_ProcedureCommonBody when a runway
+--     transition is selected without runway context (prevents zig-zagging)
+--   - Ensures consistency between GIS daemon (PostGIS) and legacy daemon (this SP)
 --
 -- v4.3 Changes (2026-01-31):
 --   - NEW: Extract dep_runway and arr_runway from route tokens (e.g., /07C, /02L)
@@ -774,9 +781,11 @@ BEGIN
             DECLARE @proc_route NVARCHAR(MAX), @proc_type NVARCHAR(10), @proc_code NVARCHAR(50);
             DECLARE @star_proc_route NVARCHAR(MAX), @transition_route NVARCHAR(MAX);
             DECLARE @next_token NVARCHAR(100), @next_type NVARCHAR(20);
+            DECLARE @selected_tt NVARCHAR(10);
             SET @proc_route = NULL;
             SET @star_proc_route = NULL;
             SET @transition_route = NULL;
+            SET @selected_tt = NULL;
 
             -- Peek at next token for transition matching
             SELECT TOP 1 @next_token = token, @next_type = token_type
@@ -786,58 +795,90 @@ BEGIN
             IF @next_type = 'FIX' AND @next_token IS NOT NULL
             BEGIN
                 -- Try DP with transition: FOLZZ3.FOLZZ where transition ends with ALYRA
-                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @dtrsn = transition_name
+                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @dtrsn = transition_name, @selected_tt = transition_type
                 FROM dbo.nav_procedures
                 WHERE computer_code LIKE @t_token + '.%'
                   AND procedure_type = 'DP'
                   AND (full_route LIKE '% ' + @next_token OR full_route = @next_token
                        OR transition_name LIKE @next_token + ' %')
-                ORDER BY LEN(full_route);
+                ORDER BY CASE WHEN transition_type = 'fix' THEN 0 WHEN transition_type IS NULL THEN 1 WHEN transition_type = 'runway' THEN 2 ELSE 3 END, LEN(full_route);
             END
 
             -- Strategy 2: Try STAR with entry fix (previous token)
             -- Handles both TRANSITION.STAR (e.g., JJEDI.JJEDI4) and STAR.TRANSITION (e.g., LENAR7.RW07)
             IF @proc_route IS NULL AND @last_fix_for_star IS NOT NULL AND LEN(@last_fix_for_star) BETWEEN 3 AND 5
             BEGIN
-                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @strsn = transition_name
+                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @strsn = transition_name, @selected_tt = transition_type
                 FROM dbo.nav_procedures
                 WHERE (computer_code LIKE '%.' + @t_token
                        OR computer_code LIKE @t_token + '.%'
                        OR computer_code = @t_token)
                   AND procedure_type = 'STAR'
                   AND full_route LIKE @last_fix_for_star + ' %'
-                ORDER BY LEN(full_route);
+                ORDER BY CASE WHEN transition_type = 'fix' THEN 0 WHEN transition_type IS NULL THEN 1 WHEN transition_type = 'runway' THEN 2 ELSE 3 END, LEN(full_route);
             END
 
             -- Strategy 3: Exact match on computer_code
             IF @proc_route IS NULL
             BEGIN
-                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
-                FROM dbo.nav_procedures WHERE computer_code = @t_token;
+                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @selected_tt = transition_type
+                FROM dbo.nav_procedures WHERE computer_code = @t_token
+                ORDER BY CASE WHEN transition_type = 'fix' THEN 0 WHEN transition_type IS NULL THEN 1 WHEN transition_type = 'runway' THEN 2 ELSE 3 END;
             END
 
             -- Strategy 4: Wildcard match for DP
             IF @proc_route IS NULL
             BEGIN
-                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
+                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @selected_tt = transition_type
                 FROM dbo.nav_procedures WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'DP'
-                ORDER BY LEN(full_route);
+                ORDER BY CASE WHEN transition_type = 'fix' THEN 0 WHEN transition_type IS NULL THEN 1 WHEN transition_type = 'runway' THEN 2 ELSE 3 END, LEN(full_route);
             END
 
             -- Strategy 5: Wildcard match for STAR (prefer TRANSITION.STAR over STAR.RUNWAY)
             -- TRANSITION.STAR format (e.g., JJEDI.JJEDI4) gives cleaner routes
             IF @proc_route IS NULL
             BEGIN
-                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
+                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @selected_tt = transition_type
                 FROM dbo.nav_procedures WHERE computer_code LIKE '%.' + @t_token AND procedure_type = 'STAR'
-                ORDER BY LEN(full_route);
+                ORDER BY CASE WHEN transition_type = 'fix' THEN 0 WHEN transition_type IS NULL THEN 1 WHEN transition_type = 'runway' THEN 2 ELSE 3 END, LEN(full_route);
             END
             -- Fallback: STAR.RUNWAY format (e.g., JJEDI4.RW26B) - often bloated
             IF @proc_route IS NULL
             BEGIN
-                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code
+                SELECT TOP 1 @proc_route = full_route, @proc_type = procedure_type, @proc_code = computer_code, @selected_tt = transition_type
                 FROM dbo.nav_procedures WHERE computer_code LIKE @t_token + '.%' AND procedure_type = 'STAR'
-                ORDER BY LEN(full_route);
+                ORDER BY CASE WHEN transition_type = 'fix' THEN 0 WHEN transition_type IS NULL THEN 1 WHEN transition_type = 'runway' THEN 2 ELSE 3 END, LEN(full_route);
+            END
+
+            -- [M025] Common body fallback: if we selected a runway transition
+            -- with no runway context, replace with the shared body to avoid
+            -- zig-zagging from approach-specific waypoints.
+            -- Only applies when the relevant runway context is missing:
+            --   DP → need @dep_runway; STAR → need @arr_runway
+            IF @proc_route IS NOT NULL AND @selected_tt = 'runway'
+            BEGIN
+                DECLARE @common_body NVARCHAR(MAX);
+                DECLARE @cb_trunc NVARCHAR(32);
+                DECLARE @cb_digit_pos INT;
+
+                SET @common_body = NULL;
+                SET @cb_trunc = NULL;
+
+                -- Compute truncated procedure name for fallback matching
+                -- (mirrors PostGIS v_trunc_name: first 4 alpha chars + digit suffix)
+                -- e.g., CAMRN4 → CAMR4, JJEDI4 → JJED4 (only when 5+ alpha chars)
+                SET @cb_digit_pos = PATINDEX('%[0-9]%', @t_token);
+                IF @cb_digit_pos >= 6  -- 5+ alpha chars before first digit
+                    SET @cb_trunc = LEFT(@t_token, 4) + SUBSTRING(@t_token, @cb_digit_pos, LEN(@t_token) - @cb_digit_pos + 1);
+
+                -- Only fallback when we lack the relevant runway context
+                IF @proc_type IN ('DP', 'SID') AND @dep_runway IS NULL
+                    SET @common_body = dbo.fn_ProcedureCommonBody(@t_token, 'DP', @cb_trunc);
+                ELSE IF @proc_type NOT IN ('DP', 'SID') AND @arr_runway IS NULL
+                    SET @common_body = dbo.fn_ProcedureCommonBody(@t_token, 'STAR', @cb_trunc);
+
+                IF @common_body IS NOT NULL AND LEN(@common_body) > 0
+                    SET @proc_route = @common_body;
             END
 
             IF @proc_route IS NOT NULL
@@ -1380,9 +1421,11 @@ BEGIN
 END;
 GO
 
-PRINT 'sp_ParseRoute v4.3 created - Enhanced Fix/Runway Extraction';
+PRINT 'sp_ParseRoute v4.4 created - Transition Type Preference + Common Body Fallback';
 PRINT '';
 PRINT 'Key improvements:';
+PRINT '  - v4.4: Prefer fix transitions > base > runway in all 6 lookup strategies';
+PRINT '  - v4.4: Common body fallback via fn_ProcedureCommonBody (prevents zig-zag)';
 PRINT '  - v4.3: Extract dep_runway/arr_runway from route (e.g., TEBUN1A/02L)';
 PRINT '  - v4.3: Extract dfix/afix for ALL routes (fallback for direct routes)';
 PRINT '  - v4.3: Recognize SID/STAR patterns ending with letters (ABTAN2W)';
