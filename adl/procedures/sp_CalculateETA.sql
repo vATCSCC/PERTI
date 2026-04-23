@@ -24,15 +24,41 @@ GO
 
 -- Add eta_dist_source column if not exists
 IF NOT EXISTS (
-    SELECT 1 FROM sys.columns 
-    WHERE object_id = OBJECT_ID(N'dbo.adl_flight_times') 
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.adl_flight_times')
     AND name = 'eta_dist_source'
 )
 BEGIN
     ALTER TABLE dbo.adl_flight_times
     ADD eta_dist_source NVARCHAR(8) NULL;
-    
+
     PRINT 'Added eta_dist_source column to adl_flight_times';
+END
+GO
+
+-- Add estimated_takeoff_time column if not exists (ETOT for CTP integration)
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.adl_flight_times')
+    AND name = 'estimated_takeoff_time'
+)
+BEGIN
+    ALTER TABLE dbo.adl_flight_times
+    ADD estimated_takeoff_time DATETIME2(0) NULL;
+    PRINT 'Added estimated_takeoff_time column to adl_flight_times';
+END
+GO
+
+-- Add computed_ete_minutes column if not exists (distinct from pilot-filed ete_minutes)
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID(N'dbo.adl_flight_times')
+    AND name = 'computed_ete_minutes'
+)
+BEGIN
+    ALTER TABLE dbo.adl_flight_times
+    ADD computed_ete_minutes SMALLINT NULL;
+    PRINT 'Added computed_ete_minutes column to adl_flight_times';
 END
 GO
 
@@ -41,12 +67,13 @@ IF OBJECT_ID('dbo.sp_CalculateETA', 'P') IS NOT NULL
 GO
 
 CREATE PROCEDURE dbo.sp_CalculateETA
-    @flight_uid BIGINT
+    @flight_uid BIGINT,
+    @departure_override DATETIME2(0) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
-    
-    DECLARE @now DATETIME2(0) = SYSUTCDATETIME();
+
+    DECLARE @now DATETIME2(0) = ISNULL(@departure_override, SYSUTCDATETIME());
     
     -- Result variables
     DECLARE @eta_utc DATETIME2(0);
@@ -302,8 +329,10 @@ BEGIN
         -- Pre-filed or unknown - full flight estimate
         -- Use route_total if available
         SET @planning_dist = COALESCE(@route_total_nm, @gcd_nm, @effective_dist);
-        
-        DECLARE @taxi_estimate INT = 15;
+
+        -- When @departure_override is provided, caller passes wheels-up time (ETOT/CTOT)
+        -- so taxi is already accounted for in the gap between TOBT/EOBT and the override.
+        DECLARE @taxi_estimate INT = CASE WHEN @departure_override IS NOT NULL THEN 0 ELSE 15 END;
         SET @full_climb = (@filed_alt - @dest_elev) / 1000.0 * 2.0;
         SET @full_climb_time = @full_climb / NULLIF(@climb_speed, 0) * 60;
         
