@@ -241,12 +241,13 @@ function fetch_adl_flights_delta($conn_adl, $lastSync) {
             t.octd_utc, t.octa_utc, t.ate_minutes,
             t.eta_confidence, t.eta_wind_component_kts,
 
-            -- TMI control (21)
+            -- TMI control (22 — v4.0: +flow_event_code)
             tmi.gs_held, tmi.gs_release_utc, tmi.ctl_type, tmi.ctl_prgm, tmi.ctl_element,
             tmi.is_exempt, tmi.exempt_reason, tmi.slot_time_utc, tmi.slot_status,
             tmi.program_id, tmi.slot_id, tmi.delay_minutes, tmi.delay_status,
             tmi.ctl_exempt, tmi.ctl_exempt_reason, tmi.aslot, tmi.delay_source,
             tmi.is_popup, tmi.popup_detected_utc, tmi.absolute_delay_min, tmi.schedule_variation_min,
+            tmi.flow_event_code,
 
             -- Aircraft (10)
             ac.aircraft_icao, ac.aircraft_faa, ac.weight_class, ac.wake_category,
@@ -295,6 +296,9 @@ function fetch_adl_flights_delta($conn_adl, $lastSync) {
             $row['fp_dest_icao'],
             $row['first_seen_utc']
         );
+
+        // Derive flow_gs_exempt from flow_event_code (CTP flights exempt from GS)
+        $row['flow_gs_exempt'] = !empty($row['flow_event_code']) ? 1 : 0;
 
         // Format datetime fields for JSON
         foreach ($row as $key => $value) {
@@ -466,12 +470,13 @@ function fetch_adl_flights($conn_adl) {
             t.octd_utc, t.octa_utc, t.ate_minutes,
             t.eta_confidence, t.eta_wind_component_kts,
 
-            -- TMI control (21)
+            -- TMI control (22 — v4.0: +flow_event_code)
             tmi.gs_held, tmi.gs_release_utc, tmi.ctl_type, tmi.ctl_prgm, tmi.ctl_element,
             tmi.is_exempt, tmi.exempt_reason, tmi.slot_time_utc, tmi.slot_status,
             tmi.program_id, tmi.slot_id, tmi.delay_minutes, tmi.delay_status,
             tmi.ctl_exempt, tmi.ctl_exempt_reason, tmi.aslot, tmi.delay_source,
             tmi.is_popup, tmi.popup_detected_utc, tmi.absolute_delay_min, tmi.schedule_variation_min,
+            tmi.flow_event_code,
 
             -- Aircraft (10)
             ac.aircraft_icao, ac.aircraft_faa, ac.weight_class, ac.wake_category,
@@ -506,6 +511,9 @@ function fetch_adl_flights($conn_adl) {
             $row['fp_dest_icao'],
             $row['first_seen_utc']
         );
+
+        // Derive flow_gs_exempt from flow_event_code (CTP flights exempt from GS)
+        $row['flow_gs_exempt'] = !empty($row['flow_event_code']) ? 1 : 0;
 
         // Format datetime fields for JSON
         foreach ($row as $key => $value) {

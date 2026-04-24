@@ -365,7 +365,8 @@ $flights_sql = "
         gs_flag,
         -- Distance to destination for RBD tiebreaker (FPFS algorithm)
         -- Airborne: actual remaining distance; pre-departure: GCD from origin
-        COALESCE(dist_to_dest_nm, gcd_nm) AS dist_to_dest_nm
+        COALESCE(dist_to_dest_nm, gcd_nm) AS dist_to_dest_nm,
+        flow_event_code
     FROM dbo.vw_adl_flights
     {$where_sql}
     ORDER BY eta_runway_utc ASC, flight_uid ASC
@@ -428,7 +429,13 @@ foreach ($adl_flights as $flight) {
             $exempt_reason = 'EXEMPT_FLIGHT';
         }
     }
-    
+
+    // CTP event exemption — all TMI types
+    if (!$is_exempt && !empty($flight['flow_event_code'])) {
+        $is_exempt = true;
+        $exempt_reason = 'CTP';
+    }
+
     $flights_for_sp[] = [
         'flight_uid' => $flight['flight_uid'],
         'callsign' => $flight['callsign'],

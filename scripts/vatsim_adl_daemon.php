@@ -40,6 +40,7 @@ require_once $configPath;
 require_once __DIR__ . '/atis_parser.php';
 require_once __DIR__ . '/swim_ws_events.php';
 require_once dirname(__DIR__) . '/load/services/EDCTDelivery.php';
+require_once __DIR__ . '/ctp/sync_nattrak_bookings.php';
 
 // Verify ADL constants exist
 if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE') || !defined('ADL_SQL_USERNAME') || !defined('ADL_SQL_PASSWORD')) {
@@ -84,6 +85,14 @@ $config = [
     // CTP Oceanic compliance check (runs alongside TMI sync, every 8 cycles = 120s)
     'ctp_compliance_enabled' => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
     'ctp_compliance_interval' => 8,
+
+    // CTP Nattrak booking sync + flight matching
+    // Booking sync: fetches Nattrak CSV every 240 cycles (60 min)
+    // Flight matching: tags active flights with flow_event_code every 4 cycles (60s)
+    'ctp_booking_sync_enabled' => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE)
+        && defined('CTP_EVENT_CODE') && CTP_EVENT_CODE !== '',
+    'ctp_booking_sync_interval' => 240,  // every 240 cycles = 60 min
+    'ctp_booking_match_interval' => 4,   // every 4 cycles = 60s
 
     // GDP auto-reoptimization (every 16 cycles = ~240s = 4 min)
     'gdp_reopt_enabled' => !(defined('HIBERNATION_MODE') && HIBERNATION_MODE),
@@ -2262,6 +2271,66 @@ function formatDatetimeParam($value): ?string {
 }
 
 /**
+ * CTP Booking Match: Tag active flights with flow_event_code by matching CID + airports
+ * against ctp_event_bookings. Also marks bookings as matched.
+ * Runs every ~60s (4 cycles). Only touches untagged active flights.
+ *
+ * @param resource $conn_adl VATSIM_ADL connection
+ * @return array|null ['tagged' => int, 'matched' => int, 'ms' => int]
+ */
+function executeCTPBookingMatch($conn_adl): ?array {
+    $start = microtime(true);
+
+    // Step 1: Tag active flights whose CID + airports match a booking
+    $tagSql = "
+        UPDATE t SET t.flow_event_code = b.event_code
+        FROM dbo.adl_flight_tmi t
+        JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
+        JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+        JOIN dbo.ctp_event_bookings b ON c.cid = b.cid
+            AND fp.fp_dept_icao = b.dep_airport
+            AND fp.fp_dest_icao = b.arr_airport
+        WHERE c.is_active = 1
+          AND t.flow_event_code IS NULL
+          AND b.event_code IS NOT NULL
+    ";
+
+    $stmt = @sqlsrv_query($conn_adl, $tagSql);
+    $tagged = 0;
+    if ($stmt !== false) {
+        $tagged = sqlsrv_rows_affected($stmt);
+        sqlsrv_free_stmt($stmt);
+    }
+
+    // Step 2: Mark bookings as matched (back-reference from booking to flight)
+    $matchSql = "
+        UPDATE b SET b.matched_flight_uid = c.flight_uid, b.matched_at = SYSUTCDATETIME()
+        FROM dbo.ctp_event_bookings b
+        JOIN dbo.adl_flight_core c ON b.cid = c.cid
+        JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+        WHERE fp.fp_dept_icao = b.dep_airport
+          AND fp.fp_dest_icao = b.arr_airport
+          AND c.is_active = 1
+          AND b.matched_flight_uid IS NULL
+    ";
+
+    $stmt2 = @sqlsrv_query($conn_adl, $matchSql);
+    $matched = 0;
+    if ($stmt2 !== false) {
+        $matched = sqlsrv_rows_affected($stmt2);
+        sqlsrv_free_stmt($stmt2);
+    }
+
+    $ms = (int)((microtime(true) - $start) * 1000);
+
+    if ($tagged === 0 && $matched === 0) {
+        return null; // Nothing to report
+    }
+
+    return ['tagged' => $tagged, 'matched' => $matched, 'ms' => $ms];
+}
+
+/**
  * CTP Oceanic: Update compliance status for flights with EDCTs in active sessions.
  * Runs every ~120s alongside TMI sync. Lightweight: single batch query + update.
  *
@@ -3471,6 +3540,35 @@ function runDaemon(array $config): void {
                         }
                     } catch (Throwable $e) {
                         logWarn("CTP slot monitor error: " . $e->getMessage());
+                    }
+                }
+            }
+
+            // 4b-ctp-booking. CTP Nattrak booking sync (every 60 min) + flight matching (every 60s)
+            if ($config['ctp_booking_sync_enabled']) {
+                // Nattrak booking sync (hourly)
+                if ($stats['runs'] % $config['ctp_booking_sync_interval'] === 0) {
+                    try {
+                        $bookingSyncResult = syncNattrakBookings($conn, CTP_EVENT_CODE);
+                        if (!empty($bookingSyncResult['errors'])) {
+                            logWarn("CTP booking sync errors: " . implode('; ', $bookingSyncResult['errors']));
+                        } elseif ($bookingSyncResult['inserted'] > 0 || $bookingSyncResult['updated'] > 0) {
+                            logInfo("CTP booking sync: {$bookingSyncResult['inserted']} new, {$bookingSyncResult['updated']} updated, {$bookingSyncResult['total']} total ({$bookingSyncResult['ms']}ms)");
+                        }
+                    } catch (Throwable $e) {
+                        logWarn("CTP booking sync error: " . $e->getMessage());
+                    }
+                }
+
+                // Flight matching (every 60s)
+                if ($stats['runs'] % $config['ctp_booking_match_interval'] === 0) {
+                    try {
+                        $matchResult = executeCTPBookingMatch($conn);
+                        if ($matchResult !== null) {
+                            logInfo("CTP booking match: {$matchResult['tagged']} tagged, {$matchResult['matched']} bookings matched ({$matchResult['ms']}ms)");
+                        }
+                    } catch (Throwable $e) {
+                        logWarn("CTP booking match error: " . $e->getMessage());
                     }
                 }
             }
