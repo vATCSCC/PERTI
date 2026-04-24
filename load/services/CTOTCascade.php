@@ -26,7 +26,7 @@ class CTOTCascade
     private $conn_swim;
     private $gisService;
 
-    public function __construct($conn_adl, $conn_tmi, $conn_swim, ?GISService $gisService = null)
+    public function __construct($conn_adl, $conn_tmi, $conn_swim, ?\GISService $gisService = null)
     {
         $this->conn_adl = $conn_adl;
         $this->conn_tmi = $conn_tmi;

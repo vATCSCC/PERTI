@@ -21,11 +21,11 @@ class CTPSlotEngine
     private $conn_adl;
     private $conn_tmi;
     private $conn_swim;
-    private ?GISService $gisService;
+    private ?\GISService $gisService;
     private CTPConstraintAdvisor $advisor;
     private CTOTCascade $cascade;
 
-    public function __construct($conn_adl, $conn_tmi, $conn_swim, ?GISService $gisService = null)
+    public function __construct($conn_adl, $conn_tmi, $conn_swim, ?\GISService $gisService = null)
     {
         $this->conn_adl = $conn_adl;
         $this->conn_tmi = $conn_tmi;

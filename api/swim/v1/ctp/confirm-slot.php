@@ -49,8 +49,7 @@ if (!$slotTimeUtc) SwimResponse::error('slot_time_utc required', 400, 'INVALID_R
 require_once __DIR__ . '/../../../../load/services/GISService.php';
 require_once __DIR__ . '/../../../../load/services/CTPSlotEngine.php';
 
-$conn_gis = get_conn_gis();
-$gisService = $conn_gis ? new PERTI\Services\GISService($conn_gis) : null;
+$gisService = GISService::getInstance();
 $engine = new PERTI\Services\CTPSlotEngine($conn_adl, $conn_tmi, $conn_swim, $gisService);
 
 $result = $engine->confirmSlot([
