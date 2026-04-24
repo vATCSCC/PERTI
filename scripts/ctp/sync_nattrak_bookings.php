@@ -165,7 +165,7 @@ function syncNattrakBookings($conn_adl, string $eventCode): array {
         }
 
         // Count inserts vs updates from OUTPUT
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_NUM)) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_NUMERIC)) {
             if ($row[0] === 'INSERT') {
                 $result['inserted']++;
             } else {
