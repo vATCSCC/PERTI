@@ -199,7 +199,7 @@ BEGIN
 
         WHEN MATCHED AND (t.row_hash IS NULL OR t.row_hash <> s.row_hash) THEN UPDATE SET
             -- Identity
-            t.flight_key = s.flight_key, t.gufi = s.gufi,
+            t.flight_key = s.flight_key, t.gufi = ISNULL(s.gufi, t.gufi),
             t.callsign = s.callsign, t.cid = s.cid, t.flight_id = s.flight_id,
             -- Position
             t.lat = s.lat, t.lon = s.lon, t.altitude_ft = s.altitude_ft,
