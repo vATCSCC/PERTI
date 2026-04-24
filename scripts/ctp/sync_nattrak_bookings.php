@@ -57,8 +57,14 @@ function syncNattrakBookings($conn_adl, string $eventCode): array {
         return $result;
     }
 
-    // Parse CSV response
-    $lines = explode("\n", trim($response));
+    // Parse CSV response — API may return raw CSV or JSON {"csv": "..."}
+    $csvData = $response;
+    $decoded = @json_decode($response, true);
+    if (is_array($decoded) && isset($decoded['csv'])) {
+        $csvData = $decoded['csv'];
+    }
+
+    $lines = explode("\n", trim($csvData));
     if (count($lines) < 2) {
         $result['errors'][] = 'Nattrak CSV has no data rows';
         return $result;
