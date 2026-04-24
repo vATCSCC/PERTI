@@ -84,14 +84,16 @@ class CTPConstraintAdvisor
 
         $maxAcph = (int)$constraint['max_acph'];
 
-        // Count flights with EDCT assigned arriving at same destination, overlapping hourly window
-        // Using oceanic_exit_utc as CTA proxy (exit + EU segment ~ CTA)
+        // Count assigned flights arriving at same destination within +/-30min of candidate CTA
+        // JOIN tmi_flight_control for actual CTA (populated by CTOTCascade)
         $stmt = sqlsrv_query($this->conn_tmi,
-            "SELECT COUNT(*) AS cnt FROM dbo.ctp_flight_control
-             WHERE session_id = ? AND arr_airport = ?
-               AND slot_status IN ('ASSIGNED','FROZEN')
-               AND oceanic_exit_utc IS NOT NULL
-               AND ABS(DATEDIFF(MINUTE, oceanic_exit_utc, ?)) <= 30",
+            "SELECT COUNT(*) AS cnt
+             FROM dbo.ctp_flight_control fc
+             JOIN dbo.tmi_flight_control tc ON tc.flight_uid = fc.flight_uid
+             WHERE fc.session_id = ? AND fc.arr_airport = ?
+               AND fc.slot_status IN ('ASSIGNED','FROZEN')
+               AND tc.cta_utc IS NOT NULL
+               AND ABS(DATEDIFF(MINUTE, tc.cta_utc, ?)) <= 30",
             [$sessionId, $airport, $ctaUtc]
         );
         if (!$stmt) return null;
@@ -135,13 +137,20 @@ class CTPConstraintAdvisor
         if (empty($firs)) return null;
 
         foreach ($firs as $fir => $maxAcph) {
+            // JOIN ctp_session_tracks to compute exit time from track distance when oceanic_exit_utc is NULL
             $stmt = sqlsrv_query($this->conn_tmi,
-                "SELECT COUNT(*) AS cnt FROM dbo.ctp_flight_control
-                 WHERE session_id = ? AND slot_status IN ('ASSIGNED','FROZEN')
-                   AND (oceanic_entry_fir = ? OR oceanic_exit_fir = ?)
-                   AND oceanic_entry_utc IS NOT NULL
-                   AND oceanic_entry_utc <= DATEADD(MINUTE, 30, ?)
-                   AND COALESCE(oceanic_exit_utc, DATEADD(HOUR, 4, oceanic_entry_utc)) >= DATEADD(MINUTE, -30, ?)",
+                "SELECT COUNT(*) AS cnt
+                 FROM dbo.ctp_flight_control fc
+                 LEFT JOIN dbo.ctp_session_tracks st
+                    ON st.session_id = fc.session_id AND st.track_name = fc.assigned_nat_track
+                 WHERE fc.session_id = ? AND fc.slot_status IN ('ASSIGNED','FROZEN')
+                   AND (fc.oceanic_entry_fir = ? OR fc.oceanic_exit_fir = ?)
+                   AND fc.oceanic_entry_utc IS NOT NULL
+                   AND fc.oceanic_entry_utc <= DATEADD(MINUTE, 30, ?)
+                   AND COALESCE(
+                       fc.oceanic_exit_utc,
+                       DATEADD(SECOND, CAST(ISNULL(st.route_distance_nm, 1800) / 480.0 * 3600 AS INT), fc.oceanic_entry_utc)
+                   ) >= DATEADD(MINUTE, -30, ?)",
                 [$sessionId, $fir, $fir, $exitUtc, $oepUtc]
             );
             if (!$stmt) continue;

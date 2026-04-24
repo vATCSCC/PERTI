@@ -153,12 +153,25 @@ class SubscriptionManager
             $subscribers = array_merge($subscribers, $this->channelIndex[$eventType]);
         }
         
-        // Get wildcard subscribers (e.g., 'flight.*')
+        // Get wildcard subscribers (e.g., 'flight.*' or 'ctp.*')
         $parts = explode('.', $eventType);
         if (count($parts) === 2) {
             $wildcard = $parts[0] . '.*';
             if (isset($this->channelIndex[$wildcard])) {
                 $subscribers = array_merge($subscribers, $this->channelIndex[$wildcard]);
+            }
+        }
+
+        // Support underscore-prefixed wildcards for events like ctp_slot_frozen
+        // Matches: ctp_slot.* → ctp_slot_frozen, ctp.* → ctp_slot_frozen
+        if (strpos($eventType, '.') === false && strpos($eventType, '_') !== false) {
+            $uParts = explode('_', $eventType);
+            for ($i = 1; $i < count($uParts); $i++) {
+                $prefix = implode('_', array_slice($uParts, 0, $i));
+                $wildcard = $prefix . '.*';
+                if (isset($this->channelIndex[$wildcard])) {
+                    $subscribers = array_merge($subscribers, $this->channelIndex[$wildcard]);
+                }
             }
         }
         

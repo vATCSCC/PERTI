@@ -100,11 +100,11 @@ class CTOTCascade
             $stmt = sqlsrv_query($this->conn_tmi,
                 "UPDATE dbo.tmi_flight_control SET
                     ctd_utc = ?, cta_utc = ?,
-                    program_delay_min = ?, ctl_type = 'CTP', ctl_prgm = ?,
+                    program_delay_min = ?, ctl_type = 'CTP', ctl_prgm = ?, ctl_elem = ?,
                     program_id = ?, dep_airport = ?, arr_airport = ?,
                     modified_utc = SYSUTCDATETIME()
                  WHERE control_id = ?",
-                [$eobt_str, $cta_utc, $delay_minutes, $program_name,
+                [$eobt_str, $cta_utc, $delay_minutes, $program_name, $dest_icao,
                  $program_id, $dept_icao, $dest_icao,
                  $existing_control['control_id']]
             );
@@ -215,9 +215,9 @@ class CTOTCascade
         $stmt = sqlsrv_query($this->conn_adl,
             "UPDATE dbo.adl_flight_waypoints SET
                 eta_utc = DATEADD(SECOND,
-                    CAST(distance_from_dep_nm / ? * 3600 AS INT),
+                    CAST(cum_dist_nm / ? * 3600 AS INT),
                     ?)
-             WHERE flight_uid = ? AND distance_from_dep_nm IS NOT NULL",
+             WHERE flight_uid = ? AND cum_dist_nm IS NOT NULL",
             [(float)$effective_speed, $ctot_str, $flight_uid]
         );
 
@@ -507,10 +507,10 @@ class CTOTCascade
     public static function readWaypoints($conn_adl, int $flight_uid): array
     {
         $stmt = sqlsrv_query($conn_adl,
-            "SELECT fix_name, latitude, longitude, distance_from_dep_nm, waypoint_sequence
+            "SELECT fix_name, lat, lon, cum_dist_nm, sequence_num
              FROM dbo.adl_flight_waypoints
-             WHERE flight_uid = ? AND latitude IS NOT NULL
-             ORDER BY waypoint_sequence",
+             WHERE flight_uid = ? AND lat IS NOT NULL
+             ORDER BY sequence_num",
             [$flight_uid]
         );
         if (!$stmt) return [];
@@ -518,10 +518,10 @@ class CTOTCascade
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $waypoints[] = [
                 'name' => $row['fix_name'],
-                'lat' => (float)$row['latitude'],
-                'lon' => (float)$row['longitude'],
-                'dist_from_dep' => (float)$row['distance_from_dep_nm'],
-                'sequence' => (int)$row['waypoint_sequence'],
+                'lat' => (float)$row['lat'],
+                'lon' => (float)$row['lon'],
+                'dist_from_dep' => (float)$row['cum_dist_nm'],
+                'sequence' => (int)$row['sequence_num'],
             ];
         }
         sqlsrv_free_stmt($stmt);

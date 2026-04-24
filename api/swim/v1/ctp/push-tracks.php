@@ -25,6 +25,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 $conn_tmi = get_conn_tmi();
 if (!$conn_tmi) SwimResponse::error('TMI database not available', 503, 'SERVICE_UNAVAILABLE');
 
+$conn_adl = get_conn_adl();
+
 $body = swim_get_json_body();
 if (!$body) SwimResponse::error('Invalid JSON body', 400, 'INVALID_REQUEST');
 
@@ -38,7 +40,6 @@ if (!is_array($tracks) || empty($tracks)) {
 
 // Resolve session
 require_once __DIR__ . '/../../../../load/services/CTPSlotEngine.php';
-$conn_adl = get_conn_adl();
 $engine = new PERTI\Services\CTPSlotEngine($conn_adl, $conn_tmi, $conn_swim);
 
 $session = $engine->resolveSession($sessionRef);
@@ -48,6 +49,40 @@ $sessionId = (int)$session['session_id'];
 $status = $session['status'] ?? '';
 if (!in_array($status, ['DRAFT', 'ACTIVE'])) {
     SwimResponse::error('Session must be DRAFT or ACTIVE to push tracks', 409, 'SESSION_NOT_ACTIVE');
+}
+
+function computeRouteDistanceNm($conn_adl, string $entryFix, string $exitFix): ?float
+{
+    if (!$conn_adl || !$entryFix || !$exitFix) return null;
+
+    $stmt = sqlsrv_query($conn_adl,
+        "SELECT fix_name, lat, lon
+         FROM dbo.nav_fixes
+         WHERE fix_name IN (?, ?)
+         ORDER BY fix_name",
+        [$entryFix, $exitFix]
+    );
+    if (!$stmt) return null;
+
+    $coords = [];
+    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+        $coords[$row['fix_name']] = ['lat' => (float)$row['lat'], 'lon' => (float)$row['lon']];
+    }
+    sqlsrv_free_stmt($stmt);
+
+    if (!isset($coords[$entryFix]) || !isset($coords[$exitFix])) return null;
+
+    $lat1 = deg2rad($coords[$entryFix]['lat']);
+    $lon1 = deg2rad($coords[$entryFix]['lon']);
+    $lat2 = deg2rad($coords[$exitFix]['lat']);
+    $lon2 = deg2rad($coords[$exitFix]['lon']);
+
+    $dlat = $lat2 - $lat1;
+    $dlon = $lon2 - $lon1;
+    $a = sin($dlat / 2) ** 2 + cos($lat1) * cos($lat2) * sin($dlon / 2) ** 2;
+    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+    return $c * 3440.065; // Earth radius in nautical miles
 }
 
 $created = 0;
@@ -63,6 +98,8 @@ foreach ($tracks as $t) {
 
     if (!$trackName || !$routeString || !$entryFix || !$exitFix) continue;
 
+    $distNm = $t['route_distance_nm'] ?? computeRouteDistanceNm($conn_adl, $entryFix, $exitFix);
+
     // Check if track exists
     $stmt = sqlsrv_query($conn_tmi,
         "SELECT session_track_id FROM dbo.ctp_session_tracks
@@ -76,10 +113,10 @@ foreach ($tracks as $t) {
         $s = sqlsrv_query($conn_tmi,
             "UPDATE dbo.ctp_session_tracks SET
                 route_string = ?, oceanic_entry_fix = ?, oceanic_exit_fix = ?,
-                max_acph = ?, is_active = ?,
+                max_acph = ?, is_active = ?, route_distance_nm = ?,
                 pushed_at = SYSUTCDATETIME(), updated_at = SYSUTCDATETIME()
              WHERE session_track_id = ?",
-            [$routeString, $entryFix, $exitFix, $maxAcph, $isActive,
+            [$routeString, $entryFix, $exitFix, $maxAcph, $isActive, $distNm,
              $existing['session_track_id']]
         );
         if ($s) sqlsrv_free_stmt($s);
@@ -88,9 +125,9 @@ foreach ($tracks as $t) {
         $s = sqlsrv_query($conn_tmi,
             "INSERT INTO dbo.ctp_session_tracks
                 (session_id, track_name, route_string, oceanic_entry_fix, oceanic_exit_fix,
-                 max_acph, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [$sessionId, $trackName, $routeString, $entryFix, $exitFix, $maxAcph, $isActive]
+                 max_acph, is_active, route_distance_nm)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [$sessionId, $trackName, $routeString, $entryFix, $exitFix, $maxAcph, $isActive, $distNm]
         );
         if ($s) sqlsrv_free_stmt($s);
         $created++;

@@ -54,7 +54,7 @@ if ($conn_gis) {
 // === FIXES ===
 log_msg("Generating fixes...");
 if ($conn_gis) {
-    $stmt = $conn_gis->query("SELECT fix_name, latitude, longitude, fix_type, artcc_code, country_code, airac_cycle FROM nav_fixes WHERE is_superseded = false OR is_superseded IS NULL ORDER BY fix_name");
+    $stmt = $conn_gis->query("SELECT fix_name, lat, lon, fix_type, artcc_code, country_code, airac_cycle FROM nav_fixes WHERE is_superseded = false OR is_superseded IS NULL ORDER BY fix_name");
     $fixes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     file_put_contents("$bulk_dir/fixes.json", json_encode(['fixes' => $fixes, 'count' => count($fixes)]));
     $results['fixes'] = ['count' => count($fixes), 'size' => filesize("$bulk_dir/fixes.json")];

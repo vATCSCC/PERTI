@@ -2411,7 +2411,7 @@ function executeCtpComplianceCheck($conn_adl, $conn_tmi): ?array {
 function executeCtpSlotMonitor($conn_adl, $conn_tmi): ?array {
     $start = microtime(true);
 
-    $sessionSql = "SELECT session_id, session_name FROM dbo.ctp_sessions WHERE status = 'ACTIVE'";
+    $sessionSql = "SELECT session_id, session_name, at_risk_threshold_min, missed_threshold_min FROM dbo.ctp_sessions WHERE status = 'ACTIVE'";
     $sessionResult = sqlsrv_query($conn_tmi, $sessionSql);
     if (!$sessionResult) return null;
 
@@ -2432,6 +2432,10 @@ function executeCtpSlotMonitor($conn_adl, $conn_tmi): ?array {
 
     foreach ($sessions as $sess) {
         $sid = (int)$sess['session_id'];
+        $atRiskThreshold = (int)($sess['at_risk_threshold_min'] ?? 5);
+        $missedThreshold = (int)($sess['missed_threshold_min'] ?? 15);
+        if ($atRiskThreshold <= 0) $atRiskThreshold = 5;
+        if ($missedThreshold <= 0) $missedThreshold = 15;
 
         $flightSql = "
             SELECT ctp_control_id, flight_uid, callsign, slot_status, slot_id,
@@ -2554,7 +2558,7 @@ function executeCtpSlotMonitor($conn_adl, $conn_tmi): ?array {
                 continue;
             }
 
-            if ($currentStatus !== 'ASSIGNED') continue;
+            if (!in_array($currentStatus, ['ASSIGNED', 'AT_RISK'])) continue;
 
             // 3. Timing-based miss/at_risk using projected OEP vs slot_time
             $slotTs = isset($f['slot_id']) ? ($slotTimes[(int)$f['slot_id']] ?? false) : false;
@@ -2569,17 +2573,43 @@ function executeCtpSlotMonitor($conn_adl, $conn_tmi): ?array {
                 if ($edctVal instanceof \DateTimeInterface) $edctVal = $edctVal->format('Y-m-d H:i:s');
                 $edctTs = $edctVal ? strtotime($edctVal) : false;
                 if ($edctTs) {
+                    // Look up NA segment ETE from waypoint data, then track distance fallback
+                    $naEteSec = 0;
+                    $entryFix = null;
+                    $trackDistNm = 0;
                     $naEteStmt = sqlsrv_query($conn_tmi,
-                        "SELECT t.oceanic_entry_fix FROM dbo.ctp_session_tracks t
+                        "SELECT t.oceanic_entry_fix, t.route_distance_nm FROM dbo.ctp_session_tracks t
                          WHERE t.session_id = ? AND t.track_name = ?",
                         [$sid, $f['assigned_nat_track'] ?? '']
                     );
-                    $naEte = 0;
                     if ($naEteStmt) {
                         $tr = sqlsrv_fetch_array($naEteStmt, SQLSRV_FETCH_ASSOC);
                         sqlsrv_free_stmt($naEteStmt);
+                        $entryFix = $tr['oceanic_entry_fix'] ?? null;
+                        $trackDistNm = isset($tr['route_distance_nm']) ? (float)$tr['route_distance_nm'] : 0;
                     }
-                    $oepTs = $edctTs + 4800;
+                    if ($entryFix && $uid) {
+                        $wpStmt = sqlsrv_query($conn_adl,
+                            "SELECT TOP 1 DATEDIFF(SECOND, ?, eta_utc) AS na_ete_sec
+                             FROM dbo.adl_flight_waypoints
+                             WHERE flight_uid = ? AND fix_name = ?
+                             ORDER BY sequence_num ASC",
+                            [$edctVal, $uid, $entryFix]
+                        );
+                        if ($wpStmt) {
+                            $wpRow = sqlsrv_fetch_array($wpStmt, SQLSRV_FETCH_ASSOC);
+                            sqlsrv_free_stmt($wpStmt);
+                            if ($wpRow && $wpRow['na_ete_sec'] > 0) {
+                                $naEteSec = (int)$wpRow['na_ete_sec'];
+                            }
+                        }
+                    }
+                    // Fallback: estimate NA ETE as 37.5% of oceanic transit time (typical NA/OCA ratio)
+                    if ($naEteSec <= 0 && $trackDistNm > 0) {
+                        $naEteSec = (int)round($trackDistNm / 480.0 * 3600 * 0.375);
+                    }
+                    if ($naEteSec <= 0) continue; // Cannot project OEP without timing data
+                    $oepTs = $edctTs + $naEteSec;
                 }
             }
 
@@ -2587,7 +2617,7 @@ function executeCtpSlotMonitor($conn_adl, $conn_tmi): ?array {
 
             $slipMin = ($oepTs - $slotTs) / 60;
 
-            if ($slipMin > 15) {
+            if ($slipMin > $missedThreshold) {
                 $stmt = sqlsrv_query($conn_tmi,
                     "UPDATE dbo.ctp_flight_control SET
                         slot_status = 'MISSED', miss_reason = 'OEP_EXCEEDED', updated_at = SYSUTCDATETIME()
@@ -2615,7 +2645,7 @@ function executeCtpSlotMonitor($conn_adl, $conn_tmi): ?array {
                     'track' => $f['assigned_nat_track'],
                     'reason' => 'OEP_EXCEEDED',
                 ]);
-            } elseif ($slipMin > 5) {
+            } elseif ($slipMin > $atRiskThreshold && $currentStatus !== 'AT_RISK') {
                 $stmt = sqlsrv_query($conn_tmi,
                     "UPDATE dbo.ctp_flight_control SET
                         slot_status = 'AT_RISK', miss_reason = 'OEP_SLIPPING',
@@ -2632,6 +2662,15 @@ function executeCtpSlotMonitor($conn_adl, $conn_tmi): ?array {
                     'reason' => 'OEP_SLIPPING',
                     'slip_min' => round($slipMin, 1),
                 ]);
+            } elseif ($slipMin <= $atRiskThreshold && $currentStatus === 'AT_RISK') {
+                $stmt = sqlsrv_query($conn_tmi,
+                    "UPDATE dbo.ctp_flight_control SET
+                        slot_status = 'ASSIGNED', miss_reason = NULL,
+                        projected_oep_utc = NULL, updated_at = SYSUTCDATETIME()
+                     WHERE ctp_control_id = ?",
+                    [(int)$f['ctp_control_id']]
+                );
+                if ($stmt) { sqlsrv_free_stmt($stmt); }
             }
         }
     }
@@ -2647,8 +2686,20 @@ function executeCtpSlotMonitor($conn_adl, $conn_tmi): ?array {
 }
 
 function _ctpSlotBroadcast(string $type, array $data): void {
-    $event = json_encode(array_merge(['type' => $type], $data));
-    @file_put_contents('/tmp/swim_ws_events.json', $event . "\n", FILE_APPEND | LOCK_EX);
+    $eventFile = sys_get_temp_dir() . '/swim_ws_events.json';
+    $existing = [];
+    if (file_exists($eventFile)) {
+        $content = @file_get_contents($eventFile);
+        if ($content) $existing = json_decode($content, true) ?: [];
+    }
+    $existing[] = array_merge(['type' => $type], $data, [
+        '_received_at' => gmdate('Y-m-d\TH:i:s.v\Z'),
+    ]);
+    if (count($existing) > 10000) $existing = array_slice($existing, -5000);
+    $tmp = $eventFile . '.tmp.' . getmypid();
+    if (@file_put_contents($tmp, json_encode($existing), LOCK_EX) !== false) {
+        @rename($tmp, $eventFile);
+    }
 }
 
 /**

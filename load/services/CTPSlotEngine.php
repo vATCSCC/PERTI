@@ -384,9 +384,21 @@ class CTPSlotEngine
             $params['eu_route'] ?? ''
         );
 
-        $naEteSec = ($etes['na_ete_min'] ?? 0) * 60;
-        $ocaEteSec = ($etes['oca_ete_min'] ?? 0) * 60;
-        $euEteSec = ($etes['eu_ete_min'] ?? 0) * 60;
+        if (!$etes || !isset($etes['na_ete_min'])) {
+            // Rollback slot claim
+            sqlsrv_query($this->conn_tmi,
+                "UPDATE dbo.tmi_slots SET slot_status = 'OPEN', assigned_callsign = NULL,
+                    assigned_flight_uid = NULL, assigned_origin = NULL, assigned_dest = NULL,
+                    assigned_at = NULL, updated_at = SYSUTCDATETIME()
+                 WHERE slot_id = ?",
+                [$slotId]
+            );
+            return ['error' => 'Unable to compute timing chain — no waypoint or track distance data', 'code' => 'ETE_UNAVAILABLE'];
+        }
+
+        $naEteSec = ($etes['na_ete_min']) * 60;
+        $ocaEteSec = ($etes['oca_ete_min']) * 60;
+        $euEteSec = ($etes['eu_ete_min']) * 60;
 
         $ctotTs = $slotTs - $naEteSec - $taxiSec;
         $ctotStr = gmdate('Y-m-d H:i:s', $ctotTs);
@@ -423,12 +435,13 @@ class CTPSlotEngine
                 is_airborne = ?,
                 oceanic_entry_fix = ?, oceanic_exit_fix = ?,
                 oceanic_entry_utc = ?,
+                projected_oep_utc = ?,
                 updated_at = SYSUTCDATETIME()
              WHERE session_id = ? AND flight_uid = ?",
             [$slotStatus, $slotId, $trackName,
              $isAirborne ? 1 : 0,
              $track['oceanic_entry_fix'], $track['oceanic_exit_fix'],
-             $slotTime,
+             $slotTime, $slotTime,
              $sessionId, $flightUid]
         );
 
@@ -746,22 +759,25 @@ class CTPSlotEngine
      * Fallback: If sp_CalculateETA or waypoints aren't available, use great-circle
      * distance / cruise speed estimate.
      */
-    private function computeSegmentETEs(array $flight, array $track, string $tobt, string $naRoute = '', string $euRoute = ''): array
+    private function computeSegmentETEs(array $flight, array $track, string $tobt, string $naRoute = '', string $euRoute = ''): ?array
     {
         $flightUid = (int)$flight['flight_uid'];
         $entryFix = $track['oceanic_entry_fix'];
         $exitFix = $track['oceanic_exit_fix'];
 
-        // Get cruise speed
+        // Get cruise speed from BADA performance data
         $perf = CTOTCascade::getPerformance($this->conn_adl, $flight);
-        $cruiseSpeed = $perf ? (int)$perf['cruise_speed_ktas'] : 450;
+        $cruiseSpeed = $perf ? (int)$perf['cruise_speed_ktas'] : 0;
+        if ($cruiseSpeed <= 0) {
+            $cruiseSpeed = 450;
+        }
 
         // Try to get waypoint-based ETEs from existing parsed route
         $stmt = sqlsrv_query($this->conn_adl,
-            "SELECT fix_name, eta_utc, distance_from_dep_nm
+            "SELECT fix_name, eta_utc, cum_dist_nm
              FROM dbo.adl_flight_waypoints
              WHERE flight_uid = ? AND fix_name IN (?, ?)
-             ORDER BY waypoint_sequence",
+             ORDER BY sequence_num",
             [$flightUid, $entryFix, $exitFix]
         );
 
@@ -774,11 +790,11 @@ class CTPSlotEngine
             while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
                 if ($row['fix_name'] === $entryFix) {
                     $entryEta = $row['eta_utc'];
-                    $entryDist = (float)$row['distance_from_dep_nm'];
+                    $entryDist = (float)$row['cum_dist_nm'];
                 }
                 if ($row['fix_name'] === $exitFix) {
                     $exitEta = $row['eta_utc'];
-                    $exitDist = (float)$row['distance_from_dep_nm'];
+                    $exitDist = (float)$row['cum_dist_nm'];
                 }
             }
             sqlsrv_free_stmt($stmt);
@@ -795,7 +811,7 @@ class CTPSlotEngine
             $totalDist = 0;
             if ($etaUtc) {
                 $stmt2 = sqlsrv_query($this->conn_adl,
-                    "SELECT MAX(distance_from_dep_nm) AS total_dist FROM dbo.adl_flight_waypoints WHERE flight_uid = ?",
+                    "SELECT MAX(cum_dist_nm) AS total_dist FROM dbo.adl_flight_waypoints WHERE flight_uid = ?",
                     [$flightUid]
                 );
                 if ($stmt2) {
@@ -809,7 +825,11 @@ class CTPSlotEngine
             $ocaEteMin = (int)round(($exitDist - $entryDist) / $cruiseSpeed * 60);
             $euEteMin = $totalDist > 0
                 ? (int)round(($totalDist - $exitDist) / $cruiseSpeed * 60)
-                : 120; // Default 2h for EU segment
+                : 0;
+            // If EU distance is unknown, estimate from entry dist ratio
+            if ($euEteMin <= 0 && $naEteMin > 0 && $ocaEteMin > 0) {
+                $euEteMin = $naEteMin;
+            }
 
             return [
                 'na_ete_min' => max(0, $naEteMin),
@@ -819,13 +839,23 @@ class CTPSlotEngine
             ];
         }
 
-        // Fallback: rough estimates based on typical NAT distances
-        return [
-            'na_ete_min' => 90,
-            'oca_ete_min' => 240,
-            'eu_ete_min' => 120,
-            'cruise_speed_kts' => $cruiseSpeed,
-        ];
+        // Fallback: calculate from track route_distance_nm if available
+        $trackDistNm = isset($track['route_distance_nm']) ? (float)$track['route_distance_nm'] : 0;
+        if ($trackDistNm > 0 && $cruiseSpeed > 0) {
+            $ocaEteMin = (int)round($trackDistNm / $cruiseSpeed * 60);
+            // NA/EU segments: estimate proportionally from total route vs oceanic
+            $naEteMin = (int)round($ocaEteMin * 0.375);
+            $euEteMin = (int)round($ocaEteMin * 0.5);
+            return [
+                'na_ete_min' => max(0, $naEteMin),
+                'oca_ete_min' => max(0, $ocaEteMin),
+                'eu_ete_min' => max(0, $euEteMin),
+                'cruise_speed_kts' => $cruiseSpeed,
+            ];
+        }
+
+        error_log("CTPSlotEngine: No waypoints or route_distance_nm for ETE calculation, flight_uid=$flightUid");
+        return null;
     }
 
     private function logAudit(int $sessionId, ?int $flightUid, string $actionType, array $detail): void
@@ -854,8 +884,19 @@ class CTPSlotEngine
 
     private function broadcastEvent(string $type, array $data): void
     {
-        $event = json_encode(array_merge(['type' => $type], $data));
-        $eventFile = '/tmp/swim_ws_events.json';
-        @file_put_contents($eventFile, $event . "\n", FILE_APPEND | LOCK_EX);
+        $eventFile = sys_get_temp_dir() . '/swim_ws_events.json';
+        $existing = [];
+        if (file_exists($eventFile)) {
+            $content = @file_get_contents($eventFile);
+            if ($content) $existing = json_decode($content, true) ?: [];
+        }
+        $existing[] = array_merge(['type' => $type], $data, [
+            '_received_at' => gmdate('Y-m-d\TH:i:s.v\Z'),
+        ]);
+        if (count($existing) > 10000) $existing = array_slice($existing, -5000);
+        $tmp = $eventFile . '.tmp.' . getmypid();
+        if (@file_put_contents($tmp, json_encode($existing), LOCK_EX) !== false) {
+            @rename($tmp, $eventFile);
+        }
     }
 }

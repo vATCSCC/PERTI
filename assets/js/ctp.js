@@ -29,7 +29,8 @@
             get:      'api/ctp/sessions/get.php',
             create:   'api/ctp/sessions/create.php',
             update:   'api/ctp/sessions/update.php',
-            activate: 'api/ctp/sessions/activate.php'
+            activate: 'api/ctp/sessions/activate.php',
+            slot_engine_status: 'api/ctp/sessions/slot_engine_status.php'
         },
         flights: {
             list:              'api/ctp/flights/list.php',
@@ -4768,7 +4769,6 @@
     // ========================================================================
 
     var SlotEnginePanel = {
-        _swimBase: 'api/swim/v1/ctp/',
 
         init: function() {
             var self = this;
@@ -4782,12 +4782,10 @@
             var $panel = $('#ctp_slot_engine_content');
             $panel.html('<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> ' + t('common.loading') + '</div>');
 
-            var sessionName = state.currentSession.session_name || '';
             var sessionId = state.currentSession.session_id || 0;
-            var param = sessionName ? 'session_name=' + encodeURIComponent(sessionName) : 'session_id=' + sessionId;
 
             $.ajax({
-                url: self._swimBase + 'session-status.php?' + param,
+                url: API.sessions.slot_engine_status + '?session_id=' + sessionId,
                 dataType: 'json',
                 success: function(resp) {
                     if (resp.status === 'ok' && resp.data) {

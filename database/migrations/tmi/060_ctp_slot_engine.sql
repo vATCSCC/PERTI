@@ -61,7 +61,7 @@ BEGIN
         created_at      DATETIME2(0) NOT NULL DEFAULT SYSUTCDATETIME(),
         updated_at      DATETIME2(0) NOT NULL DEFAULT SYSUTCDATETIME(),
 
-        CONSTRAINT FK_ctp_fc_session FOREIGN KEY (session_id)
+        CONSTRAINT FK_ctp_faccon_session FOREIGN KEY (session_id)
             REFERENCES dbo.ctp_sessions(session_id),
         CONSTRAINT CK_ctp_facility_type CHECK (
             facility_type IN ('airport', 'fir', 'fix', 'sector')
@@ -183,6 +183,67 @@ BEGIN
         ));
     PRINT 'Added CHECK constraint CK_ctp_slot_gen_status';
 END
+GO
+
+-- ============================================================================
+-- 6. ALTER ctp_sessions: configurable slot timing thresholds
+--    at_risk_threshold_min / missed_threshold_min control when the daemon
+--    transitions flights instead of using hardcoded 5/15 minute values.
+-- ============================================================================
+
+IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'ctp_sessions' AND COLUMN_NAME = 'at_risk_threshold_min'
+)
+BEGIN
+    ALTER TABLE dbo.ctp_sessions ADD
+        at_risk_threshold_min INT NOT NULL DEFAULT 5,
+        missed_threshold_min  INT NOT NULL DEFAULT 15;
+
+    PRINT 'Added timing threshold columns to ctp_sessions';
+END
+ELSE
+    PRINT 'ctp_sessions.at_risk_threshold_min already exists — skipped';
+GO
+
+-- ============================================================================
+-- 7. ALTER ctp_session_tracks: route_distance_nm for ETE calculation
+--    Stores computed great-circle distance of the oceanic route_string so
+--    segment ETE can be calculated from distance / speed, not hardcoded.
+-- ============================================================================
+
+IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'ctp_session_tracks' AND COLUMN_NAME = 'route_distance_nm'
+)
+BEGIN
+    ALTER TABLE dbo.ctp_session_tracks ADD
+        route_distance_nm FLOAT NULL;
+
+    PRINT 'Added route_distance_nm to ctp_session_tracks';
+END
+ELSE
+    PRINT 'ctp_session_tracks.route_distance_nm already exists — skipped';
+GO
+
+-- ============================================================================
+-- 8. Widen assigned_nat_track: VARCHAR(4) → VARCHAR(16)
+--    Migration 058 defined as VARCHAR(4) for bare letters (A, B, SM1) but
+--    CTP slot engine stores full track names (NAT-A, NAT-B, NAT-SM1).
+-- ============================================================================
+
+IF EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_NAME = 'ctp_flight_control'
+      AND COLUMN_NAME = 'assigned_nat_track'
+      AND CHARACTER_MAXIMUM_LENGTH < 16
+)
+BEGIN
+    ALTER TABLE dbo.ctp_flight_control ALTER COLUMN assigned_nat_track VARCHAR(16) NULL;
+    PRINT 'Widened assigned_nat_track to VARCHAR(16)';
+END
+ELSE
+    PRINT 'assigned_nat_track already VARCHAR(16) or wider — skipped';
 GO
 
 PRINT '--- Migration 060 complete ---';

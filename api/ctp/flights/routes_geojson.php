@@ -169,13 +169,13 @@ if (!empty($fix_names)) {
     $conn_adl = ctp_get_conn_adl();
     foreach (array_chunk($fix_names, 100) as $chunk) {
         $ph = implode(',', array_fill(0, count($chunk), '?'));
-        $fix_sql = "SELECT fix_name, latitude, longitude FROM dbo.nav_fixes WHERE fix_name IN ({$ph})";
+        $fix_sql = "SELECT fix_name, lat, lon FROM dbo.nav_fixes WHERE fix_name IN ({$ph})";
         $fix_stmt = sqlsrv_query($conn_adl, $fix_sql, $chunk);
         if ($fix_stmt) {
             while ($fr = sqlsrv_fetch_array($fix_stmt, SQLSRV_FETCH_ASSOC)) {
                 $fix_coords[$fr['fix_name']] = [
-                    'lat' => (float)$fr['latitude'],
-                    'lon' => (float)$fr['longitude']
+                    'lat' => (float)$fr['lat'],
+                    'lon' => (float)$fr['lon']
                 ];
             }
             sqlsrv_free_stmt($fix_stmt);
