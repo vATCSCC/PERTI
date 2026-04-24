@@ -532,7 +532,12 @@ include("load/nav.php");
                     </div>
                     <div class="collapse show" id="pb_section_routes">
                         <div class="pb-edit-section-body">
-                            <div class="d-flex justify-content-end mb-2">
+                            <div class="d-flex justify-content-between mb-2">
+                                <button class="btn btn-sm btn-outline-danger" id="pb_delete_selected_btn" style="display:none;">
+                                    <i class="fas fa-trash-alt mr-1"></i><?= __('playbook.deleteSelected') ?>
+                                    <span class="badge badge-light ml-1" id="pb_delete_selected_count"></span>
+                                </button>
+                                <div>
                                 <button class="btn btn-sm btn-outline-warning mr-1" id="pb_parse_advisory_btn">
                                     <i class="fas fa-file-import mr-1"></i><?= __('playbook.parseAdvisory') ?>
                                 </button>
@@ -545,6 +550,7 @@ include("load/nav.php");
                                 <button class="btn btn-sm btn-outline-success" id="pb_add_route_btn">
                                     <i class="fas fa-plus mr-1"></i><?= __('playbook.addRoute') ?>
                                 </button>
+                                </div>
                             </div>
                             <!-- Bulk paste area (hidden by default) -->
                             <div id="pb_bulk_paste_area" style="display:none;" class="mb-2">
@@ -589,10 +595,11 @@ include("load/nav.php");
                                 <table class="pb-route-edit-table" id="pb_route_edit_table">
                                     <thead>
                                         <tr>
-                                            <th><?= __('playbook.origin') ?></th>
-                                            <th><?= __('playbook.originFilter') ?></th>
-                                            <th><?= __('playbook.destination') ?></th>
-                                            <th><?= __('playbook.destFilter') ?></th>
+                                            <th class="pb-re-th-check"><input type="checkbox" id="pb_select_all_routes" title="Select all"></th>
+                                            <th class="pb-re-th-origin"><?= __('playbook.origin') ?></th>
+                                            <th class="pb-re-th-origin-filter"><?= __('playbook.originFilter') ?></th>
+                                            <th class="pb-re-th-dest"><?= __('playbook.destination') ?></th>
+                                            <th class="pb-re-th-dest-filter"><?= __('playbook.destFilter') ?></th>
                                             <th class="pb-re-th-route"><?= __('playbook.routeString') ?></th>
                                             <th class="pb-re-th-remarks" title="<?= __('playbook.remarks') ?>"><i class="fas fa-sticky-note"></i></th>
                                             <th class="pb-re-th-action"></th>
