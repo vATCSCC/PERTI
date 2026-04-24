@@ -1,0 +1,2592 @@
+{
+  "total_requests": 213,
+  "duration_sec": 1925.9,
+  "overall_latency": {
+    "p50": 1312.0,
+    "p95": 1703.0,
+    "p99": 2422.0,
+    "max": 4328.0,
+    "avg": 1359.7
+  },
+  "status_distribution": {
+    "200": 82,
+    "404": 128,
+    "400": 3
+  },
+  "error_codes": {
+    "FLIGHT_NOT_FOUND": 117,
+    "NO_SLOT": 11,
+    "INVALID_REQUEST": 3
+  },
+  "endpoints": {
+    "session-status.php?session_name=CTPE26_TEST": {
+      "count": 75,
+      "p50": 1344.0,
+      "p95": 1703.0,
+      "p99": 1875.0,
+      "max": 1875.0,
+      "avg": 1369.3
+    },
+    "request-slot.php": {
+      "count": 117,
+      "p50": 1297.0,
+      "p95": 1860.0,
+      "p99": 3891.0,
+      "max": 4328.0,
+      "avg": 1393.3
+    },
+    "sessions.php": {
+      "count": 7,
+      "p50": 829.0,
+      "p95": 1156.0,
+      "p99": 1156.0,
+      "max": 1156.0,
+      "avg": 924.0
+    },
+    "release-slot.php": {
+      "count": 14,
+      "p50": 1218.0,
+      "p95": 1578.0,
+      "p99": 1578.0,
+      "max": 1578.0,
+      "avg": 1244.3
+    }
+  },
+  "phases": {
+    "init": {
+      "request_count": 1,
+      "throughput_rpm": 60.0,
+      "p50": 1328.0,
+      "p95": 1328.0,
+      "max": 1328.0,
+      "success_count": 1,
+      "error_5xx": 0
+    },
+    "warm-up": {
+      "request_count": 22,
+      "throughput_rpm": 4.6,
+      "p50": 1344.0,
+      "p95": 1391.0,
+      "max": 1437.0,
+      "success_count": 22,
+      "error_5xx": 0
+    },
+    "peak-1": {
+      "request_count": 76,
+      "throughput_rpm": 11.0,
+      "p50": 1266.0,
+      "p95": 1485.0,
+      "max": 1656.0,
+      "success_count": 76,
+      "error_5xx": 0
+    },
+    "off-peak": {
+      "request_count": 34,
+      "throughput_rpm": 3.7,
+      "p50": 1500.0,
+      "p95": 1782.0,
+      "max": 1875.0,
+      "success_count": 34,
+      "error_5xx": 0
+    },
+    "peak-2": {
+      "request_count": 73,
+      "throughput_rpm": 10.5,
+      "p50": 1281.0,
+      "p95": 1938.0,
+      "max": 3891.0,
+      "success_count": 73,
+      "error_5xx": 0
+    },
+    "cool-down": {
+      "request_count": 6,
+      "throughput_rpm": 2.7,
+      "p50": 1328.0,
+      "p95": 4328.0,
+      "max": 4328.0,
+      "success_count": 6,
+      "error_5xx": 0
+    },
+    "final": {
+      "request_count": 1,
+      "throughput_rpm": 60.0,
+      "p50": 1859.0,
+      "p95": 1859.0,
+      "max": 1859.0,
+      "success_count": 1,
+      "error_5xx": 0
+    }
+  },
+  "scenarios": {
+    "startup": {
+      "count": 1,
+      "success_rate": 100.0,
+      "p50": 1328.0,
+      "max": 1328.0
+    },
+    "alt_track": {
+      "count": 10,
+      "success_rate": 100.0,
+      "p50": 1328.0,
+      "max": 1532.0
+    },
+    "session_status": {
+      "count": 74,
+      "success_rate": 100.0,
+      "p50": 1344.0,
+      "max": 1875.0
+    },
+    "release_cycle": {
+      "count": 13,
+      "success_rate": 100.0,
+      "p50": 1438.0,
+      "max": 2422.0
+    },
+    "flight_not_found": {
+      "count": 32,
+      "success_rate": 100.0,
+      "p50": 1282.0,
+      "max": 4328.0
+    },
+    "full_lifecycle": {
+      "count": 55,
+      "success_rate": 100.0,
+      "p50": 1297.0,
+      "max": 2094.0
+    },
+    "sessions_list": {
+      "count": 7,
+      "success_rate": 100.0,
+      "p50": 829.0,
+      "max": 1156.0
+    },
+    "all_consumed": {
+      "count": 7,
+      "success_rate": 100.0,
+      "p50": 1234.0,
+      "max": 1656.0
+    },
+    "release_nonexistent": {
+      "count": 11,
+      "success_rate": 100.0,
+      "p50": 1203.0,
+      "max": 1578.0
+    },
+    "release_invalid": {
+      "count": 3,
+      "success_rate": 100.0,
+      "p50": 1281.0,
+      "max": 1329.0
+    }
+  },
+  "slot_utilization_timeline": [
+    {
+      "timestamp": "2026-04-24T04:29:50.781969+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:30:26.008206+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:30:47.596805+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:31:16.758732+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:31:52.475165+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:32:13.702959+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:32:36.740085+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:32:38.076395+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:33:14.314495+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:33:37.368797+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:33:38.773039+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:34:10.185183+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:34:35.495160+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:35:04.447155+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:35:16.738368+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:35:22.908709+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:35:24.136830+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:35:29.305317+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:35:35.877177+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:36:15.411925+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:36:25.755984+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:36:37.949951+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:36:49.265619+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:36:54.914301+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:37:20.537361+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:37:54.750035+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:38:31.181129+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:39:10.792925+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:39:11.999728+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:39:31.475621+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:40:23.055285+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:40:28.192182+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:41:32.064204+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:41:39.094896+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:41:52.247821+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:42:21.846870+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:42:42.290284+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:43:07.382733+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:43:48.843909+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:44:26.723196+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:44:52.898936+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:45:38.965361+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:46:16.002791+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:47:05.971449+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:47:30.493212+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:48:32.790445+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:48:56.031632+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:49:22.123989+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:49:56.827669+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:50:39.511676+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:50:41.044700+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:51:06.388782+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:52:00.175992+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:52:22.166535+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:52:29.439445+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:54:01.099741+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:54:12.658598+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:54:27.230307+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:54:44.927811+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:54:54.484023+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:55:06.458114+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:55:29.016962+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:55:36.417962+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:56:05.671858+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:56:59.070597+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:57:14.040022+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:57:26.994035+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:58:19.526961+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:58:31.439852+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:58:52.238391+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T04:58:53.582962+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T05:00:03.867881+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T05:01:07.924218+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    },
+    {
+      "timestamp": "2026-04-24T05:01:54.031636+00:00",
+      "flights": {
+        "total": 1,
+        "assigned": 1,
+        "frozen": 0,
+        "at_risk": 0,
+        "missed": 0,
+        "released": 0,
+        "unassigned": 0
+      },
+      "tracks": {
+        "NAT-A": {
+          "total": 24,
+          "assigned": 1,
+          "frozen": 0,
+          "open": 23
+        },
+        "NAT-B": {
+          "total": 140,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 140
+        },
+        "NAT-C": {
+          "total": 112,
+          "assigned": 0,
+          "frozen": 0,
+          "open": 112
+        }
+      }
+    }
+  ],
+  "test_config": {
+    "session_name": "CTPE26_TEST",
+    "api_base": "https://perti.vatcscc.org/api/swim/v1/ctp/",
+    "dry_run": false,
+    "phases": [
+      {
+        "name": "warm-up",
+        "duration_sec": 300,
+        "rate_min": 2,
+        "rate_max": 3
+      },
+      {
+        "name": "peak-1",
+        "duration_sec": 420,
+        "rate_min": 10,
+        "rate_max": 15
+      },
+      {
+        "name": "off-peak",
+        "duration_sec": 600,
+        "rate_min": 1,
+        "rate_max": 3
+      },
+      {
+        "name": "peak-2",
+        "duration_sec": 420,
+        "rate_min": 10,
+        "rate_max": 15
+      },
+      {
+        "name": "cool-down",
+        "duration_sec": 180,
+        "rate_min": 1,
+        "rate_max": 1
+      }
+    ],
+    "actual_duration_sec": 1924.1
+  },
+  "assigned_at_end": 0,
+  "assigned_callsigns": []
+}

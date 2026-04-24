@@ -114,17 +114,34 @@ class CTPSlotEngine
             // Skip if program already created for this track
             if ($track['program_id']) continue;
 
-            $ctlElement = 'TRACK_' . strtoupper($track['track_name']);
+            // Use oceanic entry fix as ctl_element (fits NVARCHAR(8) limit)
+            $ctlElement = $track['oceanic_entry_fix'] ?: strtoupper(substr($track['track_name'], 0, 8));
             $rate = (int)$track['max_acph'];
+            $programName = 'CTP_' . str_replace('-', '_', $track['track_name']);
 
             // Create tmi_programs entry for this track
             $stmt = sqlsrv_query($this->conn_tmi,
                 "INSERT INTO dbo.tmi_programs
-                    (program_type, ctl_element, ctl_airport, program_rate,
-                     start_utc, end_utc, is_active, created_utc)
+                    (ctl_element, element_type, program_type, program_name,
+                     start_utc, end_utc, status, is_proposed, is_active,
+                     program_rate, delay_limit_min, target_delay_mult,
+                     aircraft_type_filter, subs_enabled, adaptive_compression,
+                     created_by, created_at, updated_at, is_archived,
+                     compression_enabled, earliest_r_slot_min,
+                     exempt_airborne, org_code, reserve_pct,
+                     reopt_cycle, reopt_interval_sec, reversal_count, reversal_pct,
+                     gaming_flags_count, gs_release_followon)
                  OUTPUT INSERTED.program_id
-                 VALUES ('CTP', ?, ?, ?, ?, ?, 1, SYSUTCDATETIME())",
-                [$ctlElement, $session['session_name'], $rate, $windowStart, $windowEnd]
+                 VALUES (?, 'FIR', 'CTP', ?,
+                         ?, ?, 'ACTIVE', 1, 0,
+                         ?, 180, 1.00,
+                         'ALL', 1, 0,
+                         'SYSTEM', SYSUTCDATETIME(), SYSUTCDATETIME(), 0,
+                         1, 0,
+                         1, 'VATCSCC', 0,
+                         0, 120, 0, 0,
+                         0, 'RELEASED')",
+                [$ctlElement, $programName, $windowStart, $windowEnd, $rate]
             );
 
             if (!$stmt) {
