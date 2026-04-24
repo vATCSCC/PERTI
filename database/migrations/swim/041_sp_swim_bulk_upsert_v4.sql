@@ -344,7 +344,7 @@ BEGIN
             engine_count, cruise_tas_kts, ceiling_ft,
             row_hash, last_sync_utc
         ) VALUES (
-            s.flight_uid, s.flight_key, s.gufi, s.callsign, s.cid, s.flight_id,
+            s.flight_uid, s.flight_key, ISNULL(s.gufi, NEWID()), s.callsign, s.cid, s.flight_id,
             s.lat, s.lon, s.altitude_ft, s.heading_deg, s.groundspeed_kts, s.vertical_rate_fpm,
             s.true_airspeed_kts, s.mach_number, s.altitude_assigned, s.altitude_cleared,
             s.track_deg, s.qnh_in_hg, s.qnh_mb,
