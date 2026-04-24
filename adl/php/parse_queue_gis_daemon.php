@@ -428,6 +428,27 @@ class ParseQueueGISDaemon
     }
 
     /**
+     * Strip SimBrief step climb speed/altitude tokens from a route string.
+     *
+     * Removes ICAO speed/altitude tokens that SimBrief attaches to fixes:
+     *   - Slash-attached: ERGOM/N0460F380 -> ERGOM
+     *   - Standalone: N0460F380 -> (removed)
+     *
+     * Pattern: [NMK]\d{3,4}[FSA]\d{3,4} (e.g., N0460F360, M084F350, K0900S1060)
+     */
+    private function stripStepClimbTokens(string $route): string
+    {
+        // Strip slash-attached speed/altitude suffixes: FIX/N0460F380 -> FIX
+        $route = preg_replace('/\/[NMK]\d{3,4}[FSA]\d{3,4}\b/', '', $route);
+
+        // Strip standalone speed/altitude tokens (space-separated)
+        $route = preg_replace('/\b[NMK]\d{3,4}[FSA]\d{3,4}\b/', '', $route);
+
+        // Clean up double spaces
+        return preg_replace('/\s{2,}/', ' ', trim($route));
+    }
+
+    /**
      * Extract SID/STAR names and departure/arrival fixes from route string and waypoints.
      *
      * Logic:
@@ -544,6 +565,10 @@ class ParseQueueGISDaemon
             $this->markFailed($flightUid, 'Empty route string');
             return 'skipped';
         }
+
+        // Strip SimBrief step climb speed/altitude tokens before parsing
+        // Handles both slash-attached (ERGOM/N0460F380) and standalone (N0460F380)
+        $routeString = $this->stripStepClimbTokens($routeString);
 
         // Try GIS first (unless ADL-only mode)
         if (!$this->adlOnly && $this->gis) {

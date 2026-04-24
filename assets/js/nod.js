@@ -430,6 +430,15 @@
                 },
                 layout: { visibility: 'none' },
             });
+
+            // Route analysis traversal highlight (used by route-analysis-panel.js)
+            state.map.addLayer({
+                id: 'tracon-search-include',
+                type: 'fill',
+                source: 'tracon-source',
+                paint: { 'fill-color': '#28a745', 'fill-opacity': 0.25 },
+                filter: ['in', 'sector', ''],
+            });
         }
 
         // =========================================
@@ -561,6 +570,15 @@
                 },
                 layout: { visibility: 'none' },
             });
+
+            // Route analysis traversal highlight
+            state.map.addLayer({
+                id: 'high-sector-search-include',
+                type: 'fill',
+                source: 'high-source',
+                paint: { 'fill-color': '#28a745', 'fill-opacity': 0.25 },
+                filter: ['in', 'label', ''],
+            });
         }
 
         if (paths.low) {
@@ -580,6 +598,15 @@
                 },
                 layout: { visibility: 'none' },
             });
+
+            // Route analysis traversal highlight
+            state.map.addLayer({
+                id: 'low-sector-search-include',
+                type: 'fill',
+                source: 'low-source',
+                paint: { 'fill-color': '#28a745', 'fill-opacity': 0.25 },
+                filter: ['in', 'label', ''],
+            });
         }
 
         if (paths.superhigh) {
@@ -598,6 +625,15 @@
                     'line-opacity': 0.5,
                 },
                 layout: { visibility: 'none' },
+            });
+
+            // Route analysis traversal highlight
+            state.map.addLayer({
+                id: 'superhigh-sector-search-include',
+                type: 'fill',
+                source: 'superhigh-source',
+                paint: { 'fill-color': '#28a745', 'fill-opacity': 0.25 },
+                filter: ['in', 'label', ''],
             });
         }
 
@@ -620,6 +656,18 @@
                 if (data.artcc) state.boundaryCache.artcc = data.artcc;
                 if (data.supercenter) state.boundaryCache.supercenter = data.supercenter;
                 if (data.artcc_area) state.boundaryCache.artcc_area = data.artcc_area;
+
+                // Route analysis traversal highlight (used by route-analysis-panel.js)
+                if (state.map.getSource('artcc-source')) {
+                    state.map.addLayer({
+                        id: 'artcc-play-traversed',
+                        type: 'fill',
+                        source: 'artcc-source',
+                        paint: { 'fill-color': '#9C27B0', 'fill-opacity': 0.10 },
+                        filter: ['in', 'ICAOCODE', ''],
+                    });
+                }
+
                 console.log('[NOD] ARTCC hierarchy layers loaded');
             });
         }
@@ -4632,6 +4680,10 @@
         if (state.drawnFlightRoutes.has(flightKey)) {
             state.drawnFlightRoutes.delete(flightKey);
             updateFlightRoutesDisplay();
+            // Clear facility traversal highlights
+            if (typeof RouteAnalysisPanel !== 'undefined' && state.drawnFlightRoutes.size === 0) {
+                RouteAnalysisPanel.clear();
+            }
             console.log(`[NOD] Removed route for ${flightKey}`);
             return false;
         }
@@ -4771,6 +4823,12 @@
 
         updateFlightRoutesDisplay();
         console.log(`[NOD] Added route for ${flightKey} with ${waypoints.length} waypoints`);
+
+        // Auto-trigger route analysis for facility traversal highlighting
+        if (typeof RouteAnalysisPanel !== 'undefined') {
+            analyzeFlightRoute(flight).catch(() => {});
+        }
+
         return true;
     }
 
@@ -4809,13 +4867,14 @@
                 waypoints.forEach((wp, idx) => {
                     const lat = parseFloat(wp.lat || wp.latitude);
                     const lon = parseFloat(wp.lon || wp.longitude || wp.lng);
-                    const name = wp.name || wp.ident || wp.fix || `WP${idx}`;
+                    const name = wp.fix_name || wp.name || wp.ident || wp.fix || wp.fix_id || `WP${idx}`;
                     if (isNaN(lat) || isNaN(lon)) {return;}
 
                     // Build label with airway/DP/STAR info
-                    const airway = wp.airway || null;
-                    const dp = wp.dp || null;
-                    const star = wp.star || null;
+                    // waypoints_json from SP uses on_airway/on_dp/on_star; API uses airway/dp/star
+                    const airway = wp.on_airway || wp.airway || null;
+                    const dp = wp.on_dp || wp.dp || null;
+                    const star = wp.on_star || wp.star || null;
 
                     // Format: "FIXNAME (J60)" or "FIXNAME (SKORR5)" or "FIXNAME (ANJLL4)"
                     let label = name;
