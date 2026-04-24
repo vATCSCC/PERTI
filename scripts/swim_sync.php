@@ -206,8 +206,8 @@ function fetch_adl_flights_delta($conn_adl, $lastSync) {
 
     $sql = "
         SELECT
-            -- Core identity (14)
-            c.flight_uid, c.gufi, c.flight_key, c.callsign, c.cid, c.flight_id,
+            -- Core identity (13)
+            c.flight_uid, c.flight_key, c.callsign, c.cid, c.flight_id,
             c.phase, c.is_active,
             c.first_seen_utc, c.last_seen_utc, c.logon_time_utc,
             c.current_artcc, c.current_tracon, c.current_zone,
@@ -435,8 +435,8 @@ function swim_sync_from_adl_legacy(array $flights, array $stats) {
 function fetch_adl_flights($conn_adl) {
     $sql = "
         SELECT
-            -- Core identity (14)
-            c.flight_uid, c.gufi, c.flight_key, c.callsign, c.cid, c.flight_id,
+            -- Core identity (13)
+            c.flight_uid, c.flight_key, c.callsign, c.cid, c.flight_id,
             c.phase, c.is_active,
             c.first_seen_utc, c.last_seen_utc, c.logon_time_utc,
             c.current_artcc, c.current_tracon, c.current_zone,
@@ -609,7 +609,7 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
         // INSERT - FIXM columns only
         $sql = "
             INSERT INTO dbo.swim_flights (
-                flight_uid, gufi, flight_key, gufi_legacy, callsign, cid, flight_id,
+                flight_uid, flight_key, gufi_legacy, callsign, cid, flight_id,
                 lat, lon, altitude_ft, heading_deg, groundspeed_kts, vertical_rate_fpm,
                 fp_dept_icao, fp_dest_icao, fp_alt_icao, fp_altitude_ft, fp_tas_kts,
                 fp_route, fp_remarks, fp_rule,
@@ -632,7 +632,7 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
                 wake_category, engine_type, airline_icao, airline_name,
                 last_sync_utc
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?, ?,
                 ?, ?, ?,
@@ -654,7 +654,7 @@ function upsert_swim_flight($conn_swim, $flight, $existing_uids) {
                 GETUTCDATE()
             )
         ";
-        $params = [$uid, $flight['gufi']];
+        $params = [$uid]; // gufi omitted — DB generates UUID via DEFAULT NEWID()
         $params = array_merge($params, swim_build_params($flight));
     }
 
