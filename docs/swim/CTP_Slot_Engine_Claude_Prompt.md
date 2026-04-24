@@ -145,7 +145,9 @@ Returns ranked slot candidates with advisory status. Does NOT assign — coordin
         "oca_ete_min": 267,
         "eu_ete_min": 110,
         "total_ete_min": 464,
-        "cruise_speed_kts": 487
+        "cruise_speed_kts": 487,
+        "oceanic_entry_fix": "JOOPY",
+        "oceanic_exit_fix": "LIMRI"
       },
       "advisories": [
         {"type": "DEST_RATE", "facility": "EGLL", "detail": "14/12 arrivals per hour", "severity": "WARN"}
@@ -200,7 +202,7 @@ Assigns a specific slot. PERTI runs the full CTOT recalculation cascade internal
     "ctot_utc": "2026-10-15T18:48:00Z",
     "cta_utc": "2026-10-16T02:32:00Z",
     "slot_id": 48291,
-    "cascade_status": "completed"
+    "cascade_status": "complete"
   }
 }
 ```

@@ -201,7 +201,9 @@ Returns ranked slot candidates with advisory status. Does NOT assign — call co
         "oca_ete_min": 267,
         "eu_ete_min": 110,
         "total_ete_min": 464,
-        "cruise_speed_kts": 487
+        "cruise_speed_kts": 487,
+        "oceanic_entry_fix": "JOOPY",
+        "oceanic_exit_fix": "LIMRI"
       },
       "advisories": [
         {
@@ -245,6 +247,8 @@ Returns ranked slot candidates with advisory status. Does NOT assign — call co
 | `eu_ete_min` | EU segment ETE (minutes) |
 | `total_ete_min` | Total gate-to-gate ETE |
 | `cruise_speed_kts` | Estimated cruise speed used in computation |
+| `oceanic_entry_fix` | OEP fix name for this track |
+| `oceanic_exit_fix` | Oceanic exit fix name for this track |
 
 ### Advisory Types
 
@@ -292,7 +296,7 @@ Assign a specific slot from the candidates returned by request-slot. PERTI runs 
     "ctot_utc": "2026-10-15T18:48:00Z",
     "cta_utc": "2026-10-16T02:32:00Z",
     "slot_id": 48291,
-    "cascade_status": "completed"
+    "cascade_status": "complete"
   }
 }
 ```
