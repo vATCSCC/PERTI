@@ -4824,11 +4824,6 @@
         updateFlightRoutesDisplay();
         console.log(`[NOD] Added route for ${flightKey} with ${waypoints.length} waypoints`);
 
-        // Auto-trigger route analysis for facility traversal highlighting
-        if (typeof RouteAnalysisPanel !== 'undefined') {
-            analyzeFlightRoute(flight).catch(() => {});
-        }
-
         return true;
     }
 
