@@ -2024,7 +2024,6 @@
 
 /* Collapsed section states — light theme (no map background) */
 .pb-map-section.pb-collapsed {
-    padding-top: 0 !important;
     min-height: 0 !important;
     background: #f4f6f8;
     overflow: visible;
