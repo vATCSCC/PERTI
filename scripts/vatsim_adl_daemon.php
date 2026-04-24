@@ -2400,6 +2400,258 @@ function executeCtpComplianceCheck($conn_adl, $conn_tmi): ?array {
 }
 
 /**
+ * CTP Oceanic: Slot lifecycle monitoring.
+ * Detects disconnect → AT_RISK, airborne → FROZEN, CTOT miss → MISSED.
+ * Runs every ~120s alongside CTP compliance check.
+ *
+ * @param resource $conn_adl  VATSIM_ADL connection
+ * @param resource $conn_tmi  VATSIM_TMI connection
+ * @return array{frozen: int, at_risk: int, missed: int, released: int, sessions: int, ms: int}|null
+ */
+function executeCtpSlotMonitor($conn_adl, $conn_tmi): ?array {
+    $start = microtime(true);
+
+    $sessionSql = "SELECT session_id, session_name FROM dbo.ctp_sessions WHERE status = 'ACTIVE'";
+    $sessionResult = sqlsrv_query($conn_tmi, $sessionSql);
+    if (!$sessionResult) return null;
+
+    $sessions = [];
+    while ($row = sqlsrv_fetch_array($sessionResult, SQLSRV_FETCH_ASSOC)) {
+        $sessions[] = $row;
+    }
+    sqlsrv_free_stmt($sessionResult);
+
+    if (empty($sessions)) {
+        return ['frozen' => 0, 'at_risk' => 0, 'missed' => 0, 'released' => 0, 'sessions' => 0, 'ms' => round((microtime(true) - $start) * 1000)];
+    }
+
+    $frozen = 0;
+    $atRisk = 0;
+    $missed = 0;
+    $released = 0;
+
+    foreach ($sessions as $sess) {
+        $sid = (int)$sess['session_id'];
+
+        $flightSql = "
+            SELECT ctp_control_id, flight_uid, callsign, slot_status, slot_id,
+                   is_airborne, edct_utc, assigned_nat_track, projected_oep_utc
+            FROM dbo.ctp_flight_control
+            WHERE session_id = ? AND slot_status IN ('ASSIGNED', 'AT_RISK', 'FROZEN')
+        ";
+        $flightResult = sqlsrv_query($conn_tmi, $flightSql, [$sid]);
+        if (!$flightResult) continue;
+
+        $flights = [];
+        $fuids = [];
+        while ($f = sqlsrv_fetch_array($flightResult, SQLSRV_FETCH_ASSOC)) {
+            $uid = (int)$f['flight_uid'];
+            $flights[$uid] = $f;
+            $fuids[] = $uid;
+        }
+        sqlsrv_free_stmt($flightResult);
+
+        if (empty($fuids)) continue;
+
+        $adlData = [];
+        foreach (array_chunk($fuids, 500) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $adlSql = "
+                SELECT c.flight_uid, c.flight_phase, c.is_active,
+                       t.off_utc, t.out_utc
+                FROM dbo.adl_flight_core c
+                JOIN dbo.adl_flight_times t ON t.flight_uid = c.flight_uid
+                WHERE c.flight_uid IN ($placeholders)
+            ";
+            $adlResult = sqlsrv_query($conn_adl, $adlSql, $chunk);
+            if (!$adlResult) continue;
+            while ($row = sqlsrv_fetch_array($adlResult, SQLSRV_FETCH_ASSOC)) {
+                $adlData[(int)$row['flight_uid']] = $row;
+            }
+            sqlsrv_free_stmt($adlResult);
+        }
+
+        $slotTimes = [];
+        if (!empty($fuids)) {
+            $slotIds = array_filter(array_map(fn($f) => $f['slot_id'], $flights));
+            if (!empty($slotIds)) {
+                $sp = implode(',', array_fill(0, count($slotIds), '?'));
+                $stStmt = sqlsrv_query($conn_tmi,
+                    "SELECT slot_id, slot_time_utc FROM dbo.tmi_slots WHERE slot_id IN ($sp)",
+                    array_values($slotIds)
+                );
+                if ($stStmt) {
+                    while ($row = sqlsrv_fetch_array($stStmt, SQLSRV_FETCH_ASSOC)) {
+                        $st = $row['slot_time_utc'];
+                        if ($st instanceof \DateTimeInterface) $st = $st->format('Y-m-d H:i:s');
+                        $slotTimes[(int)$row['slot_id']] = $st ? strtotime($st) : false;
+                    }
+                    sqlsrv_free_stmt($stStmt);
+                }
+            }
+        }
+
+        $nowTs = time();
+
+        foreach ($flights as $uid => $f) {
+            $adl = $adlData[$uid] ?? null;
+            if (!$adl) continue;
+
+            $phase = $adl['flight_phase'] ?? '';
+            $isActive = (int)($adl['is_active'] ?? 0);
+            $currentStatus = $f['slot_status'];
+
+            $offUtc = $adl['off_utc'] ?? null;
+            if ($offUtc instanceof \DateTimeInterface) $offUtc = $offUtc->format('Y-m-d H:i:s');
+
+            // 1. Airborne freeze: ASSIGNED → FROZEN when flight departs
+            if ($currentStatus === 'ASSIGNED' && !$f['is_airborne'] && $offUtc) {
+                $stmt = sqlsrv_query($conn_tmi,
+                    "UPDATE dbo.ctp_flight_control SET
+                        slot_status = 'FROZEN', is_airborne = 1, updated_at = SYSUTCDATETIME()
+                     WHERE ctp_control_id = ?",
+                    [(int)$f['ctp_control_id']]
+                );
+                if ($stmt) { sqlsrv_free_stmt($stmt); $frozen++; }
+
+                _ctpSlotBroadcast('ctp_slot_frozen', [
+                    'session_name' => $sess['session_name'],
+                    'callsign' => $f['callsign'],
+                    'track' => $f['assigned_nat_track'],
+                ]);
+                continue;
+            }
+
+            // 2. Disconnect: ASSIGNED/FROZEN → RELEASED + free tmi_slot
+            if (in_array($currentStatus, ['ASSIGNED', 'FROZEN']) && !$isActive && in_array($phase, ['COMPLETED', 'CANCELLED', ''])) {
+                $stmt = sqlsrv_query($conn_tmi,
+                    "UPDATE dbo.ctp_flight_control SET
+                        slot_status = 'RELEASED', miss_reason = 'DISCONNECT', updated_at = SYSUTCDATETIME()
+                     WHERE ctp_control_id = ?",
+                    [(int)$f['ctp_control_id']]
+                );
+                if ($stmt) { sqlsrv_free_stmt($stmt); $released++; }
+
+                if ($f['slot_id']) {
+                    $relStmt = sqlsrv_query($conn_tmi,
+                        "UPDATE dbo.tmi_slots SET
+                            slot_status = 'OPEN', assigned_callsign = NULL,
+                            assigned_flight_uid = NULL, assigned_origin = NULL,
+                            assigned_dest = NULL, assigned_at = NULL,
+                            updated_at = SYSUTCDATETIME()
+                         WHERE slot_id = ?",
+                        [$f['slot_id']]
+                    );
+                    if ($relStmt) sqlsrv_free_stmt($relStmt);
+                }
+
+                _ctpSlotBroadcast('ctp_slot_released', [
+                    'session_name' => $sess['session_name'],
+                    'callsign' => $f['callsign'],
+                    'track' => $f['assigned_nat_track'],
+                    'reason' => 'DISCONNECT',
+                ]);
+                continue;
+            }
+
+            if ($currentStatus !== 'ASSIGNED') continue;
+
+            // 3. Timing-based miss/at_risk using projected OEP vs slot_time
+            $slotTs = isset($f['slot_id']) ? ($slotTimes[(int)$f['slot_id']] ?? false) : false;
+            if (!$slotTs || $offUtc) continue;
+
+            $oepVal = $f['projected_oep_utc'] ?? null;
+            if ($oepVal instanceof \DateTimeInterface) $oepVal = $oepVal->format('Y-m-d H:i:s');
+            $oepTs = $oepVal ? strtotime($oepVal) : false;
+
+            if (!$oepTs) {
+                $edctVal = $f['edct_utc'];
+                if ($edctVal instanceof \DateTimeInterface) $edctVal = $edctVal->format('Y-m-d H:i:s');
+                $edctTs = $edctVal ? strtotime($edctVal) : false;
+                if ($edctTs) {
+                    $naEteStmt = sqlsrv_query($conn_tmi,
+                        "SELECT t.oceanic_entry_fix FROM dbo.ctp_session_tracks t
+                         WHERE t.session_id = ? AND t.track_name = ?",
+                        [$sid, $f['assigned_nat_track'] ?? '']
+                    );
+                    $naEte = 0;
+                    if ($naEteStmt) {
+                        $tr = sqlsrv_fetch_array($naEteStmt, SQLSRV_FETCH_ASSOC);
+                        sqlsrv_free_stmt($naEteStmt);
+                    }
+                    $oepTs = $edctTs + 4800;
+                }
+            }
+
+            if (!$oepTs) continue;
+
+            $slipMin = ($oepTs - $slotTs) / 60;
+
+            if ($slipMin > 15) {
+                $stmt = sqlsrv_query($conn_tmi,
+                    "UPDATE dbo.ctp_flight_control SET
+                        slot_status = 'MISSED', miss_reason = 'OEP_EXCEEDED', updated_at = SYSUTCDATETIME()
+                     WHERE ctp_control_id = ?",
+                    [(int)$f['ctp_control_id']]
+                );
+                if ($stmt) { sqlsrv_free_stmt($stmt); $missed++; }
+
+                if ($f['slot_id']) {
+                    $relStmt = sqlsrv_query($conn_tmi,
+                        "UPDATE dbo.tmi_slots SET
+                            slot_status = 'OPEN', assigned_callsign = NULL,
+                            assigned_flight_uid = NULL, assigned_origin = NULL,
+                            assigned_dest = NULL, assigned_at = NULL,
+                            updated_at = SYSUTCDATETIME()
+                         WHERE slot_id = ?",
+                        [$f['slot_id']]
+                    );
+                    if ($relStmt) sqlsrv_free_stmt($relStmt);
+                }
+
+                _ctpSlotBroadcast('ctp_slot_missed', [
+                    'session_name' => $sess['session_name'],
+                    'callsign' => $f['callsign'],
+                    'track' => $f['assigned_nat_track'],
+                    'reason' => 'OEP_EXCEEDED',
+                ]);
+            } elseif ($slipMin > 5) {
+                $stmt = sqlsrv_query($conn_tmi,
+                    "UPDATE dbo.ctp_flight_control SET
+                        slot_status = 'AT_RISK', miss_reason = 'OEP_SLIPPING',
+                        projected_oep_utc = ?, updated_at = SYSUTCDATETIME()
+                     WHERE ctp_control_id = ?",
+                    [gmdate('Y-m-d H:i:s', $oepTs), (int)$f['ctp_control_id']]
+                );
+                if ($stmt) { sqlsrv_free_stmt($stmt); $atRisk++; }
+
+                _ctpSlotBroadcast('ctp_slot_at_risk', [
+                    'session_name' => $sess['session_name'],
+                    'callsign' => $f['callsign'],
+                    'track' => $f['assigned_nat_track'],
+                    'reason' => 'OEP_SLIPPING',
+                    'slip_min' => round($slipMin, 1),
+                ]);
+            }
+        }
+    }
+
+    return [
+        'frozen' => $frozen,
+        'at_risk' => $atRisk,
+        'missed' => $missed,
+        'released' => $released,
+        'sessions' => count($sessions),
+        'ms' => round((microtime(true) - $start) * 1000),
+    ];
+}
+
+function _ctpSlotBroadcast(string $type, array $data): void {
+    $event = json_encode(array_merge(['type' => $type], $data));
+    @file_put_contents('/tmp/swim_ws_events.json', $event . "\n", FILE_APPEND | LOCK_EX);
+}
+
+/**
  * Clear TMI columns for flights no longer in any active program.
  *
  * @param resource $conn_adl ADL connection
@@ -3158,6 +3410,16 @@ function runDaemon(array $config): void {
                         }
                     } catch (Throwable $e) {
                         logWarn("CTP compliance error: " . $e->getMessage());
+                    }
+
+                    // 4b-slot. CTP slot lifecycle monitor (disconnect/airborne/miss detection)
+                    try {
+                        $slotMonResult = executeCtpSlotMonitor($conn, $conn_tmi);
+                        if ($slotMonResult !== null && ($slotMonResult['frozen'] + $slotMonResult['at_risk'] + $slotMonResult['missed']) > 0) {
+                            logInfo("CTP slot monitor: frozen={$slotMonResult['frozen']} at_risk={$slotMonResult['at_risk']} missed={$slotMonResult['missed']} released={$slotMonResult['released']} ({$slotMonResult['ms']}ms)");
+                        }
+                    } catch (Throwable $e) {
+                        logWarn("CTP slot monitor error: " . $e->getMessage());
                     }
                 }
             }

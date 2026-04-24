@@ -243,6 +243,11 @@ include("load/connect.php");
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link" data-toggle="tab" href="#ctp_slot_engine_panel">
+                        <i class="fas fa-cogs mr-1"></i><?= __('ctp.slotEngine.title') ?>
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" data-toggle="tab" href="#ctp_stats_panel">
                         <i class="fas fa-chart-pie mr-1"></i><?= __('ctp.stats.title') ?>
                     </a>
@@ -345,6 +350,19 @@ include("load/connect.php");
                                 <tr><td colspan="6" class="text-center text-muted py-3"><?= __('ctp.routes.noTemplates') ?></td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Slot Engine Tab -->
+                <div class="tab-pane fade" id="ctp_slot_engine_panel">
+                    <div class="d-flex align-items-center justify-content-between px-3 py-2">
+                        <span class="small font-weight-bold"><?= __('ctp.slotEngine.sessionStatus') ?></span>
+                        <button class="btn btn-sm btn-outline-secondary" id="ctp_slot_engine_refresh">
+                            <i class="fas fa-sync-alt mr-1"></i><?= __('common.refresh') ?>
+                        </button>
+                    </div>
+                    <div id="ctp_slot_engine_content" class="px-3 pb-2">
+                        <div class="text-center text-muted py-3"><?= __('ctp.slotEngine.selectSession') ?></div>
                     </div>
                 </div>
 

@@ -4764,6 +4764,124 @@
     };
 
     // ========================================================================
+    // Slot Engine Panel — track utilization, flight status, constraints
+    // ========================================================================
+
+    var SlotEnginePanel = {
+        _swimBase: 'api/swim/v1/ctp/',
+
+        init: function() {
+            var self = this;
+            $(document).on('shown.bs.tab', 'a[href="#ctp_slot_engine_panel"]', function() { self.refresh(); });
+            $('#ctp_slot_engine_refresh').on('click', function() { self.refresh(); });
+        },
+
+        refresh: function() {
+            if (!state.currentSession) return;
+            var self = this;
+            var $panel = $('#ctp_slot_engine_content');
+            $panel.html('<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> ' + t('common.loading') + '</div>');
+
+            var sessionName = state.currentSession.session_name || '';
+            var sessionId = state.currentSession.session_id || 0;
+            var param = sessionName ? 'session_name=' + encodeURIComponent(sessionName) : 'session_id=' + sessionId;
+
+            $.ajax({
+                url: self._swimBase + 'session-status.php?' + param,
+                dataType: 'json',
+                success: function(resp) {
+                    if (resp.status === 'ok' && resp.data) {
+                        self.render(resp.data);
+                    } else {
+                        $panel.html('<div class="text-center text-muted py-3">' + t('ctp.slotEngine.noData') + '</div>');
+                    }
+                },
+                error: function() {
+                    $panel.html('<div class="text-center text-danger py-3">' + t('ctp.slotEngine.loadError') + '</div>');
+                }
+            });
+        },
+
+        render: function(d) {
+            var html = '<div class="row" style="font-size:0.78rem;">';
+
+            // Column 1: Track utilization
+            html += '<div class="col-md-5">';
+            html += '<h6 class="text-uppercase text-muted mb-2" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.slotEngine.trackUtilization') + '</h6>';
+
+            if (d.tracks && d.tracks.length > 0) {
+                d.tracks.forEach(function(tr) {
+                    var pct = tr.utilization_pct || 0;
+                    var barClass = pct >= 90 ? 'bg-danger' : pct >= 70 ? 'bg-warning' : 'bg-success';
+                    html += '<div class="mb-2">';
+                    var used = tr.total_slots - tr.open;
+                    html += '<div class="d-flex justify-content-between mb-1">';
+                    html += '<span class="font-weight-bold">' + t('ctp.slotEngine.track') + ' ' + (tr.track_name || '?') + '</span>';
+                    html += '<span class="text-muted">' + used + '/' + tr.total_slots + ' (' + pct + '%)</span>';
+                    html += '</div>';
+                    html += '<div class="progress" style="height:14px;">';
+                    html += '<div class="progress-bar ' + barClass + '" style="width:' + pct + '%" title="' + t('ctp.slotEngine.assigned') + ': ' + tr.assigned + '">' +
+                            (pct >= 10 ? pct + '%' : '') + '</div>';
+                    html += '</div>';
+                    html += '<div class="d-flex justify-content-between mt-1" style="font-size:0.7rem;">';
+                    html += '<span class="text-success">' + t('ctp.slotEngine.open') + ': ' + tr.open + '</span>';
+                    html += '<span class="text-primary">' + t('ctp.slotEngine.assigned') + ': ' + tr.assigned + '</span>';
+                    html += '</div></div>';
+                });
+            } else {
+                html += '<div class="text-muted">' + t('ctp.slotEngine.noTracks') + '</div>';
+            }
+            html += '</div>';
+
+            // Column 2: Flight status breakdown
+            html += '<div class="col-md-3">';
+            html += '<h6 class="text-uppercase text-muted mb-2" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.slotEngine.flightStatus') + '</h6>';
+            var f = d.flights || {};
+            html += this._statusRow(t('ctp.slotEngine.totalFlights'), f.total || 0, '');
+            html += this._statusRow(t('ctp.slotEngine.assigned'), f.assigned || 0, 'text-primary');
+            html += this._statusRow(t('ctp.slotEngine.frozen'), f.frozen || 0, 'text-info');
+            html += this._statusRow(t('ctp.slotEngine.atRisk'), f.at_risk || 0, 'text-warning');
+            html += this._statusRow(t('ctp.slotEngine.missed'), f.missed || 0, 'text-danger');
+            html += this._statusRow(t('ctp.slotEngine.released'), f.released || 0, 'text-secondary');
+            html += this._statusRow(t('ctp.slotEngine.unassigned'), f.unassigned || 0, 'text-muted');
+
+            html += '<div class="mt-2 py-1 px-2 rounded" style="background:#f0f0f0;">';
+            html += '<small class="text-muted">' + t('ctp.slotEngine.slotGenStatus') + ': </small>';
+            var genStatus = d.slot_generation_status || 'PENDING';
+            var genClass = genStatus === 'READY' ? 'badge-success' : genStatus === 'ERROR' ? 'badge-danger' : 'badge-secondary';
+            html += '<span class="badge ' + genClass + '">' + genStatus + '</span>';
+            html += '</div>';
+            html += '</div>';
+
+            // Column 3: Configured constraints
+            html += '<div class="col-md-4">';
+            html += '<h6 class="text-uppercase text-muted mb-2" style="font-size:0.7rem;letter-spacing:0.05em;">' + t('ctp.slotEngine.constraints') + '</h6>';
+
+            var constraints = (d.constraint_status && d.constraint_status.configured) || [];
+            if (constraints.length > 0) {
+                html += '<table class="table table-sm table-striped mb-0" style="font-size:0.75rem;">';
+                html += '<thead><tr><th>' + t('ctp.slotEngine.facility') + '</th><th>' + t('ctp.slotEngine.type') + '</th><th>' + t('ctp.slotEngine.limit') + '</th></tr></thead><tbody>';
+                constraints.forEach(function(c) {
+                    html += '<tr><td>' + c.facility + '</td><td><span class="badge badge-outline-secondary">' + c.facility_type + '</span></td><td>' + c.limit + ' ' + t('ctp.slotEngine.acph') + '</td></tr>';
+                });
+                html += '</tbody></table>';
+            } else {
+                html += '<div class="text-muted">' + t('ctp.slotEngine.noConstraints') + '</div>';
+            }
+            html += '</div>';
+
+            html += '</div>';
+            $('#ctp_slot_engine_content').html(html);
+        },
+
+        _statusRow: function(label, value, cls) {
+            return '<div class="d-flex justify-content-between py-1" style="border-bottom:1px solid #f0f0f0;">' +
+                '<span class="text-muted">' + label + '</span>' +
+                '<span class="font-weight-bold ' + (cls || '') + '">' + value + '</span></div>';
+        }
+    };
+
+    // ========================================================================
     // Session Stats Panel
     // ========================================================================
 
@@ -4864,6 +4982,7 @@
         PlanningSimulator.init();
         TrackConstraintManager.init();
         RouteTemplateManager.init();
+        SlotEnginePanel.init();
         StatsPanel.init();
         ResizeHandle.init();
         FlightTable.updateSortUI();
