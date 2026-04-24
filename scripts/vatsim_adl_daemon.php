@@ -2281,18 +2281,28 @@ function formatDatetimeParam($value): ?string {
 function executeCTPBookingMatch($conn_adl): ?array {
     $start = microtime(true);
 
-    // Step 1: Tag active flights whose CID + airports match a booking
+    // Step 1: Tag active flights whose CID + airports match a booking.
+    // Use MERGE because adl_flight_tmi rows only exist for TMI-controlled flights.
+    // Most CTP flights won't have a TMI row yet, so we INSERT one with flow_event_code.
     $tagSql = "
-        UPDATE t SET t.flow_event_code = b.event_code
-        FROM dbo.adl_flight_tmi t
-        JOIN dbo.adl_flight_core c ON t.flight_uid = c.flight_uid
-        JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
-        JOIN dbo.ctp_event_bookings b ON c.cid = b.cid
-            AND fp.fp_dept_icao = b.dep_airport
-            AND fp.fp_dest_icao = b.arr_airport
-        WHERE c.is_active = 1
-          AND t.flow_event_code IS NULL
-          AND b.event_code IS NOT NULL
+        MERGE dbo.adl_flight_tmi AS t
+        USING (
+            SELECT c.flight_uid, b.event_code
+            FROM dbo.adl_flight_core c
+            JOIN dbo.adl_flight_plan fp ON fp.flight_uid = c.flight_uid
+            JOIN dbo.ctp_event_bookings b ON c.cid = b.cid
+                AND fp.fp_dept_icao = b.dep_airport
+                AND fp.fp_dest_icao = b.arr_airport
+            WHERE c.is_active = 1
+              AND b.event_code IS NOT NULL
+        ) AS s ON t.flight_uid = s.flight_uid
+
+        WHEN MATCHED AND t.flow_event_code IS NULL THEN
+            UPDATE SET t.flow_event_code = s.event_code
+
+        WHEN NOT MATCHED BY TARGET THEN
+            INSERT (flight_uid, flow_event_code)
+            VALUES (s.flight_uid, s.event_code);
     ";
 
     $stmt = @sqlsrv_query($conn_adl, $tagSql);
