@@ -34,7 +34,7 @@
 | **RBS** | Ration By Schedule (GDP slot assignment algorithm) |
 | **ASPM82** | FAA Aviation System Performance Metrics 82-airport set |
 | **OPSNET45** | FAA Operations Network 45-airport performance metric set |
-| **CTP** | Collaborative Traffic Planning (oceanic/special event coordination) |
+| **CTP** | Cross the Pond (oceanic/special event coordination) |
 | **CDM** | Collaborative Decision Making (A-CDM airport milestones) |
 | **ECFMP** | EUROCONTROL-style Flow Measures (VATSIM Europe integration) |
 | **NAT** | North Atlantic Tracks (oceanic routing) |

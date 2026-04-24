@@ -6,7 +6,7 @@
 
 ## Context
 
-You are implementing the client-side integration between **flowcontrol** (vatsimnetwork/flowcontrol) and **PERTI** (perti.vatcscc.org), which is the slot assignment engine for CTP (Collaborative Traffic Planning) oceanic events on VATSIM.
+You are implementing the client-side integration between **flowcontrol** (vatsimnetwork/flowcontrol) and **PERTI** (perti.vatcscc.org), which is the slot assignment engine for CTP (Cross the Pond) oceanic events on VATSIM.
 
 **PERTI's role:** Computation engine — generates slot grids per NAT track, evaluates multi-constraint advisories, computes timing chains (CTOT → OEP → CTA), assigns slots, and runs a 9-step recalculation cascade.
 

@@ -668,7 +668,7 @@ GET /api/swim/v1/playbook/analysis?route_id=659602&cruise_kts=480
 
 ### GET /api/swim/v1/playbook/throughput
 
-Returns throughput data for playbook routes, used for CTP (Collaborative Traffic Planning) capacity tracking.
+Returns throughput data for playbook routes, used for CTP (Cross the Pond) capacity tracking.
 
 **Auth**: Required (API key with read access)
 

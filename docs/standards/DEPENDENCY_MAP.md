@@ -564,7 +564,7 @@ vIFF CDM API
 
 CTP API
 ├── Called By: load/services/CTPApiClient.php
-├── Purpose: Collaborative Traffic Planning (oceanic/special events)
+├── Purpose: Cross the Pond (oceanic/special events)
 └── Depth: External (service layer)
 ```
 
