@@ -2821,6 +2821,8 @@
         $('#pb_route_edit_body').empty();
         $('#pb_bulk_paste_area').hide();
         $('#pb_advisory_parse_area').hide();
+        $('#pb_select_all_routes').prop('checked', false).prop('indeterminate', false);
+        $('#pb_delete_selected_btn').hide();
         addEditRouteRow();
         $('#pb_play_modal').modal('show');
     }
@@ -2851,6 +2853,8 @@
 
         $('#pb_bulk_paste_area').hide();
         $('#pb_advisory_parse_area').hide();
+        $('#pb_select_all_routes').prop('checked', false).prop('indeterminate', false);
+        $('#pb_delete_selected_btn').hide();
         $('#pb_play_modal').modal('show');
     }
 
@@ -2876,6 +2880,8 @@
 
         $('#pb_bulk_paste_area').hide();
         $('#pb_advisory_parse_area').hide();
+        $('#pb_select_all_routes').prop('checked', false).prop('indeterminate', false);
+        $('#pb_delete_selected_btn').hide();
         $('#pb_play_modal').modal('show');
     }
 
@@ -2883,6 +2889,7 @@
         var route = r || {};
         var hasRemarks = !!(route.remarks && route.remarks.trim());
         var html = '<tr>';
+        html += '<td class="pb-re-cell" style="text-align:center;"><input type="checkbox" class="pb-re-check"></td>';
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-origin pb-re-apt" value="' + escHtml(route.origin || '') + '" placeholder="KABC"></td>';
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-origin-filter" value="' + escHtml(route.origin_filter || '') + '" placeholder="-APT"></td>';
         html += '<td class="pb-re-cell"><input type="text" class="form-control form-control-sm pb-re-dest pb-re-apt" value="' + escHtml(route.dest || '') + '" placeholder="KXYZ"></td>';
@@ -2899,6 +2906,15 @@
         autoResizeTextarea($ta[0]);
         $ta.on('input', function() { autoResizeTextarea(this); });
 
+    }
+
+    function updateDeleteSelectedBtn() {
+        var count = $('#pb_route_edit_body .pb-re-check:checked').length;
+        if (count > 0) {
+            $('#pb_delete_selected_btn').show().find('#pb_delete_selected_count').text(count);
+        } else {
+            $('#pb_delete_selected_btn').hide();
+        }
     }
 
     function autoResizeTextarea(el) {
@@ -5670,6 +5686,43 @@
         // Delete route row in edit modal
         $(document).on('click', '.pb-re-delete', function() {
             $(this).closest('tr').remove();
+            updateDeleteSelectedBtn();
+        });
+
+        // Select-all checkbox
+        $('#pb_select_all_routes').on('change', function() {
+            var checked = this.checked;
+            $('#pb_route_edit_body .pb-re-check').prop('checked', checked);
+            updateDeleteSelectedBtn();
+        });
+
+        // Individual checkbox change
+        $(document).on('change', '.pb-re-check', function() {
+            var total = $('#pb_route_edit_body .pb-re-check').length;
+            var checked = $('#pb_route_edit_body .pb-re-check:checked').length;
+            $('#pb_select_all_routes').prop('checked', checked === total && total > 0)
+                                     .prop('indeterminate', checked > 0 && checked < total);
+            updateDeleteSelectedBtn();
+        });
+
+        // Delete Selected button
+        $('#pb_delete_selected_btn').on('click', function() {
+            var count = $('#pb_route_edit_body .pb-re-check:checked').length;
+            if (!count) return;
+            Swal.fire({
+                icon: 'warning',
+                title: t('playbook.deleteSelectedConfirm', { count: count }),
+                text: t('playbook.deleteSelectedConfirmText'),
+                showCancelButton: true,
+                confirmButtonText: t('playbook.deleteSelected'),
+                cancelButtonText: t('common.cancel')
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    $('#pb_route_edit_body .pb-re-check:checked').closest('tr').remove();
+                    $('#pb_select_all_routes').prop('checked', false).prop('indeterminate', false);
+                    updateDeleteSelectedBtn();
+                }
+            });
         });
 
         // Bulk paste toggle

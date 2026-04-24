@@ -1030,14 +1030,16 @@
     white-space: nowrap;
 }
 
-/* Column widths: proportional with table-layout:fixed — orig/dest | filter | route | icons */
-.pb-route-edit-table th:nth-child(1),
-.pb-route-edit-table th:nth-child(3) { width: 18%; }   /* origin / dest */
-.pb-route-edit-table th:nth-child(2),
-.pb-route-edit-table th:nth-child(4) { width: 6%; }    /* orig filter / dest filter */
+/* Column widths: proportional with table-layout:fixed */
+.pb-route-edit-table .pb-re-th-check { width: 24px; text-align: center; }
+.pb-route-edit-table .pb-re-th-origin,
+.pb-route-edit-table .pb-re-th-dest { width: 17%; }
+.pb-route-edit-table .pb-re-th-origin-filter,
+.pb-route-edit-table .pb-re-th-dest-filter { width: 6%; }
 .pb-route-edit-table .pb-re-th-route { width: auto; }
 .pb-route-edit-table .pb-re-th-remarks { width: 28px; text-align: center; }
 .pb-route-edit-table .pb-re-th-action { width: 24px; text-align: center; }
+.pb-re-check { margin: 5px 0 0; cursor: pointer; }
 
 .pb-route-edit-table td.pb-re-cell { padding: 2px; vertical-align: top; overflow: hidden; }
 
