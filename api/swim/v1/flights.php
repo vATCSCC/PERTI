@@ -47,6 +47,7 @@ $dept_icao = swim_get_param('dept_icao');
 $dest_icao = swim_get_param('dest_icao');
 $callsign = swim_get_param('callsign');
 $tmi_controlled = swim_get_param('tmi_controlled');
+$flow_event_code = swim_get_param('flow_event_code');
 $phase = swim_get_param('phase');
 
 // Flight plan destination filters (explicit names preferred)
@@ -90,6 +91,7 @@ $cache_params = array_filter([
     'strata' => $strata,
     'callsign' => $callsign,
     'tmi_controlled' => $tmi_controlled,
+    'flow_event_code' => $flow_event_code,
     'phase' => $phase,
     'dep_window_start' => $dep_window_start,
     'dep_window_end' => $dep_window_end,
@@ -172,6 +174,11 @@ if ($callsign) {
 
 if ($tmi_controlled === 'true' || $tmi_controlled === '1') {
     $where_clauses[] = "(f.gs_held = 1 OR f.ctl_type IS NOT NULL)";
+}
+
+if ($flow_event_code) {
+    $where_clauses[] = "f.flow_event_code = ?";
+    $params[] = strtoupper($flow_event_code);
 }
 
 if ($phase) {
@@ -259,6 +266,7 @@ $sql = "
         f.gs_held, f.gs_release_utc, f.ctl_type, f.ctl_prgm, f.ctl_element,
         f.is_exempt, f.exempt_reason, f.slot_time_utc, f.slot_status,
         f.program_id, f.slot_id, f.delay_minutes, f.delay_status,
+        f.flow_event_code, f.flow_gs_exempt,
         f.aircraft_type, f.aircraft_icao, f.aircraft_faa, f.weight_class,
         f.wake_category, f.engine_type, f.airline_icao, f.airline_name,
         f.last_sync_utc,
@@ -569,7 +577,9 @@ function formatFlightRecordFIXM($row, $use_swim_db = false) {
             'delay_status' => $row['delay_status'],
             'slot_time' => formatDT($row['slot_time_utc']),
             'program_id' => $row['program_id'],
-            'slot_id' => $row['slot_id']
+            'slot_id' => $row['slot_id'],
+            'flow_event_code' => $row['flow_event_code'] ?? null,
+            'flow_gs_exempt' => isset($row['flow_gs_exempt']) ? (bool)$row['flow_gs_exempt'] : null
         ],
 
         // Metering - FIXM/TBFM aligned

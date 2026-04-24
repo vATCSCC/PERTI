@@ -101,6 +101,7 @@ $sql = "
         f.slot_time_utc, f.slot_status,
         f.delay_minutes, f.delay_status,
         f.program_id, f.slot_id,
+        f.flow_event_code, f.flow_gs_exempt,
         -- Aircraft
         f.aircraft_icao, f.aircraft_faa, f.weight_class, f.wake_category,
         f.engine_type, f.airline_icao, f.airline_name,
@@ -275,7 +276,9 @@ function formatSwimFlightRecordFIXM($row) {
             'delay' => [
                 'value' => $row['delay_minutes'],
                 'status' => $row['delay_status']
-            ]
+            ],
+            'flow_event_code' => $row['flow_event_code'] ?? null,
+            'flow_gs_exempt' => isset($row['flow_gs_exempt']) ? (bool)$row['flow_gs_exempt'] : null
         ],
 
         'metering' => [
