@@ -236,23 +236,35 @@ class CTPSlotEngine
         $candidates = [];
         $eteCache = [];
 
+        // Determine flight's baseline departure time for OEP projection
+        $tobtStr = $params['tobt'] ?? null;
+        if (!$tobtStr) {
+            // Fall back to flight's planned departure from ADL (etd_utc or std_utc)
+            $stmt = sqlsrv_query($this->conn_adl,
+                "SELECT etd_utc, std_utc FROM dbo.adl_flight_times WHERE flight_uid = ?",
+                [(int)$flight['flight_uid']]
+            );
+            if ($stmt) {
+                $trow = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+                sqlsrv_free_stmt($stmt);
+                if ($trow) {
+                    $tobtStr = $trow['etd_utc'] ?? $trow['std_utc'] ?? null;
+                    if ($tobtStr instanceof \DateTime) $tobtStr = $tobtStr->format('Y-m-d H:i:s');
+                }
+            }
+            if (!$tobtStr) $tobtStr = gmdate('Y-m-d H:i:s');
+        }
+        $tobtTs = strtotime($tobtStr . ' UTC') ?: time();
+
         foreach ($tracks as $track) {
             if (!$track['program_id']) continue;
-
-            // Get earliest open slot
-            $slot = $this->getEarliestOpenSlot((int)$track['program_id']);
-            if (!$slot) continue;
-
-            $slotTimeStr = $slot['slot_time_utc'];
-            if ($slotTimeStr instanceof \DateTime) $slotTimeStr = $slotTimeStr->format('Y-m-d H:i:s');
-            $slotTs = strtotime($slotTimeStr . ' UTC');
 
             // Compute or cache segment ETEs for this track
             $cacheKey = $track['track_name'];
             if (!isset($eteCache[$cacheKey])) {
                 $eteCache[$cacheKey] = $this->computeSegmentETEs(
                     $flight, $track,
-                    $params['tobt'] ?? gmdate('Y-m-d H:i:s'),
+                    $tobtStr,
                     $params['na_route'] ?? '',
                     $params['eu_route'] ?? ''
                 );
@@ -261,10 +273,27 @@ class CTPSlotEngine
 
             if (!$etes || !isset($etes['na_ete_min'])) continue;
 
-            // Compute timing chain arithmetically from slot time
             $naEteSec = $etes['na_ete_min'] * 60;
             $ocaEteSec = $etes['oca_ete_min'] * 60;
             $euEteSec = $etes['eu_ete_min'] * 60;
+
+            // Project when this flight would reach the oceanic entry point:
+            // For ground flights: TOBT + taxi + NA segment ETE
+            // For airborne flights: use current position ETA to entry fix if available,
+            // otherwise TOBT + NA ETE (no taxi)
+            if ($isAirborne) {
+                $projectedOepTs = $tobtTs + $naEteSec;
+            } else {
+                $projectedOepTs = $tobtTs + $taxiSec + $naEteSec;
+            }
+
+            // Find the nearest open slot at or after the projected OEP
+            $slot = $this->getSlotAtOrAfter((int)$track['program_id'], $projectedOepTs);
+            if (!$slot) continue;
+
+            $slotTimeStr = $slot['slot_time_utc'];
+            if ($slotTimeStr instanceof \DateTime) $slotTimeStr = $slotTimeStr->format('Y-m-d H:i:s');
+            $slotTs = strtotime($slotTimeStr . ' UTC');
 
             $timing = [
                 'ctot_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs - $naEteSec - $taxiSec),
@@ -761,6 +790,45 @@ class CTPSlotEngine
              FROM dbo.tmi_slots
              WHERE program_id = ? AND slot_status = 'OPEN'
              ORDER BY slot_time_utc ASC",
+            [$programId]
+        );
+        if (!$stmt) return null;
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        return $row ?: null;
+    }
+
+    /**
+     * Find the nearest open slot at or after a projected OEP timestamp.
+     * Falls back to the earliest open slot if all slots are before the projection
+     * (e.g. flight departs after the last slot).
+     */
+    private function getSlotAtOrAfter(int $programId, int $projectedTs): ?array
+    {
+        $projectedUtc = gmdate('Y-m-d H:i:s', $projectedTs);
+
+        // First: nearest open slot at or after the projected OEP
+        $stmt = sqlsrv_query($this->conn_tmi,
+            "SELECT TOP 1 slot_id, slot_time_utc, slot_name
+             FROM dbo.tmi_slots
+             WHERE program_id = ? AND slot_status = 'OPEN'
+               AND slot_time_utc >= ?
+             ORDER BY slot_time_utc ASC",
+            [$programId, $projectedUtc]
+        );
+        if ($stmt) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+            if ($row) return $row;
+        }
+
+        // Fallback: if projected OEP is beyond all slots, return the last open slot
+        // (flight will have delay absorbed)
+        $stmt = sqlsrv_query($this->conn_tmi,
+            "SELECT TOP 1 slot_id, slot_time_utc, slot_name
+             FROM dbo.tmi_slots
+             WHERE program_id = ? AND slot_status = 'OPEN'
+             ORDER BY slot_time_utc DESC",
             [$programId]
         );
         if (!$stmt) return null;
