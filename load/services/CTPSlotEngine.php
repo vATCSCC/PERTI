@@ -133,7 +133,7 @@ class CTPSlotEngine
                      gaming_flags_count, gs_release_followon)
                  OUTPUT INSERTED.program_id
                  VALUES (?, 'FIR', 'CTP', ?,
-                         ?, ?, 'ACTIVE', 1, 0,
+                         ?, ?, 'ACTIVE', 0, 1,
                          ?, 180, 1.00,
                          'ALL', 1, 0,
                          'SYSTEM', SYSUTCDATETIME(), SYSUTCDATETIME(), 0,
