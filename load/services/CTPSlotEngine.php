@@ -204,8 +204,19 @@ class CTPSlotEngine
     /**
      * Request ranked slot candidates for a flight.
      *
+     * Handles three scenarios:
+     *   1. Named track specified (track='A') — hard-lock that track as recommended
+     *   2. No track specified — evaluate all tracks including RR, rank by advisories
+     *   3. Random route (track='RR') — use flight's actual oceanic entry/exit fixes
+     *
+     * For RR/RANDOM tracks, oceanic entry/exit fixes are resolved from:
+     *   - Explicit entry_fix/exit_fix params (highest priority)
+     *   - ctp_flight_control (populated by detect.php)
+     *   - adl_flight_planned_crossings (auto-detection from filed route)
+     *
      * @param array $params Keys: session_name|session_id, callsign, origin, destination,
-     *                      aircraft_type, preferred_track, tobt, is_airborne, na_route, eu_route
+     *                      aircraft_type, track, preferred_track, tobt, is_airborne,
+     *                      na_route, eu_route, entry_fix, exit_fix
      * @return array        {recommended: {...}, alternatives: [...]} or {error, code}
      */
     public function requestSlot(array $params): array
@@ -266,16 +277,41 @@ class CTPSlotEngine
         $cachedPerf = CTOTCascade::getPerformance($this->conn_adl, $flight);
         $cachedTimes = CTOTCascade::readFlightTimes($this->conn_adl, (int)$flight['flight_uid']);
 
+        // Resolve flight's actual oceanic entry/exit for random routes (RR track)
+        $flightEntryFix = $params['entry_fix'] ?? '';
+        $flightExitFix = $params['exit_fix'] ?? '';
+        if (!$flightEntryFix || !$flightExitFix) {
+            $ctpCtl = $this->getFlightCTPControl((int)$session['session_id'], (int)$flight['flight_uid']);
+            if ($ctpCtl) {
+                $flightEntryFix = $flightEntryFix ?: ($ctpCtl['oceanic_entry_fix'] ?? '');
+                $flightExitFix = $flightExitFix ?: ($ctpCtl['oceanic_exit_fix'] ?? '');
+            }
+        }
+        if (!$flightEntryFix || !$flightExitFix) {
+            $detected = $this->detectOceanicFixes($session, (int)$flight['flight_uid']);
+            $flightEntryFix = $flightEntryFix ?: ($detected['entry_fix'] ?? '');
+            $flightExitFix = $flightExitFix ?: ($detected['exit_fix'] ?? '');
+        }
+
         foreach ($tracks as $track) {
             if (!$track['program_id']) continue;
 
+            // For RR/RANDOM tracks, use flight's actual oceanic entry/exit
+            $isRandomTrack = in_array(strtoupper($track['track_name']), ['RR', 'RANDOM'], true);
+            $overrideEntryFix = $isRandomTrack ? $flightEntryFix : null;
+            $overrideExitFix = $isRandomTrack ? $flightExitFix : null;
+
+            // Skip RR track if flight's oceanic fixes are unknown
+            if ($isRandomTrack && (!$overrideEntryFix || !$overrideExitFix)) continue;
+
             // Compute or cache segment ETEs for this track
-            $cacheKey = $track['track_name'];
+            $cacheKey = $track['track_name'] . ($isRandomTrack ? ":$flightEntryFix:$flightExitFix" : '');
             if (!isset($eteCache[$cacheKey])) {
                 $eteCache[$cacheKey] = $this->computeSegmentETEs(
                     $flight, $track, $tobtStr,
                     $params['na_route'] ?? '', $params['eu_route'] ?? '',
-                    $cachedPerf, $cachedTimes
+                    $cachedPerf, $cachedTimes,
+                    $overrideEntryFix, $overrideExitFix
                 );
             }
             $etes = $eteCache[$cacheKey];
@@ -316,8 +352,8 @@ class CTPSlotEngine
                 'eu_ete_min' => $etes['eu_ete_min'],
                 'total_ete_min' => $etes['na_ete_min'] + $etes['oca_ete_min'] + $etes['eu_ete_min'],
                 'cruise_speed_kts' => $etes['cruise_speed_kts'] ?? 0,
-                'oceanic_entry_fix' => $track['oceanic_entry_fix'],
-                'oceanic_exit_fix' => $track['oceanic_exit_fix'],
+                'oceanic_entry_fix' => $overrideEntryFix ?: $track['oceanic_entry_fix'],
+                'oceanic_exit_fix' => $overrideExitFix ?: $track['oceanic_exit_fix'],
             ];
 
             if ($isAirborne) {
@@ -340,6 +376,7 @@ class CTPSlotEngine
                 'advisories' => $advisories,
                 'advisory_count' => count($advisories),
                 'is_preferred' => ($track['track_name'] === ($requestedTrack ?: $preferredTrack)),
+                'is_random' => $isRandomTrack,
             ];
         }
 
@@ -356,6 +393,8 @@ class CTPSlotEngine
                 if ($a['track'] === $lockTrack && $b['track'] !== $lockTrack) return -1;
                 if ($b['track'] === $lockTrack && $a['track'] !== $lockTrack) return 1;
             }
+            // Named tracks rank above random routes (unless hard-locked above)
+            if ($a['is_random'] !== $b['is_random']) return $a['is_random'] - $b['is_random'];
             // Soft preference (preferred_track) as tiebreaker
             if ($a['is_preferred'] !== $b['is_preferred']) return $b['is_preferred'] - $a['is_preferred'];
             if ($a['advisory_count'] !== $b['advisory_count']) return $a['advisory_count'] - $b['advisory_count'];
@@ -363,7 +402,7 @@ class CTPSlotEngine
         });
 
         // Strip internal fields from response
-        foreach ($candidates as &$c) { unset($c['is_preferred']); }
+        foreach ($candidates as &$c) { unset($c['is_preferred'], $c['is_random']); }
         unset($c);
 
         return [
@@ -438,13 +477,36 @@ class CTPSlotEngine
         $flightUid = (int)$flight['flight_uid'];
         $isAirborne = (bool)($params['is_airborne'] ?? false);
 
+        // For RR/RANDOM tracks, resolve flight's actual oceanic entry/exit
+        $isRandomTrack = in_array(strtoupper($trackName), ['RR', 'RANDOM'], true);
+        $overrideEntryFix = null;
+        $overrideExitFix = null;
+        if ($isRandomTrack) {
+            $overrideEntryFix = $params['entry_fix'] ?? '';
+            $overrideExitFix = $params['exit_fix'] ?? '';
+            if (!$overrideEntryFix || !$overrideExitFix) {
+                $ctpCtl = $this->getFlightCTPControl($sessionId, $flightUid);
+                if ($ctpCtl) {
+                    $overrideEntryFix = $overrideEntryFix ?: ($ctpCtl['oceanic_entry_fix'] ?? '');
+                    $overrideExitFix = $overrideExitFix ?: ($ctpCtl['oceanic_exit_fix'] ?? '');
+                }
+            }
+            if (!$overrideEntryFix || !$overrideExitFix) {
+                $detected = $this->detectOceanicFixes($session, $flightUid);
+                $overrideEntryFix = $overrideEntryFix ?: ($detected['entry_fix'] ?? '');
+                $overrideExitFix = $overrideExitFix ?: ($detected['exit_fix'] ?? '');
+            }
+        }
+
         // Compute timing from slot
         $taxiSec = CTOTCascade::getTaxiReference($this->conn_adl, $flight['fp_dept_icao']);
         $etes = $this->computeSegmentETEs(
             $flight, $track,
             $params['tobt'] ?? gmdate('Y-m-d H:i:s'),
             $params['na_route'] ?? '',
-            $params['eu_route'] ?? ''
+            $params['eu_route'] ?? '',
+            null, null,
+            $overrideEntryFix, $overrideExitFix
         );
 
         if (!$etes || !isset($etes['na_ete_min'])) {
@@ -517,7 +579,7 @@ class CTPSlotEngine
              WHERE session_id = ? AND flight_uid = ?",
             [$slotStatus, $slotId, $trackName,
              $isAirborne ? 1 : 0,
-             $track['oceanic_entry_fix'], $track['oceanic_exit_fix'],
+             $overrideEntryFix ?: $track['oceanic_entry_fix'], $overrideExitFix ?: $track['oceanic_exit_fix'],
              $slotTime, $exitStr, $slotTime,
              $isAirborne ? null : $ctotStr,
              $isAirborne ? 1 : 0,
@@ -834,6 +896,75 @@ class CTPSlotEngine
     }
 
     /**
+     * Get a flight's CTP control record (oceanic entry/exit from detect.php).
+     */
+    private function getFlightCTPControl(int $sessionId, int $flightUid): ?array
+    {
+        $stmt = sqlsrv_query($this->conn_tmi,
+            "SELECT oceanic_entry_fix, oceanic_exit_fix
+             FROM dbo.ctp_flight_control
+             WHERE session_id = ? AND flight_uid = ?",
+            [$sessionId, $flightUid]
+        );
+        if (!$stmt) return null;
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        return $row ?: null;
+    }
+
+    /**
+     * Auto-detect oceanic entry/exit fixes from flight's planned boundary crossings.
+     * Uses the session's constrained_firs JSON to identify oceanic FIR crossings.
+     *
+     * @return array{entry_fix: string, exit_fix: string}
+     */
+    private function detectOceanicFixes(array $session, int $flightUid): array
+    {
+        $constrainedFirs = json_decode($session['constrained_firs'] ?? '[]', true);
+        if (empty($constrainedFirs)) return ['entry_fix' => '', 'exit_fix' => ''];
+
+        $n = count($constrainedFirs);
+        $placeholders = implode(',', array_fill(0, $n, '?'));
+        $params = array_merge([$flightUid], $constrainedFirs);
+
+        // Earliest entry into a constrained FIR
+        $entryFix = '';
+        $stmt = sqlsrv_query($this->conn_adl,
+            "SELECT TOP 1 entry_fix_name
+             FROM dbo.adl_flight_planned_crossings
+             WHERE flight_uid = ? AND boundary_code IN ($placeholders)
+               AND crossing_type IN ('ENTRY', 'CROSS')
+               AND entry_fix_name IS NOT NULL
+             ORDER BY planned_entry_utc ASC",
+            $params
+        );
+        if ($stmt) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+            $entryFix = $row['entry_fix_name'] ?? '';
+        }
+
+        // Latest exit from a constrained FIR
+        $exitFix = '';
+        $stmt = sqlsrv_query($this->conn_adl,
+            "SELECT TOP 1 exit_fix_name
+             FROM dbo.adl_flight_planned_crossings
+             WHERE flight_uid = ? AND boundary_code IN ($placeholders)
+               AND crossing_type IN ('EXIT', 'CROSS')
+               AND exit_fix_name IS NOT NULL
+             ORDER BY planned_exit_utc DESC",
+            $params
+        );
+        if ($stmt) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+            $exitFix = $row['exit_fix_name'] ?? '';
+        }
+
+        return ['entry_fix' => $entryFix, 'exit_fix' => $exitFix];
+    }
+
+    /**
      * Find the nearest open slot at or after a projected OEP timestamp.
      * Falls back to the latest future open slot if all slots are before the projection
      * (e.g. flight departs after the last slot).
@@ -885,11 +1016,12 @@ class CTPSlotEngine
      */
     private function computeSegmentETEs(array $flight, array $track, string $tobt,
         string $naRoute = '', string $euRoute = '',
-        ?array $cachedPerf = null, ?array $cachedTimes = null): ?array
+        ?array $cachedPerf = null, ?array $cachedTimes = null,
+        ?string $overrideEntryFix = null, ?string $overrideExitFix = null): ?array
     {
         $flightUid = (int)$flight['flight_uid'];
-        $entryFix = $track['oceanic_entry_fix'];
-        $exitFix = $track['oceanic_exit_fix'];
+        $entryFix = $overrideEntryFix ?: $track['oceanic_entry_fix'];
+        $exitFix = $overrideExitFix ?: $track['oceanic_exit_fix'];
 
         // Get cruise speed from BADA performance data (use cache if provided)
         $perf = $cachedPerf ?? CTOTCascade::getPerformance($this->conn_adl, $flight);
