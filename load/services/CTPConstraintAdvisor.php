@@ -19,6 +19,13 @@ class CTPConstraintAdvisor
 {
     private $conn_tmi;
 
+    // Per-request caches (session-level data that doesn't change across tracks)
+    private array $destRateCache = [];     // keyed by "sessionId:airport" → max_acph
+    private array $firListCache = [];      // keyed by sessionId → [fir => max_acph]
+    private array $fixRateCache = [];      // keyed by "sessionId:fix" → max_acph
+    private ?array $ecfmpCache = null;     // cached ECFMP result for dest
+    private ?string $ecfmpCacheDest = null;
+
     public function __construct($conn_tmi)
     {
         $this->conn_tmi = $conn_tmi;
@@ -40,8 +47,8 @@ class CTPConstraintAdvisor
         $check = $this->checkDestRate($sessionId, $dest, $timing['cta_utc'] ?? '');
         if ($check) $advisories[] = $check;
 
-        $check = $this->checkFIRCapacity($sessionId, $timing['oep_utc'] ?? '', $timing['exit_utc'] ?? '');
-        if ($check) $advisories[] = $check;
+        $firAdvisories = $this->checkFIRCapacity($sessionId, $timing['oep_utc'] ?? '', $timing['exit_utc'] ?? '');
+        if ($firAdvisories) $advisories = array_merge($advisories, $firAdvisories);
 
         $entryFix = $track['oceanic_entry_fix'] ?? '';
         if ($entryFix) {
@@ -72,20 +79,31 @@ class CTPConstraintAdvisor
     {
         if (!$airport || !$ctaUtc) return null;
 
-        $stmt = sqlsrv_query($this->conn_tmi,
-            "SELECT max_acph FROM dbo.ctp_facility_constraints
-             WHERE session_id = ? AND facility_name = ? AND facility_type = 'airport'",
-            [$sessionId, $airport]
-        );
-        if (!$stmt) return null;
-        $constraint = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        sqlsrv_free_stmt($stmt);
-        if (!$constraint) return null;
-
-        $maxAcph = (int)$constraint['max_acph'];
+        // Cache the constraint lookup (session-level, doesn't change across tracks)
+        $cacheKey = "$sessionId:$airport";
+        if (array_key_exists($cacheKey, $this->destRateCache)) {
+            $maxAcph = $this->destRateCache[$cacheKey];
+        } else {
+            $stmt = sqlsrv_query($this->conn_tmi,
+                "SELECT max_acph FROM dbo.ctp_facility_constraints
+                 WHERE session_id = ? AND facility_name = ? AND facility_type = 'airport'",
+                [$sessionId, $airport]
+            );
+            if (!$stmt) return null;
+            $constraint = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+            if (!$constraint) {
+                $this->destRateCache[$cacheKey] = null;
+                return null;
+            }
+            $maxAcph = (int)$constraint['max_acph'];
+            $this->destRateCache[$cacheKey] = $maxAcph;
+        }
+        if ($maxAcph === null) return null;
 
         // Count assigned flights arriving at same destination within +/-30min of candidate CTA
         // JOIN tmi_flight_control for actual CTA (populated by CTOTCascade)
+        // Uses BETWEEN for SARGable index seeks on tc.cta_utc
         $stmt = sqlsrv_query($this->conn_tmi,
             "SELECT COUNT(*) AS cnt
              FROM dbo.ctp_flight_control fc
@@ -93,8 +111,8 @@ class CTPConstraintAdvisor
              WHERE fc.session_id = ? AND fc.arr_airport = ?
                AND fc.slot_status IN ('ASSIGNED','FROZEN')
                AND tc.cta_utc IS NOT NULL
-               AND ABS(DATEDIFF(MINUTE, tc.cta_utc, ?)) <= 30",
-            [$sessionId, $airport, $ctaUtc]
+               AND tc.cta_utc BETWEEN DATEADD(MINUTE, -30, ?) AND DATEADD(MINUTE, 30, ?)",
+            [$sessionId, $airport, $ctaUtc, $ctaUtc]
         );
         if (!$stmt) return null;
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -117,59 +135,83 @@ class CTPConstraintAdvisor
     /**
      * Check FIR capacity.
      * Count flights crossing each constrained FIR in the same hourly window.
+     * Returns array of advisories (0-N) for all FIRs exceeding their limit.
      */
-    public function checkFIRCapacity(int $sessionId, string $oepUtc, string $exitUtc): ?array
+    public function checkFIRCapacity(int $sessionId, string $oepUtc, string $exitUtc): array
     {
-        if (!$oepUtc || !$exitUtc) return null;
+        if (!$oepUtc || !$exitUtc) return [];
+
+        // Cache FIR constraint list (session-level, doesn't change across tracks)
+        if (array_key_exists($sessionId, $this->firListCache)) {
+            $firs = $this->firListCache[$sessionId];
+        } else {
+            $stmt = sqlsrv_query($this->conn_tmi,
+                "SELECT facility_name, max_acph FROM dbo.ctp_facility_constraints
+                 WHERE session_id = ? AND facility_type = 'fir'",
+                [$sessionId]
+            );
+            if (!$stmt) return [];
+            $firs = [];
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $firs[$row['facility_name']] = (int)$row['max_acph'];
+            }
+            sqlsrv_free_stmt($stmt);
+            $this->firListCache[$sessionId] = $firs;
+        }
+        if (empty($firs)) return [];
+
+        // Batch: single GROUP BY query for all FIRs instead of N individual queries
+        $firNames = array_keys($firs);
+        $n = count($firNames);
+        $entryPlaceholders = implode(',', array_fill(0, $n, '?'));
+        $exitPlaceholders = implode(',', array_fill(0, $n, '?'));
+
+        // Params order matches SQL: entry FIR IN(?...), exit FIR IN(?...), sessionId, exitUtc, oepUtc
+        $params = array_merge($firNames, $firNames, [$sessionId, $exitUtc, $oepUtc]);
 
         $stmt = sqlsrv_query($this->conn_tmi,
-            "SELECT facility_name, max_acph FROM dbo.ctp_facility_constraints
-             WHERE session_id = ? AND facility_type = 'fir'",
-            [$sessionId]
-        );
-        if (!$stmt) return null;
-
-        $firs = [];
-        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-            $firs[$row['facility_name']] = (int)$row['max_acph'];
-        }
-        sqlsrv_free_stmt($stmt);
-        if (empty($firs)) return null;
-
-        foreach ($firs as $fir => $maxAcph) {
-            // JOIN ctp_session_tracks to compute exit time from track distance when oceanic_exit_utc is NULL
-            $stmt = sqlsrv_query($this->conn_tmi,
-                "SELECT COUNT(*) AS cnt
+            "SELECT fir_name, COUNT(*) AS cnt
+             FROM (
+                 SELECT CASE
+                     WHEN fc.oceanic_entry_fir IN ($entryPlaceholders) THEN fc.oceanic_entry_fir
+                     WHEN fc.oceanic_exit_fir IN ($exitPlaceholders) THEN fc.oceanic_exit_fir
+                 END AS fir_name
                  FROM dbo.ctp_flight_control fc
                  LEFT JOIN dbo.ctp_session_tracks st
-                    ON st.session_id = fc.session_id AND st.track_name = fc.assigned_nat_track
+                     ON st.session_id = fc.session_id AND st.track_name = fc.assigned_nat_track
                  WHERE fc.session_id = ? AND fc.slot_status IN ('ASSIGNED','FROZEN')
-                   AND (fc.oceanic_entry_fir = ? OR fc.oceanic_exit_fir = ?)
                    AND fc.oceanic_entry_utc IS NOT NULL
                    AND fc.oceanic_entry_utc <= DATEADD(MINUTE, 30, ?)
                    AND COALESCE(
                        fc.oceanic_exit_utc,
                        DATEADD(SECOND, CAST(ISNULL(st.route_distance_nm, 1800) / 480.0 * 3600 AS INT), fc.oceanic_entry_utc)
-                   ) >= DATEADD(MINUTE, -30, ?)",
-                [$sessionId, $fir, $fir, $exitUtc, $oepUtc]
-            );
-            if (!$stmt) continue;
-            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-            sqlsrv_free_stmt($stmt);
-            $current = $row ? (int)$row['cnt'] : 0;
+                   ) >= DATEADD(MINUTE, -30, ?)
+             ) sub
+             WHERE fir_name IS NOT NULL
+             GROUP BY fir_name",
+            $params
+        );
 
-            if ($current >= $maxAcph) {
-                return [
-                    'type' => 'FIR_CAPACITY',
-                    'facility' => $fir,
-                    'detail' => "$current/$maxAcph flights in FIR",
-                    'severity' => 'WARN',
-                    'current' => $current,
-                    'limit' => $maxAcph,
-                ];
+        $advisories = [];
+        if ($stmt) {
+            while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+                $fir = $row['fir_name'];
+                $current = (int)$row['cnt'];
+                $maxAcph = $firs[$fir] ?? 0;
+                if ($maxAcph > 0 && $current >= $maxAcph) {
+                    $advisories[] = [
+                        'type' => 'FIR_CAPACITY',
+                        'facility' => $fir,
+                        'detail' => "$current/$maxAcph flights in FIR",
+                        'severity' => 'WARN',
+                        'current' => $current,
+                        'limit' => $maxAcph,
+                    ];
+                }
             }
+            sqlsrv_free_stmt($stmt);
         }
-        return null;
+        return $advisories;
     }
 
     /**
@@ -180,25 +222,36 @@ class CTPConstraintAdvisor
     {
         if (!$fix || !$transitUtc) return null;
 
-        $stmt = sqlsrv_query($this->conn_tmi,
-            "SELECT max_acph FROM dbo.ctp_facility_constraints
-             WHERE session_id = ? AND facility_name = ? AND facility_type = 'fix'",
-            [$sessionId, $fix]
-        );
-        if (!$stmt) return null;
-        $constraint = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        sqlsrv_free_stmt($stmt);
-        if (!$constraint) return null;
+        // Cache the fix constraint lookup (session-level)
+        $cacheKey = "$sessionId:$fix";
+        if (array_key_exists($cacheKey, $this->fixRateCache)) {
+            $maxAcph = $this->fixRateCache[$cacheKey];
+        } else {
+            $stmt = sqlsrv_query($this->conn_tmi,
+                "SELECT max_acph FROM dbo.ctp_facility_constraints
+                 WHERE session_id = ? AND facility_name = ? AND facility_type = 'fix'",
+                [$sessionId, $fix]
+            );
+            if (!$stmt) return null;
+            $constraint = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+            if (!$constraint) {
+                $this->fixRateCache[$cacheKey] = null;
+                return null;
+            }
+            $maxAcph = (int)$constraint['max_acph'];
+            $this->fixRateCache[$cacheKey] = $maxAcph;
+        }
+        if ($maxAcph === null) return null;
 
-        $maxAcph = (int)$constraint['max_acph'];
-
+        // Uses BETWEEN for SARGable index seeks on oceanic_entry_utc
         $stmt = sqlsrv_query($this->conn_tmi,
             "SELECT COUNT(*) AS cnt FROM dbo.ctp_flight_control
              WHERE session_id = ? AND slot_status IN ('ASSIGNED','FROZEN')
                AND (oceanic_entry_fix = ? OR oceanic_exit_fix = ?)
                AND oceanic_entry_utc IS NOT NULL
-               AND ABS(DATEDIFF(MINUTE, oceanic_entry_utc, ?)) <= 30",
-            [$sessionId, $fix, $fix, $transitUtc]
+               AND oceanic_entry_utc BETWEEN DATEADD(MINUTE, -30, ?) AND DATEADD(MINUTE, 30, ?)",
+            [$sessionId, $fix, $fix, $transitUtc, $transitUtc]
         );
         if (!$stmt) return null;
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -239,6 +292,11 @@ class CTPConstraintAdvisor
     {
         if (!$dest) return null;
 
+        // Cache ECFMP result per destination (only one dest per request)
+        if ($this->ecfmpCacheDest === $dest) {
+            return $this->ecfmpCache;
+        }
+
         // tmi_flow_measures uses filters_json with "ades" array for destination airports
         $stmt = sqlsrv_query($this->conn_tmi,
             "SELECT TOP 1 measure_id, ident, reason, filters_json
@@ -255,14 +313,18 @@ class CTPConstraintAdvisor
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
         sqlsrv_free_stmt($stmt);
 
+        $this->ecfmpCacheDest = $dest;
+
         if ($row) {
-            return [
+            $this->ecfmpCache = [
                 'type' => 'ECFMP',
                 'facility' => $row['ident'],
                 'detail' => 'Active ECFMP regulation: ' . ($row['reason'] ?? $row['ident']),
                 'severity' => 'WARN',
             ];
+            return $this->ecfmpCache;
         }
+        $this->ecfmpCache = null;
         return null;
     }
 }
