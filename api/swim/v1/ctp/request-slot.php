@@ -53,6 +53,7 @@ $result = $engine->requestSlot([
     'origin'          => strtoupper(trim($body['origin'] ?? '')),
     'destination'     => strtoupper(trim($body['destination'] ?? '')),
     'aircraft_type'   => strtoupper(trim($body['aircraft_type'] ?? '')),
+    'track'           => strtoupper(trim($body['track'] ?? '')),
     'preferred_track' => strtoupper(trim($body['preferred_track'] ?? '')),
     'tobt'            => $body['tobt'] ?? null,
     'is_airborne'     => (bool)($body['is_airborne'] ?? false),
