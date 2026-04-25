@@ -40,7 +40,8 @@ class CTOTCascade
      * @param array  $flight   Flight data from swim_flights (flight_uid, callsign, fp_dept_icao, fp_dest_icao, etc.)
      * @param string $ctot_str CTOT in 'Y-m-d H:i:s' UTC format
      * @param array  $options  Optional keys: delay_minutes, delay_reason, program_name, program_id,
-     *                         source_system, cta_utc, assigned_route, route_segments, assigned_track
+     *                         source_system, cta_utc, assigned_route, route_segments, assigned_track,
+     *                         skip_recalc (bool) — skip Steps 3-5 for CTP (ETA/waypoint/crossing recalc)
      * @return array           Result with status, control_id, timing data, recalc_status
      */
     public function apply(array $flight, string $ctot_str, array $options = []): array
@@ -57,6 +58,7 @@ class CTOTCascade
         $assigned_route = $options['assigned_route'] ?? null;
         $route_segments = $options['route_segments'] ?? null;
         $assigned_track = $options['assigned_track'] ?? null;
+        $skip_recalc = (bool)($options['skip_recalc'] ?? false);
 
         // Derive EOBT = CTOT - taxi_ref
         $taxi_seconds = self::getTaxiReference($this->conn_adl, $dept_icao);
@@ -171,110 +173,122 @@ class CTOTCascade
         }
 
         // ====================================================================
-        // Step 3: sp_CalculateETA with @departure_override = CTOT
+        // Steps 3-5: ETA, waypoint, and crossing recalc
+        // Skipped in CTP mode (skip_recalc) — timing chain is pre-computed,
+        // and daemons will catch up on waypoint ETAs and crossings.
         // ====================================================================
-        $sp = sqlsrv_query($this->conn_adl,
-            "EXEC dbo.sp_CalculateETA @flight_uid = ?, @departure_override = ?",
-            [$flight_uid, $ctot_str]
-        );
-
-        if (!$sp) {
-            error_log("CTOTCascade: Step 3 SP call failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
-        }
-        if ($sp) sqlsrv_free_stmt($sp);
-
-        // Read recalculated ETA
-        $times = self::readFlightTimes($this->conn_adl, $flight_uid);
-        $eta_utc = $times['eta_utc'] ?? null;
-
-        // Compute ETE = minutes from CTOT to ETA
+        $eta_utc = null;
         $ete_minutes = null;
         $eta_iso = null;
-        if ($eta_utc) {
-            $eta_ts = ($eta_utc instanceof \DateTime) ? $eta_utc->getTimestamp() : strtotime($eta_utc . ' UTC');
-            $ete_minutes = max(0, (int)round(($eta_ts - $ctot_ts) / 60));
-            $eta_iso = gmdate('Y-m-d\TH:i:s\Z', $eta_ts);
-        }
 
-        $stmt = sqlsrv_query($this->conn_adl,
-            "UPDATE dbo.adl_flight_times SET computed_ete_minutes = ? WHERE flight_uid = ?",
-            [$ete_minutes, $flight_uid]
-        );
-        if ($stmt) sqlsrv_free_stmt($stmt);
+        if (!$skip_recalc) {
+            // Step 3: sp_CalculateETA with @departure_override = CTOT
+            $sp = sqlsrv_query($this->conn_adl,
+                "EXEC dbo.sp_CalculateETA @flight_uid = ?, @departure_override = ?",
+                [$flight_uid, $ctot_str]
+            );
 
-        // ====================================================================
-        // Step 4: Waypoint ETA recalc (inline SQL)
-        // ====================================================================
-        $perf = self::getPerformance($this->conn_adl, $flight);
-        $effective_speed = $perf ? (int)$perf['cruise_speed_ktas'] : 450;
+            if (!$sp) {
+                error_log("CTOTCascade: Step 3 SP call failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
+            }
+            if ($sp) sqlsrv_free_stmt($sp);
 
-        $wind = $times['eta_wind_component_kts'] ?? 0;
-        $effective_speed += (int)$wind;
-        if ($effective_speed < 100) $effective_speed = 100;
+            // Read recalculated ETA
+            $times = self::readFlightTimes($this->conn_adl, $flight_uid);
+            $eta_utc = $times['eta_utc'] ?? null;
 
-        $stmt = sqlsrv_query($this->conn_adl,
-            "UPDATE dbo.adl_flight_waypoints SET
-                eta_utc = DATEADD(SECOND,
-                    CAST(cum_dist_nm / ? * 3600 AS INT),
-                    ?)
-             WHERE flight_uid = ? AND cum_dist_nm IS NOT NULL",
-            [(float)$effective_speed, $ctot_str, $flight_uid]
-        );
+            // Compute ETE = minutes from CTOT to ETA
+            if ($eta_utc) {
+                $eta_ts = ($eta_utc instanceof \DateTime) ? $eta_utc->getTimestamp() : strtotime($eta_utc . ' UTC');
+                $ete_minutes = max(0, (int)round(($eta_ts - $ctot_ts) / 60));
+                $eta_iso = gmdate('Y-m-d\TH:i:s\Z', $eta_ts);
+            }
 
-        if ($stmt) {
-            sqlsrv_free_stmt($stmt);
-        } else {
-            error_log("CTOTCascade: Step 4 UPDATE failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
-        }
+            $stmt = sqlsrv_query($this->conn_adl,
+                "UPDATE dbo.adl_flight_times SET computed_ete_minutes = ? WHERE flight_uid = ?",
+                [$ete_minutes, $flight_uid]
+            );
+            if ($stmt) sqlsrv_free_stmt($stmt);
 
-        // ====================================================================
-        // Step 5: Boundary crossing recalc (PostGIS via GISService)
-        // ====================================================================
-        if ($this->gisService) {
-            $waypoints = self::readWaypoints($this->conn_adl, $flight_uid);
-            if (!empty($waypoints)) {
-                $crossings = $this->gisService->calculateCrossingEtas(
-                    $waypoints,
-                    (float)($flight['lat'] ?? 0),
-                    (float)($flight['lon'] ?? 0),
-                    0,
-                    $effective_speed,
-                    $ctot_str
-                );
+            // Step 4: Waypoint ETA recalc (inline SQL)
+            $perf = self::getPerformance($this->conn_adl, $flight);
+            $effective_speed = $perf ? (int)$perf['cruise_speed_ktas'] : 450;
 
-                if (!empty($crossings)) {
-                    $stmt = sqlsrv_query($this->conn_adl,
-                        "DELETE FROM dbo.adl_flight_planned_crossings WHERE flight_uid = ?",
-                        [$flight_uid]
+            $wind = $times['eta_wind_component_kts'] ?? 0;
+            $effective_speed += (int)$wind;
+            if ($effective_speed < 100) $effective_speed = 100;
+
+            $stmt = sqlsrv_query($this->conn_adl,
+                "UPDATE dbo.adl_flight_waypoints SET
+                    eta_utc = DATEADD(SECOND,
+                        CAST(cum_dist_nm / ? * 3600 AS INT),
+                        ?)
+                 WHERE flight_uid = ? AND cum_dist_nm IS NOT NULL",
+                [(float)$effective_speed, $ctot_str, $flight_uid]
+            );
+
+            if ($stmt) {
+                sqlsrv_free_stmt($stmt);
+            } else {
+                error_log("CTOTCascade: Step 4 UPDATE failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
+            }
+
+            // Step 5: Boundary crossing recalc (PostGIS via GISService)
+            if ($this->gisService) {
+                $waypoints = self::readWaypoints($this->conn_adl, $flight_uid);
+                if (!empty($waypoints)) {
+                    $crossings = $this->gisService->calculateCrossingEtas(
+                        $waypoints,
+                        (float)($flight['lat'] ?? 0),
+                        (float)($flight['lon'] ?? 0),
+                        0,
+                        $effective_speed,
+                        $ctot_str
                     );
-                    if ($stmt) {
-                        sqlsrv_free_stmt($stmt);
-                    } else {
-                        error_log("CTOTCascade: Step 5 DELETE failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
-                    }
 
-                    foreach ($crossings as $cx) {
+                    if (!empty($crossings)) {
                         $stmt = sqlsrv_query($this->conn_adl,
-                            "INSERT INTO dbo.adl_flight_planned_crossings
-                                (flight_uid, boundary_type, boundary_code, boundary_name,
-                                 parent_artcc, crossing_lat, crossing_lon,
-                                 distance_from_origin_nm, distance_remaining_nm,
-                                 eta_utc, crossing_type)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            [$flight_uid, $cx['boundary_type'], $cx['boundary_code'],
-                             $cx['boundary_name'], $cx['parent_artcc'],
-                             $cx['crossing_lat'], $cx['crossing_lon'],
-                             $cx['distance_from_origin_nm'], $cx['distance_remaining_nm'],
-                             $cx['eta_utc'], $cx['crossing_type']]
+                            "DELETE FROM dbo.adl_flight_planned_crossings WHERE flight_uid = ?",
+                            [$flight_uid]
                         );
-
                         if ($stmt) {
                             sqlsrv_free_stmt($stmt);
                         } else {
-                            error_log("CTOTCascade: Step 5 INSERT failed for $callsign (flight_uid=$flight_uid, boundary={$cx['boundary_code']}): " . print_r(sqlsrv_errors(), true));
+                            error_log("CTOTCascade: Step 5 DELETE failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
+                        }
+
+                        foreach ($crossings as $cx) {
+                            $stmt = sqlsrv_query($this->conn_adl,
+                                "INSERT INTO dbo.adl_flight_planned_crossings
+                                    (flight_uid, boundary_type, boundary_code, boundary_name,
+                                     parent_artcc, crossing_lat, crossing_lon,
+                                     distance_from_origin_nm, distance_remaining_nm,
+                                     eta_utc, crossing_type)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                [$flight_uid, $cx['boundary_type'], $cx['boundary_code'],
+                                 $cx['boundary_name'], $cx['parent_artcc'],
+                                 $cx['crossing_lat'], $cx['crossing_lon'],
+                                 $cx['distance_from_origin_nm'], $cx['distance_remaining_nm'],
+                                 $cx['eta_utc'], $cx['crossing_type']]
+                            );
+
+                            if ($stmt) {
+                                sqlsrv_free_stmt($stmt);
+                            } else {
+                                error_log("CTOTCascade: Step 5 INSERT failed for $callsign (flight_uid=$flight_uid, boundary={$cx['boundary_code']}): " . print_r(sqlsrv_errors(), true));
+                            }
                         }
                     }
                 }
+            }
+        } else {
+            // In skip_recalc mode, read existing ETA for swim_flights push
+            $times = self::readFlightTimes($this->conn_adl, $flight_uid);
+            $eta_utc = $times['eta_utc'] ?? null;
+            if ($eta_utc) {
+                $eta_ts = ($eta_utc instanceof \DateTime) ? $eta_utc->getTimestamp() : strtotime($eta_utc . ' UTC');
+                $ete_minutes = max(0, (int)round(($eta_ts - $ctot_ts) / 60));
+                $eta_iso = gmdate('Y-m-d\TH:i:s\Z', $eta_ts);
             }
         }
 
@@ -421,6 +435,92 @@ class CTOTCascade
             'assigned_track' => $assigned_track,
             'recalc_status' => 'complete',
         ];
+    }
+
+    /**
+     * Reverse the cascade effects for a flight whose CTP slot is being released.
+     *
+     * Clears EDCT/timing fields set by apply() across tmi_flight_control,
+     * adl_flight_times, swim_flights, and adl_flight_tmi. Only clears records
+     * where ctl_type='CTP' to avoid destroying GDP/GS EDCTs.
+     *
+     * Waypoint ETAs and boundary crossings are left for daemons to recalculate
+     * on their normal cycle.
+     *
+     * @param int    $flight_uid Flight UID
+     * @param string $callsign   Callsign (for logging)
+     * @return bool  True if successful
+     */
+    public function reverse(int $flight_uid, string $callsign): bool
+    {
+        $ok = true;
+
+        // Step 1 reverse: Clear tmi_flight_control WHERE ctl_type='CTP'
+        $stmt = sqlsrv_query($this->conn_tmi,
+            "DELETE FROM dbo.tmi_flight_control
+             WHERE flight_uid = ? AND ctl_type = 'CTP'",
+            [$flight_uid]
+        );
+        if ($stmt) {
+            sqlsrv_free_stmt($stmt);
+        } else {
+            error_log("CTOTCascade::reverse: tmi_flight_control DELETE failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
+            $ok = false;
+        }
+
+        // Step 2 reverse: Clear EDCT-set time fields in adl_flight_times
+        $stmt = sqlsrv_query($this->conn_adl,
+            "UPDATE dbo.adl_flight_times SET
+                etd_utc = NULL, std_utc = NULL,
+                estimated_takeoff_time = NULL,
+                computed_ete_minutes = NULL
+             WHERE flight_uid = ?",
+            [$flight_uid]
+        );
+        if ($stmt) {
+            sqlsrv_free_stmt($stmt);
+        } else {
+            error_log("CTOTCascade::reverse: adl_flight_times UPDATE failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
+            $ok = false;
+        }
+
+        // Step 6 reverse: Clear EDCT fields in swim_flights
+        $stmt = sqlsrv_query($this->conn_swim,
+            "UPDATE dbo.swim_flights SET
+                target_takeoff_time = NULL,
+                controlled_time_of_departure = NULL,
+                estimated_off_block_time = NULL,
+                estimated_takeoff_time = NULL,
+                edct_utc = NULL,
+                controlled_time_of_arrival = NULL,
+                delay_minutes = NULL,
+                ctl_type = NULL
+             WHERE flight_uid = ? AND ctl_type = 'CTP'",
+            [$flight_uid]
+        );
+        if ($stmt) {
+            sqlsrv_free_stmt($stmt);
+        } else {
+            error_log("CTOTCascade::reverse: swim_flights UPDATE failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
+            $ok = false;
+        }
+
+        // Step 8 reverse: Clear CTP fields in adl_flight_tmi
+        $stmt = sqlsrv_query($this->conn_adl,
+            "UPDATE dbo.adl_flight_tmi SET
+                ctd_utc = NULL, edct_utc = NULL,
+                program_delay_min = NULL, ctl_type = NULL
+             WHERE flight_uid = ? AND ctl_type = 'CTP'",
+            [$flight_uid]
+        );
+        if ($stmt) {
+            sqlsrv_free_stmt($stmt);
+        } else {
+            error_log("CTOTCascade::reverse: adl_flight_tmi UPDATE failed for $callsign (flight_uid=$flight_uid): " . print_r(sqlsrv_errors(), true));
+            $ok = false;
+        }
+
+        return $ok;
     }
 
     // ========================================================================

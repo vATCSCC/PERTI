@@ -3,8 +3,10 @@
  * VATSWIM API v1 - CTP Release Slot Endpoint
  *
  * Flowcontrol releases a flight's slot assignment. The tmi_slot returns
- * to OPEN status and ctp_flight_control moves to RELEASED. Frozen slots
- * (airborne) can only be released with reason=DISCONNECT.
+ * to OPEN status, ctp_flight_control moves to RELEASED, and the CTOT
+ * cascade effects (tmi_flight_control, adl_flight_times, swim_flights,
+ * adl_flight_tmi) are reversed. Frozen slots (airborne) require either
+ * reason=DISCONNECT or force=true.
  *
  * POST /api/swim/v1/ctp/release-slot.php
  */
@@ -41,19 +43,24 @@ $sessionRef = $body['session_name'] ?? $body['session_id'] ?? null;
 if (!$sessionRef) SwimResponse::error('session_name or session_id required', 400, 'INVALID_REQUEST');
 
 $reason = strtoupper(trim($body['reason'] ?? 'COORDINATOR_RELEASE'));
-$validReasons = ['COORDINATOR_RELEASE', 'DISCONNECT', 'MISSED_REASSIGN'];
+$validReasons = ['COORDINATOR_RELEASE', 'DISCONNECT', 'MISSED_REASSIGN', 'FORCE'];
 if (!in_array($reason, $validReasons)) {
     SwimResponse::error('reason must be one of: ' . implode(', ', $validReasons), 400, 'INVALID_REQUEST');
 }
 
+$force = (bool)($body['force'] ?? ($reason === 'FORCE'));
+
+require_once __DIR__ . '/../../../../load/services/GISService.php';
 require_once __DIR__ . '/../../../../load/services/CTPSlotEngine.php';
-$engine = new PERTI\Services\CTPSlotEngine($conn_adl, $conn_tmi, $conn_swim);
+$gisService = GISService::getInstance();
+$engine = new PERTI\Services\CTPSlotEngine($conn_adl, $conn_tmi, $conn_swim, $gisService);
 
 $result = $engine->releaseSlot([
     'session_name' => $body['session_name'] ?? null,
     'session_id'   => $body['session_id'] ?? null,
     'callsign'     => $callsign,
     'reason'       => $reason,
+    'force'        => $force,
 ]);
 
 if (isset($result['error'])) {

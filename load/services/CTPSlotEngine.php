@@ -539,12 +539,13 @@ class CTPSlotEngine
             [$flightUid, $flight['fp_dept_icao'], $flight['fp_dest_icao'], $slotId]
         );
 
-        // Run 9-step CTOT cascade
+        // Run CTOT cascade (skip expensive ETA/waypoint/crossing recalc — CTP timing is pre-computed)
         $cascadeResult = $this->cascade->apply($flight, $ctotStr, [
             'cta_utc' => $ctaStr,
             'program_name' => 'CTP-' . $session['session_name'],
             'program_id' => (int)$track['program_id'],
             'assigned_track' => $trackName,
+            'skip_recalc' => true,
             'route_segments' => [
                 'na' => $params['na_route'] ?? null,
                 'oceanic' => $track['route_string'],
@@ -621,9 +622,9 @@ class CTPSlotEngine
     }
 
     /**
-     * Release a slot assignment.
+     * Release a slot assignment and reverse the CTOT cascade effects.
      *
-     * @param array $params Keys: session_name|session_id, callsign, reason
+     * @param array $params Keys: session_name|session_id, callsign, reason, force (bool)
      * @return array        {released_slot_time_utc, released_track, slot_status} or {error, code}
      */
     public function releaseSlot(array $params): array
@@ -634,6 +635,7 @@ class CTPSlotEngine
         $sessionId = (int)$session['session_id'];
         $callsign = $params['callsign'] ?? '';
         $reason = $params['reason'] ?? 'COORDINATOR_RELEASE';
+        $force = (bool)($params['force'] ?? false);
 
         // Find flight's current slot
         $stmt = sqlsrv_query($this->conn_tmi,
@@ -650,10 +652,11 @@ class CTPSlotEngine
             return ['error' => 'No active slot assignment found', 'code' => 'NO_SLOT'];
         }
 
-        if ($record['slot_status'] === 'FROZEN' && $reason !== 'DISCONNECT') {
-            return ['error' => 'Cannot release frozen slot unless disconnect', 'code' => 'SLOT_FROZEN'];
+        if ($record['slot_status'] === 'FROZEN' && $reason !== 'DISCONNECT' && !$force) {
+            return ['error' => 'Cannot release frozen slot unless disconnect or force', 'code' => 'SLOT_FROZEN'];
         }
 
+        $flightUid = (int)$record['flight_uid'];
         $releasedSlotTime = null;
 
         // Free the tmi_slot
@@ -693,11 +696,16 @@ class CTPSlotEngine
             [$reason, $record['ctp_control_id']]
         );
 
+        // Reverse the CTOT cascade — clears tmi_flight_control, adl_flight_times,
+        // swim_flights, and adl_flight_tmi for this CTP-controlled flight
+        $this->cascade->reverse($flightUid, $callsign);
+
         // Audit + broadcast
-        $this->logAudit($sessionId, (int)$record['flight_uid'], 'SLOT_RELEASED', [
+        $this->logAudit($sessionId, $flightUid, 'SLOT_RELEASED', [
             'callsign' => $callsign,
             'reason' => $reason,
             'track' => $record['assigned_nat_track'],
+            'force' => $force,
         ]);
 
         $this->broadcastEvent('ctp_slot_released', [
