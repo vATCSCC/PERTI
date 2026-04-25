@@ -51,38 +51,131 @@ if (!in_array($status, ['DRAFT', 'ACTIVE'])) {
     SwimResponse::error('Session must be DRAFT or ACTIVE to push tracks', 409, 'SESSION_NOT_ACTIVE');
 }
 
-function computeRouteDistanceNm($conn_adl, string $entryFix, string $exitFix): ?float
+/**
+ * Compute total route distance in NM through all waypoints.
+ *
+ * Parses the route string to resolve all waypoints (coordinate tokens and
+ * named fixes). Named fixes are disambiguated using proximity to the nearest
+ * coordinate waypoint, matching the pattern used by PostGIS resolve_waypoint()
+ * (migration 004/020) and sp_ParseRoute in Azure SQL.
+ *
+ * NAT half-degree format: DDDD[NS] where first 2 digits = latitude degrees,
+ * remaining digits = longitude degrees (west for N, east for S).
+ * Examples: 4750N = 47N 50W, 4917N = 49N 17W, 2150N = 21N 50W
+ */
+function computeRouteDistanceNm($conn_adl, string $routeString, string $entryFix, string $exitFix): ?float
 {
-    if (!$conn_adl || !$entryFix || !$exitFix) return null;
+    if (!$conn_adl || !$routeString || !$entryFix || !$exitFix) return null;
 
-    $stmt = sqlsrv_query($conn_adl,
-        "SELECT fix_name, lat, lon
-         FROM dbo.nav_fixes
-         WHERE fix_name IN (?, ?)
-         ORDER BY fix_name",
-        [$entryFix, $exitFix]
-    );
-    if (!$stmt) return null;
+    $tokens = preg_split('/\s+/', trim($routeString));
+    if (count($tokens) < 2) return null;
 
-    $coords = [];
-    while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
-        $coords[$row['fix_name']] = ['lat' => (float)$row['lat'], 'lon' => (float)$row['lon']];
+    // Phase 1: Parse tokens into waypoints, resolving coordinate tokens immediately
+    $waypoints = [];
+    foreach ($tokens as $token) {
+        $token = strtoupper(trim($token));
+        if ($token === '') continue;
+
+        // NAT half-degree: DDDD[NS] or DDDDD[NS]
+        // 4750N = 47N 50W, 4917N = 49N 17W, 2150N = 21N 50W
+        if (preg_match('/^(\d{2})(\d{2,3})([NS])$/', $token, $m)) {
+            $lat = (float)$m[1];
+            $lon = (float)$m[2];
+            if ($m[3] === 'N') $lon = -$lon; // West longitude for North Atlantic
+            if ($m[3] === 'S') $lat = -$lat;
+            $waypoints[] = ['name' => $token, 'lat' => $lat, 'lon' => $lon];
+            continue;
+        }
+
+        // Skip speed/altitude restrictions, airway references with route segments
+        if (preg_match('/^[A-Z]{1,2}\d{1,4}[A-Z]?$/', $token) && !preg_match('/^[A-Z]{3,5}$/', $token)) {
+            // Looks like an airway — skip for distance calculation
+            continue;
+        }
+
+        $waypoints[] = ['name' => $token, 'lat' => null, 'lon' => null];
     }
-    sqlsrv_free_stmt($stmt);
 
-    if (!isset($coords[$entryFix]) || !isset($coords[$exitFix])) return null;
+    // Phase 2: Resolve named fixes using proximity to nearest coordinate waypoint
+    // Same approach as PostGIS resolve_waypoint(fix, context_lat, context_lon)
+    $contextLat = null;
+    $contextLon = null;
 
-    $lat1 = deg2rad($coords[$entryFix]['lat']);
-    $lon1 = deg2rad($coords[$entryFix]['lon']);
-    $lat2 = deg2rad($coords[$exitFix]['lat']);
-    $lon2 = deg2rad($coords[$exitFix]['lon']);
+    // Find first coordinate waypoint for initial context
+    foreach ($waypoints as $wp) {
+        if ($wp['lat'] !== null) {
+            $contextLat = $wp['lat'];
+            $contextLon = $wp['lon'];
+            break;
+        }
+    }
 
+    foreach ($waypoints as &$wp) {
+        if ($wp['lat'] !== null) {
+            // Update context from known coordinates
+            $contextLat = $wp['lat'];
+            $contextLon = $wp['lon'];
+            continue;
+        }
+
+        // Resolve named fix with proximity disambiguation
+        if ($contextLat !== null) {
+            $stmt = sqlsrv_query($conn_adl,
+                "SELECT TOP 1 fix_name, lat, lon FROM dbo.nav_fixes
+                 WHERE fix_name = ?
+                 ORDER BY POWER(lat - ?, 2) +
+                          POWER((lon - ?) * COS(RADIANS(?)), 2)",
+                [$wp['name'], $contextLat, $contextLon, $contextLat]
+            );
+        } else {
+            // No context: prefer northern/western hemisphere (PostGIS migration 020 pattern)
+            $stmt = sqlsrv_query($conn_adl,
+                "SELECT TOP 1 fix_name, lat, lon FROM dbo.nav_fixes
+                 WHERE fix_name = ? ORDER BY lat DESC, lon ASC",
+                [$wp['name']]
+            );
+        }
+
+        if ($stmt) {
+            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+            sqlsrv_free_stmt($stmt);
+            if ($row) {
+                $wp['lat'] = (float)$row['lat'];
+                $wp['lon'] = (float)$row['lon'];
+                $contextLat = $wp['lat'];
+                $contextLon = $wp['lon'];
+            }
+        }
+    }
+    unset($wp);
+
+    // Phase 3: Sum great-circle distances through all resolved waypoints
+    $totalDist = 0.0;
+    $prevLat = null;
+    $prevLon = null;
+
+    foreach ($waypoints as $wp) {
+        if ($wp['lat'] === null || $wp['lon'] === null) continue;
+        if ($prevLat !== null) {
+            $totalDist += haversineNm($prevLat, $prevLon, $wp['lat'], $wp['lon']);
+        }
+        $prevLat = $wp['lat'];
+        $prevLon = $wp['lon'];
+    }
+
+    return $totalDist > 0 ? $totalDist : null;
+}
+
+function haversineNm(float $lat1, float $lon1, float $lat2, float $lon2): float
+{
+    $lat1 = deg2rad($lat1);
+    $lon1 = deg2rad($lon1);
+    $lat2 = deg2rad($lat2);
+    $lon2 = deg2rad($lon2);
     $dlat = $lat2 - $lat1;
     $dlon = $lon2 - $lon1;
     $a = sin($dlat / 2) ** 2 + cos($lat1) * cos($lat2) * sin($dlon / 2) ** 2;
-    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-    return $c * 3440.065; // Earth radius in nautical miles
+    return 2 * atan2(sqrt($a), sqrt(1 - $a)) * 3440.065;
 }
 
 $created = 0;
@@ -98,7 +191,7 @@ foreach ($tracks as $t) {
 
     if (!$trackName || !$routeString || !$entryFix || !$exitFix) continue;
 
-    $distNm = $t['route_distance_nm'] ?? computeRouteDistanceNm($conn_adl, $entryFix, $exitFix);
+    $distNm = $t['route_distance_nm'] ?? computeRouteDistanceNm($conn_adl, $routeString, $entryFix, $exitFix);
 
     // Check if track exists
     $stmt = sqlsrv_query($conn_tmi,

@@ -78,6 +78,16 @@ SwimResponse::success([
             'GET /api/swim/v1/playbook/traversal' => 'Route traversal data',
             'GET /api/swim/v1/playbook/throughput' => 'Route throughput metrics (CTP)',
             'GET /api/swim/v1/playbook/facility-counts' => 'Aggregated facility route statistics',
+        ],
+        'ctp' => [
+            'GET /api/swim/v1/ctp/sessions' => 'List CTP sessions (filter by status)',
+            'GET /api/swim/v1/ctp/session-status' => 'Session health: track utilization, constraints, flight summary',
+            'POST /api/swim/v1/ctp/push-tracks' => 'Push track definitions to a session',
+            'POST /api/swim/v1/ctp/push-constraints' => 'Push facility constraints to a session',
+            'POST /api/swim/v1/ctp/generate-slots' => 'Generate slot grid for all session tracks',
+            'POST /api/swim/v1/ctp/request-slot' => 'Request ranked slot candidates for a flight',
+            'POST /api/swim/v1/ctp/confirm-slot' => 'Confirm and assign a slot (runs CTOT cascade)',
+            'POST /api/swim/v1/ctp/release-slot' => 'Release a slot assignment',
         ]
     ],
     'authentication' => [
