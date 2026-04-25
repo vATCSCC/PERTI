@@ -270,6 +270,10 @@ class CTPSlotEngine
         }
         $tobtTs = strtotime($tobtStr . ' UTC') ?: time();
 
+        // Pre-cache flight-level data (invariant across tracks)
+        $cachedPerf = CTOTCascade::getPerformance($this->conn_adl, $flight);
+        $cachedTimes = CTOTCascade::readFlightTimes($this->conn_adl, (int)$flight['flight_uid']);
+
         foreach ($tracks as $track) {
             if (!$track['program_id']) continue;
 
@@ -277,10 +281,9 @@ class CTPSlotEngine
             $cacheKey = $track['track_name'];
             if (!isset($eteCache[$cacheKey])) {
                 $eteCache[$cacheKey] = $this->computeSegmentETEs(
-                    $flight, $track,
-                    $tobtStr,
-                    $params['na_route'] ?? '',
-                    $params['eu_route'] ?? ''
+                    $flight, $track, $tobtStr,
+                    $params['na_route'] ?? '', $params['eu_route'] ?? '',
+                    $cachedPerf, $cachedTimes
                 );
             }
             $etes = $eteCache[$cacheKey];
@@ -360,7 +363,8 @@ class CTPSlotEngine
                     if (!isset($eteCache[$cacheKey])) {
                         $eteCache[$cacheKey] = $this->computeSegmentETEs(
                             $flight, $track, $tobtStr,
-                            $params['na_route'] ?? '', $params['eu_route'] ?? ''
+                            $params['na_route'] ?? '', $params['eu_route'] ?? '',
+                            $cachedPerf, $cachedTimes
                         );
                     }
                     $etes = $eteCache[$cacheKey];
@@ -885,36 +889,33 @@ class CTPSlotEngine
 
     /**
      * Find the nearest open slot at or after a projected OEP timestamp.
-     * Falls back to the earliest open slot if all slots are before the projection
+     * Falls back to the latest open slot if all slots are before the projection
      * (e.g. flight departs after the last slot).
+     *
+     * Uses a single UNION ALL query: sort_key=0 for at-or-after (ordered by time ASC),
+     * sort_key=1 for fallback latest (single row). TOP 1 ORDER BY sort_key picks
+     * the at-or-after match first, falling through to the latest slot if none exist.
      */
     private function getSlotAtOrAfter(int $programId, int $projectedTs): ?array
     {
         $projectedUtc = gmdate('Y-m-d H:i:s', $projectedTs);
 
-        // First: nearest open slot at or after the projected OEP
         $stmt = sqlsrv_query($this->conn_tmi,
             "SELECT TOP 1 slot_id, slot_time_utc, slot_name
-             FROM dbo.tmi_slots
-             WHERE program_id = ? AND slot_status = 'OPEN'
-               AND slot_time_utc >= ?
-             ORDER BY slot_time_utc ASC",
-            [$programId, $projectedUtc]
-        );
-        if ($stmt) {
-            $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-            sqlsrv_free_stmt($stmt);
-            if ($row) return $row;
-        }
-
-        // Fallback: if projected OEP is beyond all slots, return the last open slot
-        // (flight will have delay absorbed)
-        $stmt = sqlsrv_query($this->conn_tmi,
-            "SELECT TOP 1 slot_id, slot_time_utc, slot_name
-             FROM dbo.tmi_slots
-             WHERE program_id = ? AND slot_status = 'OPEN'
-             ORDER BY slot_time_utc DESC",
-            [$programId]
+             FROM (
+                 SELECT slot_id, slot_time_utc, slot_name,
+                        0 AS sort_key, DATEDIFF(SECOND, ?, slot_time_utc) AS dist
+                 FROM dbo.tmi_slots
+                 WHERE program_id = ? AND slot_status = 'OPEN' AND slot_time_utc >= ?
+                 UNION ALL
+                 SELECT TOP 1 slot_id, slot_time_utc, slot_name,
+                        1 AS sort_key, 0 AS dist
+                 FROM dbo.tmi_slots
+                 WHERE program_id = ? AND slot_status = 'OPEN'
+                 ORDER BY slot_time_utc DESC
+             ) sub
+             ORDER BY sort_key, dist ASC",
+            [$projectedUtc, $programId, $projectedUtc, $programId]
         );
         if (!$stmt) return null;
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
@@ -929,14 +930,16 @@ class CTPSlotEngine
      * Fallback: If sp_CalculateETA or waypoints aren't available, use great-circle
      * distance / cruise speed estimate.
      */
-    private function computeSegmentETEs(array $flight, array $track, string $tobt, string $naRoute = '', string $euRoute = ''): ?array
+    private function computeSegmentETEs(array $flight, array $track, string $tobt,
+        string $naRoute = '', string $euRoute = '',
+        ?array $cachedPerf = null, ?array $cachedTimes = null): ?array
     {
         $flightUid = (int)$flight['flight_uid'];
         $entryFix = $track['oceanic_entry_fix'];
         $exitFix = $track['oceanic_exit_fix'];
 
-        // Get cruise speed from BADA performance data
-        $perf = CTOTCascade::getPerformance($this->conn_adl, $flight);
+        // Get cruise speed from BADA performance data (use cache if provided)
+        $perf = $cachedPerf ?? CTOTCascade::getPerformance($this->conn_adl, $flight);
         $cruiseSpeed = $perf ? (int)$perf['cruise_speed_ktas'] : 0;
         if ($cruiseSpeed <= 0) {
             $cruiseSpeed = 450;
@@ -970,8 +973,8 @@ class CTPSlotEngine
             sqlsrv_free_stmt($stmt);
         }
 
-        // Read flight departure and arrival ETAs
-        $times = CTOTCascade::readFlightTimes($this->conn_adl, $flightUid);
+        // Read flight departure and arrival ETAs (use cache if provided)
+        $times = $cachedTimes ?? CTOTCascade::readFlightTimes($this->conn_adl, $flightUid);
         $etaUtc = $times['eta_utc'] ?? null;
 
         $depTs = strtotime($tobt . ' UTC');
