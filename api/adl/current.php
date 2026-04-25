@@ -59,9 +59,11 @@ if (!function_exists('sqlsrv_connect')) {
 }
 
 $connectionInfo = [
-    "Database" => ADL_SQL_DATABASE,
-    "UID"      => ADL_SQL_USERNAME,
-    "PWD"      => ADL_SQL_PASSWORD
+    "Database"         => ADL_SQL_DATABASE,
+    "UID"              => ADL_SQL_USERNAME,
+    "PWD"              => ADL_SQL_PASSWORD,
+    "LoginTimeout"     => 10,
+    "ConnectionPooling" => true
 ];
 
 $conn_adl = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
@@ -124,13 +126,12 @@ $params = $query['params'];
 // 7) Execute query
 // ---------------------------------------------------------------------------
 
-$stmt = sqlsrv_query($conn_adl, $sql, $params);
+$stmt = sqlsrv_query($conn_adl, $sql, $params, ["QueryTimeout" => 30]);
 if ($stmt === false) {
-    http_response_code(500);
+    http_response_code(504);
     echo json_encode([
         "error" => "Database error when querying ADL (current).",
-        "sql_error" => adl_sql_error_message(),
-        "sql" => $sql
+        "sql_error" => adl_sql_error_message()
     ]);
     exit;
 }

@@ -444,8 +444,12 @@ if [ -f "$FPM_CONF" ]; then
     # Enable status page for monitoring (access via /fpm-status)
     sed -i 's/^;pm.status_path = .*/pm.status_path = \/fpm-status/' "$FPM_CONF"
     grep -q '^pm.status_path' "$FPM_CONF" || echo 'pm.status_path = /fpm-status' >> "$FPM_CONF"
+    # Kill workers that run longer than 90 seconds — prevents runaway DB queries from
+    # consuming all FPM workers and causing site-wide 504s (incident 2026-04-25)
+    sed -i 's/^;*request_terminate_timeout = .*/request_terminate_timeout = 90/' "$FPM_CONF"
+    grep -q '^request_terminate_timeout' "$FPM_CONF" || echo 'request_terminate_timeout = 90' >> "$FPM_CONF"
     echo "  PHP-FPM configured: max_children=$FPM_MAX_CHILDREN, start=$FPM_START, min_spare=$FPM_MIN_SPARE, max_spare=$FPM_MAX_SPARE"
-    echo "  Status page enabled at /fpm-status"
+    echo "  request_terminate_timeout=90s, status page enabled at /fpm-status"
 else
     echo "  WARNING: FPM config not found at $FPM_CONF"
 fi
