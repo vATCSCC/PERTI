@@ -219,9 +219,23 @@ class CTPSlotEngine
         $slotGenStatus = $session['slot_generation_status'] ?? 'PENDING';
         if ($slotGenStatus !== 'READY') return ['error' => 'Slot grid not generated', 'code' => 'SLOTS_NOT_READY'];
 
-        // Get all active tracks, preferred first
+        // If FC specified a track, try only that track first
+        $requestedTrack = $params['track'] ?? '';
         $preferredTrack = $params['preferred_track'] ?? '';
-        $tracks = $this->getActiveTracks($session['session_id'], $preferredTrack);
+        $singleTrackMode = false;
+
+        if ($requestedTrack) {
+            $track = $this->getTrackByName((int)$session['session_id'], $requestedTrack);
+            if ($track && $track['program_id'] && $track['is_active']) {
+                $tracks = [$track];
+                $singleTrackMode = true;
+            } else {
+                // Requested track not found/usable — fall back to all tracks
+                $tracks = $this->getActiveTracks($session['session_id'], $requestedTrack);
+            }
+        } else {
+            $tracks = $this->getActiveTracks($session['session_id'], $preferredTrack);
+        }
         if (empty($tracks)) return ['error' => 'No tracks configured', 'code' => 'NO_TRACKS_CONFIGURED'];
 
         // Lookup flight
@@ -330,8 +344,79 @@ class CTPSlotEngine
                 'timing_chain' => $timing,
                 'advisories' => $advisories,
                 'advisory_count' => count($advisories),
-                'is_preferred' => ($track['track_name'] === $preferredTrack),
+                'is_preferred' => ($track['track_name'] === ($requestedTrack ?: $preferredTrack)),
             ];
+        }
+
+        // Single-track mode fallback: if the requested track produced no candidates,
+        // retry with all tracks (revert to default behavior)
+        if (empty($candidates) && $singleTrackMode) {
+            $tracks = $this->getActiveTracks($session['session_id'], $requestedTrack);
+            if (!empty($tracks)) {
+                foreach ($tracks as $track) {
+                    if (!$track['program_id']) continue;
+
+                    $cacheKey = $track['track_name'];
+                    if (!isset($eteCache[$cacheKey])) {
+                        $eteCache[$cacheKey] = $this->computeSegmentETEs(
+                            $flight, $track, $tobtStr,
+                            $params['na_route'] ?? '', $params['eu_route'] ?? ''
+                        );
+                    }
+                    $etes = $eteCache[$cacheKey];
+                    if (!$etes || !isset($etes['na_ete_min'])) continue;
+
+                    $naEteSec = $etes['na_ete_min'] * 60;
+                    $ocaEteSec = $etes['oca_ete_min'] * 60;
+                    $euEteSec = $etes['eu_ete_min'] * 60;
+
+                    if ($isAirborne) {
+                        $projectedOepTs = $tobtTs + $naEteSec;
+                    } else {
+                        $projectedOepTs = $tobtTs + $taxiSec + $naEteSec;
+                    }
+
+                    $slot = $this->getSlotAtOrAfter((int)$track['program_id'], $projectedOepTs);
+                    if (!$slot) continue;
+
+                    $slotTimeStr = $slot['slot_time_utc'];
+                    if ($slotTimeStr instanceof \DateTime) $slotTimeStr = $slotTimeStr->format('Y-m-d H:i:s');
+                    $slotTs = strtotime($slotTimeStr . ' UTC');
+
+                    $timing = [
+                        'ctot_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs - $naEteSec - $taxiSec),
+                        'off_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs - $naEteSec),
+                        'oep_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs),
+                        'exit_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs + $ocaEteSec),
+                        'cta_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs + $ocaEteSec + $euEteSec),
+                        'taxi_min' => $taxiMin,
+                        'na_ete_min' => $etes['na_ete_min'],
+                        'oca_ete_min' => $etes['oca_ete_min'],
+                        'eu_ete_min' => $etes['eu_ete_min'],
+                        'total_ete_min' => $etes['na_ete_min'] + $etes['oca_ete_min'] + $etes['eu_ete_min'],
+                        'cruise_speed_kts' => $etes['cruise_speed_kts'] ?? 0,
+                        'oceanic_entry_fix' => $track['oceanic_entry_fix'],
+                        'oceanic_exit_fix' => $track['oceanic_exit_fix'],
+                    ];
+                    if ($isAirborne) unset($timing['ctot_utc']);
+
+                    $advisories = $this->advisor->evaluate(
+                        (int)$session['session_id'],
+                        $params['destination'] ?? $flight['fp_dest_icao'],
+                        $timing, $track
+                    );
+
+                    $candidates[] = [
+                        'track' => $track['track_name'],
+                        'slot_time_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs),
+                        'slot_id' => (int)$slot['slot_id'],
+                        'timing_chain' => $timing,
+                        'advisories' => $advisories,
+                        'advisory_count' => count($advisories),
+                        'is_preferred' => ($track['track_name'] === $requestedTrack),
+                    ];
+                }
+            }
         }
 
         if (empty($candidates)) {
