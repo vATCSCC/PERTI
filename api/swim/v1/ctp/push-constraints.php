@@ -51,9 +51,10 @@ if (!in_array($status, ['DRAFT', 'ACTIVE'])) {
 }
 
 $validTypes = ['airport', 'fir', 'fix', 'sector'];
-$created = 0;
-$updated = 0;
 
+// Pre-aggregate: when FC sends multiple entries for the same facility
+// (e.g. two tracks sharing an entry fix), sum the max_acph values
+$aggregated = [];
 foreach ($constraints as $c) {
     $facilityName = trim($c['facility'] ?? $c['facility_name'] ?? '');
     $facilityType = strtolower(trim($c['facility_type'] ?? ''));
@@ -63,10 +64,26 @@ foreach ($constraints as $c) {
     if (!$facilityName || !$facilityType || $maxAcph === null || $maxAcph < 1) continue;
     if (!in_array($facilityType, $validTypes)) continue;
 
+    $key = $facilityType . ':' . $facilityName;
+    if (isset($aggregated[$key])) {
+        $aggregated[$key]['max_acph'] += $maxAcph;
+    } else {
+        $aggregated[$key] = [
+            'facility_name' => $facilityName,
+            'facility_type' => $facilityType,
+            'max_acph' => $maxAcph,
+        ];
+    }
+}
+
+$created = 0;
+$updated = 0;
+
+foreach ($aggregated as $c) {
     $stmt = sqlsrv_query($conn_tmi,
         "SELECT constraint_id FROM dbo.ctp_facility_constraints
          WHERE session_id = ? AND facility_name = ? AND facility_type = ?",
-        [$sessionId, $facilityName, $facilityType]
+        [$sessionId, $c['facility_name'], $c['facility_type']]
     );
     $existing = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC) : null;
     if ($stmt) sqlsrv_free_stmt($stmt);
@@ -76,7 +93,7 @@ foreach ($constraints as $c) {
             "UPDATE dbo.ctp_facility_constraints SET
                 max_acph = ?, updated_at = SYSUTCDATETIME()
              WHERE constraint_id = ?",
-            [$maxAcph, $existing['constraint_id']]
+            [$c['max_acph'], $existing['constraint_id']]
         );
         if ($s) sqlsrv_free_stmt($s);
         $updated++;
@@ -85,7 +102,7 @@ foreach ($constraints as $c) {
             "INSERT INTO dbo.ctp_facility_constraints
                 (session_id, facility_name, facility_type, max_acph)
              VALUES (?, ?, ?, ?)",
-            [$sessionId, $facilityName, $facilityType, $maxAcph]
+            [$sessionId, $c['facility_name'], $c['facility_type'], $c['max_acph']]
         );
         if ($s) sqlsrv_free_stmt($s);
         $created++;
@@ -94,6 +111,7 @@ foreach ($constraints as $c) {
 
 SwimResponse::success([
     'constraints_received' => count($constraints),
+    'constraints_aggregated' => count($aggregated),
     'constraints_created' => $created,
     'constraints_updated' => $updated,
 ]);
