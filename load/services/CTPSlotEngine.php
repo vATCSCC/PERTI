@@ -219,23 +219,15 @@ class CTPSlotEngine
         $slotGenStatus = $session['slot_generation_status'] ?? 'PENDING';
         if ($slotGenStatus !== 'READY') return ['error' => 'Slot grid not generated', 'code' => 'SLOTS_NOT_READY'];
 
-        // If FC specified a track, try only that track first
+        // FC can specify track (hard lock) or preferred_track (soft preference).
+        // Either way, evaluate ALL tracks so FC gets alternatives for comparison.
+        // The specified track is always locked as recommended.
         $requestedTrack = $params['track'] ?? '';
         $preferredTrack = $params['preferred_track'] ?? '';
-        $singleTrackMode = false;
 
-        if ($requestedTrack) {
-            $track = $this->getTrackByName((int)$session['session_id'], $requestedTrack);
-            if ($track && $track['program_id'] && $track['is_active']) {
-                $tracks = [$track];
-                $singleTrackMode = true;
-            } else {
-                // Requested track not found/usable — fall back to all tracks
-                $tracks = $this->getActiveTracks($session['session_id'], $requestedTrack);
-            }
-        } else {
-            $tracks = $this->getActiveTracks($session['session_id'], $preferredTrack);
-        }
+        // Always evaluate all tracks; preferred track gets sort priority via getActiveTracks()
+        $sortPriority = $requestedTrack ?: $preferredTrack;
+        $tracks = $this->getActiveTracks($session['session_id'], $sortPriority);
         if (empty($tracks)) return ['error' => 'No tracks configured', 'code' => 'NO_TRACKS_CONFIGURED'];
 
         // Lookup flight
@@ -351,84 +343,20 @@ class CTPSlotEngine
             ];
         }
 
-        // Single-track mode fallback: if the requested track produced no candidates,
-        // retry with all tracks (revert to default behavior)
-        if (empty($candidates) && $singleTrackMode) {
-            $tracks = $this->getActiveTracks($session['session_id'], $requestedTrack);
-            if (!empty($tracks)) {
-                foreach ($tracks as $track) {
-                    if (!$track['program_id']) continue;
-
-                    $cacheKey = $track['track_name'];
-                    if (!isset($eteCache[$cacheKey])) {
-                        $eteCache[$cacheKey] = $this->computeSegmentETEs(
-                            $flight, $track, $tobtStr,
-                            $params['na_route'] ?? '', $params['eu_route'] ?? '',
-                            $cachedPerf, $cachedTimes
-                        );
-                    }
-                    $etes = $eteCache[$cacheKey];
-                    if (!$etes || !isset($etes['na_ete_min'])) continue;
-
-                    $naEteSec = $etes['na_ete_min'] * 60;
-                    $ocaEteSec = $etes['oca_ete_min'] * 60;
-                    $euEteSec = $etes['eu_ete_min'] * 60;
-
-                    if ($isAirborne) {
-                        $projectedOepTs = $tobtTs + $naEteSec;
-                    } else {
-                        $projectedOepTs = $tobtTs + $taxiSec + $naEteSec;
-                    }
-
-                    $slot = $this->getSlotAtOrAfter((int)$track['program_id'], $projectedOepTs);
-                    if (!$slot) continue;
-
-                    $slotTimeStr = $slot['slot_time_utc'];
-                    if ($slotTimeStr instanceof \DateTime) $slotTimeStr = $slotTimeStr->format('Y-m-d H:i:s');
-                    $slotTs = strtotime($slotTimeStr . ' UTC');
-
-                    $timing = [
-                        'ctot_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs - $naEteSec - $taxiSec),
-                        'off_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs - $naEteSec),
-                        'oep_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs),
-                        'exit_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs + $ocaEteSec),
-                        'cta_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs + $ocaEteSec + $euEteSec),
-                        'taxi_min' => $taxiMin,
-                        'na_ete_min' => $etes['na_ete_min'],
-                        'oca_ete_min' => $etes['oca_ete_min'],
-                        'eu_ete_min' => $etes['eu_ete_min'],
-                        'total_ete_min' => $etes['na_ete_min'] + $etes['oca_ete_min'] + $etes['eu_ete_min'],
-                        'cruise_speed_kts' => $etes['cruise_speed_kts'] ?? 0,
-                        'oceanic_entry_fix' => $track['oceanic_entry_fix'],
-                        'oceanic_exit_fix' => $track['oceanic_exit_fix'],
-                    ];
-                    if ($isAirborne) unset($timing['ctot_utc']);
-
-                    $advisories = $this->advisor->evaluate(
-                        (int)$session['session_id'],
-                        $params['destination'] ?? $flight['fp_dest_icao'],
-                        $timing, $track
-                    );
-
-                    $candidates[] = [
-                        'track' => $track['track_name'],
-                        'slot_time_utc' => gmdate('Y-m-d\TH:i:s\Z', $slotTs),
-                        'slot_id' => (int)$slot['slot_id'],
-                        'timing_chain' => $timing,
-                        'advisories' => $advisories,
-                        'advisory_count' => count($advisories),
-                        'is_preferred' => ($track['track_name'] === $requestedTrack),
-                    ];
-                }
-            }
-        }
-
         if (empty($candidates)) {
             return ['recommended' => null, 'alternatives' => []];
         }
 
-        // Rank: preferred first, fewest advisories, earliest slot
-        usort($candidates, function ($a, $b) {
+        // Rank candidates. When FC specifies a track, that track is always recommended
+        // (hard lock) regardless of advisory count. Other tracks sorted normally.
+        $lockTrack = $requestedTrack; // hard lock — empty string means no lock
+        usort($candidates, function ($a, $b) use ($lockTrack) {
+            // Hard-locked track always wins
+            if ($lockTrack) {
+                if ($a['track'] === $lockTrack && $b['track'] !== $lockTrack) return -1;
+                if ($b['track'] === $lockTrack && $a['track'] !== $lockTrack) return 1;
+            }
+            // Soft preference (preferred_track) as tiebreaker
             if ($a['is_preferred'] !== $b['is_preferred']) return $b['is_preferred'] - $a['is_preferred'];
             if ($a['advisory_count'] !== $b['advisory_count']) return $a['advisory_count'] - $b['advisory_count'];
             return strcmp($a['slot_time_utc'], $b['slot_time_utc']);
@@ -562,7 +490,17 @@ class CTPSlotEngine
             ],
         ]);
 
-        // Update ctp_flight_control with slot assignment
+        // Compute slot delay (CTOT vs TOBT) for compliance tracking
+        $tobtParam = $params['tobt'] ?? null;
+        $tobtForDelay = $tobtParam ? strtotime($tobtParam . ' UTC') : null;
+        $slotDelayMin = ($tobtForDelay && !$isAirborne)
+            ? max(0, (int)round(($ctotTs - $tobtForDelay) / 60))
+            : null;
+
+        // Compute oceanic exit time for FIR capacity tracking
+        $exitStr = gmdate('Y-m-d H:i:s', $slotTs + $ocaEteSec);
+
+        // Update ctp_flight_control with slot assignment + EDCT for compliance
         $stmt = sqlsrv_query($this->conn_tmi,
             "UPDATE dbo.ctp_flight_control SET
                 slot_status = ?, slot_id = ?,
@@ -570,13 +508,20 @@ class CTPSlotEngine
                 is_airborne = ?,
                 oceanic_entry_fix = ?, oceanic_exit_fix = ?,
                 oceanic_entry_utc = ?,
+                oceanic_exit_utc = ?,
                 projected_oep_utc = ?,
+                edct_utc = ?,
+                edct_status = CASE WHEN ? = 1 THEN 'FROZEN' ELSE 'ASSIGNED' END,
+                slot_delay_min = ?,
                 updated_at = SYSUTCDATETIME()
              WHERE session_id = ? AND flight_uid = ?",
             [$slotStatus, $slotId, $trackName,
              $isAirborne ? 1 : 0,
              $track['oceanic_entry_fix'], $track['oceanic_exit_fix'],
-             $slotTime, $slotTime,
+             $slotTime, $exitStr, $slotTime,
+             $isAirborne ? null : $ctotStr,
+             $isAirborne ? 1 : 0,
+             $slotDelayMin,
              $sessionId, $flightUid]
         );
 
@@ -676,10 +621,11 @@ class CTPSlotEngine
             );
         }
 
-        // Update ctp_flight_control
+        // Update ctp_flight_control — clear slot + EDCT fields
         sqlsrv_query($this->conn_tmi,
             "UPDATE dbo.ctp_flight_control SET
                 slot_status = 'RELEASED', slot_id = NULL,
+                edct_utc = NULL, edct_status = 'NONE', slot_delay_min = NULL,
                 miss_reason = ?, updated_at = SYSUTCDATETIME()
              WHERE ctp_control_id = ?",
             [$reason, $record['ctp_control_id']]
@@ -889,16 +835,23 @@ class CTPSlotEngine
 
     /**
      * Find the nearest open slot at or after a projected OEP timestamp.
-     * Falls back to the latest open slot if all slots are before the projection
+     * Falls back to the latest future open slot if all slots are before the projection
      * (e.g. flight departs after the last slot).
      *
+     * Only returns future slots (slot_time_utc >= now). Past slots are never assigned.
+     *
      * Uses a single UNION ALL query: sort_key=0 for at-or-after (ordered by time ASC),
-     * sort_key=1 for fallback latest (single row). TOP 1 ORDER BY sort_key picks
+     * sort_key=1 for fallback latest future (single row). TOP 1 ORDER BY sort_key picks
      * the at-or-after match first, falling through to the latest slot if none exist.
      */
     private function getSlotAtOrAfter(int $programId, int $projectedTs): ?array
     {
         $projectedUtc = gmdate('Y-m-d H:i:s', $projectedTs);
+        $nowUtc = gmdate('Y-m-d H:i:s');
+
+        // Ensure projected time is not in the past
+        $minTime = max($projectedTs, time());
+        $minTimeUtc = gmdate('Y-m-d H:i:s', $minTime);
 
         $stmt = sqlsrv_query($this->conn_tmi,
             "SELECT TOP 1 slot_id, slot_time_utc, slot_name
@@ -911,11 +864,11 @@ class CTPSlotEngine
                  SELECT TOP 1 slot_id, slot_time_utc, slot_name,
                         1 AS sort_key, 0 AS dist
                  FROM dbo.tmi_slots
-                 WHERE program_id = ? AND slot_status = 'OPEN'
+                 WHERE program_id = ? AND slot_status = 'OPEN' AND slot_time_utc >= ?
                  ORDER BY slot_time_utc DESC
              ) sub
              ORDER BY sort_key, dist ASC",
-            [$projectedUtc, $programId, $projectedUtc, $programId]
+            [$minTimeUtc, $programId, $minTimeUtc, $programId, $nowUtc]
         );
         if (!$stmt) return null;
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
