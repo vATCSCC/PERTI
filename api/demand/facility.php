@@ -148,7 +148,9 @@ if ($cached !== null) {
 $connectionInfo = [
     "Database" => ADL_SQL_DATABASE,
     "UID"      => ADL_SQL_USERNAME,
-    "PWD"      => ADL_SQL_PASSWORD
+    "PWD"      => ADL_SQL_PASSWORD,
+    "LoginTimeout" => 5,
+    "ConnectionPooling" => true
 ];
 $conn = sqlsrv_connect(ADL_SQL_HOST, $connectionInfo);
 if ($conn === false) {
@@ -306,12 +308,26 @@ function buildGroupWhereClause($group, $directionSide) {
         $likes = [];
         $col = $directionSide === 'arr' ? 'fp.fp_dest_icao' : 'fp.fp_dept_icao';
 
-        foreach ($group['patterns'] as $pattern) {
-            $sqlPattern = str_replace('*', '%', $pattern);
-            $likes[] = "$col LIKE ?";
-            $params[] = $sqlPattern;
+        // Optimize: if sole pattern is '*', skip LIKE entirely (matches all rows)
+        $hasWildcardOnly = (count($group['patterns']) === 1 && $group['patterns'][0] === '*');
+        if ($hasWildcardOnly) {
+            $clause = '1=1';
+        } else {
+            foreach ($group['patterns'] as $pattern) {
+                if ($pattern === '*') {
+                    // Wildcard among other patterns — skip it (others already narrow the set)
+                    continue;
+                }
+                $sqlPattern = str_replace('*', '%', $pattern);
+                $likes[] = "$col LIKE ?";
+                $params[] = $sqlPattern;
+            }
+            if (empty($likes)) {
+                $clause = '1=1';
+            } else {
+                $clause = '(' . implode(' OR ', $likes) . ')';
+            }
         }
-        $clause = '(' . implode(' OR ', $likes) . ')';
 
         if (isset($group['exclude']) && !empty($group['exclude'])) {
             $exPlaceholders = implode(',', array_fill(0, count($group['exclude']), '?'));
@@ -557,7 +573,7 @@ function executeCrossingQuery($conn, $type, $code, $group, $direction, $granular
  * Execute a facility query and aggregate results into time bins with airport breakdown.
  */
 function runFacilityQuery($conn, $sql, $params, $dataKey, &$response) {
-    $stmt = sqlsrv_query($conn, $sql, $params);
+    $stmt = sqlsrv_query($conn, $sql, $params, ["QueryTimeout" => 25]);
     if ($stmt === false) {
         $response['success'] = false;
         $response['error'] = "Query error ($dataKey): " . facility_sql_error_message();

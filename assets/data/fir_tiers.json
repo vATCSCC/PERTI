@@ -175,6 +175,44 @@
       "patterns": ["LL*", "OJ*", "OL*", "OS*"]
     },
 
+    "NAT": {
+      "code": "NAT",
+      "label": "North Atlantic",
+      "description": "North Atlantic — flights between Americas and Europe/Africa/Middle East",
+      "patterns": ["K*", "M*", "P*", "C*", "T*", "S*", "E*", "L*", "G*", "D*", "H*", "F*", "O*", "U*", "B*"]
+    },
+
+    "DCC_NE": {
+      "code": "DCC_NE",
+      "label": "DCC Northeast",
+      "description": "FAA DCC Northeast region",
+      "members": ["ZBW", "ZDC", "ZNY", "ZOB", "ZWY"]
+    },
+    "DCC_SE": {
+      "code": "DCC_SE",
+      "label": "DCC Southeast",
+      "description": "FAA DCC Southeast region",
+      "members": ["ZID", "ZJX", "ZMA", "ZMO", "ZTL"]
+    },
+    "DCC_SC": {
+      "code": "DCC_SC",
+      "label": "DCC South Central",
+      "description": "FAA DCC South Central region",
+      "members": ["ZAB", "ZFW", "ZHO", "ZHU", "ZME"]
+    },
+    "DCC_MW": {
+      "code": "DCC_MW",
+      "label": "DCC Midwest",
+      "description": "FAA DCC Midwest region",
+      "members": ["ZAU", "ZDV", "ZKC", "ZMP"]
+    },
+    "DCC_W": {
+      "code": "DCC_W",
+      "label": "DCC West",
+      "description": "FAA DCC West region",
+      "members": ["ZAK", "ZAN", "ZAP", "ZHN", "ZLA", "ZLC", "ZOA", "ZSE", "ZUA"]
+    },
+
     "USA": {
       "code": "USA",
       "label": "USA (CONUS)",
@@ -245,6 +283,12 @@
       "members": ["ZJX", "ZMA", "ZHU"]
     },
 
+    "CANALL": {
+      "code": "CANALL",
+      "label": "Canada (All)",
+      "description": "All Canadian FIRs including oceanic",
+      "members": ["CZYZ", "CZUL", "CZQM", "CZQX", "CZQO", "CZVR", "CZEG", "CZWG"]
+    },
     "CAN": {
       "code": "CAN",
       "label": "Canada (Domestic)",

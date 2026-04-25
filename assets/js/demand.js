@@ -2552,7 +2552,7 @@ function populateFacilityDropdown() {
 
         // US DCC Regions
         var usGroup = $('<optgroup label="' + PERTII18n.t('demand.facility.optgroup.usDcc') + '"></optgroup>');
-        ['USA', 'USAEC', 'USAWC', 'USA4W', 'USA6W', 'GULF'].forEach(function(code) {
+        ['USA', 'DCC_NE', 'DCC_SE', 'DCC_SC', 'DCC_MW', 'DCC_W', 'USAEC', 'USAWC', 'USA4W', 'USA6W', 'GULF'].forEach(function(code) {
             var g = data.groups.regional.find(function(r) { return r.code === code; });
             if (g) usGroup.append('<option value="' + g.code + '">' + g.label + '</option>');
         });
@@ -2560,14 +2560,14 @@ function populateFacilityDropdown() {
 
         // Canada DCC
         var caGroup = $('<optgroup label="' + PERTII18n.t('demand.facility.optgroup.canadaDcc') + '"></optgroup>');
-        ['CANE', 'CANW', 'CAN'].forEach(function(code) {
+        ['CANALL', 'CANE', 'CANW', 'CAN'].forEach(function(code) {
             var g = data.groups.regional.find(function(r) { return r.code === code; });
             if (g) caGroup.append('<option value="' + g.code + '">' + g.label + '</option>');
         });
         select.append(caGroup);
 
         // FIR Regional (exclude US/CA groups already shown)
-        var usCAcodes = ['USA','USALL','USAEC','USAWC','USA4W','USA6W','USA8W','USA10W','USA12W','GULF','CAN','CANE','CANW','CONUS'];
+        var usCAcodes = ['USA','USALL','USAEC','USAWC','USA4W','USA6W','USA8W','USA10W','USA12W','GULF','DCC_NE','DCC_SE','DCC_SC','DCC_MW','DCC_W','CAN','CANALL','CANE','CANW','CONUS'];
         var firRegional = $('<optgroup label="' + PERTII18n.t('demand.facility.optgroup.firRegional') + '"></optgroup>');
         data.groups.regional.forEach(function(g) {
             if (usCAcodes.indexOf(g.code) >= 0) return;
