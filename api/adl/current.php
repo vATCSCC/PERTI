@@ -11,11 +11,61 @@ if (session_status() == PHP_SESSION_NONE) {
 header('Content-Type: application/json; charset=utf-8');
 
 // ---------------------------------------------------------------------------
-// 1) Ensure ADL DB connection constants exist
+// 1) Load config, input helpers, cache
 // ---------------------------------------------------------------------------
 
 require_once("../../load/config.php"); // should define ADL_SQL_HOST, ADL_SQL_DATABASE, ADL_SQL_USERNAME, ADL_SQL_PASSWORD
 require_once("../../load/input.php"); // Safe input functions for PHP 8.2+
+require_once("../../load/cache.php");
+
+// ---------------------------------------------------------------------------
+// 2) Input parameters (parsed early so we can build cache key before DB)
+// ---------------------------------------------------------------------------
+
+$callsign = '';
+if (isset($_GET['cs'])) {
+    $callsign = get_upper('cs');
+} elseif (isset($_GET['callsign'])) {
+    $callsign = get_upper('callsign');
+}
+
+$dep = isset($_GET['dep']) ? get_upper('dep') : '';
+$arr = isset($_GET['arr']) ? get_upper('arr') : '';
+
+// active flag: default is only active flights
+$activeParam = isset($_GET['active']) ? get_lower('active') : '1';
+$activeOnly = ($activeParam !== 'all' && $activeParam !== '0' && $activeParam !== 'false' && $activeParam !== 'no');
+
+$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10000;
+if ($limit <= 0) {
+    $limit = 10000;
+} elseif ($limit > 15000) {
+    $limit = 15000;
+}
+
+// ---------------------------------------------------------------------------
+// 3) APCu cache check — skip DB entirely on HIT
+// ---------------------------------------------------------------------------
+
+$cacheKey = cache_key('adl_current', [
+    'active' => $activeOnly ? '1' : '0',
+    'cs' => $callsign,
+    'dep' => $dep,
+    'arr' => $arr,
+    'limit' => $limit
+]);
+
+$cached = apcu_cache_get($cacheKey);
+if ($cached !== null) {
+    header('X-Cache: HIT');
+    header('Cache-Control: public, max-age=10');
+    echo $cached;  // Pre-encoded JSON string
+    exit;
+}
+
+// ---------------------------------------------------------------------------
+// 4) Ensure ADL DB connection constants exist
+// ---------------------------------------------------------------------------
 
 if (!defined("ADL_SQL_HOST") || !defined("ADL_SQL_DATABASE") ||
     !defined("ADL_SQL_USERNAME") || !defined("ADL_SQL_PASSWORD")) {
@@ -47,7 +97,7 @@ function adl_sql_error_message()
 }
 
 // ---------------------------------------------------------------------------
-// 2) Connect to Azure SQL ADL database
+// 5) Connect to Azure SQL ADL database
 // ---------------------------------------------------------------------------
 
 if (!function_exists('sqlsrv_connect')) {
@@ -77,39 +127,14 @@ if ($conn_adl === false) {
 }
 
 // ---------------------------------------------------------------------------
-// 3) Use ADL Query Helper for normalized table support
+// 6) Use ADL Query Helper for normalized table support
 // ---------------------------------------------------------------------------
 
 require_once(__DIR__ . '/AdlQueryHelper.php');
 $helper = new AdlQueryHelper();
 
 // ---------------------------------------------------------------------------
-// 4) Input parameters
-// ---------------------------------------------------------------------------
-
-$callsign = '';
-if (isset($_GET['cs'])) {
-    $callsign = get_upper('cs');
-} elseif (isset($_GET['callsign'])) {
-    $callsign = get_upper('callsign');
-}
-
-$dep = isset($_GET['dep']) ? get_upper('dep') : '';
-$arr = isset($_GET['arr']) ? get_upper('arr') : '';
-
-// active flag: default is only active flights
-$activeParam = isset($_GET['active']) ? get_lower('active') : '1';
-$activeOnly = ($activeParam !== 'all' && $activeParam !== '0' && $activeParam !== 'false' && $activeParam !== 'no');
-
-$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10000;
-if ($limit <= 0) {
-    $limit = 10000;
-} elseif ($limit > 15000) {
-    $limit = 15000;
-}
-
-// ---------------------------------------------------------------------------
-// 5) Build query using helper (supports view or normalized tables)
+// 7) Build and execute query
 // ---------------------------------------------------------------------------
 
 $query = $helper->buildCurrentFlightsQuery([
@@ -121,10 +146,6 @@ $query = $helper->buildCurrentFlightsQuery([
 ]);
 $sql = $query['sql'];
 $params = $query['params'];
-
-// ---------------------------------------------------------------------------
-// 7) Execute query
-// ---------------------------------------------------------------------------
 
 $stmt = sqlsrv_query($conn_adl, $sql, $params, ["QueryTimeout" => 30]);
 if ($stmt === false) {
@@ -171,9 +192,17 @@ if (!empty($rows) && isset($rows[0]['snapshot_utc'])) {
     }
 }
 
-echo json_encode([
+// ---------------------------------------------------------------------------
+// 9) Cache the JSON response and return
+// ---------------------------------------------------------------------------
+
+$json = json_encode([
     "snapshot_utc" => $snapshotUtc,
     "flights"      => $rows
 ]);
+apcu_cache_set($cacheKey, $json, 15);  // 15s TTL = one daemon cycle
+header('X-Cache: MISS');
+header('Cache-Control: public, max-age=10');
+echo $json;
 
 ?>

@@ -409,6 +409,29 @@ opcache.fast_shutdown=1
 OPCACHE_EOF
 echo "  OPcache configured (128MB, revalidate every 60s)"
 
+# Install APCu for server-side response caching
+# Used by demand endpoints, ADL current flights, and SWIM API
+if php -m 2>/dev/null | grep -q apcu; then
+    echo "  APCu already installed"
+else
+    echo "Installing APCu..."
+    pecl install apcu >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "  APCu installed successfully"
+    else
+        echo "  WARNING: APCu installation failed — caching will be disabled"
+    fi
+fi
+# Configure APCu (idempotent — writes config even if install was from a previous boot)
+APCU_INI="/usr/local/etc/php/conf.d/apcu.ini"
+cat > "$APCU_INI" << 'APCU_EOF'
+extension=apcu
+apc.enabled=1
+apc.shm_size=64M
+apc.enable_cli=0
+APCU_EOF
+echo "  APCu configured (64MB SHM)"
+
 # Configure PHP-FPM for higher concurrency
 # Default is only 5 workers which causes request queueing under load
 #

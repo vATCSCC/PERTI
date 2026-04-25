@@ -66,3 +66,15 @@ function demand_cache_key($endpoint, $params = []) {
     ksort($params); // Ensure consistent key ordering
     return 'demand:' . $endpoint . ':' . md5(json_encode($params));
 }
+
+/**
+ * Build a generic cache key (for non-demand endpoints)
+ *
+ * @param string $namespace Namespace prefix (e.g., 'adl_current')
+ * @param array $params Key-value pairs to include in the cache key
+ * @return string Cache key
+ */
+function cache_key($namespace, $params = []) {
+    ksort($params);
+    return $namespace . ':' . md5(json_encode($params));
+}
