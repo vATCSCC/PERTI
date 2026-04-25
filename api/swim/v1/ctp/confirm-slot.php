@@ -62,6 +62,8 @@ $result = $engine->confirmSlot([
     'tobt'          => $body['tobt'] ?? null,
     'na_route'      => $body['na_route'] ?? '',
     'eu_route'      => $body['eu_route'] ?? '',
+    'entry_fix'     => strtoupper(trim($body['entry_fix'] ?? '')),
+    'exit_fix'      => strtoupper(trim($body['exit_fix'] ?? '')),
 ]);
 
 if (isset($result['error'])) {
