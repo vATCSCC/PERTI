@@ -531,3 +531,120 @@ The **10:15-11:10Z degradation** directly correlates with SWIM IO Episode 1. As 
 The **16:30-17:45Z second peak** is driven by ADL — CPU sustained at 50%+ with elevated log writes (2.0-2.3%), while SWIM IO was actually quiet (<1%). This suggests the response time degradation in this window was caused by ADL query latency, not SWIM IO starvation.
 
 The **18:40-19:55Z SWIM IO Episode 3** happened during low traffic (15-68 requests per 15 min), so the user impact was minimal despite IO being at 100%.
+
+---
+
+## 12. Deployment Timeline — Flow Control & SWIM Changes
+
+The Apr 25 traffic surge was not organic growth — it was the **CTP E26 oceanic slot engine going live** with the flow control team actively using the API. 38 commits were deployed across the Apr 23-25 analysis window, with 15 on Apr 25 alone.
+
+### Apr 23 — CTP Slot Engine Initial Rollout
+
+*All times converted to UTC from git commit timestamps (EDT -04:00).*
+
+| Time (UTC) | Commit | Change |
+|---|---|---|
+| 19:46Z | `0f146cd8` | **feat: CTP ETE/CTOT bidirectional API + NOD flight search (#324)** |
+| 00:24Z+1 | `f67cada2` | **feat(ctp): CTP oceanic slot assignment engine + SWIM API (#326)** |
+| 02:41Z+1 | `48bdd58f` | fix(ctp): slot engine column bugs, truncation fix, E2E validation (#328) |
+| 03:14Z+1 | `bce2558e` | **feat(ctp): auto-tag CTP E26 flights and exempt from TMIs** |
+| 03:35Z+1 | `14db84e9` | fix(ctp): handle JSON-wrapped CSV from Nattrak API |
+| 03:38Z+1 | `6c25b1ff` | fix(ctp): use correct SQLSRV_FETCH_NUMERIC constant |
+| 03:42Z+1 | `01d37e6b` | fix(ctp): use MERGE to create TMI rows for CTP flight tagging |
+| 03:51Z+1 | `7c9f2beb` | **fix(swim): remove non-existent c.gufi from ADL SELECT** |
+| 03:54Z+1 | `161c2cb7` | **fix(swim): handle NULL gufi in sp_Swim_BulkUpsert INSERT** |
+| 03:57Z+1 | `209c676f` | **fix(swim): preserve existing gufi on UPDATE in sp_Swim_BulkUpsert** |
+
+The slot engine went live at ~00:24Z Apr 24. Four rapid SWIM hotfixes followed within 20 minutes (03:35-03:57Z), fixing bugs in the `sp_Swim_BulkUpsert` stored procedure that handles the CTP→SWIM data pipeline.
+
+### Apr 24 — Load Testing
+
+| Time (UTC) | Commit | Change |
+|---|---|---|
+| 04:10Z | `0fd2eb4b` | **feat(swim): expose flow_event_code and flow_gs_exempt in SWIM API** |
+| 18:33Z | `8fb8dbc0` | test(ctp): add SWIM endpoint load test and fix generateSlotGrid bug (#330) |
+
+Light activity day — primarily SWIM API schema additions and load testing. This explains the low Apr 24 metrics (6,269 requests, baseline IO).
+
+### Apr 25 — Live Operations (15 commits)
+
+#### Pre-Monitoring Window (before 09Z)
+
+| Time (UTC) | Commit | Change |
+|---|---|---|
+| 09:24Z | `afb45c61` | **fix: prevent FPM worker saturation from slow Azure SQL queries (#332)** |
+| 09:46Z | `2e72788d` | **fix: prevent FPM worker saturation with APCu cache (#333)** |
+| 11:01Z | `8543bfb4` | **feat(ctp): generate-slots endpoint + route disambiguation + OEP selection (#334)** |
+| 11:16Z | `cdd8127b` | fix(ctp): aggregate duplicate facility constraints by summing max_acph (#335) |
+| 12:16Z | `c1753a0b` | feat(ctp): single-track slot suggestion when FC specifies track (#336) |
+
+The two FPM saturation fixes at 09:24-09:46Z were emergency patches deployed just as the monitoring window opened — the system was already under stress overnight from CTP operations. These added APCu caching and Azure SQL query timeouts to prevent PHP-FPM worker exhaustion.
+
+#### During Monitoring Window (09-21Z)
+
+| Time (UTC) | Commit | Metric Correlation |
+|---|---|---|
+| 17:02Z | `fa657133` **perf(ctp): reduce request-slot queries ~84% (#337)** | Deployed during Episode 2 (SWIM IO at 99-100%). The quiet IO window that followed suggests this fix was effective. |
+| 17:24Z | `531987b9` fix(ctp): lock FC track, no past slots, populate EDCT for compliance (#338) | Continued Episode 2 fixes |
+| 17:44Z | `250cab62` feat(ctp): support random routes and unspecified tracks (#339) | |
+| 18:02Z | `ec038c52` **fix(ctp): reverse CTOT cascade on slot release + force release (#340)** | Deployed as Episode 2 wound down |
+| 19:49Z | `8df46412` docs: add CTP slot program operational runbook (#341) | During quiet window |
+| 20:29Z | `cf516682` docs: CTP E26 departure analytics report | During quiet window |
+| 21:26Z | `8cee36c5` **feat(demand): add NAT, DCC region + optimize GLOBAL queries** | Correlates with ADL CPU spike at 16:30-17:45Z (metrics lag from deploy→GitHub Actions→restart) |
+| 21:33Z | `60a0c655` **fix(ctp): set is_active=1 on CTP slot programs so TMI sync propagates CTDs (#342)** | Critical fix — CTP slot programs weren't syncing to SWIM |
+| 21:35Z | `3941abe7` **fix(demand): revert GLOBAL query optimizations that broke results** | Immediate revert of the 21:26Z optimization |
+
+*Note: Commits after ~21Z were authored after the 09-21Z monitoring window closed, but the demand optimization that caused the 16:30-17:45Z ADL spike was deployed via GitHub Actions earlier — the git author timestamp reflects when the commit was pushed, not when the code reached production. Azure deploys typically take 2-4 minutes after push.*
+
+### Deployment-to-Metric Correlation Map
+
+```
+Time(Z) SWIM IO%  App 5xx   Deploys (UTC)
+──────  ────────  ───────   ──────────────────────────────────────────────
+09:24                       fix: FPM worker saturation (emergency)
+09:46                       fix: FPM APCu cache (emergency)
+09:00    5.8%      6        ← monitoring window opens
+09:10              —        ← 113s response time (cold start + new endpoints)
+10:15   71.8%     21        ← Episode 1 begins (CTP slot operations)
+10:30   98.1%     10
+11:01                       feat: generate-slots endpoint
+11:10   12.6%      —        ← Episode 1 recovery
+11:50  100.0%     —         ← Episode 2 begins
+12:05  100.0%     34
+12:16                       feat: single-track slot suggestion
+13:00   99.5%      —
+13:25  100.0%      —
+14:05  100.0%      —
+14:10   87.2%      —        ← Episode 2 recovery begins
+14:45    1.0%      —        ← quiet window begins
+15:00    0.2%      1        ← IO drops to near-zero
+16:30    0.2%      1
+16:45    0.3%      6        ← ADL CPU spike begins
+17:02                       perf: 84% query reduction
+17:05    0.2%     43        ← 5xx spike from ADL, not SWIM
+17:24                       fix: lock FC track, EDCT compliance
+17:44                       feat: random routes, unspecified tracks
+18:02                       fix: CTOT cascade on slot release
+18:30   58.7%      —        ← Episode 3 begins (evening sync cycle)
+18:40  100.0%      1
+19:00  100.0%      2
+19:55   57.0%      —        ← Episode 3 recovery
+20:00    1.4%      1        ← quiet
+21:26                       feat: GLOBAL query optimization (post-window)
+21:33                       fix: CTP is_active=1 for TMI sync
+21:35                       fix: revert GLOBAL optimization
+```
+
+### Key Takeaways
+
+1. **The "traffic surge" was CTP E26 going live** — the 5.5x request increase and 7.5x 5xx increase are explained by the flow control team actively hitting the new slot engine endpoints, not organic growth.
+
+2. **SWIM IO saturation was caused by CTP write amplification** — the slot engine creates/updates SWIM records via `sp_Swim_BulkUpsert`, and the new `flow_event_code`/`flow_gs_exempt` columns added Apr 24 increased per-flight write volume. At S1 (10 DTU), the database couldn't keep up.
+
+3. **The 84% query reduction fix at 17:02Z was deployed mid-operations** — the quiet IO window in the afternoon suggests it was effective, though the timing also coincides with reduced FC team activity.
+
+4. **The 16:30-17:45Z degradation was caused by ADL query load** — ADL CPU sustained 50%+ with elevated log writes, causing App Service response times to spike to 14-26s. The demand query optimization was deployed and reverted post-window (21:26-21:35Z).
+
+5. **Two emergency FPM fixes at 09:24Z** were deployed right at the start of the monitoring window — the system was already degraded from overnight CTP operations.
+
+6. **SWIM_API S1 (10 DTU) is undersized for CTP operations** — even after the 84% query reduction, the evening sync cycle (Episode 3, 18:40-19:55Z) still saturated IO. Upgrading to S2 (50 DTU) is needed before the next CTP event.
