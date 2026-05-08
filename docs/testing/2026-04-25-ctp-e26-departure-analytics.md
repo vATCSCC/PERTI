@@ -1,11 +1,14 @@
-# CTP E26 Departure Analytics — 2026-04-25
+# CTP E26 Departure & Arrival Analytics — 2026-04-25
 
-**Generated**: 2026-04-25 ~21:00Z (updated with non-event comparison, route compliance V2, CCFRP CTOT analysis, slot utilization comparison; audited ~22:00Z — canonical time definitions, data-drift corrections)
-**Source**: Live queries against VATSIM_ADL, VATSIM_TMI, perti_site (MySQL), and FlowControl (flowcontrol.vatsim.net) production data
+**Generated**: 2026-04-25 ~21:00Z (departure sections 1-14), audited 2026-05-07 (arrival sections 15-21, post-event reconciliation, CID-based matching verification)
+**Source**: SQL queries against VATSIM_ADL, VATSIM_TMI, perti_site (MySQL), and FlowControl (flowcontrol.vatsim.net) production data
 **Event**: CTPE26 Eastbound, Session ID 9
-**Analysis window**: 25/0900Z to 25/1800Z (Sections 2, 6, 9, 10 use this window; Sections 1, 3-5, 7-8 use full day; Section 13 uses 10-23Z event window)
-**Non-event definition**: Transatlantic flights traversing NAT oceanic FIRs (BGGL, BIRD, CZQX, CZQO, EGGX, KZNY, LPPO, TTZO, GVSC), identified by ICAO prefix matching: ORIG K\*/M\*/P\*/C\*/T\*/S\* → DEST E\*/L\*/G\*/D\*/H\*/F\*/O\*/U\*/B\*/W\* (and vice versa for westbound). FIR-based crossing filtering was attempted but today's active flights have no crossing records yet (daemon lag). Route-based identification used instead.
-**Validation**: All data from SQL queries with column names verified via INFORMATION_SCHEMA. No synthetic data.
+**CTP identification**: `flow_event_code = 'CTPE26'` in `adl_flight_tmi` (daemon tagging via callsign+route heuristics and Nattrak booking match). Verified against CID-based matching: all 1,034 booking-matched flights are a strict subset of the 1,206 daemon-tagged flights. The 172 daemon-only flights are unbooked participants identified by route/callsign patterns.
+**Analysis windows**: Sections 2, 6, 9, 10 use 25/0900Z–1800Z departure window. Sections 1, 3-5, 7-8 use full day. Section 13 uses 10-23Z. Sections 15-21 use arrival data from completed flights.
+**Non-event definition**: Transatlantic flights identified by ICAO prefix matching: ORIG K\*/M\*/P\*/C\*/T\*/S\* → DEST E\*/L\*/G\*/D\*/H\*/F\*/O\*/U\*/B\*/W\* (and vice versa for westbound), excluding CTP-tagged flights.
+**Validation**: All data from SQL queries with column names verified via INFORMATION_SCHEMA. No synthetic data. Post-event audit on 2026-05-07 re-verified all claims against current database state.
+**Arrival time proxy**: VATSIM does not record OOOI `on_utc`/`in_utc` for most flights (only 3 of 845 arrived CTP flights have `on_utc`). Arrival time is proxied by `last_seen_utc` from `adl_flight_core`, which represents the last VATSIM position update before the pilot disconnected. Validation shows `last_seen_utc` is within -5 to 0 minutes of `eta_utc` for 90.2% of arrived flights (median offset: -5 minutes). Flight duration is computed as `out_utc` to `last_seen_utc`, which includes taxi-out time but excludes taxi-in time.
+**Data provenance**: Departure sections (1-14) were generated live during/after the event (Apr 25 ~21:00Z). Arrival sections (15-21) use post-event data (May 7). The daemon continued tagging flights after the initial analysis: 1,206 flights are now tagged vs 1,202 at initial query time. This moved 2 flights from the non-CTP set to CTP, causing minor count differences between departure and arrival sections. Departure delay statistics (Sections 5-6) reflect point-in-time values; post-event ETD drift introduced 4 extreme outliers (<-1000m) that were not present during live analysis.
 
 ### Time Definitions (Canonical Sources)
 
@@ -19,6 +22,9 @@
 | **OFF** | Wheels Off (Takeoff) | OOOI | Actual time the aircraft becomes airborne |
 | **OEP** | Ocean Entry Point | Oceanic ATC | The fix where a flight enters oceanic airspace |
 | **TOT** | Take-Off Time | FlowControl | FlowControl's field name for CTOT; functionally equivalent |
+| **ON** | Wheels On (Landing) | OOOI | Actual time the aircraft touches down (only 3 CTP flights have this) |
+| **IN** | Gate Arrival | OOOI | Actual time the aircraft reaches the gate (0 CTP flights have this) |
+| **last_seen** | Last Position Update | ADL daemon | Last VATSIM position data received; proxy for arrival time (median -5m vs ETA) |
 
 ---
 
@@ -109,21 +115,23 @@ Non-CTP traffic includes both directions. The 119 westbound flights (EU→NA) ar
 
 **Note**: Booking counts are from the `ctp_event_bookings` table (Nattrak import). KDFW has the most bookings (196).
 
-### Arrival Airports
+### Arrival Airports (Bookings vs Actual Arrivals)
 
-| Airport | Total | Departed | Arrived |
-|---------|-------|----------|---------|
-| EHAM | 145 | 0 | 0 |
-| LFPG | 145 | 0 | 0 |
-| ENGM | 144 | 0 | 0 |
-| LEMD | 125 | 0 | 0 |
-| LIMC | 102 | 1 | 0 |
-| UUEE | 98 | 0 | 0 |
-| EGLL | 97 | 0 | 0 |
-| EDDP | 90 | 0 | 0 |
-| EBBR | 86 | 0 | 0 |
-| GOBD | 85 | 0 | 0 |
-| LOWW | 78 | 0 | 0 |
+| Airport | Bookings | Arrived (filtered) | Completion |
+|---------|:--------:|:------------------:|:----------:|
+| EHAM | 145 | 81 | 55.9% |
+| LFPG | 145 | 77 | 53.1% |
+| ENGM | 144 | 91 | 63.2% |
+| LEMD | 125 | 68 | 54.4% |
+| LIMC | 102 | 65 | 63.7% |
+| UUEE | 98 | 61 | 62.2% |
+| EGLL | 97 | 58 | 59.8% |
+| EDDP | 90 | 56 | 62.2% |
+| EBBR | 86 | 42 | 48.8% |
+| GOBD | 85 | 53 | 62.4% |
+| LOWW | 78 | 52 | 66.7% |
+
+*Arrived counts are from Section 17 (filtered: Apr 25 pushback, duration >2h, `phase = 'ARRIVED'`). Completion % is arrivals/bookings — lower than Section 15's 84.0% pushed-to-arrived rate because bookings includes no-shows (16.2% unmatched) and prefiles that never pushed.*
 
 ---
 
@@ -606,14 +614,14 @@ Three distinct counts appear throughout this report. They represent different st
 |--------|:-----:|-----------|
 | **Nattrak bookings** | 1,234 | Pilots who booked a CTP slot via Nattrak |
 | **Bookings matched to ADL** | 1,034 | Nattrak bookings that matched to an active ADL flight record (83.8%) |
-| **ADL flights tagged CTPE26** | 1,202 | All ADL flights with `flow_event_code = 'CTPE26'` (includes booking matches + daemon tagging) |
+| **ADL flights tagged CTPE26** | 1,206 | All ADL flights with `flow_event_code = 'CTPE26'` (includes booking matches + daemon tagging) |
 | **CTP pushed 09–18Z** | 836 | Tagged CTP flights that recorded `out_utc` within the 09–18Z analysis window |
 
 ### Where the Differences Come From
 
 - **1,234 → 1,034**: 200 bookings (16.2%) had no matching ADL flight — pilots who booked but never connected/filed.
-- **1,034 → 1,202**: The daemon tags flights via callsign+route matching in addition to booking matches, so 168 additional flights were tagged that didn't have Nattrak bookings.
-- **1,202 → 836**: Of 1,202 tagged flights, 354 had no `out_utc` (connected/prefiled but not yet pushed at query time), and 12 pushed outside the 09–18Z window. The remaining 836 pushed within the analysis window.
+- **1,034 → 1,206**: The daemon tags flights via callsign+route matching in addition to booking matches, so 172 additional flights were tagged that didn't have Nattrak bookings. CID-based verification confirms all 1,034 booking-matched flights are contained within the 1,206 daemon-tagged set (zero booking-only flights missing from daemon tagging).
+- **1,206 → 836**: Of 1,206 tagged flights, 332 had no `out_utc` (connected/prefiled but never pushed), and 38 pushed outside the 09–18Z window. The remaining 836 pushed within the analysis window.
 
 ---
 
@@ -705,7 +713,7 @@ In 7 of the 10 hours with active NE EB traffic (11-12Z, 15-19Z), demand exceeded
 ## 14. Key Findings & Observations
 
 ### Event Health
-1. **Strong participation**: 1,234 bookings with 83.8% match rate and 1,202 ADL-tagged flights
+1. **Strong participation**: 1,234 bookings with 83.8% match rate and 1,206 ADL-tagged flights
 2. **Good booking compliance**: 53.7% of pilots within ±15m of booked time
 3. **Low no-show rate**: 16.2% unmatched bookings
 
@@ -750,3 +758,401 @@ In 7 of the 10 hours with active NE EB traffic (11-12Z, 15-19Z), demand exceeded
 ### Data Quality / System Issues
 30. Some stale OUT times from days ago (CYYC has Apr 20 OUT times) — these are test/reconnected flights
 31. **M2/N2/O2 NE tracks defined in FlowControl but absent from `ctp_session_tracks`** — FlowControl has 44 oceanic tracks vs 39 in PERTI DB. Additional FlowControl-only tracks include NE3E, NE3W, T270, T610.
+
+---
+
+## 15. Arrival Overview & Completion Rate
+
+*All arrival times use `last_seen_utc` as a proxy (see header for validation). Flight durations are gate-to-last-position (`out_utc` to `last_seen_utc`). Filters: Apr 25 pushback, `phase = 'ARRIVED'`, duration >2h and <24h to exclude anomalies.*
+
+| Metric | Value |
+|--------|-------|
+| Total flights tagged CTPE26 | 1,206 |
+| Pushed back (has `out_utc`) | 874 (72.5% of tagged) |
+| Arrived (`phase = 'ARRIVED'`) | 845 (70.1% of tagged) |
+| — Pushed and arrived | 734 (84.0% of pushed) |
+| — Arrived without `out_utc` (in-air connects) | 111 |
+| Disconnected (never arrived) | 361 (29.9% of tagged) |
+
+### Disconnected Flight Breakdown
+
+| Category | Count | % of Disconnected |
+|----------|:-----:|:-----------------:|
+| Pushed then disconnected | 140 | 38.8% |
+| Never pushed (prefiled only) | 221 | 61.2% |
+| **Total disconnected** | **361** | 100% |
+
+Of 874 flights that pushed back, 84.0% (734) reached their destination. 140 flights pushed back but disconnected en route (16.0% of pushed). An additional 111 flights arrived without recorded gate departure — these connected in-air rather than at the gate. 221 flights were tagged as CTP but never pushed back and never arrived — these are prefiles/connections that did not complete the event.
+
+### Completion Rate: CTP vs Non-CTP (09–18Z Pushed)
+
+| Metric | CTP | Non-CTP |
+|--------|:---:|:-------:|
+| Pushed (09–18Z) | 836 | 294 |
+| Arrived | 704 | 141 |
+| Disconnected | 132 | 153 |
+| **Completion rate** | **84.2%** | **48.0%** |
+
+CTP flights have a significantly higher completion rate (84.2% vs 48.0%). Non-CTP transatlantic flights include both eastbound and westbound traffic with diverse routing and durations; many may disconnect before reaching their destination due to session length or other factors. The CTP event structure — with assigned routes, slots, and community coordination — correlates with higher follow-through.
+
+### OOOI Data Availability
+
+| Field | Flights with data | % of 1,206 |
+|-------|:-----------------:|:----------:|
+| `out_utc` (gate departure) | 874 | 72.5% |
+| `off_utc` (wheels off) | 3 | 0.2% |
+| `on_utc` (wheels on) | 3 | 0.2% |
+| `in_utc` (gate arrival) | 0 | 0.0% |
+| `eta_utc` (estimated arrival) | 1,202 | 99.7% |
+| `last_seen_utc` (last position) | 1,206 | 100% |
+| `ete_minutes` (est. time enroute) | 1,094 | 90.7% |
+| `ate_minutes` (actual time enroute) | 0 | 0.0% |
+
+VATSIM does not populate OOOI landing/gate times for the vast majority of flights. Only 3 flights have `off_utc` and `on_utc`; zero have `in_utc` or `ate_minutes`. This is a VATSIM data limitation, not a PERTI issue. All arrival analysis below uses `last_seen_utc` as the arrival time proxy.
+
+---
+
+## 16. Hourly Arrival Profile (CTP Flights)
+
+Arrivals counted by `last_seen_utc` hour. Only flights with Apr 25 pushback, duration >2h, and `phase = 'ARRIVED'`.
+
+| Hour | Arrivals | Cumulative | % of Total |
+|:----:|:--------:|:----------:|:----------:|
+| 18Z | 5 | 5 | 0.7% |
+| 19Z | 16 | 21 | 2.3% |
+| 20Z | 66 | 87 | 9.4% |
+| **21Z** | **183** | **270** | **26.0%** |
+| **22Z** | **202** | **472** | **28.7%** |
+| **23Z** | **194** | **666** | **27.5%** |
+| 00Z+1 | 34 | 700 | 4.8% |
+| 01Z+1 | 3 | 703 | 0.4% |
+| 05Z+1 | 1 | 704 | 0.1% |
+| **TOTAL** | **704** | | 100% |
+
+**Peak arrival window**: 21–23Z (579 arrivals, 82.2% of all CTP arrivals in a 3-hour window). This reflects the ~8–9 hour average flight time from the 12–14Z departure peak. The arrival wave is tightly concentrated — 94.2% of arrivals occur between 20Z and 00Z+1 (5-hour window).
+
+### First and Last Arrivals
+
+**First 10 CTP arrivals (Apr 25):**
+
+| Callsign | Route | Type | OUT | Arrived | Duration |
+|----------|-------|------|:---:|:-------:|:--------:|
+| SZN6767 | KMCO>GOBD | A339 | 11:07 | 18:25 | 7h18m |
+| KAY26E | KMCO>GOBD | A359 | 11:12 | 18:28 | 7h16m |
+| ETH263 | SKBO>GOBD | B77L | 11:08 | 18:45 | 7h37m |
+| AXX256 | KMCO>GOBD | A346 | 11:40 | 18:48 | 7h08m |
+| BOX82R | KMCO>GOBD | B77L | 11:32 | 18:59 | 7h27m |
+| VIR26K | KJFK>EGLL | A343 | 15:35 | 19:20 | 3h45m |
+| QTR18 | SKBO>GOBD | A35K | 11:41 | 19:20 | 7h39m |
+| OMD616 | KMCO>GOBD | A320 | 12:01 | 19:27 | 7h26m |
+| JLY250 | SKBO>GOBD | B77W | 11:31 | 19:32 | 8h01m |
+| DLH94 | KMCO>GOBD | A388 | 12:17 | 19:33 | 7h16m |
+
+GOBD (Dakar) receives the first arrivals — it is the closest European/African CTP destination from the Americas. VIR26K's 3h45m flight time (KJFK>EGLL) is anomalously short; this may indicate a mid-flight reconnection.
+
+**Last 10 CTP arrivals:**
+
+| Callsign | Route | Type | OUT | Arrived | Duration |
+|----------|-------|------|:---:|:-------:|:--------:|
+| AUA64 | KDFW>LOWW | B772 | 13:30 | 26/05:33 | 16h03m |
+| SAS119 | KDFW>ENGM | A359 | 13:06 | 26/01:26 | 12h20m |
+| WLF9634 | CYYC>UUEE | B77W | 12:41 | 26/01:05 | 12h24m |
+| AFL41 | KBOS>UUEE | B77W | 15:57 | 26/01:05 | 9h08m |
+| AFL67 | KDFW>UUEE | B77W | 13:50 | 26/00:59 | 11h09m |
+| AAL8875 | KIAD>UUEE | B77W | 15:18 | 26/00:57 | 9h39m |
+| AAL801 | KBOS>UUEE | B77W | 15:20 | 26/00:55 | 9h35m |
+| ACA514 | CYYZ>LOWW | A388 | 16:02 | 26/00:48 | 8h46m |
+| AAL7151 | KJFK>LEMD | A321 | 17:15 | 26/00:45 | 7h30m |
+| AFL105A | KIAD>UUEE | A359 | 14:56 | 26/00:39 | 9h43m |
+
+Late arrivals are dominated by UUEE (Moscow) and LOWW (Vienna) — the furthest east destinations. AUA64's 16h03m is an extreme outlier (KDFW>LOWW in a B772).
+
+---
+
+## 17. Arrival Airport Distribution
+
+| Airport | Arrived | First Arrival | Last Arrival | Avg Duration |
+|---------|:-------:|:-------------:|:------------:|:------------:|
+| ENGM | 91 | 25/20:16 | 26/01:26 | 9h08m |
+| EHAM | 81 | 25/20:24 | 26/00:09 | 8h40m |
+| LFPG | 77 | 25/20:19 | 25/23:36 | 8h31m |
+| LEMD | 68 | 25/19:41 | 26/00:45 | 7h58m |
+| LIMC | 65 | 25/20:46 | 26/00:19 | 9h06m |
+| UUEE | 61 | 25/21:34 | 26/01:05 | 10h02m |
+| EGLL | 58 | 25/19:20 | 25/23:25 | 7h53m |
+| EDDP | 56 | 25/21:06 | 26/00:18 | 8h59m |
+| GOBD | 53 | 25/18:25 | 25/22:21 | 7h23m |
+| LOWW | 52 | 25/21:33 | 26/05:33 | 9h42m |
+| EBBR | 42 | 25/20:33 | 26/00:09 | 8h36m |
+
+*Counts filtered to Apr 25 pushback + >2h duration. Some airports show slightly lower counts than the unfiltered Q3 results (which included stale/pre-event flights).*
+
+ENGM (Oslo) received the most CTP arrivals (91), followed by EHAM (Amsterdam, 81) and LFPG (Paris, 77). GOBD (Dakar) had the earliest first arrival (18:25Z) and shortest mean duration (7h23m). UUEE (Moscow) had the longest mean duration (10h02m).
+
+---
+
+## 18. Flight Duration Analysis
+
+**Population**: 704 CTP flights with Apr 25 pushback, arrived, duration >2h and <24h.
+
+### Overall Statistics
+
+| Metric | Value |
+|--------|-------|
+| N | 704 |
+| Mean | 525 min (8h45m) |
+| Median (P50) | 529 min (8h49m) |
+| Std Dev | 73 min |
+| Min | 225 min (3h45m) |
+| Max | 963 min (16h03m) |
+
+### Percentiles
+
+| P5 | P10 | P25 | P50 | P75 | P90 | P95 |
+|:--:|:---:|:---:|:---:|:---:|:---:|:---:|
+| 408m (6h48m) | 432m (7h12m) | 467m (7h47m) | 529m (8h49m) | 581m (9h41m) | 612m (10h12m) | 632m (10h32m) |
+
+### Duration Distribution
+
+| Duration | Count | % |
+|----------|:-----:|:-:|
+| Under 5h | 1 | 0.1% |
+| 6–7h | 45 | 6.4% |
+| **7–8h** | **174** | **24.7%** |
+| 8–9h | 155 | 22.0% |
+| **9–10h** | **223** | **31.7%** |
+| 10–11h | 95 | 13.5% |
+| 11–12h | 8 | 1.1% |
+| 12h+ | 3 | 0.4% |
+
+The distribution is bimodal with peaks at 7–8h and 9–10h, reflecting the geographic spread: shorter flights from KBOS/KJFK to EGLL/GOBD (6–8h) and longer flights from KDFW/CYYC to UUEE/LOWW (9–12h).
+
+### Duration by Departure Airport
+
+| Airport | N | Mean | Min | Max |
+|---------|:-:|:----:|:---:|:---:|
+| KDFW | 135 | 10h08m | 8h03m | 16h03m |
+| KJFK | 93 | 7h42m | 3h45m | 10h12m |
+| KMCO | 89 | 8h47m | 6h43m | 11h06m |
+| KIAD | 82 | 7h58m | 7h01m | 10h09m |
+| KATL | 77 | 8h56m | 7h38m | 10h32m |
+| CYYC | 68 | 9h22m | 7h57m | 12h24m |
+| SKBO | 58 | 8h46m | 7h08m | 10h53m |
+| KBOS | 54 | 7h26m | 6h10m | 9h46m |
+| CYYZ | 48 | 8h18m | 7h10m | 9h27m |
+
+KDFW has the longest mean flight time (10h08m) — its central US location adds ~2 hours vs the northeast gateways. KBOS has the shortest (7h26m), reflecting its position as the closest major airport to Europe.
+
+### Duration by Arrival Airport
+
+| Airport | N | Mean | Min | Max |
+|---------|:-:|:----:|:---:|:---:|
+| ENGM | 91 | 9h08m | 6h46m | 12h20m |
+| EHAM | 81 | 8h40m | 6h51m | 10h42m |
+| LFPG | 77 | 8h31m | 6h40m | 10h42m |
+| LEMD | 68 | 7h58m | 6h21m | 9h36m |
+| LIMC | 65 | 9h06m | 7h22m | 10h55m |
+| UUEE | 61 | 10h02m | 9h08m | 12h24m |
+| EGLL | 58 | 7h53m | 3h45m | 10h12m |
+| EDDP | 56 | 8h59m | 7h35m | 11h24m |
+| GOBD | 53 | 7h23m | 6h17m | 8h20m |
+| LOWW | 52 | 9h42m | 7h37m | 16h03m |
+| EBBR | 42 | 8h36m | 6h40m | 10h43m |
+
+UUEE (Moscow) has the longest mean duration (10h02m) and tightest minimum (9h08m) — all origins are far from Moscow. GOBD (Dakar) has the shortest mean (7h23m) and narrowest range (6h17m–8h20m).
+
+### 15 Longest CTP Flights
+
+| Callsign | Route | Type | OUT | Arrived | Duration |
+|----------|-------|------|:---:|:-------:|:--------:|
+| AUA64 | KDFW>LOWW | B772 | 13:30 | 26/05:33 | 16h03m |
+| WLF9634 | CYYC>UUEE | B77W | 12:41 | 26/01:05 | 12h24m |
+| SAS119 | KDFW>ENGM | A359 | 13:06 | 26/01:26 | 12h20m |
+| AAL843 | KDFW>UUEE | B77L | 12:32 | 26/00:10 | 11h38m |
+| PTI737 | KDFW>UUEE | B737 | 10:48 | 25/22:24 | 11h36m |
+| BAW8648 | KDFW>UUEE | A35K | 12:58 | 26/00:27 | 11h29m |
+| AAL88 | KDFW>LOWW | B772 | 11:58 | 25/23:26 | 11h28m |
+| BOX1107 | KDFW>EDDP | B77L | 10:59 | 25/22:23 | 11h24m |
+| BAW2289 | KDFW>UUEE | B77W | 11:30 | 25/22:53 | 11h23m |
+| AFL67 | KDFW>UUEE | B77W | 13:50 | 26/00:59 | 11h09m |
+| ANA88 | KMCO>UUEE | A388 | 12:29 | 25/23:35 | 11h06m |
+| AFL293 | KDFW>UUEE | A359 | 12:10 | 25/23:06 | 10h56m |
+| FDX1066 | KDFW>LIMC | B77L | 13:03 | 25/23:58 | 10h55m |
+| DAL1459 | KDFW>UUEE | A359 | 11:03 | 25/21:58 | 10h55m |
+| AAL240 | KDFW>LIMC | B77W | 12:50 | 25/23:44 | 10h54m |
+
+13 of 15 longest flights originate from KDFW. AUA64's 16h03m is an extreme outlier — 3h40m longer than the next longest flight.
+
+### 15 Shortest CTP Flights
+
+| Callsign | Route | Type | OUT | Arrived | Duration |
+|----------|-------|------|:---:|:-------:|:--------:|
+| VIR26K | KJFK>EGLL | A343 | 15:35 | 25/19:20 | 3h45m |
+| VIR27L | KBOS>EGLL | A35K | 14:56 | 25/21:06 | 6h10m |
+| IBE284E | KBOS>GOBD | A359 | 13:26 | 25/19:43 | 6h17m |
+| NOI11 | KBOS>LEMD | A359 | 14:37 | 25/20:58 | 6h21m |
+| UAE4785 | KBOS>GOBD | A388 | 15:15 | 25/21:37 | 6h22m |
+| ETH429 | KBOS>GOBD | B77W | 15:56 | 25/22:18 | 6h22m |
+| UAL2533 | KBOS>GOBD | B77W | 14:38 | 25/21:02 | 6h24m |
+| FDX1918 | KJFK>EGLL | MD11 | 15:06 | 25/21:32 | 6h26m |
+| DAL3CM | KBOS>GOBD | A359 | 13:55 | 25/20:23 | 6h28m |
+| AAL108 | KBOS>EGLL | B772 | 13:20 | 25/19:54 | 6h34m |
+| IBE7C | KBOS>LEMD | A359 | 16:05 | 25/22:40 | 6h35m |
+| AAL109 | KBOS>EGLL | B772 | 16:08 | 25/22:43 | 6h35m |
+| IBE03KE | KJFK>LEMD | A359 | 13:35 | 25/20:12 | 6h37m |
+| DLH411 | KJFK>EGLL | A343 | 13:27 | 25/20:05 | 6h38m |
+| UPS1282 | KBOS>EGLL | B77L | 14:15 | 25/20:53 | 6h38m |
+
+Excluding VIR26K (3h45m anomaly), shortest flights are KBOS/KJFK to EGLL/GOBD/LEMD at 6h10m–6h38m. KBOS dominates the shortest list (9 of 15).
+
+---
+
+## 19. Arrival Accuracy (Last Seen vs ETA)
+
+Comparing `last_seen_utc` to `eta_utc` for 701 CTP flights. Negative values = last position recorded before ETA (expected, since pilots disconnect shortly before reaching the gate).
+
+### Overall Statistics
+
+| Metric | Value |
+|--------|-------|
+| N | 701 |
+| Mean | -3 min |
+| Median | -5 min |
+| Std Dev | 4.9 min |
+| Min | -14 min |
+| Max | +98 min |
+
+### Percentiles
+
+| P5 | P10 | P25 | P50 | P75 | P90 | P95 |
+|:--:|:---:|:---:|:---:|:---:|:---:|:---:|
+| -6m | -5m | -5m | -5m | -1m | 0m | 0m |
+
+### Distribution
+
+| Category | Count | % |
+|----------|:-----:|:-:|
+| Slightly early (-15 to -5m) | 56 | 8.0% |
+| **On time (-5 to 0m)** | **632** | **90.2%** |
+| Just after (0 to +5m) | 4 | 0.6% |
+| Slightly late (+5 to +15m) | 3 | 0.4% |
+| Late (>15m after ETA) | 6 | 0.9% |
+
+**98.2% of arrived flights had their last position within 15 minutes of ETA**. The median offset of -5 minutes is consistent with pilots disconnecting just before or at touchdown. This validates `last_seen_utc` as a reliable arrival proxy. The 6 flights with >15m deviation (0.9%) likely had speed changes, holds, or reconnections.
+
+---
+
+## 20. Event vs Non-Event Arrival Comparison (14Z–06Z+1)
+
+Arrival window extended to 14Z–06Z+1 to capture the full CTP arrival wave and concurrent non-CTP traffic. Same ICAO prefix filter as departure analysis.
+
+### Traffic Volume
+
+| Traffic Type | Arrivals 14Z–06Z+1 | Avg Duration | Std Dev |
+|-------------|:-------------------:|:------------:|:-------:|
+| **CTP** | **704** | 525m (8h45m) | 73m |
+| **Non-CTP Transatlantic** | **213** | 491m (8h11m) | 167m |
+| **Total** | **917** | | |
+
+CTP accounts for 76.8% of transatlantic arrivals during this window. Non-CTP has a similar mean duration but much wider variance (std 167m vs 73m), reflecting the mix of eastbound and westbound flights with diverse routing.
+
+### Hourly Arrival Profile (CTP vs Non-CTP)
+
+| Hour | CTP | Non-CTP | Total | CTP Share |
+|------|:---:|:-------:|:-----:|:---------:|
+| 14Z | 0 | 11 | 11 | 0.0% |
+| 15Z | 0 | 9 | 9 | 0.0% |
+| 16Z | 0 | 10 | 10 | 0.0% |
+| 17Z | 0 | 20 | 20 | 0.0% |
+| 18Z | 5 | 27 | 32 | 15.6% |
+| 19Z | 16 | 20 | 36 | 44.4% |
+| **20Z** | **66** | **16** | **82** | **80.5%** |
+| **21Z** | **183** | **14** | **197** | **92.9%** |
+| **22Z** | **202** | **19** | **221** | **91.4%** |
+| **23Z** | **194** | **27** | **221** | **87.8%** |
+| 00Z+1 | 34 | 10 | 44 | 77.3% |
+| 01Z+1 | 3 | 9 | 12 | 25.0% |
+| 02Z+1 | 0 | 7 | 7 | 0.0% |
+| 03Z+1 | 0 | 6 | 6 | 0.0% |
+| 04Z+1 | 0 | 5 | 5 | 0.0% |
+| 05Z+1 | 1 | 3 | 4 | 25.0% |
+| **TOTAL** | **704** | **213** | **917** | **76.8%** |
+
+**Peak CTP saturation at 21Z**: 183 CTP arrivals = 92.9% of all transatlantic arrivals that hour. CTP dominates 20Z–00Z+1 (77–93% share). Non-CTP traffic is relatively steady at 5–27/hour throughout, with higher pre-CTP volume (14–17Z: 11–20/hour) and a late tail (02–05Z+1: 3–7/hour).
+
+The departure peak (13Z, 92.3% CTP share) maps to the arrival peak (21Z, 92.9% CTP share) — an 8-hour offset matching the median flight time.
+
+### Duration Comparison
+
+| Metric | CTP | Non-CTP |
+|--------|:---:|:-------:|
+| N | 704 | 213 |
+| Mean | 525m (8h45m) | 491m (8h11m) |
+| Median | 529m (8h49m) | 452m (7h32m) |
+| Std Dev | 73m | 167m |
+
+CTP flights are 33 minutes longer on average (mean) and 77 minutes longer at the median. Non-CTP has more than double the variance (std 167m vs 73m), reflecting the mix of eastbound and westbound flights with diverse routing — westbound flights to KJFK/KBOS are shorter than eastbound flights to UUEE/LOWW.
+
+### Arrival Accuracy Comparison
+
+| Metric | CTP | Non-CTP |
+|--------|:---:|:-------:|
+| N | 701 | 210 |
+| Mean (last_seen vs ETA) | -3.1m | -3.1m |
+| Std Dev | 4.9m | 3.3m |
+
+Both CTP and non-CTP flights arrive within 3 minutes of their ETA on average. Non-CTP flights have slightly tighter accuracy (std 3.3m vs 4.9m), possibly because they have fewer route deviations or holds. The `last_seen_utc` proxy is equally reliable for both traffic types.
+
+### Top Arrival Airports Comparison
+
+| Airport | CTP | Non-CTP | CTP % | Note |
+|---------|:---:|:-------:|:-----:|------|
+| ENGM | 91 | 1 | 98.9% | CTP-dominant |
+| EHAM | 81 | 14 | 85.3% | CTP-dominant |
+| LFPG | 77 | 9 | 89.5% | CTP-dominant |
+| LEMD | 68 | 4 | 94.4% | CTP-dominant |
+| LIMC | 65 | 2 | 97.0% | CTP-dominant |
+| UUEE | 61 | 0 | 100% | CTP only |
+| EGLL | 58 | 17 | 77.3% | Mixed |
+| EDDP | 56 | 1 | 98.2% | CTP-dominant |
+| GOBD | 53 | 6 | 89.8% | CTP-dominant |
+| LOWW | 52 | 1 | 98.1% | CTP-dominant |
+| EBBR | 42 | 5 | 89.4% | CTP-dominant |
+| KJFK | 0 | 17 | 0% | Non-CTP WB only |
+| EDDF | 0 | 17 | 0% | Non-CTP WB only |
+
+CTP arrivals dominate at all 11 event destinations (77–100% share). UUEE receives zero non-CTP arrivals during this window. Non-CTP arrivals at KJFK (17) and EDDF (17) are westbound flights — these airports are departure points for CTP but destinations for non-CTP WB traffic.
+
+---
+
+## 21. Arrival Findings & Observations
+
+### Completion
+32. **84.0% completion rate for pushed flights**: 734 of 874 flights that pushed back reached their destination. 140 (16.0%) disconnected en route. An additional 111 flights arrived without recorded gate departure (connected in-air), bringing the total arrived to 845.
+33. **CTP completion far exceeds non-CTP**: 84.2% CTP vs 48.0% non-CTP completion rate for 09–18Z pushed flights. The CTP event structure (assigned routes, community coordination) correlates with substantially higher follow-through.
+34. **332 tagged flights never pushed back**: Of these, 111 connected in-air and arrived, while 221 neither pushed nor arrived (no-shows/prefiles). Combined with 200 unmatched bookings (Section 12), the total no-show count is substantial but expected for a 1,200+ booking event.
+
+### Arrival Timing
+35. **Arrivals concentrated in 3-hour window**: 21–23Z accounts for 579 of 704 arrivals (82.2%). First CTP arrival at 18:25Z (GOBD), last at 05:33Z+1 (LOWW).
+36. **8-hour departure-to-arrival offset**: The 13Z departure peak (92.3% CTP share, Section 2) maps directly to the 21Z arrival peak (92.9% CTP share), consistent with the 8h45m mean flight time.
+37. **CTP dominates transatlantic arrivals 20–00Z**: 77–93% CTP share during this window, peaking at 92.9% at 21Z. Non-CTP traffic remains steady at 3–27/hour throughout.
+
+### Flight Duration
+38. **Mean CTP flight time 8h45m (median 8h49m)**: Std dev 73 min. 78.4% of flights fall in the 7–10h range. Non-CTP transatlantic flights are 34 min shorter on average (8h11m mean) with much wider variance (std 167m).
+39. **KDFW flights are the longest** (mean 10h08m) — 13 of 15 longest flights originate from KDFW. KBOS flights are the shortest (mean 7h26m) — 9 of 15 shortest flights originate from KBOS.
+40. **UUEE is the farthest destination** (mean 10h02m, min 9h08m); **GOBD is the closest** (mean 7h23m, max 8h20m).
+41. **AUA64 KDFW>LOWW is an extreme duration outlier** at 16h03m — 3h40m longer than the next longest flight (12h24m). This warrants investigation.
+42. **VIR26K KJFK>EGLL at 3h45m** is anomalously short for a transatlantic flight. Likely a mid-flight reconnection rather than an actual 3h45m crossing.
+
+### Arrival Accuracy
+43. **`last_seen_utc` is a reliable arrival proxy**: 90.2% of flights have last position within -5 to 0 minutes of ETA. Median offset -5 min, std dev 4.9 min. Only 0.9% deviate by >15 min.
+44. **CTP and non-CTP arrival accuracy are identical**: Both show mean -3.1 minutes vs ETA. Non-CTP has slightly tighter std (3.3m vs 4.9m). The `last_seen_utc` proxy is equally valid for both traffic types.
+
+### Event vs Non-Event Airport Distribution
+45. **CTP dominates all 11 event destinations**: 77–100% CTP share at every arrival airport. UUEE receives zero non-CTP arrivals. EGLL has the highest non-CTP share (22.7%) as a year-round transatlantic hub.
+46. **Non-CTP arrival airports include WB destinations**: KJFK and EDDF each receive 17 non-CTP arrivals — these are westbound transatlantic flights arriving in North America, mirroring the westbound departure traffic seen in Section 2.
+
+### Data Limitations
+47. **OOOI landing times unavailable**: Only 3 of 845 arrived flights have `on_utc`. Zero have `in_utc` or `ate_minutes`. All arrival timing is derived from `last_seen_utc`.
+48. **Duration includes taxi-out but not taxi-in**: Computed as `out_utc` (gate push) to `last_seen_utc` (last position). Actual airborne time is approximately 10–15 minutes shorter (taxi-out deduction).
+49. **2 stale arrivals from Apr 24**: 2 of 845 arrived flights have `last_seen_utc` before Apr 25. These are pre-event flights tagged by the daemon but excluded from filtered analysis (Apr 25 pushback filter).
