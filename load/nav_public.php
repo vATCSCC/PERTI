@@ -50,6 +50,7 @@ foreach ($org_all as $oc) {
 // ============================================================================
 
 $_h = defined('HIBERNATION_MODE') && HIBERNATION_MODE;
+$_dh = defined('DEEP_HIBERNATION_MODE') && DEEP_HIBERNATION_MODE;
 
 $nav_config = [
     // Dropdown: Planning Tools
@@ -86,11 +87,12 @@ $nav_config = [
     // Dropdown: SWIM API
     'swim' => [
         'label' => __('nav.swim'),
+        'hibernated' => $_dh,
         'items' => [
-            ['label' => __('nav.overview'), 'path' => './swim'],
-            ['label' => __('nav.apiKeys'), 'path' => './swim-keys'],
-            ['label' => __('nav.apiDocs'), 'path' => './docs/swim/', 'external' => true],
-            ['label' => __('nav.technicalDocs'), 'path' => './swim-docs'],
+            ['label' => __('nav.overview'), 'path' => './swim', 'hibernated' => $_dh],
+            ['label' => __('nav.apiKeys'), 'path' => './swim-keys', 'hibernated' => $_dh],
+            ['label' => __('nav.apiDocs'), 'path' => './docs/swim/', 'external' => true, 'hibernated' => $_dh],
+            ['label' => __('nav.technicalDocs'), 'path' => './swim-docs', 'hibernated' => $_dh],
         ]
     ],
     // Dropdown: About
