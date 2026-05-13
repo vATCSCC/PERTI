@@ -680,46 +680,11 @@ body.offcanvas-open {
 }
 
 /* =============================================================================
-   SECTION 7: PAGE-SPECIFIC - PLAN PAGE
+   SECTION 7: PAGE-SPECIFIC - PLAN / DATA / REVIEW PAGES (Mobile Nav)
    ============================================================================= */
 
-@media (max-width: 991.98px) {
-    /* Convert vertical nav to horizontal scrolling tabs */
-    .plan-nav.nav.flex-column {
-        flex-direction: row !important;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 8px;
-        margin-bottom: 16px;
-        border-bottom: 2px solid var(--gray-300);
-        gap: 4px;
-    }
-
-    .plan-nav.nav.flex-column .nav-link {
-        white-space: nowrap;
-        padding: 10px 16px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-    }
-
-    .plan-nav.nav.flex-column hr {
-        display: none;
-    }
-
-    /* Sidebar becomes full width */
-    .plan-sidebar {
-        flex: 0 0 100% !important;
-        max-width: 100% !important;
-        margin-bottom: 16px;
-    }
-
-    /* Main content full width */
-    .plan-content {
-        flex: 0 0 100% !important;
-        max-width: 100% !important;
-    }
-}
+/* Bottom tab bar, slide-up sheet, and sidebar-hide rules are appended
+   at the end of this file in Section 12. */
 
 /* =============================================================================
    SECTION 8: PAGE-SPECIFIC - DEMAND PAGE
