@@ -3109,6 +3109,22 @@
     "sections": "sections",
     "tracks": "tracks"
   },
+  "mobile": {
+    "tab": {
+      "overview": "Overview",
+      "terminal": "Terminal",
+      "enroute": "En-Route",
+      "data": "Data",
+      "triggers": "Triggers",
+      "review": "Review",
+      "operations": "Operations",
+      "assessment": "Assessment"
+    },
+    "sheet": {
+      "selectSection": "Select Section",
+      "swipeToClose": "Swipe down to close"
+    }
+  },
   "nav": {
     "about": "About",
     "admin": "Admin",

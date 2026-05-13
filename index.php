@@ -128,7 +128,7 @@ include('load/nav.php');
     <hr>
 
     <div id="plans" class="container-fluid pl-3 mb-5">
-        <center>
+        <div class="text-center">
             <h3><?= __('home.pertiPlans') ?></h3>
             <p><?= __('home.plansDescription') ?></p>
 
@@ -136,7 +136,7 @@ include('load/nav.php');
                 <button class="mt-2 mb-2 btn btn-success btn-sm" data-target="#createplanModal" data-toggle="modal"><i class="fas fa-plus"></i> <?= __('home.createPlan') ?></button>
             <?php } ?>
 
-            <table class="table table-sm table-striped table-bordered w-100" style="table-layout:fixed;">
+            <table class="table table-sm table-striped table-bordered w-100 table-mobile-cards" style="table-layout:fixed;">
                 <thead class="table-dark text-light">
                     <th style="width:24%"><?= __('home.table.eventName') ?></th>
                     <th class="text-center" style="width:8%"><?= __('home.table.startDate') ?></th>
@@ -151,7 +151,7 @@ include('load/nav.php');
                 <tbody id="plans_table"></tbody>
             </table>
 
-        </center>
+        </div>
     </div>
 </body>
     

@@ -510,7 +510,7 @@ if ($org_mismatch):
     <div class="container-fluid mt-3 mb-3">
         <div class="row">
             <!-- TMR Sidebar Navigation -->
-            <div class="col-2">
+            <div class="col-2 d-none d-lg-block" id="tmr-sidebar-col">
                 <div class="tmr-sidebar" style="position: sticky; top: 80px;">
                     <ul class="nav flex-column nav-pills" aria-orientation="vertical">
                         <div class="nav-section-label"><?= __('review.page.tmrReport') ?></div>
@@ -542,7 +542,7 @@ if ($org_mismatch):
             </div>
 
             <!-- Main Content -->
-            <div class="col-10">
+            <div class="col-12 col-lg-10">
                 <div class="tab-content">
 
                     <!-- ============================================ -->
@@ -1129,6 +1129,11 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 
 <?php endif; // org_mismatch ?>
 
+<!-- Mobile Export FAB -->
+<button class="mobile-export-fab" id="tmr_export_fab" title="<?= __('review.page.exportToDiscord') ?>">
+    <i class="fas fa-share-alt"></i>
+</button>
+
 </body>
 <?php include('load/footer.php'); ?>
 
@@ -1320,5 +1325,26 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z"></textarea>
 <script src="assets/js/tmr_report.js<?= _v('assets/js/tmr_report.js') ?>"></script>
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js" crossorigin=""></script>
 <script src="assets/js/tmi_compliance.js<?= _v('assets/js/tmi_compliance.js') ?>"></script>
+<script src="assets/js/mobile-nav.js<?= _v('assets/js/mobile-nav.js') ?>"></script>
+<script>
+$(function() {
+    MobileNav.init({
+        groups: [
+            { id: 'triggers',   icon: 'fa-bolt', tabs: ['#tmr_triggers'] },
+            { id: 'review',     icon: 'fa-align-left', tabs: ['#tmr_overview', '#tmr_airport', '#tmr_weather', '#tmr_events'] },
+            { id: 'operations', icon: 'fa-traffic-light', tabs: ['#tmr_tmis', '#tmr_equipment', '#tmr_personnel', '#tmr_plan'] },
+            { id: 'assessment', icon: 'fa-star', tabs: ['#tmr_findings', '#tmr_recs', '#scoring', '#event_data', '#tmi_compliance'] }
+        ],
+        sheetThreshold: 3,
+        sidebarSelector: '#tmr-sidebar-col',
+        contentSelector: '#tmr-sidebar-col + div'
+    });
+
+    // Wire up mobile Export FAB to same handler as desktop button
+    $('#tmr_export_fab').on('click', function() {
+        $('#tmr_export_btn').trigger('click');
+    });
+});
+</script>
 
 </html>

@@ -192,7 +192,7 @@ if ($org_mismatch):
 
     <div class="container-fluid mt-3 mb-3">
         <div class="row">
-            <div class="col-2">
+            <div class="col-2 d-none d-lg-block" id="plan-sidebar">
                 <ul class="nav flex-column nav-pills" aria-orientation="vertical">
                     <li><a class="nav-link active rounded" data-toggle="tab" href="#overview"><?= __('plan.tabs.overview') ?></a></li>
                     <hr>
@@ -214,12 +214,12 @@ if ($org_mismatch):
                     <li><a class="nav-link rounded" data-toggle="tab" href="#outlook"><?= __('plan.tabs.outlook') ?></a></li>
                 </ul>
             </div>
-            <div class="col-10">
+            <div class="col-12 col-lg-10">
                 <div class="tab-content">
                     <!-- Tab: Overview -->
                     <div class="tab-pane fade show active" id="overview">
                         <div class="row">
-                            <div class="col-6">
+                            <div class="col-12 col-md-6">
                                 <img src="<?= $plan_info['event_banner']; ?>" class="rounded" style="width: 100%;" alt="<?= $plan_info['event_name']; ?> Event Banner">
 
                                 <hr>
@@ -236,7 +236,7 @@ if ($org_mismatch):
                                 </table>
                             </div>
 
-                            <div class="col-6">
+                            <div class="col-12 col-md-6">
                                 <h4><b><?= __('plan.overview.eventInformation') ?></b></h4>
                                 <table class="table table-striped table-bordered">
                                     <tbody>
@@ -2272,6 +2272,22 @@ if ($org_mismatch):
 <script src="assets/js/plan-tables.js<?= _v('assets/js/plan-tables.js') ?>"></script>
 <script src="assets/js/plan-splits-map.js<?= _v('assets/js/plan-splits-map.js') ?>"></script>
 <script src="assets/js/plan.js<?= _v('assets/js/plan.js') ?>"></script>
+<script src="assets/js/mobile-nav.js<?= _v('assets/js/mobile-nav.js') ?>"></script>
+<script>
+$(function() {
+    MobileNav.init({
+        groups: [
+            { id: 'overview', icon: 'fa-info-circle', tabs: ['#overview', '#dcc_staffing'] },
+            { id: 'terminal', icon: 'fa-plane', tabs: ['#t_timelines', '#t_staffing', '#configs', '#t_planning'] },
+            { id: 'enroute',  icon: 'fa-globe-americas', tabs: ['#e_timelines', '#e_staffing', '#e_planning', '#e_splits'] },
+            { id: 'data',     icon: 'fa-chart-bar', tabs: ['#historical', '#forecast', '#group_flights', '#outlook'] }
+        ],
+        sheetThreshold: 3,
+        sidebarSelector: '#plan-sidebar',
+        contentSelector: '#plan-sidebar + div'
+    });
+});
+</script>
 
 <!-- Insert Initiative Timeline Script -->
 <script src="assets/js/initiative_timeline.js<?= _v('assets/js/initiative_timeline.js') ?>"></script>
