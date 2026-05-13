@@ -132,7 +132,7 @@ include('load/nav_public.php');
 
     <div class="container-fluid mt-3 mb-3">
         <div class="row">
-            <div class="col-2">
+            <div class="col-2 d-none d-lg-block" id="data-sidebar">
                 <ul class="nav flex-column nav-pills" aria-orientation="vertical">
                     <li><a class="nav-link active rounded" data-toggle="tab" href="#overview">Overview</a></li>
                     <hr>
@@ -143,12 +143,12 @@ include('load/nav_public.php');
                     <li><a class="nav-link rounded" data-toggle="tab" href="#e_splits"><?= __('plan.tabs.enrouteSplits') ?></a></li>
                 </ul>
             </div>
-            <div class="col-10">
+            <div class="col-12 col-lg-10">
                 <div class="tab-content">
                     <!-- Tab: Overview -->
                     <div class="tab-pane fade show active" id="overview">
                         <div class="row">
-                            <div class="col-6">
+                            <div class="col-12 col-md-6">
                                 <img src="<?= $plan_info['event_banner']; ?>" class="rounded" style="width: 100%;" alt="<?= $plan_info['event_name']; ?> Event Banner">
 
                                 <hr>
@@ -160,7 +160,7 @@ include('load/nav_public.php');
                                 </table>
                             </div>
 
-                            <div class="col-6">
+                            <div class="col-12 col-md-6">
                                 <h4><b>Event Information</b></h4>
                                 <table class="table table-striped table-bordered">
                                     <tbody>
@@ -611,6 +611,21 @@ $('#splits_layer_scheduled').on('change', function() {
 ['artcc', 'superhigh', 'high', 'low', 'tracon'].forEach(function(layer) {
     $('#splits_layer_' + layer).on('change', function() {
         if (typeof PlanSplitsMap !== 'undefined') PlanSplitsMap.setLayerVisible(layer, this.checked);
+    });
+});
+</script>
+<script src="assets/js/mobile-nav.js<?= _v('assets/js/mobile-nav.js') ?>"></script>
+<script>
+$(function() {
+    MobileNav.init({
+        groups: [
+            { id: 'overview', icon: 'fa-info-circle', tabs: ['#overview', '#dcc_staffing'] },
+            { id: 'terminal', icon: 'fa-plane', tabs: ['#t_staffing', '#configs'] },
+            { id: 'enroute',  icon: 'fa-globe-americas', tabs: ['#e_staffing', '#e_splits'] }
+        ],
+        sheetThreshold: 3,
+        sidebarSelector: '#data-sidebar',
+        contentSelector: '#data-sidebar + div'
     });
 });
 </script>
