@@ -34,6 +34,25 @@ else
     HIBERNATION=0
 fi
 
+# =============================================================================
+# Deep Hibernation Mode
+# When enabled (superset of hibernation), ALL flight processing stops.
+# Only the raw JSON capture daemon and monitoring daemon run.
+# Set via Azure App Setting: DEEP_HIBERNATION_MODE=1
+# See docs/superpowers/specs/2026-05-13-deep-hibernation-design.md
+# =============================================================================
+DEEP_HIBERNATION_MODE=${DEEP_HIBERNATION_MODE:-0}
+if [ "$DEEP_HIBERNATION_MODE" = "1" ] || [ "$DEEP_HIBERNATION_MODE" = "true" ]; then
+    echo ""
+    echo "  *** DEEP HIBERNATION MODE ACTIVE ***"
+    echo "  Only capture daemon + monitoring will start"
+    echo "  All flight processing, SWIM, archival suspended"
+    echo ""
+    DEEP_HIBERNATION=1
+else
+    DEEP_HIBERNATION=0
+fi
+
 # Configure nginx URL rewriting (Azure PHP 8 uses nginx, not Apache)
 # Per Azure docs: https://azureossd.github.io/2021/09/02/php-8-rewrite-rule/
 echo "Configuring nginx for extensionless URLs..."
@@ -63,8 +82,28 @@ echo "nginx reload failed - container may handle this"
 echo "nginx configured"
 
 # =============================================================================
-# CORE DAEMONS (always start, even in hibernation)
+# CORE DAEMONS
 # =============================================================================
+
+if [ "$DEEP_HIBERNATION" = "1" ]; then
+    # =========================================================================
+    # DEEP HIBERNATION: Only capture daemon + monitoring
+    # =========================================================================
+
+    echo "Starting deep_hibernation_daemon.php (JSON capture every 15s, upload every 10min)..."
+    nohup php "${WWWROOT}/scripts/deep_hibernation_daemon.php" >> /home/LogFiles/deep_hibernation.log 2>&1 &
+    DEEP_HIB_PID=$!
+    echo "  deep_hibernation_daemon.php started (PID: $DEEP_HIB_PID)"
+
+    echo "Starting monitoring_daemon.php (system metrics)..."
+    nohup php "${WWWROOT}/scripts/monitoring_daemon.php" --loop >> /home/LogFiles/monitoring_daemon.log 2>&1 &
+    MON_PID=$!
+    echo "  monitoring_daemon.php started (PID: $MON_PID)"
+
+else
+    # =========================================================================
+    # NORMAL + LEVEL 1 HIBERNATION: All core daemons
+    # =========================================================================
 
 # Start the combined VATSIM ADL daemon (ingestion + ATIS + deferred ETA every 15s)
 # SP V9.2.0: trajectory always captured, ETA deferred to time-budget system
@@ -188,6 +227,8 @@ echo "Starting swim_tmi_sync_daemon.php (sync every 5min, offset 60s)..."
 nohup php "${WWWROOT}/scripts/swim_tmi_sync_daemon.php" --loop --interval=300 >> /home/LogFiles/swim_tmi_sync.log 2>&1 &
 TMI_SYNC_PID=$!
 echo "  swim_tmi_sync_daemon.php started (PID: $TMI_SYNC_PID)"
+
+fi  # end DEEP_HIBERNATION check
 
 # =============================================================================
 # DOWNSTREAM DAEMONS (skipped in hibernation mode)
@@ -361,7 +402,12 @@ INDEXER_PID=$!
 echo "  Indexer scheduled (PID: $INDEXER_PID, will run after 30s)"
 
 echo "========================================"
-if [ "$HIBERNATION" = "1" ]; then
+if [ "$DEEP_HIBERNATION" = "1" ]; then
+    echo "DEEP HIBERNATION MODE - Minimal daemons:"
+    echo "  deep_hib=$DEEP_HIB_PID, mon=$MON_PID"
+    echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
+    echo "  Suspended: ALL flight processing, SWIM, archival, Discord, ECFMP"
+elif [ "$HIBERNATION" = "1" ]; then
     echo "HIBERNATION MODE - Core + SWIM daemons:"
     echo "  adl=$ADL_PID, arch=$ARCH_PID, mon=$MON_PID"
     echo "  ws=$WS_PID, swim_sync=$SWIM_SYNC_PID"
@@ -445,7 +491,12 @@ echo "  APCu configured (64MB SHM)"
 #   B1/S1 (1.75GB): 20 workers (hibernation) / 25 workers (full)
 #   B2/S2/P1v2 (3.5GB): 40-60 workers
 #   B3/S3/P2v2+ (7GB+): 100+ workers
-if [ "$HIBERNATION" = "1" ]; then
+if [ "$DEEP_HIBERNATION" = "1" ]; then
+    FPM_MAX_CHILDREN=10
+    FPM_START=3
+    FPM_MIN_SPARE=2
+    FPM_MAX_SPARE=5
+elif [ "$HIBERNATION" = "1" ]; then
     FPM_MAX_CHILDREN=20
     FPM_START=5
     FPM_MIN_SPARE=3
