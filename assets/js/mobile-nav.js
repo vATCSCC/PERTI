@@ -77,7 +77,7 @@ var MobileNav = (function($) {
             var g = config.groups[i];
             var label = t('mobile.tab.' + g.id);
             var activeClass = (i === 0) ? ' active' : '';
-            html += '<button class="mobile-tab' + activeClass + '" data-group="' + g.id + '" role="tab" aria-label="' + label + '">';
+            html += '<button class="mobile-tab' + activeClass + '" data-group="' + g.id + '" role="tab" aria-label="' + label + '" aria-expanded="false">';
             html += '<i class="fas ' + g.icon + '"></i>';
             html += '<span>' + label + '</span>';
             html += '</button>';
@@ -136,12 +136,22 @@ var MobileNav = (function($) {
 
         $backdrop.addClass('show');
         $sheet.addClass('show');
+        $bottomBar.find('.mobile-tab[data-group="' + group.id + '"]').attr('aria-expanded', 'true');
+        // Focus first item for keyboard accessibility
+        setTimeout(function() {
+            $sheet.find('.mobile-section-sheet-item').first().attr('tabindex', '-1').focus();
+        }, 300);
     }
 
     // --- Close slide-up sheet ---
     function closeSheet() {
         $sheet.removeClass('show');
         $backdrop.removeClass('show');
+        $bottomBar.find('.mobile-tab').attr('aria-expanded', 'false');
+        // Restore focus to the active bottom tab
+        if ($bottomBar) {
+            $bottomBar.find('.mobile-tab.active').focus();
+        }
     }
 
     // --- Activate a tab (delegates to Bootstrap) ---
@@ -216,6 +226,8 @@ var MobileNav = (function($) {
 
             // Update segment toggle if visible
             var $toggle = $('.mobile-segment-toggle[data-group="' + group.id + '"]');
+            // Clean up segment toggles from other groups
+            $('.mobile-segment-toggle').not($toggle).remove();
             if ($toggle.length) {
                 $toggle.find('.mobile-segment-btn').removeClass('active');
                 $toggle.find('.mobile-segment-btn[data-tab="' + tabId + '"]').addClass('active');
@@ -280,6 +292,11 @@ var MobileNav = (function($) {
             if (diff > 80) {
                 closeSheet();
             }
+            sheetEl.style.transform = '';
+        }, { passive: true });
+
+        sheetEl.addEventListener('touchcancel', function() {
+            isDragging = false;
             sheetEl.style.transform = '';
         }, { passive: true });
     }
