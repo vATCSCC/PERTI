@@ -4,8 +4,8 @@
 
 Hibernation mode is an open-ended operational pause that reduces PERTI to core data collection plus VATSWIM. Most downstream flight processing and several UI pages are suspended, but **SWIM API, SWIM pages, and SWIM daemons remain fully operational**. Azure resources are downscaled to match the reduced workload.
 
-**Status**: Inactive (exited 2026-04-19)
-**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption; Exited March 20, 2026; Re-entered March 22, 2026 with PostGIS at B2s + review/TMR/TMI Compliance exemption; Exited March 29, 2026; Re-entered March 29, 2026; Exited March 30, 2026; Re-entered March 30, 2026; Exited April 19, 2026
+**Status**: Active (entered 2026-04-26)
+**History**: Active March 2026 - March 7, 2026; Re-entered March 9, 2026; Exited March 12, 2026; Re-entered March 13, 2026 with SWIM exemption; Exited March 20, 2026; Re-entered March 22, 2026 with PostGIS at B2s + review/TMR/TMI Compliance exemption; Exited March 29, 2026; Re-entered March 29, 2026; Exited March 30, 2026; Re-entered March 30, 2026; Exited April 19, 2026; Re-entered April 26, 2026
 
 ---
 
@@ -15,17 +15,20 @@ Hibernation mode is an open-ended operational pause that reduces PERTI to core d
 
 | Daemon | Interval | Purpose |
 |--------|----------|---------|
-| `vatsim_adl_daemon.php` | 15s | VATSIM Data API fetch + ingest via SP (ATIS parsing disabled) |
+| `vatsim_adl_daemon.php` | 15s | VATSIM Data API fetch + ingest via SP (see disabled features below) |
 | `archival_daemon.php` | 1-4h | Trajectory tiering, changelog purge |
-| `adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage |
+| `adl_archive_daemon.php` | Daily 10:00Z | Trajectory archival to blob storage (requires `ADL_ARCHIVE_STORAGE_CONN` env var) |
 | `monitoring_daemon.php` | 60s | System metrics collection |
 | `process_discord_queue.php` | Continuous | Async TMI Discord posting |
 | `ecfmp_poll_daemon.php` | 5min | ECFMP flow measure polling |
 | `export_playbook.php` | Daily | Playbook data backup |
 | `swim_ws_server.php` | Persistent | SWIM WebSocket server (port 8090) |
 | `swim_sync_daemon.php` | 2min | ADL-to-SWIM sync + cleanup |
-| `simtraffic_swim_poll.php` | 2min | SimTraffic time data polling |
+| `swim_tmi_sync_daemon.php` | 5min | TMI/CDM/reference data sync to SWIM mirrors |
+| `simtraffic_swim_poll.php` | 10min | SimTraffic time data polling (webhook fallback) |
 | `swim_adl_reverse_sync_daemon.php` | 2min | SimTraffic data back to ADL |
+| `refdata_sync_daemon.php` | Daily 06:00Z | CDR + playbook reference reimport |
+| `viff_cdm_poll_daemon.php` | 30s | EU CDM milestone data (conditional: `VIFF_CDM_ENABLED=1`) |
 
 ### Data Still Being Collected
 
@@ -33,7 +36,7 @@ Hibernation mode is an open-ended operational pause that reduces PERTI to core d
 - Flight positions, plans, and times updated in `adl_flight_*` tables
 - Trajectories captured in `adl_flight_trajectory`
 - Deferred ETA processing (time-budgeted within SP)
-- Trajectory archival to Azure Blob Storage (daily)
+- Trajectory archival to Azure Blob Storage (daily, if env var set)
 
 ---
 
@@ -51,10 +54,20 @@ Hibernation mode is an open-ended operational pause that reduces PERTI to core d
 | `event_sync_daemon.php` | VATUSA/VATCAN event sync |
 | `cdm_daemon.php` | CDM milestone computation |
 | `vacdm_poll_daemon.php` | vACDM polling |
+| `delay_attribution_daemon.php` | Per-flight delay computation from EDCT/OOOI baselines |
+| `facility_stats_daemon.php` | Hourly/daily facility statistics |
+| `webhook_delivery_daemon.php` | Outbound event webhook delivery queue |
 
 ### ADL Daemon Features Disabled
 
-- ATIS parsing (controlled by `atis_enabled` config, auto-disabled when `HIBERNATION_MODE=true`)
+When `HIBERNATION_MODE=true`, the ADL daemon auto-disables these features:
+
+- **ATIS parsing** (`atis_enabled = false`)
+- **TMI sync** (`tmi_sync_enabled = false`)
+- **CTP compliance** (`ctp_compliance_enabled = false`)
+- **CTP booking sync** (`ctp_booking_sync_enabled = false`)
+- **GDP reoptimization** (`gdp_reopt_enabled = false`)
+- **GDP compliance** (`gdp_compliance_enabled = false`)
 
 ### Web Pages (Redirect to /hibernation)
 
@@ -80,13 +93,14 @@ define("HIBERNATION_MODE", env('HIBERNATION_MODE', true));
 
 This controls:
 - Page redirects (via `load/hibernation.php`)
-- SWIM API 503 responses
 - Nav item styling (muted/italic with snowflake icon)
-- ATIS parsing disable in ADL daemon
+- ADL daemon feature flags (ATIS, TMI sync, CTP, GDP)
 
 ### Azure App Setting
 
 **Setting**: `HIBERNATION_MODE=1` (use `1` to enable, `0` to disable; do NOT use `true`/`false` strings)
+
+> **Warning**: String `"false"` is truthy in PHP — any non-empty string except `"0"` is truthy. Always use `1` / `0`.
 
 This controls:
 - Daemon startup behavior in `scripts/startup.sh`
@@ -97,21 +111,21 @@ This controls:
 | File | Role |
 |------|------|
 | `load/config.php` | Defines `HIBERNATION_MODE` constant |
-| `load/hibernation.php` | Centralized page redirect + SWIM API 503 |
+| `load/hibernation.php` | Centralized page redirect + hit tracking |
 | `hibernation.php` | Public info page |
 | `load/nav.php` | Nav items marked with `hibernated` flag |
 | `load/nav_public.php` | Same as nav.php for public pages |
 | `assets/css/perti_theme.css` | `.nav-hibernated` CSS class |
 | `scripts/startup.sh` | Conditional daemon startup |
-| `scripts/vatsim_adl_daemon.php` | ATIS disabled via `HIBERNATION_MODE` |
+| `scripts/vatsim_adl_daemon.php` | Feature flags disabled via `HIBERNATION_MODE` |
 | `api/data/hibernation_stats.php` | JSON API for hit statistics |
 | `database/migrations/hibernation/001_hibernation_hits.sql` | MySQL table for hit tracking |
 
 ### Hit Tracking
 
-Every access attempt to a hibernated page or SWIM API endpoint is recorded in the `hibernation_hits` table (MySQL `perti_site`). This provides demand data for paused features.
+Every access attempt to a hibernated page is recorded in the `hibernation_hits` table (MySQL `perti_site`). This provides demand data for paused features.
 
-- **Tracked**: Page redirects (type=`page`) and SWIM API 503s (type=`api`)
+- **Tracked**: Page redirects (type=`page`)
 - **Privacy**: IPs are SHA-256 hashed with a salt; raw IPs are never stored
 - **Stats API**: `GET /api/data/hibernation_stats.php` returns totals, per-page breakdown, and 30-day daily trend
 - **Display**: Stats are shown on the `/hibernation` info page via AJAX
@@ -135,19 +149,28 @@ Every access attempt to a hibernated page or SWIM API endpoint is recorded in th
 | **Blob Storage** | Active | Active (minimal cost) | $0 |
 | **Total estimated savings** | | | **~$985-1,135/mo** |
 
-### CLI Commands for Downscaling (Entering Hibernation)
+### CLI Commands for Entering Hibernation
 
 ```bash
-# VATSIM_ADL: Reduce Hyperscale Serverless vCore range
+# 1. Set Azure App Setting
+az webapp config appsettings set --name vatcscc --resource-group VATSIM_RG \
+    --settings HIBERNATION_MODE=1
+
+# 2. VATSIM_ADL: Reduce Hyperscale Serverless vCore range
 az sql db update --name VATSIM_ADL --server vatsim --resource-group VATSIM_RG \
     --min-capacity 1 --capacity 4 --edition Hyperscale --family Gen5 --compute-model Serverless
 
-# MySQL: GeneralPurpose → Burstable
+# 3. MySQL: GeneralPurpose → Burstable
 az mysql flexible-server update --name vatcscc-perti --resource-group VATSIM_RG \
     --sku-name Standard_B1ms --tier Burstable
 
-# PostGIS: stays at B2s (no change needed)
+# 4. PostGIS: stays at B2s (no change needed)
+
+# 5. Restart App Service (wait 2-5 min for DB tier changes first)
+az webapp restart --name vatcscc --resource-group VATSIM_RG
 ```
+
+> **Important**: Database tier changes take 2-5 minutes. Restart the App Service only after the DB changes complete, otherwise daemons may crash on startup when the DB is mid-transition.
 
 ---
 
@@ -182,10 +205,9 @@ to:
 define("HIBERNATION_MODE", env('HIBERNATION_MODE', false));
 ```
 
-### 3. Remove Azure App Setting
+### 3. Update Azure App Setting
 
-In Azure Portal: App Service → Configuration → Application settings
-Remove or set `HIBERNATION_MODE` to `0`.
+Set `HIBERNATION_MODE` to `0` or remove the setting entirely.
 
 > **Warning**: Do NOT set to `false` — the string `"false"` is truthy in PHP (any non-empty string except `"0"` is truthy). Use `0` or remove the setting entirely.
 
@@ -195,7 +217,7 @@ Remove or set `HIBERNATION_MODE` to `0`.
 az webapp restart --name vatcscc --resource-group VATSIM_RG
 ```
 
-This triggers `startup.sh` which will start all daemons since `HIBERNATION_MODE` is now off.
+This triggers `startup.sh` which will start all daemons since `HIBERNATION_MODE` is now off. Wait 2-5 min for DB tier changes to complete before restarting.
 
 ### 5. Verify
 
@@ -214,8 +236,8 @@ This triggers `startup.sh` which will start all daemons since `HIBERNATION_MODE`
 
 ### Pages still redirecting after disabling hibernation
 
-1. Check `load/config.php` — `HIBERNATION_MODE` must be `false`
-2. Check Azure App Setting — must be removed or `false`
+1. Check `load/config.php` — `HIBERNATION_MODE` default must be `false`
+2. Check Azure App Setting — must be `0` or removed entirely (not `"false"`)
 3. OPcache may be stale — wait 60s for `revalidate_freq` or restart PHP-FPM
 
 ### Daemons not starting
@@ -224,11 +246,13 @@ This triggers `startup.sh` which will start all daemons since `HIBERNATION_MODE`
 2. Verify `HIBERNATION_MODE` env var: `echo $HIBERNATION_MODE` in Kudu SSH
 3. Manual daemon start: `nohup php /home/site/wwwroot/scripts/<daemon>.php >> /home/LogFiles/<daemon>.log 2>&1 &`
 
-### SWIM API still returning 503
+### Database tier changes still in progress
 
-1. Check `load/hibernation.php` — the SWIM API 503 is triggered by `HIBERNATION_MODE`
-2. Verify SWIM_API database is resumed and accessible
-3. Verify `swim_sync_daemon.php` is running
+If daemons crash immediately after restart, the DB tier change may not have completed yet. Wait 2-5 minutes and restart again:
+
+```bash
+az webapp restart --name vatcscc --resource-group VATSIM_RG
+```
 
 ---
 
@@ -250,7 +274,10 @@ enrichment daemons are paused. This means flights that flew during hibernation h
 | Crossing predictions | **NOT processed** | Yes, via backfill |
 | Waypoint ETAs | **NOT processed** | Active flights only |
 | ATIS data | **NOT captured** | Unrecoverable |
-| SWIM API sync | **NOT running** | Yes, via full sync |
+| TMI sync to ADL | **NOT running** | Resumes automatically on exit |
+| CTP compliance | **NOT running** | Resumes automatically on exit |
+| GDP compliance/reopt | **NOT running** | Resumes automatically on exit |
+| Delay attribution | **NOT running** | Resumes automatically on exit |
 
 ### Critical: Archive Deletes Source Data
 

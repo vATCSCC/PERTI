@@ -64,9 +64,9 @@ const TMICompliance = {
     _selectedHoldingFix: null,       // Currently selected holding fix index
 
     init: function() {
-        // Get plan ID from URL
+        // Get plan ID from URL (strip hash fragment to prevent it absorbing query params)
         const uri = window.location.href.split('?');
-        this.planId = uri[1] || null;
+        this.planId = uri[1] ? uri[1].split('#')[0] : null;
 
         // Bind button events
         $('#load_tmi_results').on('click', () => this.loadResults());
@@ -397,6 +397,15 @@ LAS GS (NCT) 0230Z-0315Z issued 0244Z</pre>
                 // Immediate result (e.g., cached or very fast)
                 clearInterval(progressInterval);
                 this._handleAnalysisComplete(response, startTime);
+            } else {
+                // Unexpected response (e.g., no results, server miscommunication)
+                clearInterval(progressInterval);
+                this.analysisInProgress = false;
+                Swal.fire({
+                    icon: 'error',
+                    title: PERTII18n.t('tmiCompliance.analysisFailed'),
+                    html: `<p>${response.message || PERTII18n.t('tmiCompliance.failedToStartAnalysis')}</p>`,
+                });
             }
         }).catch((error) => {
             clearInterval(progressInterval);
