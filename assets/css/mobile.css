@@ -388,11 +388,44 @@ body.offcanvas-open {
     .table-mobile-cards tbody tr {
         display: block;
         margin-bottom: 12px;
-        background: var(--dark-bg-panel, #16213e);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: var(--dark-bg-panel, #16213e) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 8px;
         padding: 12px;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        color: rgba(255, 255, 255, 0.85) !important;
+    }
+
+    /* Override table-striped alternating row backgrounds */
+    .table-mobile-cards.table-striped tbody tr:nth-of-type(odd),
+    .table-mobile-cards.table-striped tbody tr:nth-of-type(even) {
+        background: var(--dark-bg-panel, #16213e) !important;
+    }
+
+    /* Section header rows become styled dividers in card mode */
+    .table-mobile-cards tbody tr.plan-section-header {
+        background: var(--dark-bg-page, #1a1a2e) !important;
+        border: none !important;
+        border-radius: 0;
+        padding: 10px 0 4px;
+        margin-bottom: 8px;
+        box-shadow: none;
+    }
+
+    .table-mobile-cards tbody tr.plan-section-header td {
+        background: transparent !important;
+        color: rgba(255, 255, 255, 0.7) !important;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+        padding: 0 0 6px !important;
+        display: block;
+    }
+
+    .table-mobile-cards tbody tr.plan-section-header td::before {
+        display: none;
     }
 
     .table-mobile-cards tbody tr:hover {
@@ -404,10 +437,11 @@ body.offcanvas-open {
         justify-content: space-between;
         align-items: center;
         padding: 8px 0;
-        border: none;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        border: none !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
         text-align: right;
-        color: rgba(255, 255, 255, 0.85);
+        color: rgba(255, 255, 255, 0.85) !important;
+        background: transparent !important;
     }
 
     .table-mobile-cards tbody td:last-child {
