@@ -4,8 +4,8 @@
  *
  * Included from config.php. When HIBERNATION_MODE is enabled:
  * - Redirects hibernated web pages to /hibernation info page
- * - Returns HTTP 503 JSON for SWIM API endpoints
  * - Tracks hit counts for demand analysis (hibernation_hits table)
+ * - SWIM API endpoints are exempt (remain fully operational)
  *
  * @see docs/operations/HIBERNATION_RUNBOOK.md for full operational guide
  */
