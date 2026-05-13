@@ -2435,7 +2435,10 @@
     "timeframeBadge": "Until further notice",
     "title": "Hibernation Mode",
     "tmiPublisher": "TMI Publisher",
-    "vatswimApi": "VATSWIM API & Documentation"
+    "vatswimApi": "VATSWIM API & Documentation",
+    "deepHeroSubtitle": "Deep hibernation active — raw VATSIM data is being archived for post-processing. No live flight data is available. Planning, review, and TMI publishing tools remain operational.",
+    "deepDataNote": "Deep Hibernation Mode",
+    "deepDataNoteDetail": "All flight data processing is suspended. Raw VATSIM API data is being captured and archived every 15 seconds for lossless post-processing replay when deep hibernation ends."
   },
   "home": {
     "create": "Create",

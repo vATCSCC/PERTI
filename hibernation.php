@@ -11,6 +11,7 @@
 include("sessions/handler.php");
 include("load/config.php");
 include("load/i18n.php");
+$deepHibernation = defined('DEEP_HIBERNATION_MODE') && DEEP_HIBERNATION_MODE;
 ?>
 <!DOCTYPE html>
 <html lang="<?= substr(PERTII18nPHP::getLocale(), 0, 2) ?>">
@@ -184,7 +185,11 @@ include("load/i18n.php");
         <span class="snowflake-icon"><i class="fas fa-snowflake"></i></span>
         <h1><?= __('hibernation.heroTitle') ?></h1>
         <p class="subtitle">
-            <?= __('hibernation.heroSubtitle') ?>
+            <?php if ($deepHibernation): ?>
+                <?= __('hibernation.deepHeroSubtitle') ?>
+            <?php else: ?>
+                <?= __('hibernation.heroSubtitle') ?>
+            <?php endif; ?>
         </p>
         <span class="timeframe-badge"><i class="fas fa-clock mr-1"></i> <?= __('hibernation.timeframeBadge') ?></span>
     </div>
@@ -239,6 +244,13 @@ include("load/i18n.php");
                     <strong><?= __('hibernation.dataNote') ?></strong>
                     <?= __('hibernation.dataNoteDetail') ?>
                 </div>
+                <?php if ($deepHibernation): ?>
+                <div class="data-note" style="background:#fff3e0;border-left-color:#ff9800;">
+                    <i class="fas fa-archive" style="color:#ff9800;"></i>
+                    <strong><?= __('hibernation.deepDataNote') ?></strong>
+                    <?= __('hibernation.deepDataNoteDetail') ?>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
