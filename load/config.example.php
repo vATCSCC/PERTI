@@ -261,6 +261,14 @@ if (!defined("SQL_USERNAME")) {
     // Hibernation Mode - pauses downstream processing daemons and disables select pages
     // Also set HIBERNATION_MODE=true as Azure App Setting for startup.sh daemon control
     define("HIBERNATION_MODE", env('HIBERNATION_MODE', false));
+
+    // Deep Hibernation Mode - suspends ALL processing, captures raw JSON for post-processing replay
+    define("DEEP_HIBERNATION_MODE", env('DEEP_HIBERNATION_MODE', false));
+
+    // Deep hibernation implies hibernation — warn if misconfigured
+    if (DEEP_HIBERNATION_MODE && !HIBERNATION_MODE) {
+        error_log("WARNING: DEEP_HIBERNATION_MODE=1 but HIBERNATION_MODE=0. Both must be set.");
+    }
 }
 
 // Hibernation mode check (page redirects + SWIM API 503)

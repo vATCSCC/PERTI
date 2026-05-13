@@ -179,6 +179,24 @@ $lifecyclePolicy = @"
           }
         }
       }
+    },
+    {
+      "name": "datafeed-tiering",
+      "enabled": true,
+      "type": "Lifecycle",
+      "definition": {
+        "filters": {
+          "blobTypes": ["blockBlob"],
+          "prefixMatch": ["datafeed/"]
+        },
+        "actions": {
+          "baseBlob": {
+            "tierToCool": {
+              "daysAfterModificationGreaterThan": 8
+            }
+          }
+        }
+      }
     }
   ]
 }
