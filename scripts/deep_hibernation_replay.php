@@ -99,7 +99,7 @@ if (empty($storageConn)) {
 }
 
 // 3. Verify ADL database connection
-if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE')) {
+if (!defined('ADL_SQL_HOST') || !defined('ADL_SQL_DATABASE') || !defined('ADL_SQL_USERNAME') || !defined('ADL_SQL_PASSWORD')) {
     logMsg("ERROR: ADL_SQL_* constants not defined", 'ERROR');
     exit(1);
 }

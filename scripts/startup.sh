@@ -49,6 +49,7 @@ if [ "$DEEP_HIBERNATION_MODE" = "1" ] || [ "$DEEP_HIBERNATION_MODE" = "true" ]; 
     echo "  All flight processing, SWIM, archival suspended"
     echo ""
     DEEP_HIBERNATION=1
+    HIBERNATION=1  # Deep implies hibernation — ensure downstream guards work
 else
     DEEP_HIBERNATION=0
 fi
@@ -247,7 +248,7 @@ DELAY_ATTR_PID="HIBERNATED"
 FACILITY_STATS_PID="HIBERNATED"
 WEBHOOK_DELIVERY_PID="HIBERNATED"
 
-if [ "$HIBERNATION" != "1" ]; then
+if [ "$HIBERNATION" != "1" ] && [ "$DEEP_HIBERNATION" != "1" ]; then
 
     # =============================================================================
     # GIS Mode Switch
