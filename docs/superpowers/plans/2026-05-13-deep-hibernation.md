@@ -24,7 +24,7 @@
 | Modify | `load/config.php:198` | Add `DEEP_HIBERNATION_MODE` constant + invariant check |
 | Modify | `load/hibernation.php` | Deep hibernation: SWIM page redirects + API 503 |
 | Modify | `load/nav.php:51,100-109` | Mark SWIM nav items hibernated when deep |
-| Modify | `load/nav_public.php:52,87-95` | Same as nav.php for public pages |
+| Modify | `load/nav_public.php:52,86-95` | Same as nav.php for public pages |
 | Modify | `scripts/startup.sh:25-35,65-191` | Deep hibernation conditional — only capture + monitoring |
 | Modify | `hibernation.php:182-243` | Show deep hibernation level info |
 | Modify | `docs/operations/HIBERNATION_RUNBOOK.md` | Add Deep Hibernation section |
@@ -275,7 +275,7 @@ In `load/nav_public.php`, after line 52 (`$_h = defined('HIBERNATION_MODE') && H
 $_dh = defined('DEEP_HIBERNATION_MODE') && DEEP_HIBERNATION_MODE;
 ```
 
-Then modify the SWIM section (lines 87-95) identically:
+Then modify the SWIM section (lines 86-95) identically:
 
 ```php
     // Dropdown: SWIM API
@@ -1495,6 +1495,9 @@ foreach ($allBlobs as $blob) {
         $pilotCount = count($vatsimData['pilots']);
 
         // 4. Parse pilots + prefiles (same as ADL daemon)
+        // NOTE: We skip computeChangeFlags() — change detection (position/altitude/route deltas)
+        // is meaningless for historical replay since we're processing snapshots sequentially.
+        // The SP handles flight state updates without needing change_flags.
         $parsedPilots = parseVatsimPilots($vatsimData);
         $parsedPrefiles = parseVatsimPrefiles($vatsimData);
 
@@ -1555,7 +1558,7 @@ if (!$skipSafety) {
     logMsg("Next steps:");
     logMsg("  1. Run GIS backfill: php scripts/backfill/hibernation_recovery.php --phase=auto --include-inactive");
     logMsg("  2. After backfill completes, reset archive grace period:");
-    logMsg("     php scripts/backfill/hibernation_recovery.php --delay-hours=2 --phase=0");
+    logMsg("     php scripts/backfill/hibernation_recovery.php --delay-hours=2");
     logMsg("  3. Restart archival daemon if stopped");
 }
 
@@ -1864,7 +1867,7 @@ php scripts/deep_hibernation_replay.php --verbose
 php scripts/backfill/hibernation_recovery.php --phase=auto --include-inactive
 
 # 8. Reset archive grace period
-php scripts/backfill/hibernation_recovery.php --delay-hours=2 --phase=0
+php scripts/backfill/hibernation_recovery.php --delay-hours=2
 
 # 9. Verify (see checklist)
 ```
