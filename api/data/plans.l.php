@@ -217,7 +217,7 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
     echo '<tr class="' . $row_class . '">';
 
     // Event name + badges + annotations
-    echo '<td class="plan-event-name">';
+    echo '<td class="plan-event-name td-primary" data-label="' . __('home.table.eventName') . '">';
     echo '<span class="plan-name-line" data-toggle="tooltip" title="' . htmlspecialchars($data['event_name']) . '">';
     echo $scope_badge . htmlspecialchars($data['event_name']);
     echo '</span>';
@@ -244,19 +244,19 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
     }
     echo '</td>';
 
-    echo '<td class="text-center">' . $data['event_date'] . '</td>';
-    echo '<td class="text-center">' . $data['event_start'] . 'Z</td>';
-    echo !empty($event_end_date) ? '<td class="text-center">' . $event_end_date . '</td>' : '<td class="text-center text-muted">&mdash;</td>';
-    echo !empty($event_end_time) ? '<td class="text-center">' . $event_end_time . 'Z</td>' : '<td class="text-center text-muted">&mdash;</td>';
+    echo '<td class="text-center" data-label="' . __('home.table.startDate') . '">' . $data['event_date'] . '</td>';
+    echo '<td class="text-center" data-label="' . __('home.table.startTime') . '">' . $data['event_start'] . 'Z</td>';
+    echo !empty($event_end_date) ? '<td class="text-center" data-label="' . __('home.table.endDate') . '">' . $event_end_date . '</td>' : '<td class="text-center text-muted" data-label="' . __('home.table.endDate') . '">&mdash;</td>';
+    echo !empty($event_end_time) ? '<td class="text-center" data-label="' . __('home.table.endTime') . '">' . $event_end_time . 'Z</td>' : '<td class="text-center text-muted" data-label="' . __('home.table.endTime') . '">&mdash;</td>';
 
     $ol = (int)$data['oplevel'];
     $ol_classes = [1 => 'text-dark', 2 => 'text-success', 3 => 'text-warning', 4 => 'text-danger'];
     $ol_labels  = [1 => 'Steady State', 2 => 'Localized Impact', 3 => 'Regional Impact', 4 => 'NAS-Wide Impact'];
-    echo '<td class="' . ($ol_classes[$ol] ?? 'text-dark') . ' text-center" style="white-space:nowrap;">' . $ol . ' - ' . ($ol_labels[$ol] ?? '') . '</td>';
+    echo '<td class="' . ($ol_classes[$ol] ?? 'text-dark') . ' text-center" style="white-space:nowrap;" data-label="' . __('home.table.tmuOpLevel') . '">' . $ol . ' - ' . ($ol_labels[$ol] ?? '') . '</td>';
 
-    echo '<td class="text-center" style="white-space:nowrap;">' . $data['updated_at'] . '</td>';
+    echo '<td class="text-center" style="white-space:nowrap;" data-label="' . __('home.table.lastUpdated') . '">' . $data['updated_at'] . '</td>';
 
-    echo '<td style="white-space:nowrap;"><center>';
+    echo '<td class="td-actions" style="white-space:nowrap;">';
     echo '<a href="plan?' . $data['id'] . '" data-toggle="tooltip" title="View PERTI Plan"><span class="badge badge-primary"><i class="fas fa-eye"></i> View</span></a> ';
     echo '<a href="data?' . $data['id'] . '" data-toggle="tooltip" title="View PERTI Staffing Data"><span class="badge badge-success"><i class="fas fa-table"></i> Data</span></a> ';
     echo '<a href="review?' . $data['id'] . '" data-toggle="tooltip" title="View Traffic Management Review"><span class="badge badge-info"><i class="fas fa-magnifying-glass"></i> TMR</span></a>';
@@ -276,7 +276,7 @@ function render_plan_row(array $data, bool $perm, array $hotline_badges, array $
             . '><i class="fas fa-pencil-alt"></i> Edit</span></a> ';
         echo '<a href="javascript:void(0)" onclick="deletePlan(' . $data['id'] . ')" data-toggle="tooltip" title="Delete PERTI Plan"><span class="badge badge-danger"><i class="fas fa-times"></i> Delete</span></a>';
     }
-    echo '</center></td>';
+    echo '</td>';
     echo '</tr>';
 }
 

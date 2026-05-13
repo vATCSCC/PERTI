@@ -165,7 +165,7 @@ if (!function_exists('render_dropdown_public')) {
         <img class="navbar-stuck-logo" width="200" src="assets/img/logo.png" alt="vATCSCC Logo"/>
     </a>
 
-    <div class="d-flex align-items-left order-lg-3">
+    <div class="d-none d-lg-flex align-items-left order-lg-3">
         <ul class="navbar-nav">
             <?php foreach ($nav_config as $key => $group): ?>
                 <?php
