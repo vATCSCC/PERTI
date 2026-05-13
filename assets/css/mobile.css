@@ -388,15 +388,15 @@ body.offcanvas-open {
     .table-mobile-cards tbody tr {
         display: block;
         margin-bottom: 12px;
-        background: #fff;
-        border: 1px solid var(--gray-300);
+        background: var(--dark-bg-panel, #16213e);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 8px;
         padding: 12px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
 
     .table-mobile-cards tbody tr:hover {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
     .table-mobile-cards tbody td {
@@ -405,8 +405,9 @@ body.offcanvas-open {
         align-items: center;
         padding: 8px 0;
         border: none;
-        border-bottom: 1px solid #f0f0f0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         text-align: right;
+        color: rgba(255, 255, 255, 0.85);
     }
 
     .table-mobile-cards tbody td:last-child {
@@ -417,7 +418,7 @@ body.offcanvas-open {
     .table-mobile-cards tbody td::before {
         content: attr(data-label);
         font-weight: 600;
-        color: var(--gray-600);
+        color: rgba(255, 255, 255, 0.5);
         font-size: 0.8rem;
         text-transform: uppercase;
         letter-spacing: 0.02em;
@@ -437,12 +438,13 @@ body.offcanvas-open {
     .table-mobile-cards tbody td[data-label="Callsign"] {
         font-weight: 700;
         font-size: 1rem;
-        background: var(--gray-100);
+        background: rgba(255, 255, 255, 0.04);
         margin: -12px -12px 8px -12px;
         padding: 10px 12px !important;
         border-radius: 8px 8px 0 0;
-        border-bottom: 2px solid var(--gray-200);
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
         justify-content: flex-start;
+        color: #fff;
     }
 
     .table-mobile-cards tbody td.td-primary::before,
