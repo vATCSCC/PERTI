@@ -118,19 +118,9 @@ if ($_freeze_mode) {
         '/login/',
     ];
 
-    // Redirect non-allowed pages
-    if ($_current_page && !in_array($_current_page, $_allowed_pages)) {
-        $is_login_dir = (strpos($_request_uri, '/login/') === 0);
-        if (!$is_login_dir) {
-            _hibernation_track_hit($_current_page, 'page');
-            if (!headers_sent()) {
-                header('Location: /hibernation');
-            }
-            exit();
-        }
-    }
-
-    // Block non-allowed API endpoints with 503
+    // Block non-allowed API endpoints with 503 (must run BEFORE page redirect
+    // because API PHP files have $_current_page like 'current.php' which would
+    // match the page redirect and return HTML instead of 503 JSON)
     if (preg_match('#^/api/#', $_request_uri)) {
         $api_allowed = false;
         foreach ($_allowed_api_prefixes as $prefix) {
@@ -151,6 +141,18 @@ if ($_freeze_mode) {
                 'mode' => 'freeze',
                 'message' => 'PERTI is in freeze mode. Only planning features are available.',
             ]);
+            exit();
+        }
+    }
+
+    // Redirect non-allowed pages
+    if ($_current_page && !in_array($_current_page, $_allowed_pages)) {
+        $is_login_dir = (strpos($_request_uri, '/login/') === 0);
+        if (!$is_login_dir) {
+            _hibernation_track_hit($_current_page, 'page');
+            if (!headers_sent()) {
+                header('Location: /hibernation');
+            }
             exit();
         }
     }
