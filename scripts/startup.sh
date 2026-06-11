@@ -54,6 +54,26 @@ else
     DEEP_HIBERNATION=0
 fi
 
+# =============================================================================
+# Freeze Mode (Level 3)
+# Maximum cost reduction: ZERO daemons. Only PHP-FPM serves planning pages
+# and route.php. All Azure SQL auto-pauses, PostGIS stopped.
+# Set via Azure App Setting: FREEZE_MODE=1
+# =============================================================================
+FREEZE_MODE=${FREEZE_MODE:-0}
+if [ "$FREEZE_MODE" = "1" ] || [ "$FREEZE_MODE" = "true" ]; then
+    echo ""
+    echo "  *** FREEZE MODE (LEVEL 3) ACTIVE ***"
+    echo "  ZERO daemons — only PHP-FPM for planning pages + route.php"
+    echo "  All flight processing, SWIM, capture, archival suspended"
+    echo ""
+    FREEZE=1
+    DEEP_HIBERNATION=1
+    HIBERNATION=1
+else
+    FREEZE=0
+fi
+
 # Configure nginx URL rewriting (Azure PHP 8 uses nginx, not Apache)
 # Per Azure docs: https://azureossd.github.io/2021/09/02/php-8-rewrite-rule/
 echo "Configuring nginx for extensionless URLs..."
@@ -86,7 +106,13 @@ echo "nginx configured"
 # CORE DAEMONS
 # =============================================================================
 
-if [ "$DEEP_HIBERNATION" = "1" ]; then
+if [ "$FREEZE" = "1" ]; then
+    # =========================================================================
+    # FREEZE MODE (LEVEL 3): Zero daemons — only PHP-FPM
+    # =========================================================================
+    echo "Freeze mode: skipping ALL daemons (zero background processes)"
+
+elif [ "$DEEP_HIBERNATION" = "1" ]; then
     # =========================================================================
     # DEEP HIBERNATION: Only capture daemon + monitoring
     # =========================================================================
@@ -371,39 +397,53 @@ if [ "$HIBERNATION" != "1" ] && [ "$DEEP_HIBERNATION" != "1" ]; then
 
 else
     echo ""
-    echo "  Downstream daemons SKIPPED (hibernation mode)"
-    echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, scheduler, event sync, CDM, vACDM, delay attribution, facility stats, webhook delivery"
-    echo "  Running: SWIM (ws/sync/SimTraffic/reverse sync) — VATSWIM exempt from hibernation"
+    if [ "$FREEZE" = "1" ]; then
+        echo "  Downstream daemons SKIPPED (freeze mode — ALL daemons suspended including SWIM)"
+    else
+        echo "  Downstream daemons SKIPPED (hibernation mode)"
+        echo "  Skipped: GIS parse/boundary/crossing, waypoint ETA, scheduler, event sync, CDM, vACDM, delay attribution, facility stats, webhook delivery"
+        echo "  Running: SWIM (ws/sync/SimTraffic/reverse sync) — VATSWIM exempt from hibernation"
+    fi
     echo ""
 fi
 
 # Run codebase/database indexer once at startup (generates agent_context.md for AI tools)
 # Uses lock file to prevent concurrent runs during rapid deployments
 # Runs in background with 30s delay to let daemons stabilize first
-echo "Scheduling indexer run (30s delay, background)..."
-(
-    sleep 30
-    LOCK_FILE="/tmp/perti_indexer.lock"
-    if [ -f "$LOCK_FILE" ]; then
-        # Check if lock is stale (older than 15 minutes)
-        LOCK_AGE=$(($(date +%s) - $(stat -c %Y "$LOCK_FILE" 2>/dev/null || echo 0)))
-        if [ "$LOCK_AGE" -lt 900 ]; then
-            echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Indexer skipped - already running" >> /home/LogFiles/indexer.log
-            exit 0
+# SKIP in freeze mode — indexer connects to all Azure SQL databases, waking auto-paused DBs
+if [ "$FREEZE" = "1" ]; then
+    INDEXER_PID="DISABLED"
+    echo "Freeze mode: indexer SKIPPED (avoid waking auto-paused databases)"
+else
+    echo "Scheduling indexer run (30s delay, background)..."
+    (
+        sleep 30
+        LOCK_FILE="/tmp/perti_indexer.lock"
+        if [ -f "$LOCK_FILE" ]; then
+            # Check if lock is stale (older than 15 minutes)
+            LOCK_AGE=$(($(date +%s) - $(stat -c %Y "$LOCK_FILE" 2>/dev/null || echo 0)))
+            if [ "$LOCK_AGE" -lt 900 ]; then
+                echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Indexer skipped - already running" >> /home/LogFiles/indexer.log
+                exit 0
+            fi
+            rm -f "$LOCK_FILE"
         fi
+        touch "$LOCK_FILE"
+        echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Starting indexer (startup trigger)" >> /home/LogFiles/indexer.log
+        php "${WWWROOT}/scripts/indexer/run_indexer.php" >> /home/LogFiles/indexer.log 2>&1
         rm -f "$LOCK_FILE"
-    fi
-    touch "$LOCK_FILE"
-    echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Starting indexer (startup trigger)" >> /home/LogFiles/indexer.log
-    php "${WWWROOT}/scripts/indexer/run_indexer.php" >> /home/LogFiles/indexer.log 2>&1
-    rm -f "$LOCK_FILE"
-    echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Indexer complete" >> /home/LogFiles/indexer.log
-) &
-INDEXER_PID=$!
-echo "  Indexer scheduled (PID: $INDEXER_PID, will run after 30s)"
+        echo "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] Indexer complete" >> /home/LogFiles/indexer.log
+    ) &
+    INDEXER_PID=$!
+    echo "  Indexer scheduled (PID: $INDEXER_PID, will run after 30s)"
+fi
 
 echo "========================================"
-if [ "$DEEP_HIBERNATION" = "1" ]; then
+if [ "$FREEZE" = "1" ]; then
+    echo "FREEZE MODE (LEVEL 3) - Zero daemons, zero indexer:"
+    echo "  Only PHP-FPM serving planning pages + route.php"
+    echo "  Suspended: ALL daemons, indexer, ALL flight processing, SWIM, capture, archival"
+elif [ "$DEEP_HIBERNATION" = "1" ]; then
     echo "DEEP HIBERNATION MODE - Minimal daemons:"
     echo "  deep_hib=$DEEP_HIB_PID, mon=$MON_PID"
     echo "  indexer=$INDEXER_PID (scheduled, 30s delay)"
@@ -492,7 +532,13 @@ echo "  APCu configured (64MB SHM)"
 #   B1/S1 (1.75GB): 20 workers (hibernation) / 25 workers (full)
 #   B2/S2/P1v2 (3.5GB): 40-60 workers
 #   B3/S3/P2v2+ (7GB+): 100+ workers
-if [ "$DEEP_HIBERNATION" = "1" ]; then
+if [ "$FREEZE" = "1" ]; then
+    # B1 (1.75GB), zero daemons: (1750 - 250) / 50 = 30 workers max
+    FPM_MAX_CHILDREN=25
+    FPM_START=5
+    FPM_MIN_SPARE=2
+    FPM_MAX_SPARE=10
+elif [ "$DEEP_HIBERNATION" = "1" ]; then
     FPM_MAX_CHILDREN=10
     FPM_START=3
     FPM_MIN_SPARE=2

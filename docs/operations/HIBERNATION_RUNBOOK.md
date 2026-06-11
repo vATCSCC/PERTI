@@ -393,11 +393,12 @@ Deep hibernation is a cost-reduction mode that goes beyond Level 1 by suspending
 
 ### Mode Hierarchy
 
-| Level | ADL Ingest | SWIM API | Daemons Running | Pages Redirected |
-|-------|-----------|----------|-----------------|------------------|
-| 0 (Operational) | Full pipeline | Operational | All | None |
-| 1 (Hibernation) | Full pipeline | Operational | Core + SWIM | 7 pages |
-| **2 (Deep)** | **Raw capture only** | **503** | **2 daemons** | **11 pages** |
+| Level | ADL Ingest | SWIM API | Daemons | Pages Available |
+|-------|-----------|----------|---------|-----------------|
+| 0 (Operational) | Full pipeline | Operational | All 25 | All |
+| 1 (Hibernation) | Full pipeline | Operational | 14 core+SWIM | All except 7 |
+| 2 (Deep) | Raw capture only | 503 | 2 (capture+mon) | All except 11 |
+| **3 (Freeze)** | **None** | **503** | **0** | **Planning + route only** |
 
 ### What Runs
 
@@ -526,3 +527,251 @@ php scripts/backfill/hibernation_recovery.php --delay-hours=2
 1. Check `DEEP_HIBERNATION_MODE` env var: must be `0` or removed
 2. Check `load/config.php` default (must be `false`)
 3. OPcache stale — wait 60s or restart PHP-FPM
+
+---
+
+## Freeze Mode (Level 3)
+
+### Overview
+
+Freeze mode is the maximum cost-reduction state. **All** flight data processing is stopped — no ADL ingest, no raw JSON capture, no SWIM sync, **zero background daemons**. Only the PHP-FPM process serves web requests for planning pages and route visualization. Azure SQL databases auto-pause, PostGIS is stopped.
+
+### What Runs
+
+| Component | Status |
+|-----------|--------|
+| PHP-FPM | 25 workers (serves planning pages + route.php) |
+| Background daemons | **None** (zero PHP processes) |
+
+### Pages Available (Allowlist)
+
+| Page | Purpose | Database |
+|------|---------|----------|
+| `index.php` | Plan listing | MySQL |
+| `plan.php` | Plan detail | MySQL |
+| `schedule.php` | Event scheduling | MySQL |
+| `sheet.php` | Planning sheet | MySQL |
+| `review.php` | Post-event review | MySQL |
+| `route.php` | Route map (MapLibre) | MySQL + static CSVs |
+| `playbook.php` | Route playbook | MySQL |
+| `hibernation.php` | Status info page | MySQL |
+| `status.php` | System status | MySQL |
+| `healthcheck.php` | Health check | None |
+| `login/*` | VATSIM OAuth | MySQL |
+| Static pages | privacy, transparency | None |
+
+### APIs Available
+
+Only MySQL-backed planning endpoints respond. All others return HTTP 503:
+
+- `api/data/plans/*` — plan data (configs, staffing, inits, timelines, goals, etc.)
+- `api/data/sheet/*` — planning sheet data
+- `api/data/review/*` — review/TMR data
+- `api/data/schedule*` — scheduling
+- `api/data/playbook/*` — playbook routes
+- `api/data/route_share*` — saved routes
+- `api/data/reroutes*`, `api/data/reroute_advisory*` — reroute reference
+- `api/data/locale*`, `api/data/personnel*`, `api/data/natots*`
+- `api/data/hibernation_stats*` — hibernation hit stats
+- `api/mgt/*` (planning endpoints) — goals, forecast, historical, staffing, inits, configs, etc.
+- `api/mgt/playbook/*` — playbook management
+- `api/splits/active*` — active splits display
+- `api/session/*`, `api/user/*` — auth/session
+- `login/*` — OAuth flow
+
+All other API paths (`api/adl/*`, `api/swim/*`, `api/tmi/*`, `api/gdt/*`, `api/gis/*`, `api/ctp/*`, `api/demand/*`, etc.) return:
+
+```json
+{"error": "Service suspended", "mode": "freeze", "message": "PERTI is in freeze mode. Only planning features are available."}
+```
+
+### What Is Stopped
+
+Everything from Level 2, plus:
+- `deep_hibernation_daemon.php` (no raw JSON capture)
+- `monitoring_daemon.php` (no metrics collection)
+- All SWIM daemons, archival, Discord queue, ECFMP, refdata sync, playbook export
+
+### route.php Degraded Features
+
+route.php core map and route plotting works from static CSV files (`assets/data/points.csv`, `cdrs.csv`, `playbook_routes.csv`, etc.). These features will not load (Azure SQL/PostGIS unavailable):
+
+- Live ADL flight overlay (TSD) — `api/adl/current.php` returns 503
+- SUA display — `api/data/sua` returns 503
+- PostGIS route expansion — `api/gis/boundaries` returns 503
+- TMI reroute GeoJSON updates — `api/mgt/tmi/reroutes/update_geojson.php` returns 503
+
+Route shares (`api/data/route_share.php`) and NAT tracks (`api/data/playbook/nat_tracks.php`) remain functional (MySQL-only).
+
+### Configuration
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| `FREEZE_MODE` (Azure App Setting) | `1` | Use `1`/`0`, not `true`/`false` |
+| `HIBERNATION_MODE` (Azure App Setting) | `1` | Must also be set |
+| `load/config.php` | `FREEZE_MODE` constant | Default: `false` |
+
+### Azure Resource Tiers
+
+| Resource | Level 1 Tier | Level 3 (Freeze) Tier | Monthly Cost |
+|----------|-------------|----------------------|-------------|
+| App Service (ASP-VATSIMRG-9bb6) | P1v2 (3.5GB, 4 slots) | B1 (1.75GB, no slots) | ~$13 |
+| VATSIM_ADL (Hyperscale Serverless) | HS_S min 1 / max 4 | HS_S min 0.5 / max 1 | ~$184 |
+| MySQL (perti_site) | Standard_B1ms | Standard_B1ms (unchanged) | ~$15 |
+| PostGIS (VATSIM_GIS) | Standard_B2s | **Stopped** | ~$4 storage |
+| SWIM_API (Azure SQL) | Basic 5 DTU | Basic 5 DTU (unchanged) | ~$5 |
+| VATSIM_TMI (Azure SQL) | Basic 5 DTU | Basic 5 DTU (unchanged) | ~$5 |
+| VATSIM_REF (Azure SQL) | Basic 5 DTU | Basic 5 DTU (unchanged) | ~$5 |
+| Synapse | Serverless | Serverless (no queries) | ~$0 |
+| Blob Storage | Active | Active (minimal) | ~$5 |
+| **Total estimated** | **~$309/mo** | **~$236/mo** | **~$73 savings** |
+
+> **Hyperscale Serverless does NOT support auto-pause.** Only General Purpose Serverless supports `--auto-pause-delay`. Hyperscale Serverless minimum is 0.5 vCores (~$184/mo compute + storage). VATSIM_ADL is the dominant freeze-mode cost. To reduce further, consider: (a) export to BACPAC and delete the database (~$5/mo blob storage only, but adds recovery time), or (b) migrate from Hyperscale to General Purpose Serverless (supports auto-pause to 0 vCores, ~$25/mo storage-only — but migration is complex and irreversible without restore).
+
+> **App Service downgrade note**: P1v2 has 4 deployment slots; B1 does not support slots. Delete deployment slots before downgrading: `az webapp deployment slot delete --name vatcscc --resource-group VATSIM_RG --slot <slot-name>`. Slots can be recreated when upgrading back to P1v2.
+
+> **Azure SQL Basic databases**: TMI, REF, and SWIM_API are already at the minimum paid tier (~$5/mo each). They cannot auto-pause. To save the additional ~$15/mo, you could export to BACPAC and delete, but this adds risk and recovery time. Recommended: leave as-is.
+
+### Entering Freeze Mode (from Level 1 or Level 2)
+
+```bash
+# =========================================================================
+# Step 1: Delete deployment slots (required before App Service downgrade)
+# =========================================================================
+# List current slots
+az webapp deployment slot list --name vatcscc --resource-group VATSIM_RG --output table
+
+# Delete each slot (repeat for each slot name)
+az webapp deployment slot delete --name vatcscc --resource-group VATSIM_RG --slot <slot-name>
+
+# =========================================================================
+# Step 2: Downscale Azure resources
+# =========================================================================
+
+# App Service: P1v2 -> B1 (save ~$60/mo)
+az appservice plan update --name ASP-VATSIMRG-9bb6 --resource-group VATSIM_RG \
+    --sku B1
+
+# VATSIM_ADL: Reduce to minimum Hyperscale Serverless (0.5 vCores min, 1 max)
+# NOTE: Hyperscale does NOT support auto-pause. 0.5 vCores is the minimum.
+az sql db update --name VATSIM_ADL --server vatsim --resource-group VATSIM_RG \
+    --min-capacity 0.5 --capacity 1
+
+# PostGIS: Stop the server entirely (save ~$22/mo, storage-only charges)
+az postgres flexible-server stop --name vatcscc-gis --resource-group VATSIM_RG
+
+# MySQL: Already at B1ms — no change needed
+
+# =========================================================================
+# Step 3: Set Azure App Settings (wait for DB changes to propagate ~2-5 min)
+# =========================================================================
+az webapp config appsettings set --name vatcscc --resource-group VATSIM_RG \
+    --settings FREEZE_MODE=1 HIBERNATION_MODE=1
+
+# =========================================================================
+# Step 4: Restart App Service
+# =========================================================================
+az webapp restart --name vatcscc --resource-group VATSIM_RG
+
+# =========================================================================
+# Step 5: Verify
+# =========================================================================
+# Planning pages load:
+curl -s -o /dev/null -w "%{http_code}" https://perti.vatcscc.org/
+# Should return 200
+
+# Frozen pages redirect:
+curl -s -o /dev/null -w "%{http_code}" https://perti.vatcscc.org/demand
+# Should return 302 -> /hibernation
+
+# Frozen APIs return 503:
+curl -s https://perti.vatcscc.org/api/adl/current.php
+# Should return {"error":"Service suspended","mode":"freeze",...}
+
+# No PHP daemons running (via Kudu SSH):
+# ps aux | grep php — should only show php-fpm processes
+```
+
+### Exiting Freeze Mode
+
+```bash
+# =========================================================================
+# Step 1: Upscale Azure resources
+# =========================================================================
+
+# VATSIM_ADL: Restore operational capacity
+# For Level 1 (hibernation):
+az sql db update --name VATSIM_ADL --server vatsim --resource-group VATSIM_RG \
+    --min-capacity 1 --capacity 4
+# For Level 0 (full operational):
+az sql db update --name VATSIM_ADL --server vatsim --resource-group VATSIM_RG \
+    --min-capacity 3 --capacity 16
+
+# Restart PostGIS
+az postgres flexible-server start --name vatcscc-gis --resource-group VATSIM_RG
+
+# App Service: B1 -> P1v2 (if deployment slots needed)
+az appservice plan update --name ASP-VATSIMRG-9bb6 --resource-group VATSIM_RG \
+    --sku P1v2
+
+# Recreate deployment slots if needed
+az webapp deployment slot create --name vatcscc --resource-group VATSIM_RG \
+    --slot <slot-name>
+
+# =========================================================================
+# Step 2: Update Azure App Settings
+# =========================================================================
+# To Level 1 (hibernation):
+az webapp config appsettings set --name vatcscc --resource-group VATSIM_RG \
+    --settings FREEZE_MODE=0 DEEP_HIBERNATION_MODE=0 HIBERNATION_MODE=1
+
+# To Level 0 (full operational):
+az webapp config appsettings set --name vatcscc --resource-group VATSIM_RG \
+    --settings FREEZE_MODE=0 DEEP_HIBERNATION_MODE=0 HIBERNATION_MODE=0
+
+# =========================================================================
+# Step 3: Wait for DB changes to propagate (2-5 min), then restart
+# =========================================================================
+az webapp restart --name vatcscc --resource-group VATSIM_RG
+
+# =========================================================================
+# Step 4: Recovery (if exiting to Level 0)
+# =========================================================================
+# No data was captured during freeze — ATIS, trajectory, and flight data
+# from the freeze period is permanently lost. Run GIS backfill for any
+# flights still in core tables:
+php scripts/backfill/hibernation_recovery.php --phase=0
+```
+
+### Exit Verification Checklist
+
+- [ ] App Service plan restored to target tier
+- [ ] VATSIM_ADL min-capacity restored (1 for L1, 3 for L0)
+- [ ] PostGIS started and accepting connections
+- [ ] Deployment slots recreated (if P1v2)
+- [ ] App Settings updated (`FREEZE_MODE=0`, `DEEP_HIBERNATION_MODE=0`)
+- [ ] App Service restarted
+- [ ] Daemons running: `ps aux | grep php` on Kudu SSH
+- [ ] ADL ingest working: `tail /home/LogFiles/vatsim_adl.log`
+- [ ] All pages accessible (demand, gdt, nod, swim)
+- [ ] SWIM API responding: `curl https://perti.vatcscc.org/api/swim/v1/health`
+
+### Troubleshooting
+
+#### Pages still redirecting after disabling freeze mode
+
+1. Check `FREEZE_MODE` env var: must be `0` or removed
+2. Check `load/config.php` default: `FREEZE_MODE` must be `false`
+3. OPcache may be stale — wait 60s for `revalidate_freq` or restart PHP-FPM
+
+#### VATSIM_ADL slow after restoring capacity
+
+1. After scaling from 0.5 to higher vCores, the database may take 1-2 minutes to allocate compute
+2. If connections time out, retry after 2 minutes
+3. Check Azure portal for the database status (Online/Scaling)
+
+#### PostGIS won't start
+
+1. Azure Flexible Server **auto-starts** after 7 days of being stopped — if freeze lasts longer, re-stop it weekly or it will resume billing
+2. If start fails, check Azure portal for the server status
+3. Storage is retained even when stopped — data is safe

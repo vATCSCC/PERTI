@@ -12,6 +12,7 @@ include("sessions/handler.php");
 include("load/config.php");
 include("load/i18n.php");
 $deepHibernation = defined('DEEP_HIBERNATION_MODE') && DEEP_HIBERNATION_MODE;
+$freezeMode = defined('FREEZE_MODE') && FREEZE_MODE;
 ?>
 <!DOCTYPE html>
 <html lang="<?= substr(PERTII18nPHP::getLocale(), 0, 2) ?>">
@@ -182,10 +183,12 @@ $deepHibernation = defined('DEEP_HIBERNATION_MODE') && DEEP_HIBERNATION_MODE;
 <!-- Hero Section -->
 <div class="hibernation-hero">
     <div class="container position-relative">
-        <span class="snowflake-icon"><i class="fas fa-snowflake"></i></span>
-        <h1><?= __('hibernation.heroTitle') ?></h1>
+        <span class="snowflake-icon"><i class="fas <?= $freezeMode ? 'fa-icicles' : 'fa-snowflake' ?>"></i></span>
+        <h1><?= $freezeMode ? 'Freeze Mode' : __('hibernation.heroTitle') ?></h1>
         <p class="subtitle">
-            <?php if ($deepHibernation): ?>
+            <?php if ($freezeMode): ?>
+                PERTI is in freeze mode. All flight data processing is suspended. Planning pages and route visualization remain available.
+            <?php elseif ($deepHibernation): ?>
                 <?= __('hibernation.deepHeroSubtitle') ?>
             <?php else: ?>
                 <?= __('hibernation.heroSubtitle') ?>
@@ -205,17 +208,37 @@ $deepHibernation = defined('DEEP_HIBERNATION_MODE') && DEEP_HIBERNATION_MODE;
                 <h3><i class="fas fa-pause-circle" style="color:#e74c3c;"></i> <?= __('hibernation.pausedFeatures') ?></h3>
                 <ul class="feature-list">
                     <?php
-                    $paused_keys = [
-                        'demandCharts', 'nodDisplay', 'gdtDisplay',
-                        'postEventReview', 'vatswimApi', 'atcSimulator', 'suaDisplay',
-                        'eventAarConfig', 'routeParsingBoundary'
-                    ];
+                    if ($freezeMode) {
+                        $paused_keys = [
+                            'demandCharts', 'nodDisplay', 'gdtDisplay',
+                            'vatswimApi', 'atcSimulator', 'suaDisplay',
+                            'eventAarConfig', 'routeParsingBoundary',
+                            'tmiPublisher', 'discordTmiPosting', 'jatocIncident',
+                            'sectorSplits', 'navigationData',
+                        ];
+                    } else {
+                        $paused_keys = [
+                            'demandCharts', 'nodDisplay', 'gdtDisplay',
+                            'postEventReview', 'vatswimApi', 'atcSimulator', 'suaDisplay',
+                            'eventAarConfig', 'routeParsingBoundary'
+                        ];
+                    }
                     foreach ($paused_keys as $k): ?>
                     <li>
                         <span class="status-icon paused"><i class="fas fa-times-circle"></i></span>
                         <span><?= __('hibernation.' . $k) ?></span>
                     </li>
                     <?php endforeach; ?>
+                    <?php if ($freezeMode): ?>
+                    <li>
+                        <span class="status-icon paused"><i class="fas fa-times-circle"></i></span>
+                        <span>ADL Flight Data Ingest</span>
+                    </li>
+                    <li>
+                        <span class="status-icon paused"><i class="fas fa-times-circle"></i></span>
+                        <span>All Background Daemons</span>
+                    </li>
+                    <?php endif; ?>
                 </ul>
             </div>
         </div>
@@ -226,11 +249,18 @@ $deepHibernation = defined('DEEP_HIBERNATION_MODE') && DEEP_HIBERNATION_MODE;
                 <h3><i class="fas fa-check-circle" style="color:#27ae60;"></i> <?= __('hibernation.stillActive') ?></h3>
                 <ul class="feature-list">
                     <?php
-                    $active_keys = [
-                        'plansSheets', 'airportConfig', 'routeVisualization', 'playbookCdr',
-                        'sectorSplits', 'navigationData', 'eventSchedule', 'tmiPublisher',
-                        'discordTmiPosting', 'jatocIncident', 'systemStatus', 'loginAuth'
-                    ];
+                    if ($freezeMode) {
+                        $active_keys = [
+                            'plansSheets', 'routeVisualization', 'playbookCdr',
+                            'eventSchedule', 'systemStatus', 'loginAuth'
+                        ];
+                    } else {
+                        $active_keys = [
+                            'plansSheets', 'airportConfig', 'routeVisualization', 'playbookCdr',
+                            'sectorSplits', 'navigationData', 'eventSchedule', 'tmiPublisher',
+                            'discordTmiPosting', 'jatocIncident', 'systemStatus', 'loginAuth'
+                        ];
+                    }
                     foreach ($active_keys as $k): ?>
                     <li>
                         <span class="status-icon active"><i class="fas fa-check-circle"></i></span>
@@ -239,6 +269,14 @@ $deepHibernation = defined('DEEP_HIBERNATION_MODE') && DEEP_HIBERNATION_MODE;
                     <?php endforeach; ?>
                 </ul>
 
+                <?php if ($freezeMode): ?>
+                <div class="data-note" style="background:#fce4ec;border-left-color:#e74c3c;">
+                    <i class="fas fa-power-off" style="color:#e74c3c;"></i>
+                    <strong>No data collection.</strong>
+                    All flight data processing is suspended. No ADL ingest, no SWIM sync, no raw capture.
+                    Azure SQL databases are auto-paused. Planning data in MySQL remains fully accessible.
+                </div>
+                <?php else: ?>
                 <div class="data-note">
                     <i class="fas fa-database"></i>
                     <strong><?= __('hibernation.dataNote') ?></strong>
@@ -250,6 +288,7 @@ $deepHibernation = defined('DEEP_HIBERNATION_MODE') && DEEP_HIBERNATION_MODE;
                     <strong><?= __('hibernation.deepDataNote') ?></strong>
                     <?= __('hibernation.deepDataNoteDetail') ?>
                 </div>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>

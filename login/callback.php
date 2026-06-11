@@ -9,6 +9,7 @@ if (session_status() == PHP_SESSION_NONE) {
 // Session Start (E)
 
 include_once(dirname(__DIR__, 1) . '/load/config.php');
+define('PERTI_MYSQL_ONLY', true);
 include_once(dirname(__DIR__, 1) . '/load/connect.php');
 
 if (isset($_GET['code'])) {
